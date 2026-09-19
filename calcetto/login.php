@@ -14,6 +14,7 @@ if (is_post()) {
     $u = $_POST['username'] ?? '';
     $p = $_POST['password'] ?? '';
     $res = attempt_login(is_string($u) ? $u : '', is_string($p) ? $p : '');
+    authtrace('login_' . $res);   // TEMPORANEO
     if ($res === 'ok') {
         redirect($next);
     }

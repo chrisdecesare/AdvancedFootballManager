@@ -45,7 +45,9 @@ require __DIR__ . '/stats.php';
 require __DIR__ . '/formation.php';
 require __DIR__ . '/balance.php';
 require __DIR__ . '/layout.php';
+require __DIR__ . '/authtrace.php';   // TEMPORANEO
 
+authtrace('req');
 verify_csrf();
 if (tables_exist()) {
     ensure_schema();
