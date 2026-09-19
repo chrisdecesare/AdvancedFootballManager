@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
   status ENUM('attivo','in_attesa') NOT NULL DEFAULT 'attivo',   -- in_attesa = iscrizione da approvare
   reg_name VARCHAR(80) NULL,                       -- dati inseriti all'iscrizione
   reg_json TEXT NULL,
+  tour_done TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = ha già visto (o saltato) il tutorial di benvenuto
   player_id INT NULL UNIQUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
@@ -105,4 +106,4 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   INDEX (ip, username, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '5');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '6');

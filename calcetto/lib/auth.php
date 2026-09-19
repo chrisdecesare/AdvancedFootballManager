@@ -7,7 +7,7 @@ function current_user(): ?array
     }
     $u = null;
     if (!empty($_SESSION['uid'])) {
-        $u = q('SELECT u.id, u.username, u.role, u.player_id, p.name AS player_name, p.photo
+        $u = q('SELECT u.id, u.username, u.role, u.player_id, u.tour_done, p.name AS player_name, p.photo
                 FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.id = ? AND u.status = \'attivo\'',
             [$_SESSION['uid']])->fetch() ?: null;
         if (!$u) {

@@ -101,6 +101,44 @@ function positions(): array
     return ['Portiere', 'Difensore', 'Centrocampista', 'Attaccante', 'Jolly'];
 }
 
+/** Giocatori in rosa che non hanno ancora un account collegato. */
+function free_roster_players(): array
+{
+    return q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL ORDER BY p.name')->fetchAll();
+}
+
+/** Nome "confrontabile": senza maiuscole, accenti e punteggiatura, con le parole in ordine alfabetico. */
+function name_key(string $name): string
+{
+    $s = mb_strtolower(trim($name));
+    $s = strtr($s, ['à' => 'a', 'á' => 'a', 'â' => 'a', 'ä' => 'a', 'è' => 'e', 'é' => 'e', 'ê' => 'e', 'ë' => 'e',
+        'ì' => 'i', 'í' => 'i', 'î' => 'i', 'ï' => 'i', 'ò' => 'o', 'ó' => 'o', 'ô' => 'o', 'ö' => 'o',
+        'ù' => 'u', 'ú' => 'u', 'û' => 'u', 'ü' => 'u', 'ç' => 'c', 'ñ' => 'n']);
+    $words = array_values(array_filter(explode(' ', preg_replace('/[^a-z0-9]+/', ' ', $s)), 'strlen'));
+    sort($words);
+    return implode(' ', $words);
+}
+
+/**
+ * Giocatore in rosa (senza account) che ha lo stesso nome di chi si iscrive: "Mario Rossi",
+ * "mario rossi", "Rossi Mario" e "Màrio Rossi" coincidono. Se i candidati sono zero o più di uno
+ * ritorna null (in quel caso sceglie l'admin).
+ */
+function find_roster_match(string $name, array $free): ?int
+{
+    $key = name_key($name);
+    if ($key === '') {
+        return null;
+    }
+    $hits = [];
+    foreach ($free as $f) {
+        if (name_key($f['name']) === $key) {
+            $hits[] = (int) $f['id'];
+        }
+    }
+    return count($hits) === 1 ? $hits[0] : null;
+}
+
 /** Ruoli selezionabili come posizione preferita: il Jolly può essere solo la seconda preferenza. */
 function main_positions(): array
 {

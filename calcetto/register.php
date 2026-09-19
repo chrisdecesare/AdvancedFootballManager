@@ -15,6 +15,7 @@ if (current_user()) {
 
 $errors = [];
 $done = false;
+$matchName = null;
 $v = ['name' => '', 'username' => '', 'shirt_number' => '', 'position' => 'Centrocampista', 'position2' => '', 'foot' => 'Destro'];
 
 if (is_post()) {
@@ -55,11 +56,17 @@ if (is_post()) {
     }
 
     if (!$errors) {
+        // se è già in rosa (stesso nome) l'iscrizione viene abbinata a quel giocatore
+        $matchId = find_roster_match($v['name'], free_roster_players());
+        if ($matchId) {
+            $matchName = (string) q('SELECT name FROM players WHERE id = ?', [$matchId])->fetchColumn();
+        }
         $data = [
             'shirt_number' => $v['shirt_number'] === '' ? null : (int) $v['shirt_number'],
             'position' => $v['position'],
             'position2' => $v['position2'] ?: null,
             'foot' => $v['foot'],
+            'player_id' => $matchId,
         ];
         q("INSERT INTO users (username, password_hash, role, status, reg_name, reg_json) VALUES (?, ?, 'player', 'in_attesa', ?, ?)",
             [$v['username'], password_hash($password, PASSWORD_DEFAULT), $v['name'], json_encode($data)]);
@@ -75,6 +82,11 @@ layout_start('Iscriviti');
     <div class="login-ball"><i class="ti ti-shirt"></i></div>
     <?php if ($done): ?>
       <h1>Richiesta inviata!</h1>
+      <?php if ($matchName): ?>
+        <p><i class="ti ti-link"></i> Sei già in rosa come <strong><?= h($matchName) ?></strong>: il tuo account verrà collegato a quel giocatore.</p>
+      <?php else: ?>
+        <p><i class="ti ti-shirt"></i> Verrai aggiunto alla rosa come nuovo giocatore.</p>
+      <?php endif; ?>
       <p>Appena l'admin approva la tua iscrizione potrai entrare con <strong><?= h($v['username']) ?></strong> e la tua password.</p>
       <a class="btn btn-primary btn-block" href="login.php">Vai al login</a>
     <?php else: ?>

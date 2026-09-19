@@ -49,6 +49,7 @@ function layout_start(string $title, string $active = ''): void
           <span><?= h($u['player_name'] ?: $u['username']) ?></span>
           <?php if ($u['role'] === 'admin'): ?><span class="tag tag-admin">admin</span><?php endif; ?>
         </a>
+        <a href="index.php?tour=1" class="btn btn-ghost btn-sm" title="Rivedi il tutorial" aria-label="Rivedi il tutorial"><i class="ti ti-help"></i></a>
         <a href="logout.php" class="btn btn-ghost btn-sm" title="Esci"><i class="ti ti-logout"></i></a>
       <?php else: ?>
         <a href="login.php" class="btn btn-primary btn-sm">Accedi</a>
@@ -64,9 +65,16 @@ function layout_start(string $title, string $active = ''): void
 
 function layout_end(): void
 {
+    $u = current_user();
     ?>
 </main>
 <footer class="footer"><?= h(APP_NAME) ?> · <?= date('Y') ?></footer>
+<?php if (tour_wanted($u)): ?>
+<script type="application/json" id="tour-data"><?= json_encode(
+    ['endpoint' => 'tour.php', 'csrf' => csrf_token(), 'steps' => tour_steps($u)],
+    JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+) ?></script>
+<?php endif; ?>
 </body>
 </html>
 <?php

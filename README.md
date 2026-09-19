@@ -12,6 +12,18 @@ Dalla pagina di login chi ha il link può **iscriversi** (nome, username, passwo
 numero di maglia, piede). L'account resta **in attesa** e non vede nulla finché un admin non lo
 approva: l'admin vede tutti i dati inseriti (e un pallino rosso nel menu segnala le richieste),
 sceglie se creare un nuovo giocatore o collegare l'account a uno già in rosa, e può rifiutare.
+**Abbinamento alla rosa:** se chi si iscrive ha lo stesso nome di un giocatore già in rosa (senza
+account), l'iscrizione viene abbinata a lui in automatico: maiuscole, accenti, spazi e ordine delle
+parole non contano ("mario rossi" = "Rossi Mario" = "Màrio Rossi"). Se i giocatori con quel nome sono
+più di uno, o nessuno, l'admin sceglie all'approvazione (senza abbinamento viene creato un giocatore
+nuovo). L'admin vede sempre l'abbinamento e può cambiarlo prima di approvare.
+
+**Tutorial di benvenuto:** al primo accesso di ogni nuovo giocatore parte un giro guidato di tutte le
+schede del sito (Home, Partite, Rosa, Classifica, profilo; l'admin vede anche Pagamenti e Admin), che si
+può saltare. Una volta finito o saltato non riparte, ma si rivede dal pulsante «?» in alto. I passi sono
+in `calcetto/lib/tour.php`, il disegno in `assets/app.js` e `assets/style.css`. Chi aveva già un
+account attivo prima dell'introduzione del tutorial non lo vede in automatico.
+
 Le password non si possono leggere da nessuno (sono salvate cifrate): l'admin può solo reimpostarle.
 Con `REGISTRATION = false` in `config.php` le iscrizioni si chiudono e gli account li crea solo l'admin.
 Senza login non si vede nulla (`PUBLIC_READ = false`).
