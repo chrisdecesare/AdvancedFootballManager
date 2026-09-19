@@ -713,3 +713,9 @@ html.tour-open { overflow: hidden; }
 .chem-score.is-neg { background: var(--red); color: var(--white); }
 .chem-notes { margin: 6px 0 0; padding-left: 1.2em; font-size: .88rem; }
 .chem-notes li { margin: 2px 0; }
+
+.group-members { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.tag-member { font-size: .78rem; padding: 1px 8px; background: var(--white); }
+.tag-member.is-off, tr.is-off td { opacity: .6; }
+.table-members td, .table-members th { padding: 4px 10px; }
+.table-members input[type=checkbox] { width: 18px; height: 18px; }

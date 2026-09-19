@@ -187,17 +187,16 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
   <section class="card">
     <h2>Solo admin</h2>
     <?php $allGroups = all_groups(); ?>
-    <?php if (count($allGroups) > 1): ?>
       <?php $checked = $errors && isset($_POST['groups']) ? array_map('intval', (array) $_POST['groups']) : ($isNew ? [group_filter() ?: (int) array_key_first($allGroups)] : player_group_ids($id)); ?>
       <fieldset class="group-box"><legend>Gruppi</legend>
         <div class="group-checks">
           <?php foreach ($allGroups as $gid => $gname): ?>
-            <label><input type="checkbox" name="groups[]" value="<?= $gid ?>" <?= in_array($gid, $checked, true) ? 'checked' : '' ?>> <?= h($gname) ?></label>
+            <label><input type="checkbox" name="groups[]" value="<?= $gid ?>" <?= in_array($gid, $checked, true) || count($allGroups) === 1 ? 'checked' : '' ?> <?= count($allGroups) === 1 ? 'disabled' : '' ?>> <?= h($gname) ?></label>
           <?php endforeach; ?>
         </div>
-        <p class="muted small">Il giocatore vede solo giocatori e partite dei suoi gruppi e può partecipare solo alle partite di quei gruppi.</p>
+        <p class="muted small">Il giocatore vede solo giocatori e partite dei suoi gruppi e può partecipare solo alle partite di quei gruppi.
+          <?= count($allGroups) === 1 ? 'Esiste un solo gruppo: creane un altro da <a class="link" href="admin.php#gruppi">Admin → Gruppi</a> per poter scegliere.' : '' ?></p>
       </fieldset>
-    <?php endif; ?>
     <div class="form-grid">
       <label class="field"><span>Rating base (1-10)</span><input name="base_rating" inputmode="decimal" value="<?= h(str_replace('.', ',', (string) $p['base_rating'])) ?>"></label>
       <label class="field check"><input type="checkbox" name="active" value="1" <?= $p['active'] ? 'checked' : '' ?>><span>Attivo (compare nelle nuove partite)</span></label>
