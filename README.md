@@ -109,10 +109,15 @@ attacco del suo modulo (due posti scoperti nella stessa squadra costano più di 
 squadre si vedono forza totale e giocatori per ruolo.
 
 **Google Calendar:** nella scheda di una partita in programma (e nella prossima partita della Home) il
-pulsante «Aggiungi a Google Calendar» apre Google Calendar con l'evento già compilato (data, ora, campo,
+pulsante «Aggiungi a Google Calendar» (e, nell'elenco Partite, il tasto con l'icona del calendario a destra di ogni partita in programma) apre Google Calendar con l'evento già compilato (data, ora, campo,
 note, quota e link alla partita). Non serve nessun collegamento con l'account Google: la notifica arriva
 con i promemoria del calendario di chi lo salva. La durata (`MATCH_DURATION_MIN` in `config.php`, 60
 minuti) è fissa perché le partite non hanno una durata salvata.
+
+**Intestazione:** da computer titolo e schede stanno sulla stessa riga e si compattano quando lo spazio
+cala (sotto 1340px sparisce il nome accanto alla foto, sotto 1100px restano le icone con il nome della scheda
+attiva). Da telefono (sotto 800px) c'è il titolo al centro, un pulsante a panino a sinistra che apre il menu
+delle schede (con «Rivedi il tutorial» ed «Esci») e il profilo a destra, con il pallino delle iscrizioni.
 
 ## Come si usa
 

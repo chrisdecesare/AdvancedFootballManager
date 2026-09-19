@@ -59,12 +59,15 @@ layout_start('Partite', 'matches');
 <?php if (!$upcoming): ?><p class="empty card">Nessuna partita in programma.</p><?php endif; ?>
 <div class="list">
 <?php foreach ($upcoming as $m): ?>
-  <a class="card match-row" href="match.php?id=<?= (int) $m['id'] ?>">
-    <div class="mdate"><span class="d"><?= date('j', strtotime($m['match_date'])) ?></span><span class="m"><?= mb_substr(MESI[(int) date('n', strtotime($m['match_date']))], 0, 3) ?></span></div>
-    <div class="minfo"><strong><?= h(ucfirst(fmt_date_long($m['match_date']))) ?> · <?= fmt_time($m['match_date']) ?></strong>
-      <span class="muted"><?= h($m['location'] ?: 'Campo da definire') ?></span></div>
-    <div class="mside"><span class="count count-yes"><?= (int) $m['yes_n'] ?></span> <span class="muted small">confermati</span></div>
-  </a>
+  <div class="card match-row">
+    <a class="match-link" href="match.php?id=<?= (int) $m['id'] ?>">
+      <div class="mdate"><span class="d"><?= date('j', strtotime($m['match_date'])) ?></span><span class="m"><?= mb_substr(MESI[(int) date('n', strtotime($m['match_date']))], 0, 3) ?></span></div>
+      <div class="minfo"><strong><?= h(ucfirst(fmt_date_long($m['match_date']))) ?> · <?= fmt_time($m['match_date']) ?></strong>
+        <span class="muted"><?= h($m['location'] ?: 'Campo da definire') ?></span></div>
+      <div class="mside"><span class="count count-yes" title="Confermati"><?= (int) $m['yes_n'] ?></span> <span class="muted small">confermati</span></div>
+    </a>
+    <?= gcal_icon_button($m) ?>
+  </div>
 <?php endforeach; ?>
 </div>
 

@@ -41,6 +41,7 @@ function tour_steps(array $u): array
             'title' => 'Partite',
             'text' => 'Tutte le partite, quelle in programma e quelle giocate. Aprendone una trovi:',
             'bullets' => [
+                'Il tasto con il calendario, accanto a ogni partita in programma, la salva su Google Calendar.',
                 'Chi ha confermato, chi è assente e chi deve ancora rispondere.',
                 'Le squadre bilanciate e il campo con la posizione di ognuno.',
                 'Il risultato, con gol e assist.',

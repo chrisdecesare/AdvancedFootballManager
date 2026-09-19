@@ -30,16 +30,25 @@ function layout_start(string $title, string $active = ''): void
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="<?= h($css) ?>">
 <script src="<?= h($js) ?>" defer></script>
+<noscript><style>@media (max-width: 799px) { .nav-toggle { display: none; } .nav { display: flex; position: static; flex-direction: row; grid-column: 1 / -1; overflow-x: auto; box-shadow: none; background: none; padding: 0 0 6px; border: 0; } .nav-extra { display: none !important; } }</style></noscript>
 </head>
 <body>
-<header class="topbar<?= is_admin() ? ' topbar-admin' : '' ?>">
+<header class="topbar">
   <div class="topbar-inner">
+    <?php if ($u || PUBLIC_READ): ?>
+    <button type="button" class="nav-toggle" aria-label="Apri il menu" aria-expanded="false" aria-controls="site-nav"><i class="ti ti-menu-2"></i></button>
+    <?php endif; ?>
     <a class="brand" href="index.php"><span class="brand-ball"><i class="ti ti-ball-football"></i></span><?= h(APP_NAME) ?></a>
     <?php if ($u || PUBLIC_READ): ?>
-    <nav class="nav">
+    <nav class="nav" id="site-nav">
       <?php foreach ($nav as $key => [$href, $label, $icon]): ?>
-        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>"><i class="ti ti-<?= $icon ?>"></i><?= $label ?><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php endif; ?></a>
+        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php endif; ?></a>
       <?php endforeach; ?>
+      <?php if ($u): ?>
+        <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
+        <a href="index.php?tour=1" class="nav-extra"><i class="ti ti-help"></i><span class="nav-label">Rivedi il tutorial</span></a>
+        <a href="logout.php" class="nav-extra"><i class="ti ti-logout"></i><span class="nav-label">Esci</span></a>
+      <?php endif; ?>
     </nav>
     <?php else: ?><div class="nav"></div><?php endif; ?>
     <div class="userbox">

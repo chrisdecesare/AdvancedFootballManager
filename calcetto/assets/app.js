@@ -101,11 +101,33 @@ document.addEventListener('DOMContentLoaded', () => {
   if (navEl) {
     const fit = () => {
       bar.classList.remove('topbar-wrap');
+      const burger = bar.querySelector('.nav-toggle');
+      if (burger && getComputedStyle(burger).display !== 'none') return;   // menu a panino: niente da controllare
       if (navEl.scrollWidth > navEl.clientWidth + 1) bar.classList.add('topbar-wrap');
     };
     fit();
     window.addEventListener('resize', fit);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  }
+
+  // menu a panino (telefoni): apre e chiude l'elenco delle schede
+  const burger = bar && bar.querySelector('.nav-toggle');
+  if (burger) {
+    const icon = burger.querySelector('i');
+    const setMenu = open => {
+      bar.classList.toggle('menu-open', open);
+      burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      burger.setAttribute('aria-label', open ? 'Chiudi il menu' : 'Apri il menu');
+      icon.className = 'ti ' + (open ? 'ti-x' : 'ti-menu-2');
+    };
+    burger.addEventListener('click', () => setMenu(!bar.classList.contains('menu-open')));
+    document.addEventListener('click', e => {
+      // un tocco fuori dal menu lo chiude (ma non quelli sul tutorial, che lo apre e chiude da solo)
+      if (bar.classList.contains('menu-open') && !e.target.closest('.nav, .nav-toggle, .tour')) setMenu(false);
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
+    window.addEventListener('resize', () => { if (getComputedStyle(burger).display === 'none') setMenu(false); });
+    document.addEventListener('menu:set', e => setMenu(!!e.detail));
   }
 
   // tutorial di benvenuto: i passi arrivano dal server (vedi lib/tour.php)
@@ -205,7 +227,11 @@ function startTour(cfg) {
     skip.hidden = i === steps.length - 1;
     next.textContent = i === 0 ? 'Iniziamo' : (i === steps.length - 1 ? 'Ho capito!' : 'Avanti');
     target = s.sel ? document.querySelector(s.sel) : null;
-    if (target) target.scrollIntoView({ block: 'nearest', inline: 'center' });
+    // sui telefoni le schede stanno nel menu a panino: va aperto per evidenziarle, e richiuso negli altri passi
+    const burgerEl = document.querySelector('.nav-toggle');
+    const inHiddenMenu = !!(target && target.closest('.nav') && burgerEl && getComputedStyle(burgerEl).display !== 'none');
+    document.dispatchEvent(new CustomEvent('menu:set', { detail: inHiddenMenu }));
+    if (target && !inHiddenMenu) target.scrollIntoView({ block: 'nearest', inline: 'center' });
     place();
     next.focus({ preventScroll: true });
   }
@@ -214,6 +240,7 @@ function startTour(cfg) {
     document.removeEventListener('keydown', onKey);
     window.removeEventListener('resize', place);
     document.documentElement.classList.remove('tour-open');
+    document.dispatchEvent(new CustomEvent('menu:set', { detail: false }));
     root.remove();
     const fd = new FormData();
     fd.append('do', 'done');
