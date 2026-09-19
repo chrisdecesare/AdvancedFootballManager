@@ -56,6 +56,7 @@ layout_start('Home', 'home');
           <?php if ((float) $next['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($next['fee']) ?></span><?php endif; ?>
         </div>
         <div class="hero-vs"><span class="team-a"><?= h(team_name('A', $next)) ?></span> <b>vs</b> <span class="team-b"><?= h(team_name('B', $next)) ?></span></div>
+        <div class="hero-cal"><?= gcal_button($next) ?></div>
       </div>
       <?= availability_buttons($next, $myStatus, 'index.php') ?>
 

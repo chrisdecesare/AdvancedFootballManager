@@ -95,6 +95,25 @@ Configurazione, una volta sola (repository → *Settings → Secrets and variabl
 Da riga di comando: `gh secret set FTP_PASSWORD` (chiede il valore senza mostrarlo).
 Il primo deploy si può lanciare anche a mano da *Actions → Deploy su Altervista → Run workflow*.
 
+## Posizioni, squadre bilanciate e calendario
+
+**Posizioni:** ogni giocatore ha una posizione preferita (Portiere, Difensore, Centrocampista, Attaccante)
+e, se vuole, una seconda scelta; il **Jolly** ("si adatta a tutto") si può scegliere solo come seconda.
+Nel profilo e nelle liste compaiono sempre entrambe.
+
+**Squadre bilanciate** (`lib/balance.php`): per ogni divisione possibile (fino a 22 confermati le prova
+tutte) si valuta la differenza di **rating** tra le squadre (rating base dell'admin + media dei voti dei
+compagni + % di vittorie) e le **posizioni**: la 1ª scelta copre un ruolo al 100%, la 2ª al 60%, il Jolly
+al 50% su qualsiasi ruolo. I portieri si dividono, e ogni squadra deve poter coprire difesa, centrocampo e
+attacco del suo modulo (due posti scoperti nella stessa squadra costano più di uno per squadra). Sotto le
+squadre si vedono forza totale e giocatori per ruolo.
+
+**Google Calendar:** nella scheda di una partita in programma (e nella prossima partita della Home) il
+pulsante «Aggiungi a Google Calendar» apre Google Calendar con l'evento già compilato (data, ora, campo,
+note, quota e link alla partita). Non serve nessun collegamento con l'account Google: la notifica arriva
+con i promemoria del calendario di chi lo salva. La durata (`MATCH_DURATION_MIN` in `config.php`, 60
+minuti) è fissa perché le partite non hanno una durata salvata.
+
 ## Come si usa
 
 | Chi | Cosa fa |

@@ -201,6 +201,7 @@ img { max-width: 100%; }
 .pos-att { background: var(--pink); }
 .pos-jol { background: var(--purple); color: var(--white); }
 .pline .pos { margin-left: auto; }
+.pline .pos + .pos { margin-left: 4px; }   /* 2ª scelta accanto alla 1ª */
 .ev { display: inline-flex; align-items: center; gap: 1px; font-size: .85rem; font-weight: 800; white-space: nowrap; }
 .ev-og { color: var(--red); }
 .ovr { font: 400 .85rem var(--font-d); background: var(--ink); color: var(--yellow); border-radius: 7px; padding: 1px 7px; }
@@ -454,6 +455,15 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .profile-info h1 { display: inline-block; margin-bottom: 12px; background: var(--white); border: var(--b); border-radius: 14px; padding: 6px 16px 2px; box-shadow: var(--sh-sm); transform: rotate(-1.5deg); }
 .profile-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 14px; }
 .profile-tags .pos { font-size: .8rem; padding: 2px 9px; }
+/* la scheda del profilo ha il colore del ruolo: i badge dei ruoli sono bianchi con un pallino colorato,
+   così la 1ª e la 2ª scelta si leggono sempre (prima "Centrocampista" verde spariva sul fondo verde) */
+.profile-tags .pos { display: inline-flex; align-items: center; gap: 5px; background: var(--white); color: var(--ink); }
+.profile-tags .pos::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--dot, var(--paper-2)); }
+.profile-tags .pos-por { --dot: var(--yellow); }
+.profile-tags .pos-dif { --dot: var(--sky); }
+.profile-tags .pos-cen { --dot: var(--grass); }
+.profile-tags .pos-att { --dot: var(--pink); }
+.profile-tags .pos-jol { --dot: var(--purple); }
 .ovr-big { display: inline-grid; margin: 0 14px 6px 0; vertical-align: middle; background: var(--ink); color: var(--yellow); border-radius: 14px; padding: 8px 14px 6px; box-shadow: var(--sh-sm); }
 .ovr-big span { font: 400 2.6rem/1 var(--font-d); }
 .ovr-big small { font-size: .62rem; letter-spacing: .14em; color: var(--white); font-weight: 900; }
@@ -640,3 +650,12 @@ html.tour-open { overflow: hidden; }
 .tour-skip { background: none; border: 0; padding: 4px; font: inherit; font-weight: 800; color: var(--muted); text-decoration: underline; cursor: pointer; }
 .tour-actions { display: flex; gap: 8px; margin-left: auto; }
 @media (prefers-reduced-motion: reduce) { .tour-spot { transition: none; } }
+
+/* pulsante "Aggiungi a Google Calendar" nella scheda partita e nella home */
+.match-cal, .hero-cal { position: relative; z-index: 1; margin-top: 12px; }
+
+/* riepilogo del bilanciamento sotto le squadre */
+.balance-note { margin: 14px 0 0; padding: 10px 12px; background: var(--paper); border: 2px dashed var(--ink); border-radius: 14px; font-size: .85rem; }
+.balance-note strong { font-family: var(--font-d); font-weight: 400; }
+.balance-roles { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; }
+.team-roles { display: block; margin: 2px 0 8px; font-size: .78rem; font-weight: 800; color: var(--muted); }

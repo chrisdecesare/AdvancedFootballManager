@@ -42,3 +42,4 @@ define('POINTS_WIN', 3);
 define('POINTS_DRAW', 1);
 define('DEFAULT_FEE', 5.00);          // quota a partita (€)
 define('DEFAULT_LOCATION', '');       // campo proposto per le nuove partite
+define('MATCH_DURATION_MIN', 60);     // durata (minuti) dell'evento creato con "Aggiungi a Google Calendar"

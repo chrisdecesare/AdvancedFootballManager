@@ -67,8 +67,8 @@ layout_start($p['name'], 'players');
   <div class="profile-info">
     <h1><?= h($p['name']) ?> <?= $p['active'] ? '' : '<span class="tag">non attivo</span>' ?></h1>
     <div class="profile-tags">
-      <span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>"><?= h($p['position']) ?></span>
-      <?php if ($p['position2']): ?><span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>"><?= h($p['position2']) ?></span><?php endif; ?>
+      <span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>" title="Posizione preferita"><?= h($p['position']) ?></span>
+      <?php if ($p['position2']): ?><span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>" title="Seconda scelta"><?= h($p['position2']) ?></span><?php endif; ?>
       <span class="tag"><i class="ti ti-shoe"></i> <?= h($p['foot']) ?></span>
       <?php if ($rankPts): ?><span class="tag"><i class="ti ti-trophy"></i> <?= $rankPts ?>° in classifica</span><?php endif; ?>
       <?php if ($rankGoals): ?><span class="tag"><i class="ti ti-ball-football"></i> <?= $rankGoals ?>° marcatore</span><?php endif; ?>

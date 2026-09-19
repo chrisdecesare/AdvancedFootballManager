@@ -101,6 +101,60 @@ function positions(): array
     return ['Portiere', 'Difensore', 'Centrocampista', 'Attaccante', 'Jolly'];
 }
 
+/** Indirizzo assoluto della cartella del sito, per i link che finiscono fuori dal sito (es. nel calendario). */
+function site_base_url(): string
+{
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (!preg_match('/^[A-Za-z0-9.-]+(:[0-9]{1,5})?$/', $host)) {
+        return '';
+    }
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    return ($https ? 'https' : 'http') . '://' . $host . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\') . '/';
+}
+
+/**
+ * Link "Aggiungi a Google Calendar" per una partita: apre Google Calendar con l'evento già compilato
+ * (la partita non ha una durata salvata: si usa MATCH_DURATION_MIN). Le date vanno in ora locale + fuso.
+ */
+function gcal_url(array $match): string
+{
+    $start = new DateTime($match['match_date']);
+    $end = (clone $start)->modify('+' . (int) MATCH_DURATION_MIN . ' minutes');
+    $fmt = 'Ymd\THis';
+    $details = [];
+    if (trim((string) ($match['notes'] ?? '')) !== '') {
+        $details[] = trim($match['notes']);
+    }
+    if ((float) ($match['fee'] ?? 0) > 0) {
+        $details[] = 'Quota: ' . fmt_money($match['fee']) . ' a testa';
+    }
+    if ($base = site_base_url()) {
+        $details[] = 'Presenze e squadre: ' . $base . 'match.php?id=' . (int) $match['id'];
+    }
+    $url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+        . '&text=' . rawurlencode('Calcetto')
+        . '&dates=' . $start->format($fmt) . '/' . $end->format($fmt)
+        . '&ctz=' . rawurlencode(TIMEZONE);
+    if ($details) {
+        $url .= '&details=' . rawurlencode(implode("\n", $details));
+    }
+    if (trim((string) ($match['location'] ?? '')) !== '') {
+        $url .= '&location=' . rawurlencode(trim($match['location']));
+    }
+    return $url;
+}
+
+/** Pulsante "Aggiungi a Google Calendar" (solo per le partite in programma). */
+function gcal_button(array $match, string $cls = 'btn-ghost btn-sm'): string
+{
+    if (($match['status'] ?? '') !== 'programmata') {
+        return '';
+    }
+    return '<a class="btn ' . $cls . '" href="' . h(gcal_url($match)) . '" target="_blank" rel="noopener noreferrer">'
+        . '<i class="ti ti-calendar-plus"></i> Aggiungi a Google Calendar</a>';
+}
+
 /** Giocatori in rosa che non hanno ancora un account collegato. */
 function free_roster_players(): array
 {

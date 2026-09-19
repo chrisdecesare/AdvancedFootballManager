@@ -266,6 +266,7 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
       <?php if ((float) $match['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
     </div>
     <?php if ($match['notes']): ?><p class="muted"><?= nl2br(h($match['notes'])) ?></p><?php endif; ?>
+    <?php if (!$played): ?><div class="match-cal"><?= gcal_button($match) ?></div><?php endif; ?>
   </div>
   <?php if ($played || $match['score_a'] !== null): ?>
     <div class="score">
@@ -338,6 +339,9 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
             <?php if ($played): ?><span class="team-score"><?= (int) $match['score_' . strtolower($t)] ?></span><?php endif; ?>
             <span class="team-str" title="Somma dei rating"><i class="ti ti-scale"></i> <?= fmt_num($str['sum'], 1) ?> <small>(media <?= fmt_num($str['avg'], 2) ?>)</small></span>
           </div>
+          <?php $roles = team_roles($roster, $t); ?>
+          <span class="team-roles" title="Giocatori per ruolo (1ª scelta) e con Jolly come 2ª scelta">
+            POR <?= $roles['POR'] ?> · DIF <?= $roles['DIF'] ?> · CEN <?= $roles['CEN'] ?> · ATT <?= $roles['ATT'] ?><?= $roles['JOL'] ? ' · Jolly ' . $roles['JOL'] : '' ?></span>
           <?php foreach ($teams[$t] as $r): $pid = (int) $r['player_id'];
             $extra = '';
             if ($r['goals']) $extra .= '<span class="ev"><i class="ti ti-ball-football"></i>' . ($r['goals'] > 1 ? '×' . $r['goals'] : '') . '</span>';

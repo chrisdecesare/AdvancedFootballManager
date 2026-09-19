@@ -30,7 +30,7 @@ function tour_steps(array $u): array
             'title' => 'Home',
             'text' => 'È la scheda da cui partire ogni volta che entri.',
             'bullets' => [
-                'La prossima partita: data, campo e quota.',
+                'La prossima partita: data, campo e quota, con il pulsante «Aggiungi a Google Calendar» per salvarla nel tuo calendario e ricevere la notifica.',
                 'Con «Ci sono» e «Non ci sono» confermi o disdici la tua presenza. È la cosa più importante da fare!',
                 'Le formazioni delle due squadre, quando sono state fatte.',
                 'Il resoconto dell\'ultima partita: MVP, marcatori, assist e voto più alto.',
