@@ -8,20 +8,55 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
  * Configurazione.
  *
  * I dati riservati (database, codice di installazione) NON stanno qui, perché questo file
- * finisce su GitHub. Vanno in config.local.php, che è escluso da Git e resta solo sul server:
- * copia config.local.php.example in config.local.php e compilalo.
- *
- * Su Altervista (pannello → Database → attiva MySQL):
- *   DB_HOST = 'localhost'
- *   DB_USER = il tuo nome utente Altervista
- *   DB_PASS = ''              (vuota, se il pannello non ne indica una)
- *   DB_NAME = 'my_' . nome utente   (es. 'my_ingcalcetto')
+ * finisce su GitHub. Ci sono tre modi per dare al sito il database, in quest'ordine:
+ *   1. config.local.php (escluso da Git): copia config.local.php.example e compilalo;
+ *   2. variabili d'ambiente DB_HOST, DB_USER, DB_PASS, DB_NAME (test in locale con docker);
+ *   3. se il sito sta dentro un WordPress (es. Altervista, in wp-content/), usa lo stesso
+ *      database di WordPress leggendo il suo wp-config.php. Le tabelle del gestionale hanno
+ *      nomi diversi da quelle di WordPress, che iniziano con il suo prefisso (wp_...).
  */
 if (is_file(__DIR__ . '/config.local.php')) {
     require __DIR__ . '/config.local.php';
 }
 
-// Valori predefiniti (le variabili d'ambiente servono solo per i test in locale con docker)
+/** Credenziali del database dal wp-config.php di WordPress (solo lettura del testo, senza eseguirlo). */
+function wp_db_credentials(): ?array
+{
+    foreach ([2, 3] as $up) {
+        $file = dirname(__DIR__, $up) . '/wp-config.php';
+        $src = @is_readable($file) ? @file_get_contents($file) : false;
+        if ($src === false) {
+            continue;
+        }
+        $v = [];
+        foreach (['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST'] as $k) {
+            if (!preg_match('/define\s*\(\s*["\']' . $k . '["\']\s*,\s*(["\'])((?:\\\\.|(?!\1).)*)\1\s*\)/', $src, $m)) {
+                continue 2;
+            }
+            $v[$k] = stripslashes($m[2]);
+        }
+        // senza prefisso le tabelle di WordPress potrebbero avere i nomi delle nostre: meglio non usarlo
+        if (!preg_match('/\$table_prefix\s*=\s*["\'][A-Za-z0-9_]+["\']/', $src)) {
+            continue;
+        }
+        return $v;
+    }
+    return null;
+}
+
+if (!defined('DB_USER') && getenv('DB_USER') === false && ($wp = wp_db_credentials())) {
+    $host = $wp['DB_HOST'];
+    if (preg_match('/^([^:\/]+):(\d{1,5})$/', $host, $m)) {   // "host:porta"
+        $host = $m[1];
+        define('DB_PORT', (int) $m[2]);
+    }
+    define('DB_HOST', $host);
+    define('DB_USER', $wp['DB_USER']);
+    define('DB_PASS', $wp['DB_PASSWORD']);
+    define('DB_NAME', $wp['DB_NAME']);
+}
+
+// Valori predefiniti
 defined('DB_HOST') || define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
 defined('DB_USER') || define('DB_USER', getenv('DB_USER') ?: 'NOMEUTENTE');
 defined('DB_PASS') || define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');

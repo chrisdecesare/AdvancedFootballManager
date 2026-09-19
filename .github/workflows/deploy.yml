@@ -27,7 +27,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}   # se Altervista rifiuta la connessione cifrata: variabile FTP_PROTOCOL = ftp
           local-dir: ./calcetto/
-          server-dir: ${{ vars.FTP_DIR || './' }}         # cartella del sito sul server (predefinita: la principale)
+          server-dir: ${{ vars.FTP_DIR || './calcetto/' }}  # su Altervista l'FTP parte da wp-content/: il sito sta in wp-content/calcetto/
           exclude: |
             **/.git*
             **/.git*/**
