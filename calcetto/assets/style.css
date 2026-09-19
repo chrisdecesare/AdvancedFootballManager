@@ -90,6 +90,29 @@ img { max-width: 100%; }
   .brand { flex: 1; font-size: 1.3rem; }
   .me span:not(.avatar):not(.tag) { display: none; }
 }
+/* Menu su una riga a parte quando le schede non ci stanno accanto a logo e profilo: sempre per l'admin
+   (ha 6 schede + il pallino delle iscrizioni), sotto 1080px per gli altri; app.js aggiunge .topbar-wrap
+   negli altri casi (nomi lunghi, font lenti, ecc.) così nessuna scheda resta tagliata. */
+.topbar-admin .topbar-inner, .topbar-wrap .topbar-inner { gap: 6px; }
+.topbar-admin .nav, .topbar-wrap .nav { order: 3; flex-basis: 100%; }
+.topbar-admin .brand, .topbar-wrap .brand { flex: 1; }
+@media (max-width: 1080px) {
+  .topbar-inner { gap: 6px; }
+  .nav { order: 3; flex-basis: 100%; }
+  .brand { flex: 1; }
+}
+/* pallino delle iscrizioni sull'icona del profilo: serve solo quando il menu è scorrevole e la scheda Admin
+   può stare fuori schermo (telefoni); altrove basta il pallino accanto ad "Admin" */
+.userbox { position: relative; }
+.userbox .pending-dot { display: none; position: absolute; top: -7px; left: 20px; margin: 0; z-index: 2; }
+@media (max-width: 760px) { .userbox .pending-dot { display: inline-grid; } }
+/* telefoni stretti: logo, profilo, "?" e uscita devono stare sulla stessa riga */
+@media (max-width: 480px) {
+  .brand { font-size: 1.15rem; gap: 6px; }
+  .brand-ball { width: 32px; height: 32px; font-size: 19px; }
+  .me { padding-right: 3px; }
+  .me .tag { display: none; }
+}
 
 /* ---------- layout ---------- */
 .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
