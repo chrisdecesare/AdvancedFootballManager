@@ -1,56 +1,63 @@
 <?php
 // TEMPORANEO: diagnostica della connessione al database. Stampa solo sì/no e codici d'errore,
 // mai password né nomi utente. Da cancellare subito dopo l'uso.
-require __DIR__ . '/config.php';
 header('Content-Type: text/plain; charset=utf-8');
 header('Cache-Control: no-store');
 
-foreach ([2, 3] as $up) {
-    $f = dirname(__DIR__, $up) . '/wp-config.php';
-    echo "wp-config.php a $up livelli sopra: esiste=" . (@file_exists($f) ? 'si' : 'no') . ' leggibile=' . (@is_readable($f) ? 'si' : 'no') . "\n";
-}
-echo 'open_basedir impostato: ' . (ini_get('open_basedir') ? 'si' : 'no') . "\n";
-echo 'credenziali lette da WordPress: ' . (wp_db_credentials() ? 'si' : 'no') . "\n";
-echo 'DB_USER e\' ancora il segnaposto: ' . (DB_USER === 'NOMEUTENTE' ? 'si' : 'no') . "\n";
-echo 'DB_HOST=' . DB_HOST . ' porta=' . (defined('DB_PORT') ? DB_PORT : '-') . "\n";
-echo 'pdo_mysql: ' . (extension_loaded('pdo_mysql') ? 'si' : 'no') . ' | mysqli: ' . (extension_loaded('mysqli') ? 'si' : 'no') . "\n";
-echo 'PHP ' . PHP_VERSION . "\n";
-
-// Struttura di wp-config.php con TUTTI i valori oscurati (restano solo i nomi delle costanti note)
-echo "\n--- righe rilevanti di wp-config.php (valori oscurati) ---\n";
-$f = dirname(__DIR__, 2) . '/wp-config.php';
-$known = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_CHARSET', 'DB_COLLATE', 'WP_HOME', 'WP_SITEURL'];
-foreach (@file($f, FILE_IGNORE_NEW_LINES) ?: [] as $n => $line) {
-    if (!preg_match('/DB_|table_prefix|include|require|getenv|\$_SERVER|\$_ENV|\$_/i', $line)) {
-        continue;
+echo 'PHP ' . PHP_VERSION . ' | pdo_mysql: ' . (extension_loaded('pdo_mysql') ? 'si' : 'no') . "\n";
+echo 'auto_prepend_file impostato: ' . (ini_get('auto_prepend_file') ? 'si' : 'no') . "\n";
+$names = [];
+foreach (array_merge(array_keys($_SERVER), array_keys($_ENV)) as $k) {
+    if (preg_match('/DB|MYSQL|WP_/i', (string) $k)) {
+        $names[$k] = 1;
     }
-    $masked = preg_replace_callback('/([\'"])((?:\\.|(?!\1).)*)\1/', function ($m) use ($known) {
-        return in_array($m[2], $known, true) ? $m[0] : "'<" . strlen($m[2]) . " car.>'";
-    }, $line);
-    echo ($n + 1) . ': ' . trim($masked) . "\n";
 }
-echo 'dimensione file: ' . (@filesize($f) ?: '?') . " byte\n";
+echo 'variabili d\'ambiente con DB/MYSQL/WP nel nome: ' . ($names ? implode(', ', array_keys($names)) : '(nessuna)') . "\n";
 
+// WordPress in modalita' minima: carica solo il database, senza temi né plugin
+define('SHORTINIT', true);
+$wl = dirname(__DIR__, 2) . '/wp-load.php';
+echo 'wp-load.php presente: ' . (is_file($wl) ? 'si' : 'no') . "\n";
 try {
-    $pdo = new PDO('mysql:host=' . DB_HOST . (defined('DB_PORT') ? ';port=' . DB_PORT : '') . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-        DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-    echo "connessione: OK\n";
+    require_once $wl;
+    echo "wp-load.php caricato senza errori\n";
 } catch (Throwable $e) {
-    echo 'connessione: FALLITA (' . get_class($e) . ') codice driver=' . ($e instanceof PDOException ? ($e->errorInfo[1] ?? '?') : '?') . "\n";
-    exit;
+    echo 'errore caricando WordPress: ' . get_class($e) . "\n";
+}
+$all = true;
+foreach (['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST'] as $k) {
+    $has = defined($k);
+    $all = $all && $has;
+    echo "$k definita: " . ($has ? 'si' : 'no') . "\n";
+}
+if (!$all) {
+    exit("costanti mancanti: mi fermo\n");
+}
+echo 'DB_HOST=' . DB_HOST . "\n";
+
+$host = DB_HOST;
+$port = '';
+if (preg_match('/^([^:\/]+):(\d{1,5})$/', $host, $m)) {
+    $host = $m[1];
+    $port = ';port=' . $m[2];
+}
+try {
+    $pdo = new PDO("mysql:host=$host$port;dbname=" . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASSWORD, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+    echo "connessione PDO con le credenziali di WordPress: OK\n";
+} catch (Throwable $e) {
+    exit('connessione FALLITA (' . get_class($e) . ') codice driver=' . ($e instanceof PDOException ? ($e->errorInfo[1] ?? '?') : '?') . "\n");
 }
 try {
     $pdo->exec("SET time_zone = '" . date('P') . "'");
     echo "SET time_zone: OK\n";
 } catch (Throwable $e) {
-    echo 'SET time_zone: FALLITO codice driver=' . ($e instanceof PDOException ? ($e->errorInfo[1] ?? '?') : '?') . "\n";
+    echo 'SET time_zone: FALLITO codice=' . ($e instanceof PDOException ? ($e->errorInfo[1] ?? '?') : '?') . "\n";
 }
 try {
-    $n = (int) $pdo->query('SHOW TABLES')->rowCount();
-    echo "tabelle nel database: $n\n";
+    echo 'tabelle nel database: ' . $pdo->query('SHOW TABLES')->rowCount() . "\n";
     $pdo->exec('CREATE TABLE IF NOT EXISTS zz_prova_permessi (id INT) ENGINE=InnoDB');
     $pdo->exec('DROP TABLE zz_prova_permessi');
     echo "permesso CREATE/DROP TABLE: OK\n";
 } catch (Throwable $e) {
-    echo 'permessi tabelle: FALLITO codice driver=' . ($e instanceof PDOException ? ($e->errorInfo[1] ?? '?') : '?') . "\n";
+    echo 'permessi tabelle: FALLITO codice=' . ($e instanceof PDOException ? ($e->errorInfo[1] ?? '?') : '?') . "\n";
 }
