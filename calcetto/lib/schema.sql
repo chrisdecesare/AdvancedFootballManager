@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS players (
   name VARCHAR(80) NOT NULL,
   photo VARCHAR(255) NULL,
   shirt_number TINYINT UNSIGNED NULL,
-  position VARCHAR(20) NOT NULL DEFAULT 'Jolly',   -- posizione preferita
+  position VARCHAR(20) NOT NULL DEFAULT 'Centrocampista',   -- posizione preferita (mai Jolly)
   position2 VARCHAR(20) NULL,                      -- seconda posizione (facoltativa)
   foot VARCHAR(12) NOT NULL DEFAULT 'Destro',
   base_rating DECIMAL(3,1) NOT NULL DEFAULT 6.0,
@@ -105,4 +105,4 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   INDEX (ip, username, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '4');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '5');

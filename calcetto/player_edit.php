@@ -9,13 +9,14 @@ if ($isNew ? !$admin : (!$admin && my_player_id() !== $id)) {
     require_admin(); // mostra "accesso negato"
 }
 $p = $isNew ? [
-    'id' => 0, 'name' => '', 'photo' => null, 'shirt_number' => null, 'position' => 'Jolly', 'position2' => null, 'foot' => 'Destro',
+    'id' => 0, 'name' => '', 'photo' => null, 'shirt_number' => null, 'position' => 'Centrocampista', 'position2' => null, 'foot' => 'Destro',
     'base_rating' => '6.0', 'active' => 1, 'adj_apps' => 0, 'adj_wins' => 0, 'adj_draws' => 0, 'adj_losses' => 0,
     'adj_goals' => 0, 'adj_assists' => 0, 'adj_own_goals' => 0, 'adj_mvp' => 0,
 ] : get_player($id);
 if (!$p) {
     redirect('players.php');
 }
+[$p['position'], $p['position2']] = normalize_positions($p['position'] ?? null, $p['position2'] ?? null);
 $account = $isNew ? null : (q('SELECT id, username, role FROM users WHERE player_id = ?', [$id])->fetch() ?: null);
 $adjFields = ['adj_apps' => 'Presenze', 'adj_goals' => 'Gol', 'adj_assists' => 'Assist', 'adj_mvp' => 'MVP',
     'adj_wins' => 'Vittorie', 'adj_draws' => 'Pareggi', 'adj_losses' => 'Sconfitte', 'adj_own_goals' => 'Autogol'];
@@ -39,11 +40,9 @@ if (is_post()) {
 
     $name = trim($_POST['name'] ?? '');
     $num = trim($_POST['shirt_number'] ?? '');
-    $pos = in_array($_POST['position'] ?? '', positions(), true) ? $_POST['position'] : 'Jolly';
-    $pos2 = in_array($_POST['position2'] ?? '', positions(), true) ? $_POST['position2'] : null;
-    if ($pos2 === $pos) {
-        $pos2 = null;
-    }
+    [$pos, $pos2] = normalize_positions(
+        is_string($_POST['position'] ?? null) ? $_POST['position'] : null,
+        is_string($_POST['position2'] ?? null) && $_POST['position2'] !== '' ? $_POST['position2'] : null);
     $foot = in_array($_POST['foot'] ?? '', feet(), true) ? $_POST['foot'] : 'Destro';
     if ($name === '' || mb_strlen($name) > 80) {
         $errors[] = 'Inserisci un nome (max 80 caratteri).';
@@ -150,8 +149,8 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
       <label class="field span-2"><span>Nome</span><input name="name" required maxlength="80" value="<?= h($p['name']) ?>"></label>
       <label class="field"><span>Numero di maglia</span><input type="number" name="shirt_number" min="0" max="99" value="<?= h($p['shirt_number']) ?>"></label>
       <label class="field"><span>Posizione preferita</span><select name="position">
-        <?php foreach (positions() as $o): ?><option <?= $p['position'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
-      <label class="field"><span>Seconda posizione (facoltativa)</span><select name="position2">
+        <?php foreach (main_positions() as $o): ?><option <?= $p['position'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
+      <label class="field"><span>Seconda posizione (facoltativa; Jolly = si adatta a tutto)</span><select name="position2">
         <option value="">— nessuna —</option>
         <?php foreach (positions() as $o): ?><option <?= ($p['position2'] ?? '') === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
       <label class="field"><span>Piede preferito</span><select name="foot">

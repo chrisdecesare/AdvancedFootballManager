@@ -14,16 +14,17 @@ if (is_post()) {
                 break;
             }
             $data = json_decode($u['reg_json'] ?? '', true) ?: [];
+            [$pos1, $pos2] = normalize_positions($data['position'] ?? null, $data['position2'] ?? null);
             $link = (int) ($_POST['player_id'] ?? 0);
             db()->beginTransaction();
             if ($link && !q('SELECT 1 FROM users WHERE player_id = ?', [$link])->fetch()) {
                 // giocatore già in rosa: collega l'account e aggiorna le sue preferenze
                 q('UPDATE players SET position = ?, position2 = ?, foot = ?, shirt_number = COALESCE(?, shirt_number), active = 1 WHERE id = ?',
-                    [$data['position'] ?? 'Jolly', $data['position2'] ?? null, $data['foot'] ?? 'Destro', $data['shirt_number'] ?? null, $link]);
+                    [$pos1, $pos2, $data['foot'] ?? 'Destro', $data['shirt_number'] ?? null, $link]);
                 $pid = $link;
             } else {
                 q('INSERT INTO players (name, shirt_number, position, position2, foot) VALUES (?, ?, ?, ?, ?)',
-                    [$u['reg_name'], $data['shirt_number'] ?? null, $data['position'] ?? 'Jolly', $data['position2'] ?? null, $data['foot'] ?? 'Destro']);
+                    [$u['reg_name'], $data['shirt_number'] ?? null, $pos1, $pos2, $data['foot'] ?? 'Destro']);
                 $pid = (int) db()->lastInsertId();
             }
             q("UPDATE users SET status = 'attivo', player_id = ?, reg_json = NULL WHERE id = ?", [$pid, $uid]);
@@ -114,6 +115,7 @@ layout_start('Admin', 'admin');
   <h2><i class="ti ti-user-plus"></i> Iscrizioni da approvare <span class="count count-no"><?= count($pendingUsers) ?></span></h2>
   <div class="list">
     <?php foreach ($pendingUsers as $u): $d = json_decode($u['reg_json'] ?? '', true) ?: [];
+      [$d['position'], $d['position2']] = normalize_positions($d['position'] ?? null, $d['position2'] ?? null);
       $match = null;
       foreach ($free as $f) {
           if (mb_strtolower(trim($f['name'])) === mb_strtolower(trim($u['reg_name'] ?? ''))) {

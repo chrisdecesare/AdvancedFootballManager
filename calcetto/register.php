@@ -15,7 +15,7 @@ if (current_user()) {
 
 $errors = [];
 $done = false;
-$v = ['name' => '', 'username' => '', 'shirt_number' => '', 'position' => 'Jolly', 'position2' => '', 'foot' => 'Destro'];
+$v = ['name' => '', 'username' => '', 'shirt_number' => '', 'position' => 'Centrocampista', 'position2' => '', 'foot' => 'Destro'];
 
 if (is_post()) {
     // campo trappola per i bot: le persone non lo vedono
@@ -48,12 +48,8 @@ if (is_post()) {
     if ($v['shirt_number'] !== '' && (!ctype_digit($v['shirt_number']) || (int) $v['shirt_number'] > 99)) {
         $errors[] = 'Il numero di maglia va da 0 a 99.';
     }
-    if (!in_array($v['position'], positions(), true)) {
-        $v['position'] = 'Jolly';
-    }
-    if (!in_array($v['position2'], positions(), true) || $v['position2'] === $v['position']) {
-        $v['position2'] = '';
-    }
+    [$v['position'], $pos2] = normalize_positions($v['position'], $v['position2'] ?: null);
+    $v['position2'] = $pos2 ?? '';
     if (!in_array($v['foot'], feet(), true)) {
         $v['foot'] = 'Destro';
     }
@@ -93,8 +89,8 @@ layout_start('Iscriviti');
           <label class="field"><span>Password (min. <?= PASSWORD_MIN ?>)</span><input type="password" name="password" required minlength="<?= PASSWORD_MIN ?>" maxlength="72" autocomplete="new-password"></label>
           <label class="field"><span>Ripeti password</span><input type="password" name="password2" required minlength="<?= PASSWORD_MIN ?>" maxlength="72" autocomplete="new-password"></label>
           <label class="field"><span>Posizione preferita</span><select name="position">
-            <?php foreach (positions() as $o): ?><option <?= $v['position'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
-          <label class="field"><span>Seconda posizione</span><select name="position2">
+            <?php foreach (main_positions() as $o): ?><option <?= $v['position'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
+          <label class="field"><span>Seconda posizione (Jolly = ti adatti a tutto)</span><select name="position2">
             <option value="">— nessuna —</option>
             <?php foreach (positions() as $o): ?><option <?= $v['position2'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
           <label class="field"><span>Numero di maglia</span><input type="number" name="shirt_number" min="0" max="99" value="<?= h($v['shirt_number']) ?>"></label>
