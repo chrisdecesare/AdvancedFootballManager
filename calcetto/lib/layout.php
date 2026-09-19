@@ -13,8 +13,11 @@ function layout_start(string $title, string $active = ''): void
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
         $pending = pending_count();
     }
-    $css = 'assets/style.css?v=' . @filemtime(__DIR__ . '/../assets/style.css');
-    $js = 'assets/app.js?v=' . @filemtime(__DIR__ . '/../assets/app.js');
+    // versione = impronta del contenuto (non la data): se un upload FTP viene letto a metà, il browser non conserva
+    // per 30 giorni un file troncato con lo stesso indirizzo di quello completo
+    $ver = fn(string $f) => substr((string) @md5_file(__DIR__ . '/../assets/' . $f), 0, 10);
+    $css = 'assets/style.css?v=' . $ver('style.css');
+    $js = 'assets/app.js?v=' . $ver('app.js');
     ?><!doctype html>
 <html lang="it">
 <head>

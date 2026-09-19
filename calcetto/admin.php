@@ -193,7 +193,8 @@ layout_start('Admin', 'admin');
 ?>
 <div class="page-head"><h1>Admin</h1></div>
 
-<?php if (is_file(__DIR__ . '/install.php')): ?>
+<?php // l'installazione è finita: provo a cancellare install.php io; l'avviso resta solo se il server non me lo lascia fare
+if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
   <div class="flash flash-err"><i class="ti ti-alert-triangle"></i> <strong>install.php</strong> è ancora sul server: cancellalo.</div>
 <?php endif; ?>
 
