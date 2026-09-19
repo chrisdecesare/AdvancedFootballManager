@@ -8,6 +8,35 @@ if (is_post()) {
     $do = $_POST['do'] ?? '';
     $uid = (int) ($_POST['user_id'] ?? 0);
     switch ($do) {
+        case 'approve':
+            $u = q("SELECT * FROM users WHERE id = ? AND status = 'in_attesa'", [$uid])->fetch();
+            if (!$u) {
+                break;
+            }
+            $data = json_decode($u['reg_json'] ?? '', true) ?: [];
+            $link = (int) ($_POST['player_id'] ?? 0);
+            db()->beginTransaction();
+            if ($link && !q('SELECT 1 FROM users WHERE player_id = ?', [$link])->fetch()) {
+                // giocatore già in rosa: collega l'account e aggiorna le sue preferenze
+                q('UPDATE players SET position = ?, position2 = ?, foot = ?, shirt_number = COALESCE(?, shirt_number), active = 1 WHERE id = ?',
+                    [$data['position'] ?? 'Jolly', $data['position2'] ?? null, $data['foot'] ?? 'Destro', $data['shirt_number'] ?? null, $link]);
+                $pid = $link;
+            } else {
+                q('INSERT INTO players (name, shirt_number, position, position2, foot) VALUES (?, ?, ?, ?, ?)',
+                    [$u['reg_name'], $data['shirt_number'] ?? null, $data['position'] ?? 'Jolly', $data['position2'] ?? null, $data['foot'] ?? 'Destro']);
+                $pid = (int) db()->lastInsertId();
+            }
+            q("UPDATE users SET status = 'attivo', player_id = ?, reg_json = NULL WHERE id = ?", [$pid, $uid]);
+            db()->commit();
+            foreach (q("SELECT id FROM matches WHERE status = 'programmata'")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+                sync_match_players((int) $mid);
+            }
+            flash('ok', 'Iscrizione di ' . $u['reg_name'] . ' approvata.');
+            break;
+        case 'reject':
+            q("DELETE FROM users WHERE id = ? AND status = 'in_attesa'", [$uid]);
+            flash('ok', 'Richiesta rifiutata.');
+            break;
         case 'create':
             $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
@@ -17,7 +46,7 @@ if (is_post()) {
                 flash('err', 'Username: 3-50 caratteri tra lettere, numeri, punto, trattino e underscore.');
             } elseif ($err = password_error($password)) {
                 flash('err', $err);
-            } elseif (q('SELECT 1 FROM users WHERE username = ?', [$username])->fetch()) {
+            } elseif (q('SELECT 1 FROM users WHERE LOWER(username) = ?', [mb_strtolower($username)])->fetch()) {
                 flash('err', 'Username già usato.');
             } elseif ($pid && q('SELECT 1 FROM users WHERE player_id = ?', [$pid])->fetch()) {
                 flash('err', 'Quel giocatore ha già un account.');
@@ -65,8 +94,10 @@ if (is_post()) {
     redirect('admin.php');
 }
 
-$users = q("SELECT u.*, p.name AS player_name FROM users u LEFT JOIN players p ON p.id = u.player_id
+$users = q("SELECT u.*, p.name AS player_name, p.position, p.position2, p.foot, p.shirt_number
+            FROM users u LEFT JOIN players p ON p.id = u.player_id
             WHERE u.status = 'attivo' ORDER BY u.role, u.username")->fetchAll();
+$pendingUsers = q("SELECT * FROM users WHERE status = 'in_attesa' ORDER BY created_at")->fetchAll();
 $players = all_players();
 $free = q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL ORDER BY p.name')->fetchAll();
 
@@ -78,7 +109,43 @@ layout_start('Admin', 'admin');
   <div class="flash flash-err"><i class="ti ti-alert-triangle"></i> <strong>install.php</strong> è ancora sul server: cancellalo.</div>
 <?php endif; ?>
 
-<p class="muted small"><i class="ti ti-lock"></i> Non c'è iscrizione libera: gli account li crei solo tu, qui sotto o da <em>Rosa → Nuovo giocatore</em>.</p>
+<?php if ($pendingUsers): ?>
+<section class="card pending-card">
+  <h2><i class="ti ti-user-plus"></i> Iscrizioni da approvare <span class="count count-no"><?= count($pendingUsers) ?></span></h2>
+  <div class="list">
+    <?php foreach ($pendingUsers as $u): $d = json_decode($u['reg_json'] ?? '', true) ?: [];
+      $match = null;
+      foreach ($free as $f) {
+          if (mb_strtolower(trim($f['name'])) === mb_strtolower(trim($u['reg_name'] ?? ''))) {
+              $match = (int) $f['id'];
+          }
+      } ?>
+      <div class="pending-row">
+        <div class="pending-who">
+          <?= avatar(['name' => $u['reg_name']], 'md') ?>
+          <div><strong><?= h($u['reg_name']) ?></strong> <span class="muted small">@<?= h($u['username']) ?> · iscritto il <?= fmt_date_short($u['created_at']) ?> alle <?= fmt_time($u['created_at']) ?></span>
+            <div class="small"><?= h(($d['position'] ?? 'Jolly') . (!empty($d['position2']) ? ' / ' . $d['position2'] : '')) ?>
+              · piede <?= h(strtolower($d['foot'] ?? '')) ?><?= isset($d['shirt_number']) ? ' · maglia n. ' . (int) $d['shirt_number'] : ' · nessun numero di maglia' ?></div></div>
+        </div>
+        <form method="post" class="pending-actions"><?= csrf_field() ?><input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
+          <select name="player_id" class="mini-select" aria-label="Collega a un giocatore">
+            <option value="">Crea nuovo giocatore</option>
+            <?php foreach ($free as $f): ?><option value="<?= (int) $f['id'] ?>" <?= $match === (int) $f['id'] ? 'selected' : '' ?>>È già in rosa: <?= h($f['name']) ?></option><?php endforeach; ?>
+          </select>
+          <button class="btn btn-primary btn-sm" name="do" value="approve"><i class="ti ti-check"></i> Approva</button>
+          <button class="btn btn-danger btn-sm" name="do" value="reject" data-confirm="Rifiutare la richiesta di <?= h($u['reg_name']) ?>?"><i class="ti ti-x"></i></button>
+        </form>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</section>
+<?php endif; ?>
+
+<?php if (!REGISTRATION): ?>
+  <p class="muted small"><i class="ti ti-lock"></i> Le iscrizioni dei giocatori sono disattivate (<code>REGISTRATION</code> in config.php): gli account li crei tu qui sotto.</p>
+<?php else: ?>
+  <p class="muted small"><i class="ti ti-link"></i> Per far iscrivere i giocatori manda il link <code><?= h((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? '') . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/register.php') ?></code>. Ogni iscrizione resta in attesa finché non la approvi qui.</p>
+<?php endif; ?>
 
 <div class="admin-links">
   <a class="card admin-link" href="matches.php#nuova"><span><i class="ti ti-calendar-event"></i></span><strong>Crea partita</strong><small>Data, campo, quota</small></a>
@@ -90,11 +157,20 @@ layout_start('Admin', 'admin');
 <section class="card">
   <h2>Account</h2>
   <div class="table-wrap"><table class="table">
-    <thead><tr><th>Username</th><th>Giocatore collegato</th><th>Ruolo</th><th>Password</th><th></th></tr></thead>
+    <thead><tr><th>Username</th><th>Dati</th><th>Giocatore collegato</th><th>Ruolo</th><th>Password</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($users as $u): $uid = (int) $u['id']; ?>
       <tr>
         <td><strong><?= h($u['username']) ?></strong><?= $uid === $meUid ? ' <span class="muted small">(tu)</span>' : '' ?></td>
+        <td class="small">
+          <?php if ($u['player_name']): ?>
+            <strong><?= h($u['player_name']) ?></strong><br>
+            <?= h(positions_label($u)) ?> · piede <?= h(strtolower($u['foot'] ?? '')) ?><?= $u['shirt_number'] !== null ? ' · n. ' . (int) $u['shirt_number'] : '' ?><br>
+          <?php else: ?>
+            <span class="muted">nessun giocatore collegato</span><br>
+          <?php endif; ?>
+          <span class="muted">creato il <?= fmt_date_short($u['created_at']) ?></span>
+        </td>
         <td>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="link"><input type="hidden" name="user_id" value="<?= $uid ?>">
             <select name="player_id" class="mini-select" data-autosubmit>

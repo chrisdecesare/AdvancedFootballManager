@@ -6,10 +6,18 @@ statistiche avanzate e pagamenti delle quote.
 
 Il codice del sito è nella cartella [`calcetto/`](calcetto/). Serve PHP 8.0+ e MySQL/MariaDB.
 
-## Accesso
+## Accesso e iscrizione
 
-Non esiste iscrizione libera: **gli account li crea solo l'admin** (pagina *Admin* o
-*Rosa → Nuovo giocatore*). Senza login non si vede nulla (`PUBLIC_READ = false`).
+Dalla pagina di login chi ha il link può **iscriversi** (nome, username, password, posizioni,
+numero di maglia, piede). L'account resta **in attesa** e non vede nulla finché un admin non lo
+approva: l'admin vede tutti i dati inseriti (e un pallino rosso nel menu segnala le richieste),
+sceglie se creare un nuovo giocatore o collegare l'account a uno già in rosa, e può rifiutare.
+Le password non si possono leggere da nessuno (sono salvate cifrate): l'admin può solo reimpostarle.
+Con `REGISTRATION = false` in `config.php` le iscrizioni si chiudono e gli account li crea solo l'admin.
+Senza login non si vede nulla (`PUBLIC_READ = false`).
+
+Contro gli abusi: campo trappola per i bot, massimo 10 iscrizioni all'ora per indirizzo IP e
+massimo 100 iscrizioni in attesa.
 
 Sicurezza: password di almeno 8 caratteri, blocco di 15 minuti dopo troppi tentativi falliti,
 CSRF su ogni modulo, query preparate, cookie di sessione `Secure`/`HttpOnly`/`SameSite`,
@@ -37,7 +45,8 @@ separato: il gestionale sta in `wp-content/calcetto/` e usa il database di WordP
    credenziali in `config.local.php` (sul server) e mostra, una sola volta, il **codice di installazione**.
 3. Apri `.../wp-content/calcetto/install.php`, inserisci il codice e scegli username e password
    dell'admin. `install.php` e `setup-wordpress.php` si cancellano da soli a fine uso.
-4. Da *Admin* crea gli account degli amici.
+4. Manda il link agli amici: si iscrivono dalla pagina di login e tu approvi da *Admin*
+   (oppure crei tu gli account da *Admin → Nuovo account*).
 
 ## Prima installazione su un hosting PHP + MySQL normale
 
