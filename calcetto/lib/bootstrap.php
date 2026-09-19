@@ -28,7 +28,11 @@ if ($isHttps) {
 ini_set('session.use_strict_mode', '1');
 ini_set('session.use_only_cookies', '1');
 ini_set('session.use_trans_sid', '0');
-session_name('calcetto_sess');
+// Su Altervista (WordPress dietro la cache Varnish) le richieste GET arrivano a PHP SENZA cookie, tranne
+// quelli con nomi da "utente WordPress loggato". Senza questo nome il login riesce ma la pagina dopo il
+// redirect non vede la sessione. Il codice è nostro, diverso da quello di WordPress: per WordPress è un
+// cookie qualunque, per la cache un utente loggato (quindi non cacheabile). Altrove il nome è innocuo.
+session_name('wordpress_logged_in_' . md5('calcetto-manager-session'));
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
