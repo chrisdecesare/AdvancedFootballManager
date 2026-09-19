@@ -95,6 +95,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // se le schede del menu non ci stanno in una riga, il menu passa su una riga sua (di solito ci pensa già il CSS)
+  const bar = document.querySelector('.topbar');
+  const navEl = bar && bar.querySelector('.nav');
+  if (navEl) {
+    const fit = () => {
+      bar.classList.remove('topbar-wrap');
+      if (navEl.scrollWidth > navEl.clientWidth + 1) bar.classList.add('topbar-wrap');
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  }
+
   // tutorial di benvenuto: i passi arrivano dal server (vedi lib/tour.php)
   const tourData = document.getElementById('tour-data');
   if (tourData) {

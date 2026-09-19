@@ -32,7 +32,7 @@ function layout_start(string $title, string $active = ''): void
 <script src="<?= h($js) ?>" defer></script>
 </head>
 <body>
-<header class="topbar">
+<header class="topbar<?= is_admin() ? ' topbar-admin' : '' ?>">
   <div class="topbar-inner">
     <a class="brand" href="index.php"><span class="brand-ball"><i class="ti ti-ball-football"></i></span><?= h(APP_NAME) ?></a>
     <?php if ($u || PUBLIC_READ): ?>
@@ -49,6 +49,7 @@ function layout_start(string $title, string $active = ''): void
           <span><?= h($u['player_name'] ?: $u['username']) ?></span>
           <?php if ($u['role'] === 'admin'): ?><span class="tag tag-admin">admin</span><?php endif; ?>
         </a>
+        <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a><?php endif; ?>
         <a href="index.php?tour=1" class="btn btn-ghost btn-sm" title="Rivedi il tutorial" aria-label="Rivedi il tutorial"><i class="ti ti-help"></i></a>
         <a href="logout.php" class="btn btn-ghost btn-sm" title="Esci"><i class="ti ti-logout"></i></a>
       <?php else: ?>
