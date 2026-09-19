@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS players (
   adj_assists INT NOT NULL DEFAULT 0,
   adj_own_goals INT NOT NULL DEFAULT 0,
   adj_mvp INT NOT NULL DEFAULT 0,
+  bg_color VARCHAR(7) NULL,                        -- sfondo del profilo: colore #rrggbb...
+  bg_image VARCHAR(255) NULL,                      -- ...oppure immagine (uploads/players/b<id>_xxxx.jpg)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -136,4 +138,4 @@ CREATE TABLE IF NOT EXISTS match_links (
   FOREIGN KEY (scorer_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '7');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '8');

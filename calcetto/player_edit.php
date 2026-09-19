@@ -9,7 +9,7 @@ if ($isNew ? !$admin : (!$admin && my_player_id() !== $id)) {
     require_admin(); // mostra "accesso negato"
 }
 $p = $isNew ? [
-    'id' => 0, 'name' => '', 'photo' => null, 'shirt_number' => null, 'position' => 'Centrocampista', 'position2' => null, 'foot' => 'Destro',
+    'id' => 0, 'name' => '', 'photo' => null, 'bg_color' => null, 'bg_image' => null, 'shirt_number' => null, 'position' => 'Centrocampista', 'position2' => null, 'foot' => 'Destro',
     'base_rating' => '6.0', 'active' => 1, 'adj_apps' => 0, 'adj_wins' => 0, 'adj_draws' => 0, 'adj_losses' => 0,
     'adj_goals' => 0, 'adj_assists' => 0, 'adj_own_goals' => 0, 'adj_mvp' => 0,
 ] : get_player($id);
@@ -27,6 +27,7 @@ if (is_post()) {
 
     if ($do === 'delete' && $admin && !$isNew) {
         delete_photo_file($p['photo']);
+        delete_photo_file($p['bg_image'] ?? null);
         q('DELETE FROM players WHERE id = ?', [$id]);
         flash('ok', 'Giocatore eliminato.');
         redirect('players.php');
@@ -49,6 +50,13 @@ if (is_post()) {
     }
     if ($num !== '' && (!ctype_digit($num) || (int) $num > 99)) {
         $errors[] = 'Il numero di maglia va da 0 a 99.';
+    }
+
+    // sfondo del profilo: automatico (colore del ruolo), un colore oppure un'immagine
+    $bgMode = in_array($_POST['bg_mode'] ?? 'auto', ['auto', 'color', 'image'], true) ? $_POST['bg_mode'] : 'auto';
+    $bgColor = clean_hex_color($_POST['bg_color'] ?? '');
+    if ($bgMode === 'color' && !$bgColor) {
+        $errors[] = 'Colore dello sfondo non valido.';
     }
 
     // account (username/password): l'admin li gestisce per tutti, il giocatore cambia solo la propria password
@@ -127,6 +135,27 @@ if (is_post()) {
         if ($photoErr) {
             flash('err', $photoErr);
         }
+
+        // sfondo del profilo
+        $oldBg = $p['bg_image'] ?? null;
+        if ($bgMode === 'image') {
+            $bgErr = null;
+            $newBg = save_profile_bg($_FILES['bg_image'] ?? [], $id, $bgErr);
+            if ($newBg) {
+                delete_photo_file($oldBg);
+                q('UPDATE players SET bg_image = ?, bg_color = NULL WHERE id = ?', [$newBg, $id]);
+            } elseif ($bgErr) {
+                flash('err', $bgErr);
+            } elseif (!$oldBg) {
+                flash('err', "Sfondo non cambiato: scegli un'immagine.");
+            }
+        } elseif ($bgMode === 'color') {
+            delete_photo_file($oldBg);
+            q('UPDATE players SET bg_color = ?, bg_image = NULL WHERE id = ?', [$bgColor, $id]);
+        } else {
+            delete_photo_file($oldBg);
+            q('UPDATE players SET bg_color = NULL, bg_image = NULL WHERE id = ?', [$id]);
+        }
         flash('ok', $isNew ? 'Giocatore creato.' : 'Profilo salvato.');
         redirect('player.php?id=' . $id);
     }
@@ -149,10 +178,45 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     <div class="photo-edit">
       <div id="photo-preview"><?= avatar($p + ['name' => $p['name'] ?: '?'], 'xl') ?></div>
       <div>
-        <label class="btn btn-ghost btn-sm file-btn"><i class="ti ti-camera"></i> Scegli foto<input type="file" name="photo" accept="image/*" id="photo-input"></label>
-        <p class="muted small">JPG, PNG o WEBP, max 6 MB. Viene ritagliata quadrata.</p>
+        <label class="btn btn-ghost btn-sm file-btn"><i class="ti ti-camera"></i> Scegli foto<input type="file" name="photo" accept="image/*" id="photo-input"
+          data-crop-w="480" data-crop-h="480" data-crop-round="1" data-crop-title="Ritaglia la foto profilo" data-preview="photo-preview" data-preview-type="img"></label>
+        <p class="muted small">JPG, PNG o WEBP. Dopo averla scelta trascini e ingrandisci per decidere quale parte tenere.</p>
       </div>
     </div>
+    <?php
+      $bgMode = $_POST['bg_mode'] ?? (!empty($p['bg_image']) ? 'image' : (!empty($p['bg_color']) ? 'color' : 'auto'));
+      $bgColorVal = clean_hex_color($_POST['bg_color'] ?? '') ?: (clean_hex_color($p['bg_color'] ?? '') ?: '#53c8f5');
+      $bgImgUrl = '';
+      if (!empty($p['bg_image']) && is_file(__DIR__ . '/' . $p['bg_image'])) {
+          $bgImgUrl = $p['bg_image'] . '?v=' . filemtime(__DIR__ . '/' . $p['bg_image']);
+      }
+    ?>
+    <fieldset class="group-box bg-box" data-bg data-image="<?= h($bgImgUrl) ?>">
+      <legend>Sfondo del profilo</legend>
+      <div class="bg-layout">
+        <div id="bg-preview" class="bg-preview role-<?= strtolower(position_abbr($p['position'])) ?>" aria-hidden="true"></div>
+        <div class="bg-controls">
+          <div class="group-checks">
+            <label><input type="radio" name="bg_mode" value="auto" <?= $bgMode === 'auto' ? 'checked' : '' ?>> Automatico (colore del ruolo)</label>
+            <label><input type="radio" name="bg_mode" value="color" <?= $bgMode === 'color' ? 'checked' : '' ?>> Colore</label>
+            <label><input type="radio" name="bg_mode" value="image" <?= $bgMode === 'image' ? 'checked' : '' ?>> Immagine</label>
+          </div>
+          <div class="bg-panel" data-bg-panel="color">
+            <div class="swatches">
+              <?php foreach (['#53c8f5', '#38d178', '#ffd23f', '#ff6b9a', '#a67cf2', '#ff8c42', '#ff5a5f', '#1f1a2e'] as $sw): ?>
+                <button type="button" class="swatch" data-color="<?= $sw ?>" style="background: <?= $sw ?>" aria-label="Colore <?= $sw ?>"></button>
+              <?php endforeach; ?>
+              <label class="swatch-custom" title="Un altro colore"><input type="color" name="bg_color" value="<?= h($bgColorVal) ?>" aria-label="Scegli un colore"></label>
+            </div>
+          </div>
+          <div class="bg-panel" data-bg-panel="image">
+            <label class="btn btn-ghost btn-sm file-btn"><i class="ti ti-photo"></i> Scegli immagine<input type="file" name="bg_image" accept="image/*"
+              data-crop-w="1000" data-crop-h="400" data-crop-title="Ritaglia lo sfondo" data-preview="bg-preview" data-preview-type="bg"></label>
+            <p class="muted small">Dopo averla scelta trascini e ingrandisci per decidere quale parte tenere. Sul telefono si vede la parte centrale.</p>
+          </div>
+        </div>
+      </div>
+    </fieldset>
     <div class="form-grid">
       <label class="field span-2"><span>Nome</span><input name="name" required maxlength="80" value="<?= h($p['name']) ?>"></label>
       <label class="field"><span>Numero di maglia</span><input type="number" name="shirt_number" min="0" max="99" value="<?= h($p['shirt_number']) ?>"></label>

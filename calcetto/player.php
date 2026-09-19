@@ -71,7 +71,7 @@ layout_start($p['name'], 'players');
 ?>
 <a class="back" href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a>
 
-<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?>">
+<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= !empty($p['bg_image']) ? ' has-bg-image' : '' ?>"<?= ($bgStyle = profile_bg_style($p)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
   <div class="profile-photo"><?= avatar($p, 'xxl') ?>
     <?php if ($p['shirt_number'] !== null): ?><span class="profile-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?></div>
   <div class="profile-info">

@@ -315,40 +315,46 @@ function form_badge(string $form): string
 }
 
 /**
- * Salva la foto caricata in uploads/players, ritagliata quadrata 400x400 se c'è GD.
- * Ritorna il percorso relativo o null; in caso di errore imposta $error.
+ * Salva un'immagine caricata in uploads/players, ritagliata alla proporzione $w:$h e ridimensionata a $w x $h se c'è GD.
+ * Di solito il ritaglio l'ha già scelto la persona nel browser: qui si prende il centro (o, con $vAlign = 0, la parte alta,
+ * così una foto intera non taglia la testa) solo per i file non ritagliati. Ritorna il percorso relativo o null;
+ * in caso di errore imposta $error.
  */
-function save_player_photo(array $file, int $player_id, ?string &$error): ?string
+function save_player_image(array $file, int $player_id, ?string &$error, string $prefix = 'p', int $w = 400, int $h = 400, float $vAlign = 0.0, string $what = 'foto'): ?string
 {
     $error = null;
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
         return null;
     }
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        $error = 'Caricamento della foto non riuscito.';
+        $error = "Caricamento dell'immagine non riuscito ($what).";
         return null;
     }
     if ($file['size'] > 6 * 1024 * 1024) {
-        $error = 'La foto supera 6 MB.';
+        $error = "L'immagine supera 6 MB ($what).";
         return null;
     }
     $info = @getimagesize($file['tmp_name']);
     $types = [IMAGETYPE_JPEG => 'jpg', IMAGETYPE_PNG => 'png', IMAGETYPE_WEBP => 'webp', IMAGETYPE_GIF => 'gif'];
-    if (!$info || !isset($types[$info[2]])) {
-        $error = 'Formato non valido: usa JPG, PNG, WEBP o GIF.';
+    if (!$info || !isset($types[$info[2]]) || $info[0] < 1 || $info[1] < 1) {
+        $error = "Formato non valido ($what): usa JPG, PNG, WEBP o GIF.";
         return null;
     }
     $dir = __DIR__ . '/../uploads/players';
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
-    $base = 'p' . $player_id . '_' . bin2hex(random_bytes(4));
+    $base = $prefix . $player_id . '_' . bin2hex(random_bytes(4));
 
     if (function_exists('imagecreatetruecolor')) {
         $loaders = [IMAGETYPE_JPEG => 'imagecreatefromjpeg', IMAGETYPE_PNG => 'imagecreatefrompng',
             IMAGETYPE_WEBP => 'imagecreatefromwebp', IMAGETYPE_GIF => 'imagecreatefromgif'];
         $load = $loaders[$info[2]];
         $src = function_exists($load) ? @$load($file['tmp_name']) : false;
+        if (function_exists($load) && !$src) {
+            $error = "Immagine non leggibile ($what): prova con un altro file.";
+            return null;
+        }
         if ($src) {
             if ($info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
                 $exif = @exif_read_data($file['tmp_name']);
@@ -357,12 +363,23 @@ function save_player_photo(array $file, int $player_id, ?string &$error): ?strin
                     $src = imagerotate($src, $rot, 0);
                 }
             }
-            $w = imagesx($src);
-            $hgt = imagesy($src);
-            $side = min($w, $hgt);
-            $dst = imagecreatetruecolor(400, 400);
-            // ritaglio centrato in orizzontale e dall'alto in verticale, così non taglia la testa
-            imagecopyresampled($dst, $src, 0, 0, (int) (($w - $side) / 2), 0, 400, 400, $side, $side);
+            $sw = imagesx($src);
+            $sh = imagesy($src);
+            $ta = $w / $h;
+            if ($sw / $sh > $ta) {                       // troppo larga: taglia ai lati, dal centro
+                $cw = (int) round($sh * $ta);
+                $ch = $sh;
+                $cx = (int) (($sw - $cw) / 2);
+                $cy = 0;
+            } else {                                     // troppo alta: taglia sopra/sotto
+                $cw = $sw;
+                $ch = (int) round($sw / $ta);
+                $cx = 0;
+                $cy = (int) (($sh - $ch) * $vAlign);
+            }
+            $dst = imagecreatetruecolor($w, $h);
+            imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));   // PNG trasparenti: fondo bianco
+            imagecopyresampled($dst, $src, 0, 0, $cx, $cy, $w, $h, $cw, $ch);
             $path = 'uploads/players/' . $base . '.jpg';
             imagejpeg($dst, __DIR__ . '/../' . $path, 85);
             imagedestroy($src);
@@ -372,10 +389,50 @@ function save_player_photo(array $file, int $player_id, ?string &$error): ?strin
     }
     $path = 'uploads/players/' . $base . '.' . $types[$info[2]];
     if (!move_uploaded_file($file['tmp_name'], __DIR__ . '/../' . $path)) {
-        $error = 'Impossibile salvare la foto (permessi della cartella uploads?).';
+        $error = "Impossibile salvare l'immagine (permessi della cartella uploads?).";
         return null;
     }
     return $path;
+}
+
+/** Foto profilo: quadrata 400x400. */
+function save_player_photo(array $file, int $player_id, ?string &$error): ?string
+{
+    return save_player_image($file, $player_id, $error, 'p', 400, 400, 0.0, 'foto');
+}
+
+/** Immagine di sfondo del profilo: 1000x400 (proporzione 5:2). */
+function save_profile_bg(array $file, int $player_id, ?string &$error): ?string
+{
+    return save_player_image($file, $player_id, $error, 'b', 1000, 400, 0.5, 'sfondo');
+}
+
+/** Colore #rrggbb valido (minuscolo) oppure null. */
+function clean_hex_color($c): ?string
+{
+    $c = strtolower(trim((string) $c));
+    return preg_match('/^#[0-9a-f]{6}$/', $c) ? $c : null;
+}
+
+/** Stesso colore mescolato col bianco (per le strisce dello sfondo). */
+function lighten_hex(string $hex, float $amount = 0.3): string
+{
+    [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+    $mix = fn($c) => (int) round($c + (255 - $c) * $amount);
+    return sprintf('#%02x%02x%02x', $mix($r), $mix($g), $mix($b));
+}
+
+/** Attributo style dello sfondo scelto per il profilo ('' = colori del ruolo). */
+function profile_bg_style(array $p): string
+{
+    $img = $p['bg_image'] ?? null;
+    if ($img && preg_match('#^uploads/players/[A-Za-z0-9_.-]+$#', $img) && is_file(__DIR__ . '/../' . $img)) {
+        return "background: url('" . h($img) . '?v=' . filemtime(__DIR__ . '/../' . $img) . "') center / cover no-repeat, var(--pc);";
+    }
+    if ($c = clean_hex_color($p['bg_color'] ?? '')) {
+        return '--pc: ' . $c . '; --pc2: ' . lighten_hex($c) . ';';
+    }
+    return '';
 }
 
 function delete_photo_file(?string $path): void

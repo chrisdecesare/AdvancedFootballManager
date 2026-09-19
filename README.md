@@ -117,11 +117,16 @@ forza della squadra in cui i due giocano insieme (massimo ±2,5 a squadra). Nell
 «Intesa e note» mostra i compagni con cui rende di più e le note (ad esempio quanto segna in più con lui).
 
 **Gruppi** (es. YBQ e FANTA): l'admin li gestisce in Admin → Gruppi e assegna a ogni giocatore uno o più
-gruppi (alla registrazione la persona sceglie i suoi, l'admin conferma). Ogni partita appartiene a un gruppo.
+gruppi (chi si iscrive non vede i gruppi: li assegna l'admin quando approva l'iscrizione). Ogni partita appartiene a un gruppo.
 Un giocatore vede e partecipa solo a giocatori e partite dei suoi gruppi (le altre, anche aprendo il link,
 danno «non trovato»); chi è in più gruppi li vede tutti e può filtrare con i pulsanti in alto; l'admin vede
 tutto. Statistiche, classifica, pagamenti e intesa sono calcolati dentro al gruppo. Il gruppo iniziale si
 chiama «Principale» e si rinomina (es. in YBQ).
+
+**Foto e sfondo del profilo:** in «Modifica profilo» chi sceglie una foto vede subito una finestra di ritaglio: trascina
+e ingrandisce (cursore, rotella o pizzico con due dita) per decidere quale parte tenere, e viene caricata solo quella (400x400).
+Lo sfondo della scheda del profilo può essere automatico (colore del ruolo), un colore a scelta oppure un'immagine, ritagliata
+allo stesso modo (1000x400). Se il browser non riesce a leggere il file, lo ritaglia il server (foto: parte alta, sfondo: centro).
 
 **Google Calendar:** nella scheda di una partita in programma (e nella prossima partita della Home) il
 pulsante «Aggiungi a Google Calendar» (e, nell'elenco Partite, il tasto con l'icona del calendario a destra di ogni partita in programma) apre Google Calendar con l'evento già compilato (data, ora, campo,
