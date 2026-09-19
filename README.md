@@ -18,29 +18,37 @@ HTTPS obbligatorio, cartella `uploads/` che serve solo immagini.
 ## Configurazione: `config.local.php`
 
 Password del database e codice di installazione **non stanno su GitHub**. Vanno in
-`calcetto/config.local.php`, escluso da Git (`.gitignore`) e dal deploy automatico:
+`calcetto/config.local.php`, escluso da Git (`.gitignore`) e dal deploy automatico. Ci sono due modi:
 
-```bash
-cp calcetto/config.local.php.example calcetto/config.local.php
-```
-poi compilalo (su Altervista: `DB_USER` = nome utente, `DB_NAME` = `my_` + nome utente,
-`DB_PASS` vuota se il pannello non ne indica una). Questo file si carica sul server **una
-volta sola** via FTP.
+- **Su WordPress (es. Altervista):** si crea da solo con `setup-wordpress.php` (vedi sotto).
+- **Altrove:** `cp calcetto/config.local.php.example calcetto/config.local.php` e compilalo
+  (`DB_HOST`, `DB_USER`, `DB_PASS`, `DB_NAME`, `INSTALL_KEY`).
 
-## Prima installazione su Altervista
+## Prima installazione su Altervista (spazio WordPress)
 
-1. Pannello Altervista → **Database** → attiva MySQL; **Impostazioni PHP** → PHP 8.0 o superiore.
-2. Carica via FTP (mostrando i file nascosti, per i `.htaccess`) il contenuto di `calcetto/`
-   nella cartella del sito, **compresi** `config.local.php` e `install.php`.
-3. Apri `https://nomeutente.altervista.org/install.php`, inserisci `INSTALL_KEY`, username e
-   password dell'admin. Il file `install.php` si cancella da solo (controlla via FTP che sia sparito).
+Sugli spazi WordPress di Altervista l'FTP entra **dentro `wp-content/`** e non c'è un MySQL
+separato: il gestionale sta in `wp-content/calcetto/` e usa il database di WordPress
+(le sue tabelle hanno nomi diversi da quelle `wp_...` di WordPress).
+
+1. Configura il deploy (sezione sotto) ed esegui il workflow: carica il sito in `wp-content/calcetto/`.
+2. Accedi a WordPress come amministratore e apri
+   `https://TUOSITO.altervista.org/wp-content/calcetto/setup-wordpress.php`.
+   Solo un amministratore WordPress può usarla. Clicca **Collega il database**: copia le
+   credenziali in `config.local.php` (sul server) e mostra, una sola volta, il **codice di installazione**.
+3. Apri `.../wp-content/calcetto/install.php`, inserisci il codice e scegli username e password
+   dell'admin. `install.php` e `setup-wordpress.php` si cancellano da soli a fine uso.
 4. Da *Admin* crea gli account degli amici.
+
+## Prima installazione su un hosting PHP + MySQL normale
+
+Crea `config.local.php` (vedi sopra), carica il contenuto di `calcetto/` (compresi i file
+nascosti `.htaccess`), apri `/install.php`, inserisci `INSTALL_KEY`, username e password admin.
 
 ## Deploy automatico (GitHub → Altervista)
 
 Ogni push su `main` esegue [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),
-che carica via FTP **solo i file cambiati**. Non tocca mai `config.local.php`, `install.php`
-e le foto in `uploads/players/`.
+che carica via FTP **solo i file cambiati** in `wp-content/calcetto/`. Non tocca mai
+`config.local.php` e le foto in `uploads/players/`.
 
 Configurazione, una volta sola (repository → *Settings → Secrets and variables → Actions*):
 
@@ -50,7 +58,7 @@ Configurazione, una volta sola (repository → *Settings → Secrets and variabl
 | Secret | `FTP_USERNAME` | il tuo nome utente Altervista |
 | Secret | `FTP_PASSWORD` | la password FTP |
 | Variable (facoltativa) | `FTP_PROTOCOL` | `ftp` se Altervista rifiuta la connessione cifrata (predefinito: `ftps`) |
-| Variable (facoltativa) | `FTP_DIR` | cartella del sito sul server, se non è la principale (es. `./calcetto/`) |
+| Variable (facoltativa) | `FTP_DIR` | cartella di destinazione sul server (predefinita: `./calcetto/`) |
 
 Da riga di comando: `gh secret set FTP_PASSWORD` (chiede il valore senza mostrarlo).
 Il primo deploy si può lanciare anche a mano da *Actions → Deploy su Altervista → Run workflow*.
