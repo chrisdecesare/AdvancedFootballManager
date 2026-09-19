@@ -34,3 +34,15 @@ jobs:
             config.local.php
             config.local.php.example
             uploads/players/**
+
+      # Solo su Altervista/WordPress: fa aprire il gestionale dall'indirizzo principale del sito.
+      # Finisce in wp-content/mu-plugins/ (WordPress lo carica da solo, senza attivarlo).
+      - name: Carica il redirect della home (mu-plugin)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./wordpress/mu-plugins/
+          server-dir: ./mu-plugins/
