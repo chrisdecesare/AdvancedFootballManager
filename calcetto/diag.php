@@ -16,6 +16,21 @@ echo 'DB_HOST=' . DB_HOST . ' porta=' . (defined('DB_PORT') ? DB_PORT : '-') . "
 echo 'pdo_mysql: ' . (extension_loaded('pdo_mysql') ? 'si' : 'no') . ' | mysqli: ' . (extension_loaded('mysqli') ? 'si' : 'no') . "\n";
 echo 'PHP ' . PHP_VERSION . "\n";
 
+// Struttura di wp-config.php con TUTTI i valori oscurati (restano solo i nomi delle costanti note)
+echo "\n--- righe rilevanti di wp-config.php (valori oscurati) ---\n";
+$f = dirname(__DIR__, 2) . '/wp-config.php';
+$known = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_CHARSET', 'DB_COLLATE', 'WP_HOME', 'WP_SITEURL'];
+foreach (@file($f, FILE_IGNORE_NEW_LINES) ?: [] as $n => $line) {
+    if (!preg_match('/DB_|table_prefix|include|require|getenv|\$_SERVER|\$_ENV|\$_/i', $line)) {
+        continue;
+    }
+    $masked = preg_replace_callback('/([\'"])((?:\\.|(?!\1).)*)\1/', function ($m) use ($known) {
+        return in_array($m[2], $known, true) ? $m[0] : "'<" . strlen($m[2]) . " car.>'";
+    }, $line);
+    echo ($n + 1) . ': ' . trim($masked) . "\n";
+}
+echo 'dimensione file: ' . (@filesize($f) ?: '?') . " byte\n";
+
 try {
     $pdo = new PDO('mysql:host=' . DB_HOST . (defined('DB_PORT') ? ';port=' . DB_PORT : '') . ';dbname=' . DB_NAME . ';charset=utf8mb4',
         DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -39,18 +54,3 @@ try {
 } catch (Throwable $e) {
     echo 'permessi tabelle: FALLITO codice driver=' . ($e instanceof PDOException ? ($e->errorInfo[1] ?? '?') : '?') . "\n";
 }
-
-// Struttura di wp-config.php con TUTTI i valori oscurati (restano solo i nomi delle costanti note)
-echo "\n--- righe rilevanti di wp-config.php (valori oscurati) ---\n";
-$f = dirname(__DIR__, 2) . '/wp-config.php';
-$known = ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_CHARSET', 'DB_COLLATE', 'WP_HOME', 'WP_SITEURL'];
-foreach (@file($f, FILE_IGNORE_NEW_LINES) ?: [] as $n => $line) {
-    if (!preg_match('/DB_|table_prefix|include|require|getenv|\$_SERVER|\$_ENV|\$_/i', $line)) {
-        continue;
-    }
-    $masked = preg_replace_callback('/([\'"])((?:\\.|(?!\1).)*)\1/', function ($m) use ($known) {
-        return in_array($m[2], $known, true) ? $m[0] : "'<" . strlen($m[2]) . " car.>'";
-    }, $line);
-    echo ($n + 1) . ': ' . trim($masked) . "\n";
-}
-echo 'dimensione file: ' . (@filesize($f) ?: '?') . " byte\n";
