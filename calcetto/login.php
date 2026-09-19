@@ -34,7 +34,7 @@ layout_start('Accedi');
       <?= csrf_field() ?>
       <input type="hidden" name="next" value="<?= h($next) ?>">
       <label class="field"><span>Username</span>
-        <input name="username" required autofocus autocomplete="username" value="<?= h($_POST['username'] ?? '') ?>"></label>
+        <input name="username" required autofocus autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" value="<?= h($_POST['username'] ?? '') ?>"></label>
       <label class="field"><span>Password</span>
         <input type="password" name="password" required autocomplete="current-password"></label>
       <button class="btn btn-primary btn-block">Entra</button>
