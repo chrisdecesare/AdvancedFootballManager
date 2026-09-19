@@ -13,12 +13,17 @@ $error = null;
 if (is_post()) {
     $u = $_POST['username'] ?? '';
     $p = $_POST['password'] ?? '';
-    $res = attempt_login(is_string($u) ? $u : '', is_string($p) ? $p : '');    if ($res === 'ok') {
+    $res = attempt_login(is_string($u) ? $u : '', is_string($p) ? $p : '');
+    if ($res === 'ok') {
         redirect($next);
     }
-    $error = $res === 'blocked'
-        ? 'Troppi tentativi falliti: riprova tra ' . LOGIN_WINDOW_MIN . ' minuti.'
-        : 'Username o password errati.';
+    if ($res === 'blocked') {
+        $error = 'Troppi tentativi falliti: riprova tra ' . LOGIN_WINDOW_MIN . ' minuti.';
+    } elseif ($res === 'pending') {
+        $error = 'La tua iscrizione è in attesa: l\'admin deve ancora approvarla.';
+    } else {
+        $error = 'Username o password errati.';
+    }
 }
 
 layout_start('Accedi');
@@ -27,7 +32,7 @@ layout_start('Accedi');
   <div class="card login-card">
     <div class="login-ball"><i class="ti ti-ball-football"></i></div>
     <h1>Accedi</h1>
-    <p class="muted">Le credenziali te le dà l'admin del gruppo.</p>
+    <p class="muted"><?= REGISTRATION ? 'Entra con il tuo account.' : 'Le credenziali te le dà l\'admin del gruppo.' ?></p>
     <?php if ($error): ?><div class="flash flash-err"><?= h($error) ?></div><?php endif; ?>
     <form method="post" class="form">
       <?= csrf_field() ?>
@@ -38,6 +43,9 @@ layout_start('Accedi');
         <input type="password" name="password" required autocomplete="current-password"></label>
       <button class="btn btn-primary btn-block">Entra</button>
     </form>
+    <?php if (REGISTRATION): ?>
+      <p class="login-alt">Non hai un account? <a class="link" href="register.php">Iscriviti</a></p>
+    <?php endif; ?>
   </div>
 </div>
 <?php

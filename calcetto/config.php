@@ -31,7 +31,9 @@ define('TIMEZONE', 'Europe/Rome');
 // true = chiunque vede home, partite, rosa e classifica senza login
 define('PUBLIC_READ', false);
 
-// Non esiste iscrizione libera: gli account li crea solo l'admin (pagina Admin).
+// true = chi ha il link può iscriversi da solo dalla pagina di login. L'account resta "in attesa"
+// (non vede nulla) finché un admin non lo approva. false = gli account li crea solo l'admin.
+define('REGISTRATION', true);
 
 define('TEAM_A_NAME', 'Blu');
 define('TEAM_B_NAME', 'Arancio');

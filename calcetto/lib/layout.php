@@ -11,6 +11,7 @@ function layout_start(string $title, string $active = ''): void
     if (is_admin()) {
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
+        $pending = pending_count();
     }
     $css = 'assets/style.css?v=' . @filemtime(__DIR__ . '/../assets/style.css');
     $js = 'assets/app.js?v=' . @filemtime(__DIR__ . '/../assets/app.js');
@@ -37,7 +38,7 @@ function layout_start(string $title, string $active = ''): void
     <?php if ($u || PUBLIC_READ): ?>
     <nav class="nav">
       <?php foreach ($nav as $key => [$href, $label, $icon]): ?>
-        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>"><i class="ti ti-<?= $icon ?>"></i><?= $label ?></a>
+        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>"><i class="ti ti-<?= $icon ?>"></i><?= $label ?><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php endif; ?></a>
       <?php endforeach; ?>
     </nav>
     <?php else: ?><div class="nav"></div><?php endif; ?>

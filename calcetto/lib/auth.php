@@ -91,7 +91,29 @@ function login_blocked(string $username): bool
     return $perUser >= LOGIN_MAX_PER_USER;
 }
 
-/** Ritorna 'ok', 'blocked' (troppi tentativi) o 'fail'. */
+const REGISTER_MAX_PER_IP_HOUR = 10;     // iscrizioni per IP in un'ora
+const REGISTER_MAX_PENDING = 100;        // iscrizioni in attesa di approvazione, in totale
+
+/** Numero di iscrizioni in attesa di approvazione (per l'admin). */
+function pending_count(): int
+{
+    return (int) q("SELECT COUNT(*) FROM users WHERE status = 'in_attesa'")->fetchColumn();
+}
+
+/** true se questo IP ha già fatto troppe iscrizioni nell'ultima ora. */
+function registration_blocked(): bool
+{
+    $since = date('Y-m-d H:i:s', time() - 3600);
+    return (int) q("SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND username = '__iscrizione__' AND created_at > ?",
+        [client_ip(), $since])->fetchColumn() >= REGISTER_MAX_PER_IP_HOUR;
+}
+
+function registration_hit(): void
+{
+    q("INSERT INTO login_attempts (ip, username) VALUES (?, '__iscrizione__')", [client_ip()]);
+}
+
+/** Ritorna 'ok', 'pending' (iscrizione non ancora approvata), 'blocked' (troppi tentativi) o 'fail'. */
 function attempt_login(string $username, string $password): string
 {
     $username = mb_strtolower(mb_substr(trim($username), 0, 50));
@@ -102,7 +124,10 @@ function attempt_login(string $username, string $password): string
     // se l'utente non esiste verifica comunque un hash bcrypt valido (di una password qualsiasi): tempi simili, così non si scoprono gli username
     $hash = $u['password_hash'] ?? '$2y$10$.vGA1O9wmRjrwAVXD98HNOgsNpDczlqm3Jq7KnEd1rVAGv3Fykk1a';
     $valid = password_verify($password, $hash);
-    if ($u && $valid && $u['status'] === 'attivo') {
+    if ($u && $valid && $u['status'] !== 'attivo') {
+        return 'pending';   // password giusta ma l'admin non ha ancora approvato l'iscrizione
+    }
+    if ($u && $valid) {
         q('DELETE FROM login_attempts WHERE ip = ? AND username = ?', [client_ip(), $username]);
         if (password_needs_rehash($hash, PASSWORD_DEFAULT)) {
             q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $u['id']]);
