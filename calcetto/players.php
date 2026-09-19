@@ -39,7 +39,7 @@ layout_start('Rosa', 'players');
 
 <div class="player-grid">
 <?php foreach ($players as $p): $s = $stats[(int) $p['id']]; ?>
-  <a class="pcard role-<?= strtolower(position_abbr($p['position'])) ?> <?= $p['active'] ? '' : 'is-inactive' ?>" href="player.php?id=<?= (int) $p['id'] ?>">
+  <a class="pcard role-<?= strtolower(position_abbr($p['position'])) ?> <?= $p['active'] ? '' : 'is-inactive' ?>" href="player.php?id=<?= (int) $p['id'] ?>"<?= ($bgStyle = profile_bg_style($p, true)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
     <div class="pcard-top">
       <span class="pcard-ovr"><?= fmt_num($s['ovr'], 1) ?><small>OVR</small></span>
       <?php if ($p['shirt_number'] !== null): ?><span class="pcard-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?>
