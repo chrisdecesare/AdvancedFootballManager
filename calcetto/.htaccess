@@ -1,0 +1,23 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+# HTTPS obbligatorio: le password non devono viaggiare in chiaro (in locale, su localhost, resta http)
+# Se dopo l'upload il sito va in "troppi reindirizzamenti", cancella questo blocco <IfModule mod_rewrite.c>.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Non scaricabili dal browser: file nascosti (.git, .env...), dati e file di servizio, config.php
+<FilesMatch "(^\.|\.(sql|md|log|bak|old|orig|dist|ini|inc|sh|yml|yaml|lock|swp|zip|tar|gz|example)$|^config(\.local)?\.php$)">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

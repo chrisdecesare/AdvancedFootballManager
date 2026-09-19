@@ -1,0 +1,108 @@
+-- Schema MySQL di Calcetto Manager (lo esegue install.php)
+
+CREATE TABLE IF NOT EXISTS players (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(80) NOT NULL,
+  photo VARCHAR(255) NULL,
+  shirt_number TINYINT UNSIGNED NULL,
+  position VARCHAR(20) NOT NULL DEFAULT 'Jolly',   -- posizione preferita
+  position2 VARCHAR(20) NULL,                      -- seconda posizione (facoltativa)
+  foot VARCHAR(12) NOT NULL DEFAULT 'Destro',
+  base_rating DECIMAL(3,1) NOT NULL DEFAULT 6.0,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  -- correzioni manuali (es. statistiche precedenti al sito)
+  adj_apps INT NOT NULL DEFAULT 0,
+  adj_wins INT NOT NULL DEFAULT 0,
+  adj_draws INT NOT NULL DEFAULT 0,
+  adj_losses INT NOT NULL DEFAULT 0,
+  adj_goals INT NOT NULL DEFAULT 0,
+  adj_assists INT NOT NULL DEFAULT 0,
+  adj_own_goals INT NOT NULL DEFAULT 0,
+  adj_mvp INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('admin','player') NOT NULL DEFAULT 'player',
+  status ENUM('attivo','in_attesa') NOT NULL DEFAULT 'attivo',   -- in_attesa = iscrizione da approvare
+  reg_name VARCHAR(80) NULL,                       -- dati inseriti all'iscrizione
+  reg_json TEXT NULL,
+  player_id INT NULL UNIQUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS matches (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  match_date DATETIME NOT NULL,
+  location VARCHAR(120) NOT NULL DEFAULT '',
+  team_a_name VARCHAR(40) NOT NULL DEFAULT '',
+  team_b_name VARCHAR(40) NOT NULL DEFAULT '',
+  formation_a VARCHAR(20) NOT NULL DEFAULT '',     -- modulo scelto (vuoto = automatico)
+  formation_b VARCHAR(20) NOT NULL DEFAULT '',
+  fee DECIMAL(6,2) NOT NULL DEFAULT 0,
+  status ENUM('programmata','giocata') NOT NULL DEFAULT 'programmata',
+  score_a TINYINT UNSIGNED NULL,
+  score_b TINYINT UNSIGNED NULL,
+  voting_open TINYINT(1) NOT NULL DEFAULT 0,
+  notes TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (status, match_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS match_players (
+  match_id INT NOT NULL,
+  player_id INT NOT NULL,
+  availability ENUM('in_attesa','confermato','assente') NOT NULL DEFAULT 'in_attesa',
+  team ENUM('A','B') NULL,
+  slot TINYINT UNSIGNED NULL,                      -- posizione nel modulo della squadra
+  goals TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  assists TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  own_goals TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  paid TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (match_id, player_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- voti 1-10 che ogni giocatore della partita dà agli altri
+CREATE TABLE IF NOT EXISTS ratings (
+  match_id INT NOT NULL,
+  voter_id INT NOT NULL,
+  rated_id INT NOT NULL,
+  vote DECIMAL(3,1) NOT NULL,
+  PRIMARY KEY (match_id, voter_id, rated_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (voter_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (rated_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS mvp_votes (
+  match_id INT NOT NULL,
+  voter_id INT NOT NULL,
+  voted_id INT NOT NULL,
+  PRIMARY KEY (match_id, voter_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (voter_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (voted_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS meta (
+  k VARCHAR(40) PRIMARY KEY,
+  v VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- tentativi di accesso falliti (limita gli attacchi a forza bruta)
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  ip VARCHAR(45) NOT NULL,
+  username VARCHAR(50) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (ip, created_at),
+  INDEX (ip, username, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '4');

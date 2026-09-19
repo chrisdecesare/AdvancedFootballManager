@@ -1,0 +1,16 @@
+<?php
+// Copia questo file in config.local.php e compilalo.
+// config.local.php NON va su GitHub: si carica sul server una volta sola, via FTP,
+// e il deploy automatico non lo tocca mai.
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    http_response_code(404);
+    exit;
+}
+
+define('DB_HOST', 'localhost');
+define('DB_USER', 'NOMEUTENTE');        // il tuo nome utente Altervista
+define('DB_PASS', '');                  // vuota, se il pannello Database non ne indica una
+define('DB_NAME', 'my_NOMEUTENTE');     // di solito my_ + nome utente
+
+// Codice da digitare in install.php per creare il primo admin
+define('INSTALL_KEY', 'scegli-un-codice-lungo-e-casuale');

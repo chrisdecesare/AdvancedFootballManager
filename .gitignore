@@ -1,0 +1,9 @@
+# dati riservati: restano solo sul PC e sul server
+calcetto/config.local.php
+
+# foto caricate dai giocatori (restano solo sul server)
+calcetto/uploads/players/*
+!calcetto/uploads/players/.gitkeep
+
+# stato del deploy FTP
+.ftp-deploy-sync-state.json
