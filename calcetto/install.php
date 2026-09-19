@@ -1,8 +1,8 @@
 <?php
 /*
  * Installazione: crea le tabelle e il primo account admin.
- * Serve il codice INSTALL_KEY di config.php. A fine installazione il file si cancella da solo
- * (se il server non glielo permette, cancellalo tu via FTP).
+ * Serve il codice INSTALL_KEY di config.local.php (senza, non parte). A fine installazione il file
+ * si cancella da solo (se il server non glielo permette, cancellalo tu).
  */
 require __DIR__ . '/lib/bootstrap.php';
 
@@ -26,7 +26,7 @@ if (is_post() && $keyOk) {
     $key = is_string($_POST['key'] ?? null) ? $_POST['key'] : '';
     if (!hash_equals(INSTALL_KEY, $key)) {
         usleep(700000);
-        $errors[] = 'Codice di installazione errato (è INSTALL_KEY in config.php).';
+        $errors[] = 'Codice di installazione errato.';
     }
     if (!preg_match('/^[A-Za-z0-9._-]{3,50}$/', $username)) {
         $errors[] = 'Username: 3-50 caratteri tra lettere, numeri, punto, trattino e underscore.';
@@ -67,13 +67,13 @@ layout_start('Installazione');
   <div class="card">
     <h1>Installazione</h1>
     <?php if (!$keyOk): ?>
-      <div class="flash flash-err">In <code>config.php</code> imposta <code>INSTALL_KEY</code> con un codice a tua scelta, poi ricarica.</div>
+      <div class="flash flash-err">Manca il codice di installazione. Su Altervista apri prima <code>setup-wordpress.php</code> (da amministratore di WordPress); altrove imposta <code>INSTALL_KEY</code> in <code>config.local.php</code>.</div>
     <?php else: ?>
       <p class="muted">Crea le tabelle nel database <code><?= h(DB_NAME) ?></code> e il primo account admin.</p>
       <?php foreach ($errors as $e): ?><div class="flash flash-err"><?= h($e) ?></div><?php endforeach; ?>
       <form method="post" class="form" autocomplete="off">
         <?= csrf_field() ?>
-        <label class="field"><span>Codice di installazione (INSTALL_KEY in config.php)</span>
+        <label class="field"><span>Codice di installazione</span>
           <input type="password" name="key" required autocomplete="off"></label>
         <label class="field"><span>Username admin</span>
           <input name="username" required value="<?= h($_POST['username'] ?? '') ?>" autocomplete="username"></label>
