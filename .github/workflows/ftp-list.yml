@@ -1,0 +1,25 @@
+name: Elenco file FTP (diagnostica temporanea)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Elenca la cartella iniziale dell'utente FTP
+        env:
+          H: ${{ secrets.FTP_SERVER }}
+          U: ${{ secrets.FTP_USERNAME }}
+          P: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          ls_ftp() { curl -sS --ssl-reqd -m 40 -u "$U:$P" -X 'LIST -a' "ftp://$H/$1" 2>&1 || curl -sS --ssl-reqd -k -m 40 -u "$U:$P" -X 'LIST -a' "ftp://$H/$1" 2>&1; }
+          echo "===== / ====="
+          out=$(ls_ftp ""); echo "$out"
+          for d in $(echo "$out" | awk '/^d/ {print $NF}' | grep -vE '^\.\.?$'); do
+            echo; echo "===== /$d/ (primi 40) ====="
+            ls_ftp "$d/" | head -40
+          done
