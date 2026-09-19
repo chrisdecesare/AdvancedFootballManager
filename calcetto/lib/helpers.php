@@ -101,6 +101,31 @@ function positions(): array
     return ['Portiere', 'Difensore', 'Centrocampista', 'Attaccante', 'Jolly'];
 }
 
+/** Ruoli selezionabili come posizione preferita: il Jolly può essere solo la seconda preferenza. */
+function main_positions(): array
+{
+    return ['Portiere', 'Difensore', 'Centrocampista', 'Attaccante'];
+}
+
+/**
+ * Applica la regola sulle preferenze: la prima è uno dei quattro ruoli, la seconda (facoltativa) è
+ * un altro ruolo oppure Jolly. Un Jolly messo come prima scelta (dati vecchi) diventa la seconda:
+ * la prima diventa la vecchia seconda, oppure Centrocampista se non c'era.
+ * @return array{0: string, 1: ?string}
+ */
+function normalize_positions(?string $p1, ?string $p2): array
+{
+    if (!in_array($p1, main_positions(), true)) {
+        $jolly = $p1 === 'Jolly' || $p2 === 'Jolly';
+        $p1 = in_array($p2, main_positions(), true) ? $p2 : 'Centrocampista';
+        $p2 = $jolly ? 'Jolly' : null;
+    }
+    if (!in_array($p2, positions(), true) || $p2 === $p1) {
+        $p2 = null;
+    }
+    return [$p1, $p2];
+}
+
 function position_abbr(string $p): string
 {
     return ['Portiere' => 'POR', 'Difensore' => 'DIF', 'Centrocampista' => 'CEN',
