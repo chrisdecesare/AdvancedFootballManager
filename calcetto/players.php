@@ -29,6 +29,7 @@ layout_start('Rosa', 'players');
     <?php endif; ?>
   </div>
 </div>
+<?= group_bar('players.php') ?>
 <div class="sortbar">
   Ordina:
   <?php foreach (['nome' => 'Nome', 'numero' => 'Numero', 'ruolo' => 'Ruolo', 'rating' => 'Rating', 'gol' => 'Gol'] as $k => $l): ?>

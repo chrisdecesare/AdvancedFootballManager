@@ -108,6 +108,21 @@ al 50% su qualsiasi ruolo. I portieri si dividono, e ogni squadra deve poter cop
 attacco del suo modulo (due posti scoperti nella stessa squadra costano più di uno per squadra). Sotto le
 squadre si vedono forza totale e giocatori per ruolo.
 
+**Intesa tra giocatori** (`lib/chemistry.php`, come la "chimica" dei vecchi FIFA): per ogni coppia che ha
+giocato almeno 2 partite nella stessa squadra si guardano i **risultati** (punti a partita insieme contro la
+media dei due), gli **assist** tra i due (li registra l'admin in «Chi ha fatto assist a chi», nella scheda
+della partita; contano di più se si servono a vicenda) e i **gol** (a partita con e senza quel compagno). Ne
+esce un bonus in punti rating, prudente con poche partite (peso n/(n+4)), che il bilanciamento somma alla
+forza della squadra in cui i due giocano insieme (massimo ±2,5 a squadra). Nella scheda di ogni giocatore,
+«Intesa e note» mostra i compagni con cui rende di più e le note (ad esempio quanto segna in più con lui).
+
+**Gruppi** (es. YBQ e FANTA): l'admin li gestisce in Admin → Gruppi e assegna a ogni giocatore uno o più
+gruppi (alla registrazione la persona sceglie i suoi, l'admin conferma). Ogni partita appartiene a un gruppo.
+Un giocatore vede e partecipa solo a giocatori e partite dei suoi gruppi (le altre, anche aprendo il link,
+danno «non trovato»); chi è in più gruppi li vede tutti e può filtrare con i pulsanti in alto; l'admin vede
+tutto. Statistiche, classifica, pagamenti e intesa sono calcolati dentro al gruppo. Il gruppo iniziale si
+chiama «Principale» e si rinomina (es. in YBQ).
+
 **Google Calendar:** nella scheda di una partita in programma (e nella prossima partita della Home) il
 pulsante «Aggiungi a Google Calendar» (e, nell'elenco Partite, il tasto con l'icona del calendario a destra di ogni partita in programma) apre Google Calendar con l'evento già compilato (data, ora, campo,
 note, quota e link alla partita). Non serve nessun collegamento con l'account Google: la notifica arriva

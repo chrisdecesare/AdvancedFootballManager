@@ -72,6 +72,13 @@ function fmt_num($n, int $dec = 1): string
     return number_format((float) $n, $dec, ',', '.');
 }
 
+/** Numero con il segno (+0,4 / 0). */
+function fmt_signed($n, int $dec = 1): string
+{
+    $v = round((float) $n, $dec);
+    return ($v > 0 ? '+' : '') . number_format($v, $dec, ',', '.');
+}
+
 function fmt_money($n): string
 {
     return '€ ' . number_format((float) $n, 2, ',', '.');

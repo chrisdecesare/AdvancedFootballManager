@@ -23,6 +23,7 @@ if (!isset($cols[$sort])) {
 layout_start('Classifica', 'standings');
 ?>
 <div class="page-head"><h1>Classifica</h1></div>
+<?= group_bar('standings.php') ?>
 <div class="sortbar">
   Classifica per:
   <?php foreach (['points' => 'Punti', 'goals' => 'Marcatori', 'assists' => 'Assist', 'mvp' => 'MVP', 'avg_vote' => 'Media voto', 'win_pct' => '% Vittorie'] as $k => $l): ?>

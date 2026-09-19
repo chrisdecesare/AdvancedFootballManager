@@ -70,16 +70,21 @@ if (is_post()) {
     if ($admin && $account && (int) $account['id'] === (int) current_user()['id'] && $role !== 'admin') {
         $errors[] = 'Non puoi toglierti il ruolo di admin da solo.';
     }
+    // gruppi (solo l'admin li cambia): almeno uno; con un solo gruppo esistente è automatico
+    $groupIds = array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys(all_groups())));
+    if ($admin && count(all_groups()) === 1) {
+        $groupIds = array_keys(all_groups());
+    }
+    if ($admin && !$groupIds) {
+        $errors[] = 'Scegli almeno un gruppo per il giocatore.';
+    }
 
     if (!$errors) {
         $vals = [$name, $num === '' ? null : (int) $num, $pos, $pos2, $foot];
         if ($isNew) {
             q('INSERT INTO players (name, shirt_number, position, position2, foot) VALUES (?, ?, ?, ?, ?)', $vals);
             $id = (int) db()->lastInsertId();
-            // entra anche nelle partite già programmate
-            foreach (q("SELECT id FROM matches WHERE status = 'programmata'")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
-                sync_match_players((int) $mid);
-            }
+            set_player_groups($id, $groupIds);   // e con questo entra anche nelle partite già programmate del suo gruppo
         } else {
             q('UPDATE players SET name = ?, shirt_number = ?, position = ?, position2 = ?, foot = ? WHERE id = ?', array_merge($vals, [$id]));
         }
@@ -94,6 +99,9 @@ if (is_post()) {
             }
             $params[] = $id;
             q('UPDATE players SET ' . implode(', ', $sets) . ' WHERE id = ?', $params);
+            if (!$isNew) {
+                set_player_groups($id, $groupIds);
+            }
 
             if ($username !== '') {
                 if ($account) {
@@ -178,6 +186,18 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
   <?php if ($admin): ?>
   <section class="card">
     <h2>Solo admin</h2>
+    <?php $allGroups = all_groups(); ?>
+    <?php if (count($allGroups) > 1): ?>
+      <?php $checked = $errors && isset($_POST['groups']) ? array_map('intval', (array) $_POST['groups']) : ($isNew ? [group_filter() ?: (int) array_key_first($allGroups)] : player_group_ids($id)); ?>
+      <fieldset class="group-box"><legend>Gruppi</legend>
+        <div class="group-checks">
+          <?php foreach ($allGroups as $gid => $gname): ?>
+            <label><input type="checkbox" name="groups[]" value="<?= $gid ?>" <?= in_array($gid, $checked, true) ? 'checked' : '' ?>> <?= h($gname) ?></label>
+          <?php endforeach; ?>
+        </div>
+        <p class="muted small">Il giocatore vede solo giocatori e partite dei suoi gruppi e può partecipare solo alle partite di quei gruppi.</p>
+      </fieldset>
+    <?php endif; ?>
     <div class="form-grid">
       <label class="field"><span>Rating base (1-10)</span><input name="base_rating" inputmode="decimal" value="<?= h(str_replace('.', ',', (string) $p['base_rating'])) ?>"></label>
       <label class="field check"><input type="checkbox" name="active" value="1" <?= $p['active'] ? 'checked' : '' ?>><span>Attivo (compare nelle nuove partite)</span></label>

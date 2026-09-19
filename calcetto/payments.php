@@ -19,7 +19,7 @@ $rows = q("SELECT p.id, p.name, p.photo, m.id AS match_id, m.match_date, m.fee, 
            FROM match_players mp
            JOIN matches m ON m.id = mp.match_id
            JOIN players p ON p.id = mp.player_id
-           WHERE mp.team IS NOT NULL AND m.fee > 0
+           WHERE mp.team IS NOT NULL AND m.fee > 0 AND " . scope_sql('m.group_id') . "
            ORDER BY p.name, m.match_date DESC")->fetchAll();
 $byPlayer = [];
 $totDue = $totPaid = 0.0;
@@ -40,6 +40,7 @@ uasort($byPlayer, fn($a, $b) => ($b['due'] - $b['paid']) <=> ($a['due'] - $a['pa
 layout_start('Pagamenti', 'payments');
 ?>
 <div class="page-head"><h1>Pagamenti</h1></div>
+<?= group_bar('payments.php') ?>
 <section class="stat-grid stat-grid-3">
   <div class="stat"><strong><?= fmt_money($totDue) ?></strong><span>Totale quote</span></div>
   <div class="stat green"><strong><?= fmt_money($totPaid) ?></strong><span>Incassato</span></div>

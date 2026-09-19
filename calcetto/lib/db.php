@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -90,6 +90,34 @@ function ensure_schema(): void
         // (chi è ancora in attesa di approvazione lo vedrà al primo accesso)
         $add('users', 'tour_done', 'TINYINT(1) NOT NULL DEFAULT 0');
         db()->exec("UPDATE users SET tour_done = 1 WHERE status = 'attivo'");
+    }
+    if ($v < 7) {
+        // gruppi: tutto quello che esiste già finisce nel gruppo "Principale" (l'admin lo rinomina, es. YBQ)
+        db()->exec('CREATE TABLE IF NOT EXISTS squad_groups (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(40) NOT NULL UNIQUE,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS player_groups (
+            player_id INT NOT NULL,
+            group_id INT NOT NULL,
+            PRIMARY KEY (player_id, group_id),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec("INSERT IGNORE INTO squad_groups (id, name) VALUES (1, 'Principale')");
+        $add('matches', 'group_id', 'INT NOT NULL DEFAULT 1');
+        db()->exec('INSERT IGNORE INTO player_groups (player_id, group_id) SELECT id, 1 FROM players');
+        db()->exec('CREATE TABLE IF NOT EXISTS match_links (
+            match_id INT NOT NULL,
+            assister_id INT NOT NULL,
+            scorer_id INT NOT NULL,
+            n TINYINT UNSIGNED NOT NULL DEFAULT 1,
+            PRIMARY KEY (match_id, assister_id, scorer_id),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (assister_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (scorer_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

@@ -7,16 +7,20 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
     $date = $_POST['date'] ?? '';
     $time = $_POST['time'] ?? '';
     $dt = DateTime::createFromFormat('Y-m-d H:i', "$date $time");
+    $gid = (int) ($_POST['group_id'] ?? 0) ?: (count(all_groups()) === 1 ? (int) array_key_first(all_groups()) : 0);
     if (!$dt) {
         flash('err', 'Data o ora non valide.');
+    } elseif (!isset(all_groups()[$gid])) {
+        flash('err', 'Scegli il gruppo della partita.');
     } else {
-        q('INSERT INTO matches (match_date, location, team_a_name, team_b_name, fee, notes) VALUES (?, ?, ?, ?, ?, ?)', [
+        q('INSERT INTO matches (match_date, location, team_a_name, team_b_name, fee, notes, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [
             $dt->format('Y-m-d H:i:s'),
             trim($_POST['location'] ?? ''),
             clean_team_name($_POST['team_a'] ?? '', TEAM_A_NAME),
             clean_team_name($_POST['team_b'] ?? '', TEAM_B_NAME),
             max(0, (float) str_replace(',', '.', $_POST['fee'] ?? '0')),
             trim($_POST['notes'] ?? '') ?: null,
+            $gid,
         ]);
         $id = (int) db()->lastInsertId();
         sync_match_players($id);
@@ -30,13 +34,14 @@ $upcoming = q("SELECT m.*,
                  SUM(mp.availability = 'confermato') AS yes_n,
                  SUM(mp.availability = 'assente') AS no_n
                FROM matches m LEFT JOIN match_players mp ON mp.match_id = m.id
-               WHERE m.status = 'programmata' GROUP BY m.id ORDER BY m.match_date ASC")->fetchAll();
+               WHERE m.status = 'programmata' AND " . scope_sql('m.group_id') . " GROUP BY m.id ORDER BY m.match_date ASC")->fetchAll();
 $played = played_matches();
 $me = my_player_id();
 
 layout_start('Partite', 'matches');
 ?>
 <div class="page-head"><h1>Partite</h1></div>
+<?= group_bar('matches.php') ?>
 
 <?php if (is_admin()): ?>
 <details class="card collapsible" id="nuova" <?= $upcoming ? '' : 'open' ?>>
@@ -45,6 +50,13 @@ layout_start('Partite', 'matches');
     <?= csrf_field() ?><input type="hidden" name="do" value="create">
     <label class="field"><span>Data</span><input type="date" name="date" required value="<?= date('Y-m-d', strtotime('next thursday')) ?>"></label>
     <label class="field"><span>Ora</span><input type="time" name="time" required value="21:00"></label>
+    <?php $groupOptions = all_groups(); $defaultGroup = group_filter() ?: (int) array_key_first($groupOptions); ?>
+    <?php if (count($groupOptions) > 1): ?>
+      <label class="field span-2"><span>Gruppo (solo i suoi giocatori vedono e partecipano alla partita)</span>
+        <select name="group_id"><?php foreach ($groupOptions as $gid => $gname): ?><option value="<?= $gid ?>" <?= $gid === $defaultGroup ? 'selected' : '' ?>><?= h($gname) ?></option><?php endforeach; ?></select></label>
+    <?php else: ?>
+      <input type="hidden" name="group_id" value="<?= (int) $defaultGroup ?>">
+    <?php endif; ?>
     <label class="field span-2"><span>Campo</span><input name="location" value="<?= h(DEFAULT_LOCATION) ?>" placeholder="Es. Centro sportivo, campo 2"></label>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(TEAM_A_NAME) ?>" placeholder="Es. Scapoli"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(TEAM_B_NAME) ?>" placeholder="Es. Ammogliati"></label>
@@ -63,7 +75,7 @@ layout_start('Partite', 'matches');
     <a class="match-link" href="match.php?id=<?= (int) $m['id'] ?>">
       <div class="mdate"><span class="d"><?= date('j', strtotime($m['match_date'])) ?></span><span class="m"><?= mb_substr(MESI[(int) date('n', strtotime($m['match_date']))], 0, 3) ?></span></div>
       <div class="minfo"><strong><?= h(ucfirst(fmt_date_long($m['match_date']))) ?> · <?= fmt_time($m['match_date']) ?></strong>
-        <span class="muted"><?= h($m['location'] ?: 'Campo da definire') ?></span></div>
+        <span class="muted"><?= h($m['location'] ?: 'Campo da definire') ?> <?= group_tag((int) $m['group_id']) ?></span></div>
       <div class="mside"><span class="count count-yes" title="Confermati"><?= (int) $m['yes_n'] ?></span> <span class="muted small">confermati</span></div>
     </a>
     <?= gcal_icon_button($m) ?>
@@ -80,7 +92,7 @@ layout_start('Partite', 'matches');
   <a class="card match-row" href="match.php?id=<?= (int) $m['id'] ?>">
     <div class="mdate"><span class="d"><?= date('j', strtotime($m['match_date'])) ?></span><span class="m"><?= mb_substr(MESI[(int) date('n', strtotime($m['match_date']))], 0, 3) ?></span></div>
     <div class="minfo"><strong class="mini-score"><span class="team-a"><?= h(team_name('A', $m)) ?></span> <?= (int) $m['score_a'] ?> – <?= (int) $m['score_b'] ?> <span class="team-b"><?= h(team_name('B', $m)) ?></span></strong>
-      <span class="muted"><?= fmt_date_short($m['match_date']) ?> · <?= h($m['location']) ?></span></div>
+      <span class="muted"><?= fmt_date_short($m['match_date']) ?> · <?= h($m['location']) ?> <?= group_tag((int) $m['group_id']) ?></span></div>
     <div class="mside">
       <?php if ($m['voting_open']): ?><span class="tag tag-live"><i class="ti ti-writing"></i> voti aperti</span>
       <?php elseif ($mvpP): ?><span class="tag tag-mvp"><i class="ti ti-star-filled"></i> <?= h($mvpP['name']) ?></span><?php endif; ?>

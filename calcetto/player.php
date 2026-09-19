@@ -4,7 +4,7 @@ require_view();
 
 $id = int_get('id');
 $p = get_player($id);
-if (!$p) {
+if (!$p || !player_access($id)) {   // inesistente o di un gruppo che non è il tuo
     http_response_code(404);
     layout_start('Giocatore non trovato', 'players');
     echo '<div class="card"><h2>Giocatore non trovato</h2><a href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a></div>';
@@ -57,6 +57,16 @@ function vote_sparkline(array $history): string
     return $svg . '</svg>';
 }
 
+// intesa con i compagni (partite giocate insieme nella stessa squadra)
+$chemAll = chemistry();
+$partners = array_values(array_filter(chemistry_partners($chemAll, $id, 200), fn($x) => $x['n'] >= CHEM_MIN_TOGETHER));
+$best = array_slice(array_filter($partners, fn($x) => $x['score'] > 0), 0, 5);
+$worst = array_slice(array_reverse(array_filter($partners, fn($x) => $x['score'] < 0)), 0, 2);
+$partnerOf = function (int $pid): ?array {
+    return all_players()[$pid] ?? get_player($pid);
+};
+$myGroups = array_map('group_name', player_group_ids($id));
+
 layout_start($p['name'], 'players');
 ?>
 <a class="back" href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a>
@@ -73,6 +83,7 @@ layout_start($p['name'], 'players');
       <?php if ($rankPts): ?><span class="tag"><i class="ti ti-trophy"></i> <?= $rankPts ?>° in classifica</span><?php endif; ?>
       <?php if ($rankGoals): ?><span class="tag"><i class="ti ti-ball-football"></i> <?= $rankGoals ?>° marcatore</span><?php endif; ?>
       <?= form_badge($s['form']) ?>
+      <?php foreach ($myGroups as $gn): ?><span class="tag tag-group"><i class="ti ti-users-group"></i> <?= h($gn) ?></span><?php endforeach; ?>
     </div>
     <div class="ovr-big"><span><?= fmt_num($s['ovr'], 1) ?></span><small>RATING</small></div>
     <?php if ($canEdit): ?><a class="btn btn-ghost btn-sm" href="player_edit.php?id=<?= $id ?>"><i class="ti ti-pencil"></i> Modifica profilo</a><?php endif; ?>
@@ -120,6 +131,39 @@ layout_start($p['name'], 'players');
 <section class="card">
   <h2>Andamento voti</h2>
   <?= vote_sparkline($s['history']) ?>
+</section>
+
+<section class="card" id="intesa">
+  <h2><i class="ti ti-heart-handshake"></i> Intesa e note</h2>
+  <?php if (!$partners): ?>
+    <p class="empty">Servono almeno <?= CHEM_MIN_TOGETHER ?> partite giocate insieme a un compagno: poi qui compaiono le sue "intese" (risultati, assist e gol quando giocano insieme).</p>
+  <?php else: ?>
+    <p class="muted small">Il bonus di intesa (in punti rating) si aggiunge alla forza della squadra quando questi due giocano insieme: pesa di più con molte partite in comune.</p>
+    <ul class="chem-list">
+    <?php foreach (array_merge($best, $worst) as $c): $o = $partnerOf($c['partner']); if (!$o) continue; ?>
+      <li class="chem-item">
+        <div class="chem-head">
+          <span><a href="player.php?id=<?= (int) $c['partner'] ?>"><strong><?= h($o['name']) ?></strong></a>
+            <span class="muted small">· <?= (int) $c['n'] ?> partite insieme (<?= (int) $c['w'] ?>V <?= (int) $c['d'] ?>N <?= (int) $c['l'] ?>S)</span></span>
+          <span class="chem-score <?= $c['score'] > 0 ? 'is-pos' : ($c['score'] < 0 ? 'is-neg' : '') ?>" title="Bonus di intesa"><?= fmt_signed($c['score'], 2) ?></span>
+        </div>
+        <ul class="chem-notes">
+          <?php if ($c['base'] !== null): ?>
+            <li>Insieme fanno <strong><?= fmt_num($c['ppg'] * 3, 1) ?></strong> punti a partita, contro <?= fmt_num($c['base'] * 3, 1) ?> di media dei due.</li>
+          <?php endif; ?>
+          <?php if ($c['my_gpg'] !== null && $c['my_gpg_without'] !== null): ?>
+            <?php $d = $c['my_gpg'] - $c['my_gpg_without']; ?>
+            <li>Gol di <?= h(explode(' ', $p['name'])[0]) ?>: <strong><?= fmt_num($c['my_gpg'], 2) ?></strong> a partita con <?= h(explode(' ', $o['name'])[0]) ?>, <?= fmt_num($c['my_gpg_without'], 2) ?> senza
+              <?php if ($c['my_gpg_without'] > 0): ?>(<?= fmt_signed(round($d / $c['my_gpg_without'] * 100), 0) ?>% realizzativo)<?php elseif ($d > 0): ?>(<?= fmt_signed($d, 2) ?> a partita)<?php endif; ?>.</li>
+          <?php endif; ?>
+          <?php if ($c['assists_to'] || $c['assists_from']): ?>
+            <li>Assist registrati: <?= (int) $c['assists_to'] ?> a <?= h(explode(' ', $o['name'])[0]) ?>, <?= (int) $c['assists_from'] ?> da lui<?= $c['assists_to'] && $c['assists_from'] ? ' — <strong>si cercano a vicenda</strong>' : '' ?>.</li>
+          <?php endif; ?>
+        </ul>
+      </li>
+    <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
 </section>
 
 <section class="card">

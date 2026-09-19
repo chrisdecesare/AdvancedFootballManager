@@ -4,9 +4,12 @@
  * dell'admin (campi adj_* della tabella players, per lo storico pre-sito).
  */
 
-function all_players(bool $only_active = false): array
+/** Giocatori dei gruppi visibili ora (o dell'ambito indicato: null = tutti). */
+function all_players(bool $only_active = false, $scope = 'current'): array
 {
-    $sql = 'SELECT * FROM players' . ($only_active ? ' WHERE active = 1' : '') . ' ORDER BY name';
+    $s = $scope === 'current' ? scope_ids() : $scope;
+    $sql = 'SELECT p.* FROM players p WHERE ' . player_scope_sql('p.id', $s, true)
+        . ($only_active ? ' AND p.active = 1' : '') . ' ORDER BY p.name';
     $out = [];
     foreach (q($sql)->fetchAll() as $p) {
         $out[(int) $p['id']] = $p;
@@ -24,20 +27,24 @@ function get_match(int $id): ?array
     return q('SELECT * FROM matches WHERE id = ?', [$id])->fetch() ?: null;
 }
 
-function played_matches(): array
+/** Partite giocate dei gruppi visibili ora (o dell'ambito indicato). */
+function played_matches($scope = 'current'): array
 {
-    static $c = null;
-    if ($c === null) {
-        $c = q("SELECT * FROM matches WHERE status = 'giocata' ORDER BY match_date DESC, id DESC")->fetchAll();
+    static $c = [];
+    $s = $scope === 'current' ? scope_ids() : $scope;
+    $k = scope_key($s);
+    if (!isset($c[$k])) {
+        $c[$k] = q("SELECT * FROM matches WHERE status = 'giocata' AND " . scope_sql('group_id', $s, true)
+            . ' ORDER BY match_date DESC, id DESC')->fetchAll();
     }
-    return $c;
+    return $c[$k];
 }
 
 /** Prossima partita: la prima programmata a partire da 3 ore fa (così resta visibile mentre si gioca). */
 function next_match(): ?array
 {
-    return q("SELECT * FROM matches WHERE status = 'programmata' AND match_date >= ?
-              ORDER BY match_date ASC LIMIT 1", [date('Y-m-d H:i:s', time() - 3 * 3600)])->fetch() ?: null;
+    return q("SELECT * FROM matches WHERE status = 'programmata' AND match_date >= ? AND " . scope_sql('group_id')
+        . ' ORDER BY match_date ASC LIMIT 1', [date('Y-m-d H:i:s', time() - 3 * 3600)])->fetch() ?: null;
 }
 
 function last_played_match(): ?array
@@ -45,11 +52,14 @@ function last_played_match(): ?array
     return played_matches()[0] ?? null;
 }
 
-/** Aggiunge a una partita programmata i giocatori attivi che non ci sono ancora (stato "in attesa"). */
+/** Aggiunge a una partita programmata i giocatori attivi DEL SUO GRUPPO che non ci sono ancora (stato "in attesa"). */
 function sync_match_players(int $match_id): void
 {
     q("INSERT IGNORE INTO match_players (match_id, player_id)
-       SELECT ?, id FROM players WHERE active = 1", [$match_id]);
+       SELECT m.id, p.id FROM matches m
+       JOIN player_groups pg ON pg.group_id = m.group_id
+       JOIN players p ON p.id = pg.player_id
+       WHERE m.id = ? AND p.active = 1", [$match_id]);
 }
 
 function match_roster(int $match_id): array
@@ -131,14 +141,16 @@ function match_mvp(int $match_id): ?int
  * Statistiche complete di tutti i giocatori: [player_id => [...]].
  * Gli MVP contano solo a votazioni chiuse.
  */
-function compute_stats(): array
+function compute_stats($scope = 'current'): array
 {
-    static $cache = null;
-    if ($cache !== null) {
-        return $cache;
+    static $cache = [];
+    $sc = $scope === 'current' ? scope_ids() : $scope;
+    $ck = scope_key($sc);
+    if (isset($cache[$ck])) {
+        return $cache[$ck];
     }
-    $players = all_players();
-    $played = played_matches();
+    $players = all_players(false, $sc);
+    $played = played_matches($sc);
     $byId = [];
     foreach ($played as $m) {
         $byId[(int) $m['id']] = $m;
@@ -157,7 +169,7 @@ function compute_stats(): array
         $stats[$id] = ['history' => []];
     }
     $parts = q("SELECT mp.* FROM match_players mp JOIN matches m ON m.id = mp.match_id
-                WHERE m.status = 'giocata' AND mp.team IS NOT NULL
+                WHERE m.status = 'giocata' AND mp.team IS NOT NULL AND " . scope_sql('m.group_id', $sc, true) . "
                 ORDER BY m.match_date DESC, m.id DESC")->fetchAll();
     foreach ($parts as $r) {
         $pid = (int) $r['player_id'];
@@ -245,7 +257,7 @@ function compute_stats(): array
         $out['ovr'] = player_ovr($p, $out);
         $stats[$pid] = $out;
     }
-    $cache = $stats;
+    $cache[$ck] = $stats;
     return $stats;
 }
 

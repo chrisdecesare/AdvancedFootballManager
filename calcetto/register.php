@@ -16,6 +16,8 @@ if (current_user()) {
 $errors = [];
 $done = false;
 $matchName = null;
+$groupChoices = all_groups();
+$selGroups = [];
 $v = ['name' => '', 'username' => '', 'shirt_number' => '', 'position' => 'Centrocampista', 'position2' => '', 'foot' => 'Destro'];
 
 if (is_post()) {
@@ -25,6 +27,10 @@ if (is_post()) {
         redirect('login.php');
     }
     $v = array_merge($v, array_map(fn($x) => is_string($x) ? trim($x) : '', array_intersect_key($_POST, $v)));
+    $selGroups = array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys($groupChoices)));
+    if (count($groupChoices) === 1) {
+        $selGroups = array_keys($groupChoices);   // un solo gruppo: è automatico
+    }
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     $password2 = is_string($_POST['password2'] ?? null) ? $_POST['password2'] : '';
 
@@ -45,6 +51,9 @@ if (is_post()) {
         $errors[] = $err;
     } elseif ($password !== $password2) {
         $errors[] = 'Le due password non coincidono.';
+    }
+    if (!$selGroups) {
+        $errors[] = 'Scegli a quale gruppo appartieni.';
     }
     if ($v['shirt_number'] !== '' && (!ctype_digit($v['shirt_number']) || (int) $v['shirt_number'] > 99)) {
         $errors[] = 'Il numero di maglia va da 0 a 99.';
@@ -67,6 +76,7 @@ if (is_post()) {
             'position2' => $v['position2'] ?: null,
             'foot' => $v['foot'],
             'player_id' => $matchId,
+            'groups' => $selGroups,
         ];
         q("INSERT INTO users (username, password_hash, role, status, reg_name, reg_json) VALUES (?, ?, 'player', 'in_attesa', ?, ?)",
             [$v['username'], password_hash($password, PASSWORD_DEFAULT), $v['name'], json_encode($data)]);
@@ -109,6 +119,16 @@ layout_start('Iscriviti');
           <label class="field"><span>Piede</span><select name="foot">
             <?php foreach (feet() as $o): ?><option <?= $v['foot'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
         </div>
+        <?php if (count($groupChoices) > 1): ?>
+          <fieldset class="group-box"><legend>A quale gruppo appartieni?</legend>
+            <div class="group-checks">
+              <?php foreach ($groupChoices as $gid => $gname): ?>
+                <label><input type="checkbox" name="groups[]" value="<?= $gid ?>" <?= in_array($gid, $selGroups, true) ? 'checked' : '' ?>> <?= h($gname) ?></label>
+              <?php endforeach; ?>
+            </div>
+            <p class="muted small">Puoi sceglierne più di uno. L'admin conferma e vedrai solo giocatori e partite dei tuoi gruppi.</p>
+          </fieldset>
+        <?php endif; ?>
         <label class="hp" aria-hidden="true">Sito web <input name="website" tabindex="-1" autocomplete="off"></label>
         <button class="btn btn-primary btn-block">Invia richiesta</button>
       </form>
