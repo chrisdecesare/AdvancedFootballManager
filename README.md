@@ -44,6 +44,17 @@ separato: il gestionale sta in `wp-content/calcetto/` e usa il database di WordP
 Crea `config.local.php` (vedi sopra), carica il contenuto di `calcetto/` (compresi i file
 nascosti `.htaccess`), apri `/install.php`, inserisci `INSTALL_KEY`, username e password admin.
 
+## Particolarità di Altervista (cache Varnish)
+
+Davanti ai siti WordPress di Altervista c'è una cache che, nelle richieste GET, **toglie i cookie**
+prima di darle a PHP, salvo quelli con nomi tipici di un utente WordPress loggato
+(`wordpress_logged_in_<32 caratteri>`, `wordpress_sec_...`). Un cookie di sessione con un nome
+qualunque non arriva mai: il login (un POST) riesce ma la pagina successiva non riconosce
+l'utente e rimanda al login. Per questo `lib/bootstrap.php` chiama il cookie di sessione
+`wordpress_logged_in_` + un codice proprio del gestionale (diverso da quello di WordPress, che
+quindi lo ignora): per la cache è un utente loggato, quindi la pagina non viene cacheata.
+Se il login "riesce ma resta sul login" solo per chi non è loggato in WordPress, il sintomo è questo.
+
 ## Deploy automatico (GitHub → Altervista)
 
 Ogni push su `main` esegue [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml),
