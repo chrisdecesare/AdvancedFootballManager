@@ -31,7 +31,6 @@ jobs:
           exclude: |
             **/.git*
             **/.git*/**
-            install.php
             config.local.php
             config.local.php.example
             uploads/players/**
