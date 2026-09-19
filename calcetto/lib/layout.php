@@ -107,6 +107,8 @@ function player_line(array $p, string $extra = ''): string
     $num = $p['shirt_number'] !== null && $p['shirt_number'] !== '' ? '<span class="num">' . (int) $p['shirt_number'] . '</span>' : '';
     return '<a class="pline" href="player.php?id=' . (int) ($p['player_id'] ?? $p['id']) . '">' .
         avatar($p, 'sm') . '<span class="pline-name">' . h($p['name']) . '</span>' . $num .
-        '<span class="pos pos-' . strtolower(position_abbr($p['position'] ?? 'Jolly')) . '">' .
-        position_abbr($p['position'] ?? 'Jolly') . '</span>' . $extra . '</a>';
+        '<span class="pos pos-' . strtolower(position_abbr($p['position'] ?? 'Jolly')) . '" title="Posizione preferita">' .
+        position_abbr($p['position'] ?? 'Jolly') . '</span>' .
+        (!empty($p['position2']) ? '<span class="pos pos-' . strtolower(position_abbr($p['position2'])) . '" title="Seconda scelta">' .
+            position_abbr($p['position2']) . '</span>' : '') . $extra . '</a>';
 }

@@ -2,11 +2,20 @@
 /*
  * Bilanciamento automatico delle squadre.
  *
+ * Cosa si valuta:
+ *   - il RATING di ogni giocatore (rating base dell'admin + media dei voti dei compagni + % vittorie,
+ *     vedi player_ovr in stats.php): le due squadre devono avere forza complessiva simile;
+ *   - le POSIZIONI preferite: 1ª scelta copre un ruolo al 100%, 2ª scelta al 60%, Jolly (seconda scelta)
+ *     al 50% su qualsiasi ruolo; i portieri vanno divisi tra le squadre; ogni squadra deve poter
+ *     coprire difesa, centrocampo e attacco del suo modulo.
+ *
  * Costo di una divisione = |somma rating A − somma rating B|
  *   + 2   per ogni portiere di troppo in una squadra (chi ha "Portiere" tra le
  *         posizioni preferite va diviso tra le due squadre)
  *   + 0,4 per ogni posto del modulo (difesa, centrocampo, attacco) che la squadra
- *         non riesce a coprire con giocatori che lo preferiscono
+ *         non riesce a coprire con giocatori che lo preferiscono (al quadrato: due posti
+ *         scoperti nella stessa squadra costano 1,6, uno per squadra 0,8)
+ *   + 0,15 per ogni "unità" di differenza tra le squadre nel numero di giocatori di un ruolo
  *
  * Fino a 22 giocatori prova TUTTE le combinazioni (la soluzione è quella ottima);
  * oltre usa una ricerca con scambi. Tra le soluzioni quasi ottime (entro 0,25 dal
@@ -22,7 +31,7 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
         return balance_result($pool, range(0, $n - 1));
     }
     $r = array_map(fn($p) => (float) $p['rating'], $pool);
-    // quanto ogni giocatore copre ciascun ruolo: 1ª scelta 1, 2ª scelta 0,6, jolly 0,5
+    // quanto ogni giocatore copre ciascun ruolo: 1ª scelta 1, 2ª scelta 0,6, Jolly ("si adatta a tutto") 0,5
     $cap = ['POR' => [], 'DIF' => [], 'CEN' => [], 'ATT' => []];
     foreach ($pool as $i => $p) {
         [$p1, $p2] = ($p['prefs'] ?? ['JOL', null]) + [null, null];
@@ -30,7 +39,7 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
             if ($role === 'POR') {
                 $cap[$role][$i] = ($p1 === 'POR' || $p2 === 'POR') ? 1 : 0;
             } else {
-                $cap[$role][$i] = $p1 === $role ? 1 : ($p2 === $role ? 0.6 : ($p1 === 'JOL' ? 0.5 : ($p2 === 'JOL' ? 0.3 : 0)));
+                $cap[$role][$i] = $p1 === $role ? 1 : ($p2 === $role ? 0.6 : (($p1 === 'JOL' || $p2 === 'JOL') ? 0.5 : 0));
             }
         }
     }
@@ -54,8 +63,13 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
         $cost = abs($s - ($totR - $s));
         $cost += 2.0 * max(0, abs($c['POR'] - ($totCap['POR'] - $c['POR'])) - ($totCap['POR'] % 2));
         foreach ($outfield as $role) {
-            $cost += 0.4 * max(0, $needA[$role] - $c[$role]);
-            $cost += 0.4 * max(0, $needB[$role] - ($totCap[$role] - $c[$role]));
+            // posti del modulo scoperti: il costo cresce col quadrato, così due posti scoperti nella stessa
+            // squadra pesano più di uno scoperto per squadra (i ruoli si dividono, non si concentrano)
+            $shortA = max(0, $needA[$role] - $c[$role]);
+            $shortB = max(0, $needB[$role] - ($totCap[$role] - $c[$role]));
+            $cost += 0.4 * ($shortA * $shortA + $shortB * $shortB);
+            // a parità di tutto, ogni ruolo va diviso il più possibile in modo pari tra le squadre
+            $cost += 0.15 * abs($c[$role] - ($totCap[$role] - $c[$role]));
         }
         return $cost;
     };
@@ -171,4 +185,27 @@ function team_strength(array $roster, string $team, array $stats): array
         }
     }
     return ['sum' => $sum, 'n' => $n, 'avg' => $n ? $sum / $n : 0];
+}
+
+/**
+ * Quanti giocatori di una squadra salvata hanno ciascun ruolo come prima scelta (POR, DIF, CEN, ATT),
+ * e quanti hanno il Jolly come seconda scelta. Serve a mostrare cosa ha valutato il bilanciamento.
+ * @return array{POR: int, DIF: int, CEN: int, ATT: int, JOL: int}
+ */
+function team_roles(array $roster, string $team): array
+{
+    $c = ['POR' => 0, 'DIF' => 0, 'CEN' => 0, 'ATT' => 0, 'JOL' => 0];
+    foreach ($roster as $r) {
+        if ($r['team'] !== $team) {
+            continue;
+        }
+        [$p1, $p2] = player_prefs($r);
+        if (isset($c[$p1]) && $p1 !== 'JOL') {
+            $c[$p1]++;
+        }
+        if ($p1 === 'JOL' || $p2 === 'JOL') {
+            $c['JOL']++;
+        }
+    }
+    return $c;
 }
