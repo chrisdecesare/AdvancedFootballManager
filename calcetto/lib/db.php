@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -118,6 +118,10 @@ function ensure_schema(): void
             FOREIGN KEY (assister_id) REFERENCES players(id) ON DELETE CASCADE,
             FOREIGN KEY (scorer_id) REFERENCES players(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 8) {
+        $add('players', 'bg_color', 'VARCHAR(7) NULL');
+        $add('players', 'bg_image', 'VARCHAR(255) NULL');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

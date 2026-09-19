@@ -36,19 +36,81 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const photo = document.getElementById('photo-input');
-  if (photo) {
-    photo.addEventListener('change', () => {
-      const f = photo.files[0];
+  // scelta di un'immagine (foto profilo, sfondo): si apre il ritaglio e si carica solo la parte scelta
+  document.querySelectorAll('input[type=file][data-crop-w]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const f = input.files[0];
       if (!f) return;
-      const img = document.createElement('img');
-      img.className = 'avatar avatar-xl';
-      img.src = URL.createObjectURL(f);
-      const box = document.getElementById('photo-preview');
-      box.innerHTML = '';
-      box.appendChild(img);
+      const blob = await openCropper(f, {
+        w: parseInt(input.dataset.cropW, 10), h: parseInt(input.dataset.cropH, 10),
+        round: input.dataset.cropRound === '1', title: input.dataset.cropTitle || 'Ritaglia',
+      });
+      if (blob === null) { input.value = ''; return; }                  // annullato
+      let shown = f;
+      if (blob) {
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(new File([blob], (input.name || 'img') + '.jpg', { type: 'image/jpeg' }));
+          input.files = dt.files;
+          shown = input.files[0];
+        } catch (e) { /* il browser non permette di sostituire il file: resta l'originale, ritagliato dal server */ }
+      }
+      const target = document.getElementById(input.dataset.preview || '');
+      if (!target) return;
+      const url = URL.createObjectURL(shown);
+      if (input.dataset.previewType === 'img') {
+        const img = document.createElement('img');
+        img.className = 'avatar avatar-xl';
+        img.src = url;
+        target.innerHTML = '';
+        target.appendChild(img);
+      } else {
+        const box = target.closest('[data-bg]');
+        if (box) {
+          box.dataset.image = url;
+          const image = box.querySelector('input[name=bg_mode][value=image]');
+          if (image) image.checked = true;
+          box.dispatchEvent(new Event('bg:update'));
+        }
+      }
     });
-  }
+  });
+
+  // sfondo del profilo: modalita' (automatico/colore/immagine) e anteprima
+  document.querySelectorAll('[data-bg]').forEach(box => {
+    const prev = box.querySelector('#bg-preview');
+    const picker = box.querySelector('input[type=color]');
+    const lighten = hex => {
+      const n = parseInt(hex.slice(1), 16);
+      const m = c => Math.round(c + (255 - c) * 0.3).toString(16).padStart(2, '0');
+      return '#' + m(n >> 16) + m((n >> 8) & 255) + m(n & 255);
+    };
+    const apply = () => {
+      const mode = (box.querySelector('input[name=bg_mode]:checked') || {}).value || 'auto';
+      box.querySelectorAll('[data-bg-panel]').forEach(p => { p.hidden = p.dataset.bgPanel !== mode; });
+      prev.style.background = '';
+      prev.style.removeProperty('--pc');
+      prev.style.removeProperty('--pc2');
+      if (mode === 'color') {
+        prev.style.setProperty('--pc', picker.value);
+        prev.style.setProperty('--pc2', lighten(picker.value));
+      } else if (mode === 'image' && box.dataset.image) {
+        prev.style.background = "url('" + box.dataset.image + "') center / cover no-repeat";
+      }
+    };
+    box.querySelectorAll('input[name=bg_mode]').forEach(r => r.addEventListener('change', apply));
+    picker.addEventListener('input', () => {
+      const color = box.querySelector('input[name=bg_mode][value=color]');
+      if (color) color.checked = true;
+      apply();
+    });
+    box.querySelectorAll('.swatch').forEach(b => b.addEventListener('click', () => {
+      picker.value = b.dataset.color;
+      picker.dispatchEvent(new Event('input'));
+    }));
+    box.addEventListener('bg:update', apply);
+    apply();
+  });
   // slider momenti salienti: frecce, pallini, scorrimento automatico
   document.querySelectorAll('[data-slider]').forEach(slider => {
     const track = slider.querySelector('[data-slides]');
@@ -267,4 +329,158 @@ function startTour(cfg) {
   document.addEventListener('keydown', onKey);
   window.addEventListener('resize', place);
   show(0);
+}
+
+/*
+ * Ritaglio di un'immagine: la persona trascina e ingrandisce, e si ottiene un JPEG w x h con la parte scelta.
+ * Ritorna una Promise: Blob (ritagliato), null (annullato) o undefined (il browser non legge l'immagine: si tiene il file).
+ */
+function openCropper(file, opt) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(undefined); };
+    img.onload = () => {
+      const opener = document.activeElement;
+      const overlay = document.createElement('div');
+      overlay.className = 'crop-modal';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-label', opt.title);
+      overlay.innerHTML =
+        '<div class="crop-box">' +
+        '<h3 class="crop-title"></h3>' +
+        '<div class="crop-stage' + (opt.round ? ' is-round' : '') + '" tabindex="0" style="aspect-ratio:' + opt.w + '/' + opt.h + ';--ar:' + (opt.w / opt.h) + '">' +
+        '<img alt="" draggable="false"><span class="crop-mask"></span></div>' +
+        '<label class="crop-zoom"><i class="ti ti-zoom-out"></i>' +
+        '<input type="range" min="1" max="4" step="0.01" value="1" aria-label="Ingrandimento"><i class="ti ti-zoom-in"></i></label>' +
+        '<p class="muted small">Trascina l\'immagine per scegliere la parte da tenere e usa il cursore per ingrandire.</p>' +
+        '<div class="btn-row"><button type="button" class="btn btn-ghost" data-crop-cancel>Annulla</button>' +
+        '<button type="button" class="btn btn-primary" data-crop-ok>Usa questo ritaglio</button></div></div>';
+      overlay.querySelector('.crop-title').textContent = opt.title;
+      const stage = overlay.querySelector('.crop-stage');
+      const view = stage.querySelector('img');
+      const range = overlay.querySelector('input[type=range]');
+      view.src = url;
+      document.body.appendChild(overlay);
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      const st = { sw: 1, sh: 1, min: 1, z: 1, x: 0, y: 0 };
+      const layout = () => {
+        const scale = st.min * st.z;
+        const iw = nw * scale, ih = nh * scale;
+        st.x = Math.min(0, Math.max(st.sw - iw, st.x));
+        st.y = Math.min(0, Math.max(st.sh - ih, st.y));
+        view.style.width = iw + 'px';
+        view.style.height = ih + 'px';
+        view.style.transform = 'translate(' + st.x + 'px,' + st.y + 'px)';
+      };
+      const zoomTo = z => {                                     // ingrandisce restando sul centro del riquadro
+        const old = st.min * st.z;
+        const cx = (st.sw / 2 - st.x) / old, cy = (st.sh / 2 - st.y) / old;
+        st.z = Math.min(4, Math.max(1, z));
+        const now = st.min * st.z;
+        st.x = st.sw / 2 - cx * now;
+        st.y = st.sh / 2 - cy * now;
+        range.value = st.z;
+        layout();
+      };
+      const init = () => {
+        st.sw = stage.clientWidth;
+        st.sh = stage.clientHeight;
+        st.min = Math.max(st.sw / nw, st.sh / nh);
+        st.z = 1;
+        st.x = (st.sw - nw * st.min) / 2;
+        st.y = (st.sh - nh * st.min) * (opt.round ? 0.15 : 0.5);   // le foto in verticale partono dall'alto (la testa)
+        range.value = 1;
+        layout();
+      };
+      init();
+
+      // trascinamento con mouse/dito e pizzico con due dita
+      const pts = new Map();
+      let pinch = 0;
+      stage.addEventListener('pointerdown', e => {
+        try { stage.setPointerCapture(e.pointerId); } catch (err) { /* puntatore non catturabile: si trascina lo stesso */ }
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        pinch = 0;
+        stage.classList.add('is-drag');
+      });
+      stage.addEventListener('pointermove', e => {
+        const p = pts.get(e.pointerId);
+        if (!p) return;
+        if (pts.size === 1) {
+          st.x += e.clientX - p.x;
+          st.y += e.clientY - p.y;
+          layout();
+        }
+        p.x = e.clientX; p.y = e.clientY;
+        if (pts.size === 2) {
+          const [a, b] = [...pts.values()];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (pinch) zoomTo(st.z * d / pinch);
+          pinch = d;
+        }
+      });
+      const up = e => { pts.delete(e.pointerId); pinch = 0; if (!pts.size) stage.classList.remove('is-drag'); };
+      stage.addEventListener('pointerup', up);
+      stage.addEventListener('pointercancel', up);
+      stage.addEventListener('wheel', e => { e.preventDefault(); zoomTo(st.z * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: false });
+      range.addEventListener('input', () => zoomTo(parseFloat(range.value)));
+      stage.addEventListener('keydown', e => {
+        const step = 14, k = e.key;
+        if (k === 'ArrowLeft') st.x += step; else if (k === 'ArrowRight') st.x -= step;
+        else if (k === 'ArrowUp') st.y += step; else if (k === 'ArrowDown') st.y -= step;
+        else if (k === '+' || k === '=') zoomTo(st.z * 1.1); else if (k === '-') zoomTo(st.z / 1.1);
+        else return;
+        e.preventDefault();
+        layout();
+      });
+
+      const close = result => {
+        document.removeEventListener('keydown', onKey, true);
+        window.removeEventListener('resize', init);
+        overlay.remove();
+        document.body.style.overflow = prevOverflow;
+        URL.revokeObjectURL(url);
+        if (opener && opener.focus) opener.focus();
+        resolve(result);
+      };
+      const confirmCrop = () => {
+        const c = document.createElement('canvas');
+        c.width = opt.w; c.height = opt.h;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, opt.w, opt.h);
+        ctx.imageSmoothingQuality = 'high';
+        const scale = st.min * st.z;
+        ctx.drawImage(img, -st.x / scale, -st.y / scale, st.sw / scale, st.sh / scale, 0, 0, opt.w, opt.h);
+        // toDataURL e' sincrono (toBlob puo' restare in attesa se la scheda e' in secondo piano)
+        try {
+          const bin = atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          close(new Blob([bytes], { type: 'image/jpeg' }));
+        } catch (e) { close(undefined); }
+      };
+      const onKey = e => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
+        else if (e.key === 'Tab') {                                // il focus resta dentro la finestra
+          const f = [...overlay.querySelectorAll('button, input, [tabindex="0"]')];
+          const first = f[0], last = f[f.length - 1];
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      };
+      document.addEventListener('keydown', onKey, true);
+      window.addEventListener('resize', init);
+      overlay.querySelector('[data-crop-cancel]').addEventListener('click', () => close(null));
+      overlay.querySelector('[data-crop-ok]').addEventListener('click', confirmCrop);
+      overlay.addEventListener('pointerdown', e => { if (e.target === overlay) close(null); });
+      stage.focus();
+    };
+    img.src = url;
+  });
 }

@@ -220,10 +220,8 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
               $matchName = $f['name'];
           }
       }
-      $reqGroups = array_map('intval', (array) ($d['groups'] ?? []));
-      if ($match) {
-          $reqGroups = array_values(array_unique(array_merge($reqGroups, $playerGroups[$match] ?? [])));
-      } ?>
+      // il gruppo lo decide l'admin: se è già in rosa si parte dai gruppi di quel giocatore, altrimenti nessuno spuntato
+      $reqGroups = $match ? ($playerGroups[$match] ?? []) : []; ?>
       <div class="pending-row">
         <div class="pending-who">
           <?= avatar(['name' => $u['reg_name']], 'md') ?>
@@ -234,8 +232,8 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
         </div>
         <form method="post" class="pending-actions"><?= csrf_field() ?><input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
           <?php if (count($groupList) > 1): ?>
-            <div class="group-checks pending-groups" title="Gruppi richiesti (puoi cambiarli)">
-              <i class="ti ti-users-group"></i>
+            <div class="group-checks pending-groups" title="Scegli in quale gruppo mettere il giocatore">
+              <i class="ti ti-users-group"></i> <strong>Gruppo:</strong>
               <?php foreach ($groupList as $gid => $gname): ?>
                 <label><input type="checkbox" name="groups[]" value="<?= $gid ?>" <?= in_array($gid, $reqGroups, true) ? 'checked' : '' ?>> <?= h($gname) ?></label>
               <?php endforeach; ?>
