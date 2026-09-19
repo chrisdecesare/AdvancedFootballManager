@@ -133,7 +133,6 @@ function csrf_field(): string
 function verify_csrf(): void
 {
     if (is_post() && !hash_equals(csrf_token(), (string) ($_POST['csrf'] ?? ''))) {
-        authtrace('csrf_fail');   // TEMPORANEO
         http_response_code(400);
         die('Sessione scaduta: torna indietro e ricarica la pagina.');
     }
