@@ -422,12 +422,14 @@ function lighten_hex(string $hex, float $amount = 0.3): string
     return sprintf('#%02x%02x%02x', $mix($r), $mix($g), $mix($b));
 }
 
-/** Attributo style dello sfondo scelto per il profilo ('' = colori del ruolo). */
-function profile_bg_style(array $p): string
+/** Attributo style dello sfondo scelto per il profilo e per la sua carta nella Rosa ('' = colori del ruolo). */
+function profile_bg_style(array $p, bool $halo = false): string
 {
     $img = $p['bg_image'] ?? null;
     if ($img && preg_match('#^uploads/players/[A-Za-z0-9_.-]+$#', $img) && is_file(__DIR__ . '/../' . $img)) {
-        return "background: url('" . h($img) . '?v=' . filemtime(__DIR__ . '/../' . $img) . "') center / cover no-repeat, var(--pc);";
+        // $halo: nelle carte della Rosa resta il cerchio chiaro dietro la foto
+        return 'background: ' . ($halo ? 'radial-gradient(circle at 50% 38%, rgba(255, 255, 255, .55) 0 58px, transparent 59px), ' : '')
+            . "url('" . h($img) . '?v=' . filemtime(__DIR__ . '/../' . $img) . "') center / cover no-repeat, var(--pc);";
     }
     if ($c = clean_hex_color($p['bg_color'] ?? '')) {
         return '--pc: ' . $c . '; --pc2: ' . lighten_hex($c) . ';';

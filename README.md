@@ -125,7 +125,7 @@ chiama «Principale» e si rinomina (es. in YBQ).
 
 **Foto e sfondo del profilo:** in «Modifica profilo» chi sceglie una foto vede subito una finestra di ritaglio: trascina
 e ingrandisce (cursore, rotella o pizzico con due dita) per decidere quale parte tenere, e viene caricata solo quella (400x400).
-Lo sfondo della scheda del profilo può essere automatico (colore del ruolo), un colore a scelta oppure un'immagine, ritagliata
+Lo sfondo della scheda del profilo (e della carta nella Rosa) può essere automatico (colore del ruolo), un colore a scelta oppure un'immagine, ritagliata
 allo stesso modo (1000x400). Se il browser non riesce a leggere il file, lo ritaglia il server (foto: parte alta, sfondo: centro).
 
 **Google Calendar:** nella scheda di una partita in programma (e nella prossima partita della Home) il
