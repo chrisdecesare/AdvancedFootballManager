@@ -155,6 +155,16 @@ function gcal_button(array $match, string $cls = 'btn-ghost btn-sm'): string
         . '<i class="ti ti-calendar-plus"></i> Aggiungi a Google Calendar</a>';
 }
 
+/** Come gcal_button() ma solo con l'icona del calendario (per le righe dell'elenco partite). */
+function gcal_icon_button(array $match): string
+{
+    if (($match['status'] ?? '') !== 'programmata') {
+        return '';
+    }
+    return '<a class="icon-btn gcal-btn" href="' . h(gcal_url($match)) . '" target="_blank" rel="noopener noreferrer"'
+        . ' title="Aggiungi a Google Calendar" aria-label="Aggiungi a Google Calendar"><i class="ti ti-calendar-plus"></i></a>';
+}
+
 /** Giocatori in rosa che non hanno ancora un account collegato. */
 function free_roster_players(): array
 {
