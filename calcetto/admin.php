@@ -58,6 +58,33 @@ if (is_post()) {
                 flash('ok', 'Gruppo rinominato.');
             }
             break;
+        case 'group_members':
+            // tabella "giocatori x gruppi": salva i gruppi di ogni giocatore mostrato (ne serve almeno uno)
+            $validGroups = array_keys(all_groups());
+            $changed = 0;
+            $kept = [];
+            foreach ((array) ($_POST['pids'] ?? []) as $pidRaw) {
+                $pid = (int) $pidRaw;
+                $pn = q('SELECT name FROM players WHERE id = ?', [$pid])->fetchColumn();
+                if ($pn === false) {
+                    continue;
+                }
+                $want = array_values(array_intersect(array_map('intval', (array) ($_POST['pg'][$pid] ?? [])), $validGroups));
+                sort($want);
+                $have = player_group_ids($pid);
+                sort($have);
+                if (!$want) {
+                    $kept[] = $pn;          // senza gruppo non vedrebbe nulla: resta com'e'
+                } elseif ($want !== $have) {
+                    set_player_groups($pid, $want);
+                    $changed++;
+                }
+            }
+            if ($kept) {
+                flash('err', 'Ogni giocatore deve stare in almeno un gruppo: non modificati ' . implode(', ', array_slice($kept, 0, 6)) . (count($kept) > 6 ? ' e altri' : '') . '.');
+            }
+            flash('ok', $changed ? "Gruppi aggiornati per $changed giocatori." : 'Nessuna modifica ai gruppi.');
+            break;
         case 'group_delete':
             $gid = (int) ($_POST['group_id'] ?? 0);
             $onlyHere = (int) q('SELECT COUNT(*) FROM player_groups pg WHERE pg.group_id = ? AND NOT EXISTS
@@ -153,6 +180,13 @@ $playerGroups = [];
 foreach (q('SELECT player_id, group_id FROM player_groups')->fetchAll() as $r) {
     $playerGroups[(int) $r['player_id']][] = (int) $r['group_id'];
 }
+$allPlayers = q('SELECT id, name, position, active FROM players ORDER BY name')->fetchAll();
+$membersOf = [];   // gruppo => [giocatori]
+foreach ($allPlayers as $ap) {
+    foreach ($playerGroups[(int) $ap['id']] ?? [] as $gid) {
+        $membersOf[$gid][] = $ap;
+    }
+}
 $free = q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL ORDER BY p.name')->fetchAll();
 
 layout_start('Admin', 'admin');
@@ -235,7 +269,7 @@ layout_start('Admin', 'admin');
 <section class="card" id="gruppi">
   <h2><i class="ti ti-users-group"></i> Gruppi</h2>
   <p class="muted small">Ogni partita appartiene a un gruppo. Un giocatore vede solo giocatori e partite dei suoi gruppi (chi è in più gruppi li vede tutti e può filtrare). Tu, come admin, vedi sempre tutto.
-    Assegni i giocatori ai gruppi dalla loro scheda (<em>Rosa → giocatore → Modifica</em>) o all'approvazione delle iscrizioni.</p>
+    Assegni i giocatori ai gruppi da qui sotto, dalla loro scheda (<em>Modifica</em>) o all'approvazione delle iscrizioni.</p>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Nome</th><th>Giocatori</th><th>Partite</th><th></th></tr></thead>
     <tbody>
@@ -246,7 +280,15 @@ layout_start('Admin', 'admin');
             <input type="text" name="name" value="<?= h($gname) ?>" maxlength="40" required class="mini-input" aria-label="Nome del gruppo">
             <button class="btn btn-ghost btn-sm">Rinomina</button></form>
         </td>
-        <td><?= (int) $gs['n_players'] ?></td>
+        <td>
+          <strong><?= (int) $gs['n_players'] ?></strong>
+          <div class="group-members">
+            <?php foreach ($membersOf[$gid] ?? [] as $mp): ?>
+              <a class="tag tag-member<?= $mp['active'] ? '' : ' is-off' ?>" href="player.php?id=<?= (int) $mp['id'] ?>"><?= h($mp['name']) ?></a>
+            <?php endforeach; ?>
+            <?php if (empty($membersOf[$gid])): ?><span class="muted small">Nessun giocatore</span><?php endif; ?>
+          </div>
+        </td>
         <td><?= (int) $gs['n_matches'] ?></td>
         <td>
           <?php if (count($groupList) > 1): ?>
@@ -258,6 +300,29 @@ layout_start('Admin', 'admin');
     <?php endforeach; ?>
     </tbody>
   </table></div>
+  <h3>Chi sta in quale gruppo</h3>
+  <p class="muted small">Spunta i gruppi di ogni giocatore e premi «Salva gruppi». Un giocatore può stare in più gruppi (li vede tutti); serve almeno un gruppo.
+    Se lo togli da un gruppo esce dalle partite <em>programmate</em> di quel gruppo (lo storico resta).</p>
+  <form method="post" class="form">
+    <?= csrf_field() ?><input type="hidden" name="do" value="group_members">
+    <div class="table-wrap"><table class="table table-members">
+      <thead><tr><th>Giocatore</th>
+        <?php foreach ($groupList as $gname): ?><th class="center"><?= h($gname) ?></th><?php endforeach; ?></tr></thead>
+      <tbody>
+      <?php foreach ($allPlayers as $ap): $apid = (int) $ap['id']; $mine = $playerGroups[$apid] ?? []; ?>
+        <tr<?= $ap['active'] ? '' : ' class="is-off"' ?>>
+          <td><input type="hidden" name="pids[]" value="<?= $apid ?>">
+            <a href="player.php?id=<?= $apid ?>"><?= h($ap['name']) ?></a><?= $ap['active'] ? '' : ' <span class="muted small">(non attivo)</span>' ?></td>
+          <?php foreach ($groupList as $gid => $gname): ?>
+            <td class="center"><input type="checkbox" name="pg[<?= $apid ?>][]" value="<?= $gid ?>" <?= in_array($gid, $mine, true) ? 'checked' : '' ?> aria-label="<?= h($ap['name'] . ' - ' . $gname) ?>"></td>
+          <?php endforeach; ?>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
+    <div class="btn-row"><button class="btn btn-primary"><i class="ti ti-device-floppy"></i> Salva gruppi</button></div>
+  </form>
+
   <h3>Nuovo gruppo</h3>
   <form method="post" class="form form-grid">
     <?= csrf_field() ?><input type="hidden" name="do" value="group_add">
