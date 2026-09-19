@@ -6,10 +6,22 @@ require __DIR__ . '/lib/bootstrap.php';
 $step = $_GET['step'] ?? '1';
 
 if (is_post() && $step === '2') {
-    $target = ($_POST['go'] ?? '') === 'dir' ? 'probe/' : 'sessiontest.php?step=3';
-    session_regenerate_id(true);
-    $_SESSION['probe'] = 'ok';
-    authtrace('probe_set_' . (($_POST['go'] ?? '') === 'dir' ? 'dir' : 'file'));
+    $go = (string) ($_POST['go'] ?? 'file');
+    $target = $go === 'dir' ? 'probe/' : 'sessiontest.php?step=3';
+    if ($go === 'noregen') {                    // controllo: nessun nuovo id
+        $_SESSION['probe'] = 'ok';
+    } elseif ($go === 'regenfalse') {           // nuovo id, ma la sessione vecchia resta
+        session_regenerate_id(false);
+        $_SESSION['probe'] = 'ok';
+    } elseif ($go === 'regenclose') {           // nuovo id + scrittura esplicita prima del redirect
+        session_regenerate_id(true);
+        $_SESSION['probe'] = 'ok';
+        session_write_close();
+    } else {                                    // come il login attuale
+        session_regenerate_id(true);
+        $_SESSION['probe'] = 'ok';
+    }
+    authtrace('probe_set_' . $go);
     redirect($target);
 }
 
