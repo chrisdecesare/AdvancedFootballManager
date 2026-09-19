@@ -4,7 +4,7 @@ require_view();
 
 $id = int_get('id');
 $match = get_match($id);
-if (!$match) {
+if (!$match || !match_access($match)) {   // partita inesistente o di un gruppo a cui non appartieni
     http_response_code(404);
     layout_start('Partita non trovata', 'matches');
     echo '<div class="card"><h2>Partita non trovata</h2><a href="matches.php"><i class="ti ti-arrow-left"></i> Partite</a></div>';
@@ -51,7 +51,7 @@ if (is_post()) {
             break;
 
         case 'gen_teams':
-            $stats = compute_stats();
+            $stats = compute_stats([(int) $match['group_id']]);   // rating calcolati sulle partite del suo gruppo
             $pool = [];
             foreach (match_roster($id) as $r) {
                 if ($r['availability'] === 'confermato') {
@@ -63,7 +63,9 @@ if (is_post()) {
                 flash('err', 'Servono almeno 2 giocatori confermati.');
                 break;
             }
-            $res = balance_teams($pool, 6, $match);
+            @set_time_limit(90);   // con 22 giocatori e molte intese il calcolo può richiedere qualche secondo sull'hosting
+            $chem = chemistry([(int) $match['group_id']]);   // intesa dalle partite già giocate insieme, nel gruppo
+            $res = balance_teams($pool, 6, $match, chemistry_pairs_for($chem, array_column($pool, 'id')));
             db()->beginTransaction();
             q('UPDATE match_players SET team = NULL WHERE match_id = ?', [$id]);
             foreach (['A', 'B'] as $t) {
@@ -73,8 +75,12 @@ if (is_post()) {
             }
             db()->commit();
             assign_formation($id);
-            flash('ok', sprintf('Squadre generate: forza %s vs %s (differenza %s).',
-                fmt_num($res['sumA'], 1), fmt_num($res['sumB'], 1), fmt_num(abs($res['sumA'] - $res['sumB']), 2)));
+            $hasChem = abs($res['chemA'] ?? 0) + abs($res['chemB'] ?? 0) > 0;
+            $fa = $res['sumA'] + ($res['chemA'] ?? 0);
+            $fb = $res['sumB'] + ($res['chemB'] ?? 0);
+            flash('ok', sprintf('Squadre generate: forza %s vs %s (differenza %s)%s.',
+                fmt_num($fa, 1), fmt_num($fb, 1), fmt_num(abs($fa - $fb), 2),
+                $hasChem ? ', compresa l\'intesa ' . fmt_signed($res['chemA'], 2) . ' / ' . fmt_signed($res['chemB'], 2) : ''));
             redirect($self . '#squadre');
 
         case 'move_team':
@@ -148,6 +154,30 @@ if (is_post()) {
             db()->commit();
             redirect($self . '#risultato');
 
+        case 'add_link':
+            $x = (int) ($_POST['assister_id'] ?? 0);
+            $y = (int) ($_POST['scorer_id'] ?? 0);
+            $times = max(1, min(20, (int) ($_POST['n'] ?? 1)));
+            $tx = q('SELECT team FROM match_players WHERE match_id = ? AND player_id = ? AND team IS NOT NULL', [$id, $x])->fetchColumn();
+            $ty = q('SELECT team FROM match_players WHERE match_id = ? AND player_id = ? AND team IS NOT NULL', [$id, $y])->fetchColumn();
+            if (!$tx || !$ty) {
+                flash('err', 'Scegli due giocatori che hanno giocato la partita.');
+            } elseif ($x === $y) {
+                flash('err', 'Chi fa assist e chi segna devono essere due giocatori diversi.');
+            } elseif ($tx !== $ty) {
+                flash('err', 'Devono essere della stessa squadra.');
+            } else {
+                q('INSERT INTO match_links (match_id, assister_id, scorer_id, n) VALUES (?, ?, ?, ?)
+                   ON DUPLICATE KEY UPDATE n = VALUES(n)', [$id, $x, $y, $times]);
+                flash('ok', 'Assist registrato.');
+            }
+            redirect($self . '#assist');
+
+        case 'del_link':
+            q('DELETE FROM match_links WHERE match_id = ? AND assister_id = ? AND scorer_id = ?',
+                [$id, (int) ($_POST['assister_id'] ?? 0), (int) ($_POST['scorer_id'] ?? 0)]);
+            redirect($self . '#assist');
+
         case 'close_voting':
             q('UPDATE matches SET voting_open = 0 WHERE id = ?', [$id]);
             flash('ok', 'Votazioni chiuse: voti e MVP ora contano nelle statistiche.');
@@ -218,7 +248,7 @@ if ($match['status'] === 'programmata') {
     sync_match_players($id);
 }
 $roster = match_roster($id);
-$stats = compute_stats();
+$stats = compute_stats([(int) $match['group_id']]);
 $byStatus = ['confermato' => [], 'in_attesa' => [], 'assente' => []];
 $teams = ['A' => [], 'B' => []];
 $myRow = null;
@@ -251,6 +281,11 @@ if ($votingOpen && $iPlayed) {
 }
 $voters = $played ? array_map('intval', q('SELECT voter_id FROM mvp_votes WHERE match_id = ?', [$id])->fetchAll(PDO::FETCH_COLUMN)) : [];
 $participants = array_merge($teams['A'], $teams['B']);
+$chem = !$played && $hasTeams ? chemistry([(int) $match['group_id']]) : ['pairs' => [], 'players' => []];
+$nameOf = short_names($roster);
+$links = $hasTeams ? q('SELECT ml.assister_id, ml.scorer_id, ml.n, a.name AS an, s.name AS sn FROM match_links ml
+                        JOIN players a ON a.id = ml.assister_id JOIN players s ON s.id = ml.scorer_id
+                        WHERE ml.match_id = ? ORDER BY a.name, s.name', [$id])->fetchAll() : [];
 
 layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
 ?>
@@ -263,6 +298,7 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
     <div class="hero-meta">
       <span><i class="ti ti-clock"></i> <?= fmt_time($match['match_date']) ?></span>
       <span><i class="ti ti-map-pin"></i> <?= h($match['location'] ?: 'Campo da definire') ?></span>
+      <?= group_tag((int) $match['group_id']) ?>
       <?php if ((float) $match['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
     </div>
     <?php if ($match['notes']): ?><p class="muted"><?= nl2br(h($match['notes'])) ?></p><?php endif; ?>
@@ -342,6 +378,14 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
           <?php $roles = team_roles($roster, $t); ?>
           <span class="team-roles" title="Giocatori per ruolo (1ª scelta) e con Jolly come 2ª scelta">
             POR <?= $roles['POR'] ?> · DIF <?= $roles['DIF'] ?> · CEN <?= $roles['CEN'] ?> · ATT <?= $roles['ATT'] ?><?= $roles['JOL'] ? ' · Jolly ' . $roles['JOL'] : '' ?></span>
+          <?php $tch = !$played ? team_chemistry($chem, array_column($teams[$t], 'player_id')) : ['pairs' => []]; ?>
+          <?php if ($tch['pairs']): ?>
+            <span class="team-roles team-chem" title="Intesa: bonus o malus di forza per chi ha già giocato insieme (risultati, assist, gol)">
+              <i class="ti ti-heart-handshake"></i> Intesa <strong><?= fmt_signed($tch['sum'], 2) ?></strong>
+              <?php foreach (array_slice($tch['pairs'], 0, 2) as $cp): ?>
+                · <?= h($nameOf[$cp['a']] ?? '?') ?>+<?= h($nameOf[$cp['b']] ?? '?') ?> <?= fmt_signed($cp['score'], 2) ?>
+              <?php endforeach; ?></span>
+          <?php endif; ?>
           <?php foreach ($teams[$t] as $r): $pid = (int) $r['player_id'];
             $extra = '';
             if ($r['goals']) $extra .= '<span class="ev"><i class="ti ti-ball-football"></i>' . ($r['goals'] > 1 ? '×' . $r['goals'] : '') . '</span>';
@@ -414,6 +458,35 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
         <button class="btn btn-primary" name="finish" value="1" data-confirm="Chiudere la partita e aprire le votazioni?"><i class="ti ti-flag-2"></i> Salva e concludi partita</button>
       <?php endif; ?>
     </div>
+  </form>
+</section>
+<?php endif; ?>
+
+<?php if (is_admin() && $hasTeams): ?>
+<section class="card" id="assist">
+  <h2><i class="ti ti-heart-handshake"></i> Chi ha fatto assist a chi <span class="muted small">(facoltativo)</span></h2>
+  <p class="muted small">Serve a misurare l'<strong>intesa</strong>: quando uno serve spesso l'altro (o si servono a vicenda) rendono meglio insieme e le squadre bilanciate ne tengono conto.
+    Non deve coincidere con la tabella qui sopra: registra solo le combinazioni che ricordi.</p>
+  <?php if ($links): ?>
+    <div class="list">
+      <?php foreach ($links as $lk): ?>
+        <div class="link-row">
+          <span><strong><?= h($lk['an']) ?></strong> <i class="ti ti-arrow-right"></i> <strong><?= h($lk['sn']) ?></strong> <span class="muted">· <?= (int) $lk['n'] ?> gol</span></span>
+          <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="del_link">
+            <input type="hidden" name="assister_id" value="<?= (int) $lk['assister_id'] ?>"><input type="hidden" name="scorer_id" value="<?= (int) $lk['scorer_id'] ?>">
+            <button class="icon-btn" title="Togli"><i class="ti ti-x"></i></button></form>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+  <form method="post" class="form form-grid form-grid-4">
+    <?= csrf_field() ?><input type="hidden" name="do" value="add_link">
+    <label class="field"><span>Assist di</span><select name="assister_id">
+      <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?></select></label>
+    <label class="field"><span>per il gol di</span><select name="scorer_id">
+      <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?></select></label>
+    <label class="field"><span>Quante volte</span><input type="number" name="n" min="1" max="20" value="1"></label>
+    <div><button class="btn btn-primary btn-sm">Aggiungi</button></div>
   </form>
 </section>
 <?php endif; ?>

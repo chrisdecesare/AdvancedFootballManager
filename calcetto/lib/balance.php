@@ -22,8 +22,12 @@
  * migliore) ne sceglie una a caso, così "Rigenera" propone squadre diverse.
  */
 
-/** $match serve per usare i moduli scelti dall'admin (se già impostati). */
-function balance_teams(array $pool, int $variety = 6, array $match = []): array
+/**
+ * $match serve per usare i moduli scelti dall'admin (se già impostati).
+ * $synPairs = intesa tra coppie [idA, idB, punteggio] (vedi chemistry.php): la forza di una squadra diventa
+ * somma dei rating + intesa tra i suoi giocatori, e si bilancia quella.
+ */
+function balance_teams(array $pool, int $variety = 6, array $match = [], array $synPairs = []): array
 {
     $pool = array_values($pool);
     $n = count($pool);
@@ -50,7 +54,29 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
     $needB = formation_needs(formation_for($match, 'B', $n - $kA));
     $outfield = ['DIF', 'CEN', 'ATT'];
 
-    $cost = function (array $idx) use ($r, $cap, $totR, $totCap, $needA, $needB, $outfield): float {
+    // intesa: coppie con punteggio ≠ 0, in indici del pool
+    $ixOf = array_flip(array_map(fn($p) => (int) $p['id'], $pool));
+    $syn = [];
+    foreach ($synPairs as [$ida, $idb, $sc]) {
+        if (isset($ixOf[$ida], $ixOf[$idb]) && abs($sc) > 1e-9) {
+            $syn[] = [$ixOf[$ida], $ixOf[$idb], (float) $sc];
+        }
+    }
+    $useSyn = (bool) $syn;
+    $synOf = function (array $inA) use ($syn): array {      // [intesa squadra A, intesa squadra B], con limite
+        $a = $b = 0.0;
+        foreach ($syn as [$i, $j, $sc]) {
+            if (isset($inA[$i]) && isset($inA[$j])) {
+                $a += $sc;
+            } elseif (!isset($inA[$i]) && !isset($inA[$j])) {
+                $b += $sc;
+            }
+        }
+        return [max(-CHEM_TEAM_CAP, min(CHEM_TEAM_CAP, $a)), max(-CHEM_TEAM_CAP, min(CHEM_TEAM_CAP, $b))];
+    };
+
+    // costo di una divisione; con $withSyn la differenza di forza include l'intesa delle due squadre
+    $cost = function (array $idx, bool $withSyn = false) use ($r, $cap, $totR, $totCap, $needA, $needB, $outfield, $synOf): float {
         $s = 0.0;
         $c = ['POR' => 0, 'DIF' => 0, 'CEN' => 0, 'ATT' => 0];
         foreach ($idx as $i) {
@@ -60,7 +86,12 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
             $c['CEN'] += $cap['CEN'][$i];
             $c['ATT'] += $cap['ATT'][$i];
         }
-        $cost = abs($s - ($totR - $s));
+        $diff = $s - ($totR - $s);
+        if ($withSyn) {
+            [$sa, $sb] = $synOf(array_flip($idx));
+            $diff += $sa - $sb;
+        }
+        $cost = abs($diff);
         $cost += 2.0 * max(0, abs($c['POR'] - ($totCap['POR'] - $c['POR'])) - ($totCap['POR'] % 2));
         foreach ($outfield as $role) {
             // posti del modulo scoperti: il costo cresce col quadrato, così due posti scoperti nella stessa
@@ -74,17 +105,24 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
         return $cost;
     };
 
-    $tol = 0.25;
+    // Fino a 22 giocatori si provano tutte le divisioni. Con l'intesa si raccolgono prima le migliori "a rating"
+    // (finestra più larga) e poi si rivalutano con l'intesa: costa poco anche con 22 giocatori.
+    $tol = $useSyn ? 1.5 : 0.25;
+    $limit = $useSyn ? 3000 : 300;
     $best = INF;
     $cands = [];
-    $consider = function (array $idx) use (&$best, &$cands, $cost, $tol) {
-        $c = $cost($idx);
+    $consider = function (array $idx, bool $withSyn = false) use (&$best, &$cands, $cost, $tol, $limit) {
+        $c = $cost($idx, $withSyn);
         if ($c < $best) {
             $best = $c;
             $cands = array_values(array_filter($cands, fn($x) => $x[0] <= $best + $tol));
         }
-        if ($c <= $best + $tol && count($cands) < 300) {
+        if ($c <= $best + $tol) {
             $cands[] = [$c, $idx];
+            if (count($cands) > $limit * 2) {
+                usort($cands, fn($a, $b) => $a[0] <=> $b[0]);
+                $cands = array_slice($cands, 0, $limit);
+            }
         }
     };
 
@@ -102,14 +140,14 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
             shuffle($order);
             $A = array_slice($order, 0, $kA);
             $B = array_slice($order, $kA);
-            $cur = $cost($A);
+            $cur = $cost($A, $useSyn);
             do {
                 $improved = false;
                 foreach ($A as $ia => $x) {
                     foreach ($B as $ib => $y) {
                         $tryA = $A;
                         $tryA[$ia] = $y;
-                        $c = $cost($tryA);
+                        $c = $cost($tryA, $useSyn);
                         if ($c + 1e-9 < $cur) {
                             $A = $tryA;
                             $B[$ib] = $x;
@@ -119,13 +157,24 @@ function balance_teams(array $pool, int $variety = 6, array $match = []): array
                     }
                 }
             } while ($improved);
-            $consider($A);
+            $consider($A, $useSyn);
         }
     }
 
-    usort($cands, fn($a, $b) => $a[0] <=> $b[0]);
+    if ($useSyn && $n <= 22) {
+        // seconda fase: rivaluta le candidate con l'intesa e tieni quelle quasi ottime
+        foreach ($cands as $k => $cand) {
+            $cands[$k][0] = $cost($cand[1], true);
+        }
+        usort($cands, fn($a, $b) => $a[0] <=> $b[0]);
+        $cands = array_values(array_filter($cands, fn($x) => $x[0] <= $cands[0][0] + 0.25));
+    } else {
+        usort($cands, fn($a, $b) => $a[0] <=> $b[0]);
+    }
     $pick = $cands[random_int(0, min($variety, count($cands)) - 1)][1];
-    return balance_result($pool, $pick);
+    $res = balance_result($pool, $pick);
+    [$res['chemA'], $res['chemB']] = $useSyn ? $synOf(array_flip($pick)) : [0.0, 0.0];
+    return $res;
 }
 
 /** Genera tutte le combinazioni di $k elementi di $items (iterativo, senza ricorsione). */

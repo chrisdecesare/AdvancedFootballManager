@@ -16,8 +16,12 @@ if (($_POST['do'] ?? '') === 'availability') {
 
     if (!$match || $match['status'] !== 'programmata') {
         flash('err', 'La partita non accetta più conferme.');
+    } elseif (!match_access($match)) {
+        flash('err', 'Questa partita non è del tuo gruppo.');
     } elseif (!$pid) {
         flash('err', 'Il tuo account non è collegato a un giocatore: chiedi all\'admin.');
+    } elseif (!player_in_group($pid, (int) $match['group_id'])) {
+        flash('err', 'Il giocatore non fa parte del gruppo di questa partita.');
     } elseif (!in_array($status, ['confermato', 'assente', 'in_attesa'], true)) {
         flash('err', 'Stato non valido.');
     } else {

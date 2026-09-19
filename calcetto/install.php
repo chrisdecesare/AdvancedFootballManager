@@ -47,6 +47,7 @@ if (is_post() && $keyOk) {
         if ($name !== '') {
             q('INSERT INTO players (name) VALUES (?)', [$name]);
             $playerId = (int) db()->lastInsertId();
+            set_player_groups($playerId, [1]);   // gruppo predefinito (l'admin lo rinomina da Admin)
         }
         q("INSERT INTO users (username, password_hash, role, player_id) VALUES (?, ?, 'admin', ?)",
             [$username, password_hash($password, PASSWORD_DEFAULT), $playerId]);

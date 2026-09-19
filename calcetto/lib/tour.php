@@ -43,7 +43,7 @@ function tour_steps(array $u): array
             'bullets' => [
                 'Il tasto con il calendario, accanto a ogni partita in programma, la salva su Google Calendar.',
                 'Chi ha confermato, chi è assente e chi deve ancora rispondere.',
-                'Le squadre bilanciate e il campo con la posizione di ognuno.',
+                'Le squadre bilanciate (ruoli, voti e intesa tra chi ha già giocato insieme) e il campo con la posizione di ognuno.',
                 'Il risultato, con gol e assist.',
                 'Il voto ai compagni (da 1 a 10) e la scelta dell\'MVP, quando la partita è finita.',
             ],
@@ -55,6 +55,7 @@ function tour_steps(array $u): array
             'bullets' => [
                 'Ordinali per nome, numero, ruolo, rating o gol.',
                 'Tocca un giocatore per le sue statistiche: partite, gol, assist, media voto, forma e andamento.',
+                'Nella scheda trovi anche «Intesa e note»: con quali compagni rende di più (risultati, assist e gol quando giocano insieme).',
             ],
         ],
         [
@@ -81,6 +82,7 @@ function tour_steps(array $u): array
             'bullets' => [
                 'Approvi le iscrizioni dei nuovi giocatori (il pallino rosso ti avvisa).',
                 'Crei account, cambi ruoli e reimposti le password.',
+                'Gestisci i gruppi (es. YBQ e FANTA): ogni giocatore vede solo giocatori e partite dei suoi gruppi.',
                 'Crei le partite, generi le squadre e inserisci i risultati dalla scheda Partite.',
             ],
         ];

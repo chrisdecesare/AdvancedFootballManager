@@ -68,6 +68,9 @@ function layout_start(string $title, string $active = ''): void
   </div>
 </header>
 <main class="wrap">
+<?php if ($u && !is_admin() && !allowed_group_ids()): ?>
+  <div class="flash flash-err"><i class="ti ti-users-group"></i> Non fai ancora parte di nessun gruppo: chiedi all'admin di assegnarti al tuo, poi vedrai giocatori e partite.</div>
+<?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
   <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>
 <?php endforeach;

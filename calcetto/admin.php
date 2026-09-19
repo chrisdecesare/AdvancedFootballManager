@@ -16,6 +16,14 @@ if (is_post()) {
             $data = json_decode($u['reg_json'] ?? '', true) ?: [];
             [$pos1, $pos2] = normalize_positions($data['position'] ?? null, $data['position2'] ?? null);
             $link = (int) ($_POST['player_id'] ?? 0);
+            $groupIds = array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys(all_groups())));
+            if (count(all_groups()) === 1) {
+                $groupIds = array_keys(all_groups());
+            }
+            if (!$groupIds) {
+                flash('err', "Scegli almeno un gruppo per approvare l'iscrizione.");
+                break;
+            }
             db()->beginTransaction();
             if ($link && !q('SELECT 1 FROM users WHERE player_id = ?', [$link])->fetch()) {
                 // giocatore già in rosa: collega l'account e aggiorna le sue preferenze
@@ -29,10 +37,45 @@ if (is_post()) {
             }
             q("UPDATE users SET status = 'attivo', player_id = ?, reg_json = NULL WHERE id = ?", [$pid, $uid]);
             db()->commit();
-            foreach (q("SELECT id FROM matches WHERE status = 'programmata'")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
-                sync_match_players((int) $mid);
-            }
+            set_player_groups($pid, $groupIds);   // e con questo entra nelle partite programmate dei suoi gruppi
             flash('ok', 'Iscrizione di ' . $u['reg_name'] . ' approvata.');
+            break;
+        case 'group_add':
+        case 'group_rename':
+            $gid = (int) ($_POST['group_id'] ?? 0);
+            $gname = trim((string) ($_POST['name'] ?? ''));
+            if ($gname === '' || mb_strlen($gname) > 40) {
+                flash('err', 'Il nome del gruppo deve avere da 1 a 40 caratteri.');
+            } elseif (q('SELECT 1 FROM squad_groups WHERE LOWER(name) = ? AND id <> ?', [mb_strtolower($gname), $do === 'group_rename' ? $gid : 0])->fetch()) {
+                flash('err', 'Esiste già un gruppo con questo nome.');
+            } elseif ($do === 'group_add') {
+                q('INSERT INTO squad_groups (name) VALUES (?)', [$gname]);
+                groups_cache(null, null, true);
+                flash('ok', "Gruppo \"$gname\" creato: assegna i giocatori dalla loro scheda (Modifica) o all'approvazione delle iscrizioni.");
+            } elseif (isset(all_groups()[$gid])) {
+                q('UPDATE squad_groups SET name = ? WHERE id = ?', [$gname, $gid]);
+                groups_cache(null, null, true);
+                flash('ok', 'Gruppo rinominato.');
+            }
+            break;
+        case 'group_delete':
+            $gid = (int) ($_POST['group_id'] ?? 0);
+            $onlyHere = (int) q('SELECT COUNT(*) FROM player_groups pg WHERE pg.group_id = ? AND NOT EXISTS
+                (SELECT 1 FROM player_groups o WHERE o.player_id = pg.player_id AND o.group_id <> pg.group_id)', [$gid])->fetchColumn();
+            if (!isset(all_groups()[$gid])) {
+                break;
+            }
+            if (count(all_groups()) <= 1) {
+                flash('err', 'Deve esistere almeno un gruppo.');
+            } elseif ((int) q('SELECT COUNT(*) FROM matches WHERE group_id = ?', [$gid])->fetchColumn() > 0) {
+                flash('err', 'Il gruppo ha delle partite: non si può eliminare (rinominalo, se serve).');
+            } elseif ($onlyHere > 0) {
+                flash('err', "$onlyHere giocatori fanno parte solo di questo gruppo: assegnali prima a un altro gruppo.");
+            } else {
+                q('DELETE FROM squad_groups WHERE id = ?', [$gid]);
+                groups_cache(null, null, true);
+                flash('ok', 'Gruppo eliminato.');
+            }
             break;
         case 'reject':
             q("DELETE FROM users WHERE id = ? AND status = 'in_attesa'", [$uid]);
@@ -100,6 +143,16 @@ $users = q("SELECT u.*, p.name AS player_name, p.position, p.position2, p.foot, 
             WHERE u.status = 'attivo' ORDER BY u.role, u.username")->fetchAll();
 $pendingUsers = q("SELECT * FROM users WHERE status = 'in_attesa' ORDER BY created_at")->fetchAll();
 $players = all_players();
+$groupList = all_groups();
+$groupStats = [];
+foreach (q('SELECT g.id, (SELECT COUNT(*) FROM player_groups pg WHERE pg.group_id = g.id) AS n_players,
+                   (SELECT COUNT(*) FROM matches m WHERE m.group_id = g.id) AS n_matches FROM squad_groups g')->fetchAll() as $r) {
+    $groupStats[(int) $r['id']] = $r;
+}
+$playerGroups = [];
+foreach (q('SELECT player_id, group_id FROM player_groups')->fetchAll() as $r) {
+    $playerGroups[(int) $r['player_id']][] = (int) $r['group_id'];
+}
 $free = q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL ORDER BY p.name')->fetchAll();
 
 layout_start('Admin', 'admin');
@@ -131,6 +184,10 @@ layout_start('Admin', 'admin');
           if ($match && (int) $f['id'] === $match) {
               $matchName = $f['name'];
           }
+      }
+      $reqGroups = array_map('intval', (array) ($d['groups'] ?? []));
+      if ($match) {
+          $reqGroups = array_values(array_unique(array_merge($reqGroups, $playerGroups[$match] ?? [])));
       } ?>
       <div class="pending-row">
         <div class="pending-who">
@@ -141,6 +198,14 @@ layout_start('Admin', 'admin');
             <div class="small"><?php if ($matchName): ?><i class="ti ti-link"></i> Abbinato in automatico al giocatore in rosa <strong><?= h($matchName) ?></strong><?php else: ?><i class="ti ti-user-plus"></i> Nessun giocatore in rosa con questo nome: verrà aggiunto come nuovo<?php endif; ?></div></div>
         </div>
         <form method="post" class="pending-actions"><?= csrf_field() ?><input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
+          <?php if (count($groupList) > 1): ?>
+            <div class="group-checks pending-groups" title="Gruppi richiesti (puoi cambiarli)">
+              <i class="ti ti-users-group"></i>
+              <?php foreach ($groupList as $gid => $gname): ?>
+                <label><input type="checkbox" name="groups[]" value="<?= $gid ?>" <?= in_array($gid, $reqGroups, true) ? 'checked' : '' ?>> <?= h($gname) ?></label>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
           <select name="player_id" class="mini-select" aria-label="Collega a un giocatore">
             <option value="">Crea nuovo giocatore</option>
             <?php foreach ($free as $f): ?><option value="<?= (int) $f['id'] ?>" <?= $match === (int) $f['id'] ? 'selected' : '' ?>>È già in rosa: <?= h($f['name']) ?></option><?php endforeach; ?>
@@ -167,6 +232,40 @@ layout_start('Admin', 'admin');
   <a class="card admin-link" href="players.php?tutti=1"><span><i class="ti ti-chart-bar"></i></span><strong>Statistiche</strong><small>Apri un giocatore → Modifica</small></a>
 </div>
 
+<section class="card" id="gruppi">
+  <h2><i class="ti ti-users-group"></i> Gruppi</h2>
+  <p class="muted small">Ogni partita appartiene a un gruppo. Un giocatore vede solo giocatori e partite dei suoi gruppi (chi è in più gruppi li vede tutti e può filtrare). Tu, come admin, vedi sempre tutto.
+    Assegni i giocatori ai gruppi dalla loro scheda (<em>Rosa → giocatore → Modifica</em>) o all'approvazione delle iscrizioni.</p>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Nome</th><th>Giocatori</th><th>Partite</th><th></th></tr></thead>
+    <tbody>
+    <?php foreach ($groupList as $gid => $gname): $gs = $groupStats[$gid] ?? ['n_players' => 0, 'n_matches' => 0]; ?>
+      <tr>
+        <td>
+          <form method="post" class="inline pw-form"><?= csrf_field() ?><input type="hidden" name="do" value="group_rename"><input type="hidden" name="group_id" value="<?= $gid ?>">
+            <input type="text" name="name" value="<?= h($gname) ?>" maxlength="40" required class="mini-input" aria-label="Nome del gruppo">
+            <button class="btn btn-ghost btn-sm">Rinomina</button></form>
+        </td>
+        <td><?= (int) $gs['n_players'] ?></td>
+        <td><?= (int) $gs['n_matches'] ?></td>
+        <td>
+          <?php if (count($groupList) > 1): ?>
+            <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="group_delete"><input type="hidden" name="group_id" value="<?= $gid ?>">
+              <button class="icon-btn" title="Elimina il gruppo" data-confirm="Eliminare il gruppo <?= h($gname) ?>?"><i class="ti ti-trash"></i></button></form>
+          <?php endif; ?>
+        </td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table></div>
+  <h3>Nuovo gruppo</h3>
+  <form method="post" class="form form-grid">
+    <?= csrf_field() ?><input type="hidden" name="do" value="group_add">
+    <label class="field"><span>Nome (es. YBQ, FANTA)</span><input name="name" required maxlength="40" autocomplete="off"></label>
+    <div><button class="btn btn-primary">Crea gruppo</button></div>
+  </form>
+</section>
+
 <section class="card">
   <h2>Account</h2>
   <div class="table-wrap"><table class="table">
@@ -181,6 +280,9 @@ layout_start('Admin', 'admin');
             <?= h(positions_label($u)) ?> · piede <?= h(strtolower($u['foot'] ?? '')) ?><?= $u['shirt_number'] !== null ? ' · n. ' . (int) $u['shirt_number'] : '' ?><br>
           <?php else: ?>
             <span class="muted">nessun giocatore collegato</span><br>
+          <?php endif; ?>
+          <?php if (count($groupList) > 1 && $u['player_id']): ?>
+            <?php foreach ($playerGroups[(int) $u['player_id']] ?? [] as $gid): ?><span class="tag tag-group"><i class="ti ti-users-group"></i> <?= h($groupList[$gid] ?? '?') ?></span> <?php endforeach; ?><br>
           <?php endif; ?>
           <span class="muted">creato il <?= fmt_date_short($u['created_at']) ?></span>
         </td>

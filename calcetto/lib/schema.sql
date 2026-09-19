@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS matches (
   score_b TINYINT UNSIGNED NULL,
   voting_open TINYINT(1) NOT NULL DEFAULT 0,
   notes TEXT NULL,
+  group_id INT NOT NULL DEFAULT 1,                 -- gruppo (squadra/lega) a cui appartiene la partita
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (status, match_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -106,4 +107,33 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   INDEX (ip, username, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '6');
+-- gruppi (es. YBQ, FANTA): ogni giocatore può far parte di più gruppi, ogni partita è di un gruppo
+CREATE TABLE IF NOT EXISTS squad_groups (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(40) NOT NULL UNIQUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS player_groups (
+  player_id INT NOT NULL,
+  group_id INT NOT NULL,
+  PRIMARY KEY (player_id, group_id),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO squad_groups (id, name) VALUES (1, 'Principale');
+
+-- assist tra due giocatori in una partita (facoltativo): "assister ha servito scorer per n gol"
+CREATE TABLE IF NOT EXISTS match_links (
+  match_id INT NOT NULL,
+  assister_id INT NOT NULL,
+  scorer_id INT NOT NULL,
+  n TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  PRIMARY KEY (match_id, assister_id, scorer_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (assister_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (scorer_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '7');

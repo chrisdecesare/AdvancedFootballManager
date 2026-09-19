@@ -685,3 +685,31 @@ html.tour-open { overflow: hidden; }
 .balance-note strong { font-family: var(--font-d); font-weight: 400; }
 .balance-roles { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 4px; }
 .team-roles { display: block; margin: 2px 0 8px; font-size: .78rem; font-weight: 800; color: var(--muted); }
+
+/* ---------- gruppi ---------- */
+.group-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; }
+.group-bar-label { font-weight: 800; color: var(--ink-2); margin-right: 2px; }
+.gchip { font: inherit; font-weight: 800; font-size: .85rem; cursor: pointer; padding: 4px 12px; color: var(--ink); background: var(--white);
+  border: var(--b2); border-radius: 999px; box-shadow: 2px 2px 0 var(--ink); }
+.gchip:hover { background: var(--paper-2); }
+.gchip.is-on { background: var(--yellow); }
+.gchip:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--ink); }
+.tag-group { background: var(--paper-2); }
+.group-box { border: 2px dashed var(--ink); border-radius: 14px; padding: 8px 12px; background: var(--paper); }
+.group-box legend { font-weight: 800; padding: 0 6px; }
+.group-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.group-checks label { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+.pending-groups { flex-basis: 100%; }
+
+/* ---------- intesa ---------- */
+.team-chem { color: var(--ink-2); }
+.team-chem strong { color: var(--ink); }
+.link-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1.5px dashed rgba(31, 26, 46, .25); }
+.chem-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.chem-item { border: var(--b2); border-radius: 14px; padding: 10px 12px; background: var(--white); }
+.chem-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.chem-score { font: 400 1.05rem var(--font-d); padding: 1px 10px; border: var(--b2); border-radius: 999px; background: var(--paper-2); }
+.chem-score.is-pos { background: var(--grass); }
+.chem-score.is-neg { background: var(--red); color: var(--white); }
+.chem-notes { margin: 6px 0 0; padding-left: 1.2em; font-size: .88rem; }
+.chem-notes li { margin: 2px 0; }
