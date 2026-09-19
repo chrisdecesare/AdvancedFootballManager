@@ -587,3 +587,33 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .pending-who { display: flex; align-items: center; gap: 10px; }
 .pending-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pitch-label .form-select { font: 800 .8rem var(--font); padding: 1px 4px; border-width: 2px; margin-left: 4px; background: var(--white); }
+
+/* ---- tutorial di benvenuto (assets/app.js, lib/tour.php) ---- */
+html.tour-open { overflow: hidden; }
+.tour { position: fixed; inset: 0; z-index: 1000; }
+.tour [hidden] { display: none !important; }
+.tour-spot {
+  position: fixed; pointer-events: none; border-radius: 14px;
+  box-shadow: 0 0 0 4px var(--yellow), 0 0 0 100vmax rgba(31, 26, 46, .78);
+  transition: left .25s, top .25s, width .25s, height .25s;
+}
+.tour-spot.is-center { border-radius: 0; box-shadow: 0 0 0 100vmax rgba(31, 26, 46, .78); }
+.tour-card {
+  position: fixed; width: min(400px, calc(100vw - 20px)); max-height: calc(100vh - 20px); overflow: auto;
+  background: var(--white); border: var(--b); border-radius: var(--r); box-shadow: var(--sh); padding: 16px 18px;
+}
+.tour-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.tour-icon { display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 12px;
+  background: var(--yellow); border: var(--b2); box-shadow: var(--sh-sm); font-size: 1.4rem; }
+.tour-title { margin: 0; font-size: 1.45rem; }
+.tour-text { margin: 0 0 8px; }
+.tour-list { margin: 0 0 14px; padding-left: 1.25em; }
+.tour-list li { margin: 4px 0; }
+.tour-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tour-count { font-size: .8rem; font-weight: 800; color: var(--muted); }
+.tour-dots { display: inline-flex; gap: 4px; }
+.tour-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--ink); background: var(--white); }
+.tour-dot.is-active { background: var(--yellow); }
+.tour-skip { background: none; border: 0; padding: 4px; font: inherit; font-weight: 800; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.tour-actions { display: flex; gap: 8px; margin-left: auto; }
+@media (prefers-reduced-motion: reduce) { .tour-spot { transition: none; } }

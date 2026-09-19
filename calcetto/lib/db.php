@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -84,6 +84,12 @@ function ensure_schema(): void
         db()->exec("UPDATE players SET position = COALESCE(NULLIF(position2, 'Jolly'), 'Centrocampista'), position2 = 'Jolly'
                     WHERE position = 'Jolly'");
         db()->exec("ALTER TABLE players ALTER COLUMN `position` SET DEFAULT 'Centrocampista'");
+    }
+    if ($v < 6) {
+        // tutorial di benvenuto: chi ha già un account attivo non è "nuovo", quindi non lo rivede da solo
+        // (chi è ancora in attesa di approvazione lo vedrà al primo accesso)
+        $add('users', 'tour_done', 'TINYINT(1) NOT NULL DEFAULT 0');
+        db()->exec("UPDATE users SET tour_done = 1 WHERE status = 'attivo'");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

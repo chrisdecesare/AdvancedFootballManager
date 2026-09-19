@@ -116,10 +116,20 @@ layout_start('Admin', 'admin');
   <div class="list">
     <?php foreach ($pendingUsers as $u): $d = json_decode($u['reg_json'] ?? '', true) ?: [];
       [$d['position'], $d['position2']] = normalize_positions($d['position'] ?? null, $d['position2'] ?? null);
+      // giocatore in rosa abbinato all'iscrizione: quello trovato all'iscrizione (se è ancora libero),
+      // altrimenti si ricerca di nuovo per nome (magari è stato aggiunto in rosa dopo)
       $match = null;
+      $wanted = (int) ($d['player_id'] ?? 0);
       foreach ($free as $f) {
-          if (mb_strtolower(trim($f['name'])) === mb_strtolower(trim($u['reg_name'] ?? ''))) {
-              $match = (int) $f['id'];
+          if ($wanted && (int) $f['id'] === $wanted) {
+              $match = $wanted;
+          }
+      }
+      $match = $match ?: find_roster_match($u['reg_name'] ?? '', $free);
+      $matchName = '';
+      foreach ($free as $f) {
+          if ($match && (int) $f['id'] === $match) {
+              $matchName = $f['name'];
           }
       } ?>
       <div class="pending-row">
@@ -127,7 +137,8 @@ layout_start('Admin', 'admin');
           <?= avatar(['name' => $u['reg_name']], 'md') ?>
           <div><strong><?= h($u['reg_name']) ?></strong> <span class="muted small">@<?= h($u['username']) ?> · iscritto il <?= fmt_date_short($u['created_at']) ?> alle <?= fmt_time($u['created_at']) ?></span>
             <div class="small"><?= h(($d['position'] ?? 'Jolly') . (!empty($d['position2']) ? ' / ' . $d['position2'] : '')) ?>
-              · piede <?= h(strtolower($d['foot'] ?? '')) ?><?= isset($d['shirt_number']) ? ' · maglia n. ' . (int) $d['shirt_number'] : ' · nessun numero di maglia' ?></div></div>
+              · piede <?= h(strtolower($d['foot'] ?? '')) ?><?= isset($d['shirt_number']) ? ' · maglia n. ' . (int) $d['shirt_number'] : ' · nessun numero di maglia' ?></div>
+            <div class="small"><?php if ($matchName): ?><i class="ti ti-link"></i> Abbinato in automatico al giocatore in rosa <strong><?= h($matchName) ?></strong><?php else: ?><i class="ti ti-user-plus"></i> Nessun giocatore in rosa con questo nome: verrà aggiunto come nuovo<?php endif; ?></div></div>
         </div>
         <form method="post" class="pending-actions"><?= csrf_field() ?><input type="hidden" name="user_id" value="<?= (int) $u['id'] ?>">
           <select name="player_id" class="mini-select" aria-label="Collega a un giocatore">
