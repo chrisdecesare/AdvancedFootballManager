@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -169,6 +169,10 @@ function ensure_schema(): void
             INDEX (user_id),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 11) {
+        // voti dati d'ufficio (DEFAULT_VOTE) a chi non ha votato entro la chiusura delle votazioni
+        $add('ratings', 'is_auto', 'TINYINT(1) NOT NULL DEFAULT 0');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

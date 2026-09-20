@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS ratings (
   voter_id INT NOT NULL,
   rated_id INT NOT NULL,
   vote DECIMAL(3,1) NOT NULL,
+  is_auto TINYINT(1) NOT NULL DEFAULT 0,           -- 1 = voto dato d'ufficio a chi non ha votato
   PRIMARY KEY (match_id, voter_id, rated_id),
   FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
   FOREIGN KEY (voter_id) REFERENCES players(id) ON DELETE CASCADE,
@@ -186,4 +187,4 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '10');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '11');

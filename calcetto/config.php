@@ -38,6 +38,9 @@ define('REGISTRATION', true);
 define('TEAM_A_NAME', 'Blu');
 define('TEAM_B_NAME', 'Arancio');
 
+// voto dato d'ufficio, alla chiusura delle votazioni, a chi non ha votato (a tutti gli altri giocatori della partita)
+define('DEFAULT_VOTE', 6.0);
+
 define('POINTS_WIN', 3);
 define('POINTS_DRAW', 1);
 define('DEFAULT_FEE', 5.00);          // quota a partita (€)

@@ -1,5 +1,12 @@
 // Piccole interazioni: conferme, select che salvano da sole, voti, calcolo risultato, anteprima foto.
 document.addEventListener('DOMContentLoaded', () => {
+  // conferma dei voti: sparisce da sola, oppure con un tocco
+  const voteDone = document.querySelector('[data-vote-done]');
+  if (voteDone) {
+    voteDone.addEventListener('click', () => voteDone.remove());
+    voteDone.addEventListener('animationend', e => { if (e.target === voteDone) voteDone.remove(); });
+  }
+
   document.querySelectorAll('[data-confirm]').forEach(el => {
     el.addEventListener('click', e => {
       if (!confirm(el.dataset.confirm)) e.preventDefault();

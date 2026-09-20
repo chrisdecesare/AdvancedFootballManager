@@ -199,6 +199,11 @@ Ciclo di una partita (dove si legge «admin» vale anche per il manager, per le 
 squadre bilanciate → a fine partita inserisce il risultato → i giocatori votano → l'admin chiude
 le votazioni e voti/MVP entrano nelle statistiche.
 
+**Voti:** dopo l'invio compare un grande segno di spunta al centro dello schermo («Voti inviati!»; sparisce da solo o con un tocco). Si possono cambiare
+quanti se ne vuole finché le votazioni sono aperte. Alla chiusura, per chi ha giocato e non ha votato il voto d'ufficio è **6** (`DEFAULT_VOTE` in `config.php`)
+per ogni altro giocatore della partita (mai per se stesso; nessun MVP viene inventato). I voti d'ufficio hanno un contrassegno nel database
+(`ratings.is_auto`): se le votazioni vengono riaperte spariscono e si rifanno alla chiusura successiva, e chi vota dopo sostituisce i suoi.
+
 ## Test in locale
 
 Servono PHP 8.0+ con `pdo_mysql` e `gd`, e un MySQL/MariaDB. Le credenziali si passano con

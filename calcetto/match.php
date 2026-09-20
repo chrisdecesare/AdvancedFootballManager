@@ -182,12 +182,15 @@ if (is_post()) {
 
         case 'close_voting':
             q('UPDATE matches SET voting_open = 0 WHERE id = ?', [$id]);
+            $late = $match['status'] === 'giocata' ? apply_default_votes($id) : [];   // chi non ha votato: 6 a tutti
             push_notify_voting($id, false, $actor);
-            flash('ok', 'Votazioni chiuse: voti e MVP ora contano nelle statistiche.');
+            flash('ok', 'Votazioni chiuse: voti e MVP ora contano nelle statistiche.'
+                . ($late ? ' A chi non ha votato (' . implode(', ', $late) . ') è stato dato ' . default_vote_label() . ' d\'ufficio a tutti gli altri.' : ''));
             break;
 
         case 'open_voting':
             q('UPDATE matches SET voting_open = 1 WHERE id = ?', [$id]);
+            q('DELETE FROM ratings WHERE match_id = ? AND is_auto = 1', [$id]);   // i voti d'ufficio si rifanno alla prossima chiusura
             push_notify_voting($id, true, $actor);
             flash('ok', 'Votazioni riaperte.');
             break;
@@ -253,6 +256,7 @@ function handle_vote(array $match, ?int $me): void
     q('INSERT INTO mvp_votes (match_id, voter_id, voted_id) VALUES (?, ?, ?)', [$id, $me, $mvp]);
     db()->commit();
     flash('ok', 'Voti registrati, grazie! Puoi modificarli finché le votazioni sono aperte.');
+    $_SESSION['vote_done'] = 1;   // fa comparire il segno di spunta grande nella pagina successiva
 }
 
 /* ---------------------------------------------------------------- dati */
@@ -300,7 +304,20 @@ $links = $hasTeams ? q('SELECT ml.assister_id, ml.scorer_id, ml.n, a.name AS an,
                         WHERE ml.match_id = ? ORDER BY a.name, s.name', [$id])->fetchAll() : [];
 
 layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
-?>
+if (!empty($_SESSION['vote_done'])):
+    unset($_SESSION['vote_done']); ?>
+<div class="vote-done" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <svg class="vote-done-badge" viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="vd-shadow" cx="66" cy="66" r="52"/>
+      <circle class="vd-disc" cx="60" cy="60" r="52"/>
+      <path class="vd-check" d="M34 62 L53 81 L88 40"/>
+    </svg>
+    <div class="vote-done-title">Voti inviati!</div>
+    <div class="vote-done-sub">Puoi cambiarli finché le votazioni sono aperte.</div>
+  </div>
+</div>
+<?php endif; ?>
 <a class="back" href="matches.php"><i class="ti ti-arrow-left"></i> Partite</a>
 
 <section class="card match-head">
@@ -513,7 +530,7 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
   <?php if ($votingOpen && $iPlayed): ?>
     <form method="post" class="vote-form">
       <?= csrf_field() ?><input type="hidden" name="do" value="vote">
-      <p class="muted">Dai un voto da 1 a 10 a ogni compagno e avversario, poi scegli l'MVP. <?= $myMvp ? '<strong>Hai già votato:</strong> puoi modificare.' : '' ?></p>
+      <p class="muted">Dai un voto da 1 a 10 a ogni compagno e avversario, poi scegli l'MVP. <?= $myMvp ? '<strong>Hai già votato:</strong> puoi modificare.' : '' ?> <span class="small">Se non voti entro la chiusura, a tutti gli altri viene dato <?= default_vote_label() ?> d'ufficio.</span></p>
       <?php foreach ($participants as $r): $pid = (int) $r['player_id']; if ($pid === $me) continue;
         $val = $myVotes[$pid] ?? 6; ?>
         <div class="vote-row">
@@ -529,10 +546,9 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
     <p class="muted">Votano solo i giocatori che hanno partecipato. I risultati si vedono alla chiusura delle votazioni.</p>
   <?php endif; ?>
 
-  <?php if ($votingOpen): ?>
-    <?php $missing = array_filter($participants, fn($r) => !in_array((int) $r['player_id'], $voters, true)); ?>
-    <?php if ($missing): ?><p class="small muted">Mancano: <?= h(implode(', ', array_column($missing, 'name'))) ?></p><?php endif; ?>
-  <?php endif; ?>
+  <?php $missing = array_filter($participants, fn($r) => !in_array((int) $r['player_id'], $voters, true)); ?>
+  <?php if ($missing && $votingOpen): ?><p class="small muted">Mancano: <?= h(implode(', ', array_column($missing, 'name'))) ?></p><?php endif; ?>
+  <?php if ($missing && !$votingOpen): ?><p class="small muted"><i class="ti ti-info-circle"></i> Non hanno votato: <?= h(implode(', ', array_column($missing, 'name'))) ?> (a tutti gli altri è stato dato <?= default_vote_label() ?> d'ufficio).</p><?php endif; ?>
 
   <?php if ($showVotes): ?>
     <?php if ($votingOpen): ?><p class="small muted"><i class="ti ti-eye"></i> Anteprima visibile solo agli admin.</p><?php endif; ?>
@@ -559,7 +575,7 @@ layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
     <div class="btn-row">
       <form method="post" class="inline"><?= csrf_field() ?>
         <?php if ($votingOpen): ?>
-          <input type="hidden" name="do" value="close_voting"><button class="btn btn-primary" data-confirm="Chiudere le votazioni? Voti e MVP entreranno nelle statistiche."><i class="ti ti-lock"></i> Chiudi votazioni</button>
+          <input type="hidden" name="do" value="close_voting"><button class="btn btn-primary" data-confirm="Chiudere le votazioni? Voti e MVP entreranno nelle statistiche. A chi non ha votato verrà dato <?= default_vote_label() ?> d'ufficio a tutti gli altri."><i class="ti ti-lock"></i> Chiudi votazioni</button>
         <?php else: ?>
           <input type="hidden" name="do" value="open_voting"><button class="btn btn-ghost"><i class="ti ti-lock-open"></i> Riapri votazioni</button>
         <?php endif; ?>
