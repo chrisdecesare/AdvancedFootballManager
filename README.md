@@ -199,6 +199,12 @@ Ciclo di una partita (dove si legge «admin» vale anche per il manager, per le 
 squadre bilanciate → a fine partita inserisce il risultato → i giocatori votano → l'admin chiude
 le votazioni e voti/MVP entrano nelle statistiche.
 
+**Fine votazioni e conto alla rovescia:** quando la partita viene conclusa (o le votazioni riaperte) si fissa un orario di fine: `VOTING_HOURS` in
+`config.php` (24 ore). Nella scheda «Voti» si vede l'orario con il conto alla rovescia, e chi gestisce la partita lo cambia (o toglie la scadenza) da lì.
+Arrivato l'orario le votazioni si chiudono da sole, con i voti d'ufficio e la notifica di chiusura: succede alla prima pagina aperta da qualcuno
+dopo l'orario, o dal cron (`cron.php`) se c'è. Nella Home e nella partita, quando mancano meno di 24 ore alla partita, compare il conto alla rovescia
+(«Mancano 3h 31min», poi minuti e secondi nell'ultima ora).
+
 **Voti:** dopo l'invio compare un grande segno di spunta al centro dello schermo («Voti inviati!»; sparisce da solo o con un tocco). Si possono cambiare
 quanti se ne vuole finché le votazioni sono aperte. Alla chiusura, per chi ha giocato e non ha votato il voto d'ufficio è **6** (`DEFAULT_VOTE` in `config.php`)
 per ogni altro giocatore della partita (mai per se stesso; nessun MVP viene inventato). I voti d'ufficio hanno un contrassegno nel database

@@ -63,6 +63,7 @@ verify_csrf();
 if (tables_exist()) {
     ensure_schema();
     remember_check();   // sessione scaduta ma dispositivo "collegato": rientra da solo
+    close_due_votings();   // votazioni arrivate all'orario di fine: si chiudono da sole
     // mentre qualcuno usa il sito, a risposta già inviata, parte l'eventuale promemoria "non hai ancora risposto"
     if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         push_defer('push_maybe_run');

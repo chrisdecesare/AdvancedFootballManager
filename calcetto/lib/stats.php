@@ -94,6 +94,37 @@ function match_vote_averages(): array
     return $c;
 }
 
+/** Orario di fine votazioni proposto quando si aprono: adesso + VOTING_HOURS. */
+function default_voting_end(): string
+{
+    return date('Y-m-d H:i:s', time() + (int) VOTING_HOURS * 3600);
+}
+
+/**
+ * Chiude le votazioni di una partita (una volta sola, anche se due richieste arrivano insieme): voti d'ufficio a chi non ha votato
+ * e notifica di chiusura. Ritorna null se erano già chiuse, altrimenti i nomi di chi non ha votato.
+ * @return string[]|null
+ */
+function close_voting_now(int $matchId, ?int $actorUser = null): ?array
+{
+    $n = q("UPDATE matches SET voting_open = 0, voting_ends_at = NULL WHERE id = ? AND status = 'giocata' AND voting_open = 1", [$matchId])->rowCount();
+    if ($n !== 1) {
+        return null;
+    }
+    $late = apply_default_votes($matchId);
+    push_notify_voting($matchId, false, $actorUser);
+    return $late;
+}
+
+/** Chiude le votazioni il cui orario di fine è passato (a ogni richiesta, e da cron.php). */
+function close_due_votings(): void
+{
+    foreach (q("SELECT id FROM matches WHERE status = 'giocata' AND voting_open = 1 AND voting_ends_at IS NOT NULL AND voting_ends_at <= ?",
+        [date('Y-m-d H:i:s')])->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        close_voting_now((int) $id);
+    }
+}
+
 /** Il voto d'ufficio come si scrive a schermo: "6" (o "6,5"). */
 function default_vote_label(): string
 {

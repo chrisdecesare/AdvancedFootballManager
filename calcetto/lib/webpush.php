@@ -411,7 +411,8 @@ function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): 
         if ($open) {
             $msg = ['title' => 'Votazioni aperte',
                 'body' => team_name('A', $m) . ' ' . (int) $m['score_a'] . '–' . (int) $m['score_b'] . ' ' . team_name('B', $m)
-                    . '. Vota i compagni e scegli l\'MVP!'];
+                    . '. Vota i compagni e scegli l\'MVP!'
+                    . ($m['voting_ends_at'] ? ' Hai tempo fino a ' . push_when($m['voting_ends_at']) . '.' : '')];
         } else {
             $mvp = match_mvp($matchId);
             $name = $mvp ? (get_player($mvp)['name'] ?? null) : null;

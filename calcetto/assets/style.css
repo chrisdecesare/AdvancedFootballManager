@@ -804,3 +804,15 @@ a.fact-who:hover { color: var(--grass-d); }
   .vote-done-card { animation: none; }
   .vd-check { animation: none; stroke-dashoffset: 0; }
 }
+
+/* ---------- conti alla rovescia e fine votazioni ---------- */
+.countdown { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.countdown[hidden] { display: none; }
+.countdown-big { position: relative; z-index: 1; font: 400 1.3rem var(--font-d); background: var(--yellow); color: var(--ink); border: var(--b2);
+  border-radius: 12px; padding: 3px 14px 4px; box-shadow: var(--sh-sm); }
+.hero-count { position: relative; z-index: 1; margin-top: 12px; }
+.hero-count:has(.countdown[hidden]) { display: none; }
+.countdown-small { color: var(--ink-2); }
+.vote-deadline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+.deadline-form { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.deadline-form .field { margin: 0; }

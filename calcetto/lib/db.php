@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -173,6 +173,10 @@ function ensure_schema(): void
     if ($v < 11) {
         // voti dati d'ufficio (DEFAULT_VOTE) a chi non ha votato entro la chiusura delle votazioni
         $add('ratings', 'is_auto', 'TINYINT(1) NOT NULL DEFAULT 0');
+    }
+    if ($v < 12) {
+        // orario in cui terminano le votazioni (NULL = nessuna scadenza: le chiude chi gestisce la partita)
+        $add('matches', 'voting_ends_at', 'DATETIME NULL');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }
