@@ -92,6 +92,16 @@ img { max-width: 100%; }
   .me span:not(.avatar) { display: none; }
   .nav a { padding: 6px 9px; }
 }
+@media (min-width: 800px) {    /* con 7 schede (l'admin) nome e marchio accanto alla foto non ci stanno mai */
+  .nav-many .me { padding-right: 3px; }
+  .nav-many .me span:not(.avatar) { display: none; }
+  .nav-many .nav a { padding: 6px 9px; }
+}
+@media (min-width: 800px) and (max-width: 1339px) {   /* e con la campanella le sue schede restano solo icone finché non c'è tutto lo spazio */
+  .nav-many .nav a { padding: 6px 10px; }
+  .nav-many .nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .nav-many .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+}
 @media (max-width: 1099px) {   /* solo le icone: il nome resta scritto sulla scheda attiva (e nel tooltip) */
   .nav a { padding: 6px 10px; }
   .nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -746,3 +756,31 @@ html.tour-open { overflow: hidden; }
 .crop-zoom { display: flex; align-items: center; gap: 10px; }
 .crop-zoom input { flex: 1; }
 .bg-box { margin: 4px 0 14px; }
+
+/* ---------- notifiche push ---------- */
+.push-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--paper-2); }
+.push-banner[hidden] { display: none; }
+.home > .push-banner { grid-column: 1 / -1; }
+.push-banner .btn-row { margin: 0 0 0 auto; }
+.push-ic { font-size: 1.6rem; }
+.push-txt { flex: 1 1 260px; min-width: 0; }
+.push-card h2 { display: flex; align-items: center; gap: 8px; }
+.push-status { font-weight: 800; }
+.push-card [hidden] { display: none; }
+
+/* ---------- curiosita' ---------- */
+.fact-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.fact-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; background: var(--paper-2); border: var(--b2); border-radius: 12px; }
+.fact-list li span { min-width: 0; overflow-wrap: anywhere; }
+.fact-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.fact-form input { flex: 1 1 240px; min-width: 0; }
+.fact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; align-items: start; }
+.fact-card { margin: 0; display: grid; gap: 8px; }
+.fact-card p, .fact p { margin: 0; overflow-wrap: anywhere; }
+.fact-head { display: flex; align-items: center; gap: 10px; }
+.fact-who { font: 400 1.1rem var(--font-d); }
+a.fact-who:hover { color: var(--grass-d); }
+.home > .fact { grid-column: 1 / -1; }
+.fact-body { display: flex; align-items: center; gap: 12px; }
+.fact-body > div { min-width: 0; }
+[data-push-bell].is-busy { opacity: .5; pointer-events: none; }

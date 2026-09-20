@@ -14,6 +14,35 @@ if (!$p || !player_access($id)) {   // inesistente o di un gruppo che non è il 
 $s = compute_stats()[$id];
 $canEdit = is_admin() || my_player_id() === $id;
 
+// curiosità: le scrive il giocatore stesso o l'admin
+if (is_post()) {
+    require_login();
+    $do = $_POST['do'] ?? '';
+    if (!in_array($do, ['add_curiosity', 'del_curiosity'], true)) {
+        redirect('player.php?id=' . $id);
+    }
+    if (!can_edit_curiosities($id)) {
+        flash('err', 'Le curiosità di ' . $p['name'] . ' le può scrivere solo lui (o un admin).');
+    } elseif ($do === 'add_curiosity') {
+        $body = clean_curiosity($_POST['body'] ?? '');
+        if ($body === null || mb_strlen($body) > CURIOSITY_MAX) {
+            flash('err', 'Scrivi una curiosità di massimo ' . CURIOSITY_MAX . ' caratteri.');
+        } elseif ((int) q('SELECT COUNT(*) FROM curiosities WHERE player_id = ?', [$id])->fetchColumn() >= 30) {
+            flash('err', 'Ci sono già troppe curiosità: cancellane qualcuna.');
+        } elseif (q('SELECT 1 FROM curiosities WHERE player_id = ? AND body = ?', [$id, $body])->fetch()) {
+            flash('err', 'Hai già scritto questa curiosità.');
+        } else {
+            q('INSERT INTO curiosities (player_id, body, created_by) VALUES (?, ?, ?)', [$id, $body, current_user()['id']]);
+            flash('ok', 'Curiosità aggiunta.');
+        }
+    } else {
+        q('DELETE FROM curiosities WHERE id = ? AND player_id = ?', [(int) ($_POST['id'] ?? 0), $id]);
+        flash('ok', 'Curiosità eliminata.');
+    }
+    redirect('player.php?id=' . $id . '#curiosita');
+}
+$curiosities = player_curiosities($id);
+
 // posizione in classifica marcatori e punti
 $rankOf = function (string $sort) use ($id): ?int {
     foreach (standings($sort) as $i => $row) {
@@ -107,6 +136,34 @@ layout_start($p['name'], 'players');
   <?php endforeach; ?>
   <div class="stat"><strong class="vote-big <?= vote_class($s['avg_vote']) ?>-t"><?= fmt_num($s['avg_vote']) ?></strong><span>Media voto</span></div>
 </section>
+
+<?php if ($curiosities || $canEdit): ?>
+<section class="card" id="curiosita">
+  <div class="card-head"><h2><i class="ti ti-bulb"></i> Curiosità</h2><a class="link" href="curiosities.php">Tutte <i class="ti ti-arrow-right"></i></a></div>
+  <?php if ($curiosities): ?>
+    <ul class="fact-list">
+    <?php foreach ($curiosities as $c): ?>
+      <li>
+        <span><?= h($c['body']) ?></span>
+        <?php if ($canEdit): ?>
+          <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="del_curiosity"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
+            <button class="icon-btn" title="Elimina la curiosità" aria-label="Elimina la curiosità" data-confirm="Eliminare questa curiosità?"><i class="ti ti-trash"></i></button></form>
+        <?php endif; ?>
+      </li>
+    <?php endforeach; ?>
+    </ul>
+  <?php else: ?>
+    <p class="empty">Ancora nessuna curiosità<?= $canEdit ? ': scrivine una!' : '.' ?></p>
+  <?php endif; ?>
+  <?php if ($canEdit): ?>
+    <form method="post" class="fact-form"><?= csrf_field() ?><input type="hidden" name="do" value="add_curiosity">
+      <input name="body" required maxlength="<?= CURIOSITY_MAX ?>" autocomplete="off" aria-label="Nuova curiosità" placeholder="Es. Ha segnato un gol da metà campo, una sola volta in tutta la vita">
+      <button class="btn btn-primary btn-sm"><i class="ti ti-plus"></i> Aggiungi</button>
+    </form>
+    <p class="muted small">Le curiosità compaiono nella pagina «Curiosità» e ogni tanto in Home. Le possono scrivere il giocatore stesso e gli admin.</p>
+  <?php endif; ?>
+</section>
+<?php endif; ?>
 
 <section class="card">
   <h2>Performance</h2>

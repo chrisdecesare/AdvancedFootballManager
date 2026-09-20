@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -123,5 +123,50 @@ function ensure_schema(): void
         $add('players', 'bg_color', 'VARCHAR(7) NULL');
         $add('players', 'bg_image', 'VARCHAR(255) NULL');
     }
+    if ($v < 9) {
+        // ruolo "manager" (crea e gestisce le partite dei suoi gruppi), notifiche push e curiosita' dei giocatori
+        db()->exec("ALTER TABLE users MODIFY role ENUM('admin','manager','player') NOT NULL DEFAULT 'player'");
+        db()->exec('CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            endpoint_hash CHAR(64) NOT NULL UNIQUE,
+            endpoint TEXT NOT NULL,
+            p256dh VARCHAR(120) NOT NULL,
+            auth VARCHAR(40) NOT NULL,
+            ua VARCHAR(120) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX (user_id),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS push_log (
+            kind VARCHAR(20) NOT NULL,
+            match_id INT NOT NULL,
+            player_id INT NOT NULL,
+            sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (kind, match_id, player_id),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS curiosities (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            player_id INT NOT NULL,
+            body VARCHAR(300) NOT NULL,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX (player_id),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('push_last_run', '0')");
+    }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
+}
+
+function meta_get(string $k): ?string
+{
+    $v = q('SELECT v FROM meta WHERE k = ?', [$k])->fetchColumn();
+    return $v === false ? null : (string) $v;
+}
+
+function meta_set(string $k, string $v): void
+{
+    q('INSERT INTO meta (k, v) VALUES (?, ?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$k, $v]);
 }

@@ -1,6 +1,10 @@
 Options -Indexes -MultiViews
 DirectoryIndex index.php
 
+# App installabile e notifiche: il manifest e il service worker vanno serviti con il tipo giusto
+AddType application/manifest+json .webmanifest
+AddType text/javascript .js
+
 # HTTPS obbligatorio: le password non devono viaggiare in chiaro (in locale, su localhost, resta http)
 # Se dopo l'upload il sito va in "troppi reindirizzamenti", cancella questo blocco <IfModule mod_rewrite.c>.
 <IfModule mod_rewrite.c>

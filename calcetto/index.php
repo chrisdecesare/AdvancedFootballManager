@@ -38,10 +38,14 @@ foreach ($lastRoster as $r) {
 $mustVote = $last && $last['voting_open'] && $iPlayedLast &&
     !q('SELECT 1 FROM mvp_votes WHERE match_id = ? AND voter_id = ?', [$last['id'], $me])->fetch();
 
+$fact = curiosity_of_the_day();
+
 layout_start('Home', 'home');
 ?>
 <?= group_bar('index.php') ?>
 <div class="home">
+
+  <?= push_card(true) ?>
 
   <section class="card hero">
     <div class="hero-head">
@@ -86,7 +90,7 @@ layout_start('Home', 'home');
       </div>
     <?php else: ?>
       <p class="empty">Nessuna partita in programma.</p>
-      <?php if (is_admin()): ?><a class="btn btn-primary" href="matches.php#nuova">+ Crea partita</a><?php endif; ?>
+      <?php if (can_manage_matches() && manageable_groups()): ?><a class="btn btn-primary" href="matches.php#nuova">+ Crea partita</a><?php endif; ?>
     <?php endif; ?>
   </section>
 
@@ -137,6 +141,20 @@ layout_start('Home', 'home');
         <?php endif; ?>
       </div>
     <?php endif; ?>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($fact): // le curiosità stanno in fondo: prima vengono le informazioni sulle partite ?>
+  <section class="card fact">
+    <div class="card-head">
+      <span class="eyebrow"><i class="ti ti-bulb"></i> Curiosità dalla rosa</span>
+      <a class="link" href="curiosities.php">Tutte le curiosità <i class="ti ti-arrow-right"></i></a>
+    </div>
+    <div class="fact-body">
+      <a href="player.php?id=<?= (int) $fact['player_id'] ?>" title="<?= h($fact['name']) ?>"><?= avatar($fact, 'md') ?></a>
+      <div><a class="fact-who" href="player.php?id=<?= (int) $fact['player_id'] ?>"><?= h($fact['name']) ?></a>
+        <p><?= h($fact['body']) ?></p></div>
+    </div>
   </section>
   <?php endif; ?>
 

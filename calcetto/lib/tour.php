@@ -67,7 +67,28 @@ function tour_steps(array $u): array
                 'Cambia l\'ordine: punti, marcatori, assist, MVP, media voto o percentuale di vittorie.',
             ],
         ],
+        [
+            'sel' => '.nav a[href="curiosities.php"]', 'icon' => 'bulb',
+            'title' => 'Curiosità',
+            'text' => 'Le curiosità sui giocatori, scritte da loro stessi o dall\'admin.',
+            'bullets' => [
+                'Ogni giocatore scrive le sue dalla propria scheda in Rosa (sezione «Curiosità»).',
+                'Ogni tanto ne compare una anche in Home, sotto le informazioni sulle partite.',
+            ],
+        ],
     ];
+    if (($u['role'] ?? '') === 'manager') {
+        $steps[] = [
+            'sel' => '.nav a[href="matches.php"]', 'icon' => 'clipboard-list',
+            'title' => 'Manager: gestisci le partite',
+            'text' => 'Come manager puoi creare e gestire le partite dei tuoi gruppi.',
+            'bullets' => [
+                'In «Partite» crei una nuova partita: i giocatori del gruppo ricevono la notifica.',
+                'Dentro ogni partita modifichi presenze e squadre, inserisci il risultato e apri o chiudi le votazioni.',
+                'Restano riservati all\'admin: account, gruppi, giocatori, pagamenti ed eliminazione delle partite.',
+            ],
+        ];
+    }
     if (($u['role'] ?? '') === 'admin') {
         $steps[] = [
             'sel' => '.nav a[href="payments.php"]', 'icon' => 'cash',
@@ -91,7 +112,10 @@ function tour_steps(array $u): array
         'sel' => '.userbox a.me', 'icon' => 'user-circle',
         'title' => 'Il tuo profilo',
         'text' => 'Tocca il tuo nome per modificare i tuoi dati.',
-        'bullets' => ['Foto, numero di maglia, ruolo, piede preferito e password.'],
+        'bullets' => [
+            'Foto, numero di maglia, ruolo, piede preferito e password.',
+            'Le notifiche: ti avvisano quando c\'è una partita a cui non hai risposto e quando si aprono o chiudono le votazioni.',
+        ],
     ];
     $steps[] = [
         'sel' => null, 'icon' => 'circle-check',

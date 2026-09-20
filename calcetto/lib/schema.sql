@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('admin','player') NOT NULL DEFAULT 'player',
+  role ENUM('admin','manager','player') NOT NULL DEFAULT 'player',   -- manager = crea e gestisce le partite dei suoi gruppi
   status ENUM('attivo','in_attesa') NOT NULL DEFAULT 'attivo',   -- in_attesa = iscrizione da approvare
   reg_name VARCHAR(80) NULL,                       -- dati inseriti all'iscrizione
   reg_json TEXT NULL,
@@ -138,4 +138,40 @@ CREATE TABLE IF NOT EXISTS match_links (
   FOREIGN KEY (scorer_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '8');
+-- notifiche push (Web Push): un record per ogni dispositivo che ha attivato le notifiche
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  endpoint_hash CHAR(64) NOT NULL UNIQUE,
+  endpoint TEXT NOT NULL,
+  p256dh VARCHAR(120) NOT NULL,
+  auth VARCHAR(40) NOT NULL,
+  ua VARCHAR(120) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- notifiche già mandate (per non ripetere i promemoria)
+CREATE TABLE IF NOT EXISTS push_log (
+  kind VARCHAR(20) NOT NULL,
+  match_id INT NOT NULL,
+  player_id INT NOT NULL,
+  sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (kind, match_id, player_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- curiosità sui giocatori (le scrivono i giocatori stessi e l'admin)
+CREATE TABLE IF NOT EXISTS curiosities (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  player_id INT NOT NULL,
+  body VARCHAR(300) NOT NULL,
+  created_by INT NULL,                             -- id dell'account che l'ha scritta
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (player_id),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO meta (k, v) VALUES ('push_last_run', '0');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '9');

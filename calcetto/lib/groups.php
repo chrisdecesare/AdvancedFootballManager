@@ -232,6 +232,12 @@ function group_bar(string $back): string
     return $out . '</form>';
 }
 
+/** Gruppi in cui si possono creare partite: l'admin in tutti, un manager solo nei suoi. [id => nome] */
+function manageable_groups(): array
+{
+    return is_admin() ? all_groups() : (is_manager() ? selectable_groups() : []);
+}
+
 /** Gruppi tra cui scegliere quando si crea qualcosa (partita, giocatore): quelli permessi, con quello attivo per primo. */
 function selectable_groups(): array
 {

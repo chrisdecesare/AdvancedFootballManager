@@ -139,14 +139,58 @@ cala (sotto 1340px sparisce il nome accanto alla foto, sotto 1100px restano le i
 attiva). Da telefono (sotto 800px) c'è il titolo al centro, un pulsante a panino a sinistra che apre il menu
 delle schede (con «Rivedi il tutorial» ed «Esci») e il profilo a destra, con il pallino delle iscrizioni.
 
+## Notifiche push
+
+I giocatori possono ricevere notifiche sul telefono (o sul computer) anche a sito chiuso, con il logo del sito
+(la palla dell'intestazione). Ognuno le attiva sul proprio dispositivo: in Home compare un invito («Vuoi le
+notifiche?»), oppure da *Modifica profilo → Notifiche* (con il pulsante per una notifica di prova). Arrivano:
+
+- **quando viene creata una partita**, a tutti i giocatori del gruppo che devono ancora rispondere;
+- **come promemoria** a chi non ha ancora confermato né disdetto: 48 ore e 6 ore prima della partita (mai di notte, dalle 23 alle 8;
+  se la partita viene creata a ridosso ne parte uno solo, e non a chi ha appena ricevuto l'avviso di nuova partita);
+- **quando le votazioni si aprono** (o si riaprono) e **quando si chiudono** (con il nome dell'MVP), a chi ha giocato la partita.
+
+Chi esce dall'account toglie il dispositivo dalle notifiche; al prossimo accesso (di chiunque) si riabbina da solo.
+In *Admin → Notifiche* si vede quanti account le hanno attive.
+
+**iPhone/iPad:** Apple le permette solo alle app aggiunte alla schermata Home (iOS 16.4 o successivo): in Safari «Condividi» →
+«Aggiungi alla schermata Home», poi aprire Calcetto Manager dall'icona e attivare le notifiche da lì. Il sito è installabile come
+app anche su Android e computer (`manifest.webmanifest`).
+
+**Come funziona (nessuna configurazione):** Web Push con chiavi VAPID che il sito crea da solo alla prima necessità (tabella `meta`),
+messaggio cifrato secondo RFC 8291, implementato in `lib/webpush.php` senza librerie: serve solo l'estensione `openssl` di PHP
+(più `curl`, se c'è, per mandare le notifiche a più dispositivi insieme). Il browser si abbona con `assets/push.js` + `sw.js`
+(service worker) e registra l'abbonamento in `push.php`. Le notifiche partono dopo aver mandato la pagina a chi ha premuto il pulsante
+(il salvataggio non aspetta l'invio). Per sicurezza si accettano solo gli indirizzi dei servizi push dei browser (Google, Mozilla, Apple, Microsoft).
+
+**Promemoria puntuali (facoltativo):** i promemoria partono da soli mentre qualcuno usa il sito (al massimo un controllo ogni 10 minuti).
+Per averli puntuali anche quando nessuno lo apre, si può far chiamare `cron.php?key=CODICE` ogni 10-15 minuti da un pianificatore
+(il cron dell'hosting o un servizio gratuito come cron-job.org). Il codice segreto e l'indirizzo completo si trovano in *Admin → Notifiche*.
+
+## Curiosità
+
+Ogni giocatore può scrivere delle curiosità su di sé (max 300 caratteri, fino a 30) dalla propria scheda in Rosa, sezione «Curiosità»;
+le può scrivere e cancellare anche l'admin. Si leggono nella scheda del giocatore, nella scheda **Curiosità** (tutte, dalla più
+recente, filtrabili per gruppo come il resto del sito) e, sotto le informazioni sulle partite, in Home: lì ne compare una al giorno,
+scelta a caso, uguale per chi vede gli stessi gruppi. Come per il resto, ognuno vede solo le curiosità dei giocatori dei suoi gruppi.
+
+## Ruoli: admin, manager e giocatore
+
+Il **manager** è un giocatore con qualche potere in più: da *Admin → Account* (o da *Modifica profilo → Ruolo*) l'admin può promuovere un account a manager.
+Può **creare e gestire le partite dei suoi gruppi** (creazione, presenze di tutti, squadre, risultato, assist, apertura e chiusura
+delle votazioni, modifica dei dati della partita), ma non può fare il resto dell'admin: niente pagina Admin, account e ruoli,
+gruppi, nuovi giocatori o rating base, pagamenti, eliminazione di partite, e non vede i voti degli altri finché le votazioni sono aperte.
+La regola sta in `can_manage_matches()` in `lib/auth.php`.
+
 ## Come si usa
 
 | Chi | Cosa fa |
 |---|---|
-| **Admin** | crea partite, modifica presenze, genera le squadre, inserisce risultato/gol/assist/autogol, conclude la partita, chiude le votazioni, gestisce pagamenti, giocatori, account e statistiche |
-| **Giocatore** | conferma o disdice la presenza, vede partite e statistiche, dopo la partita vota tutti gli altri (1-10) e l'MVP, modifica il proprio profilo (foto, numero, ruolo, piede, password) |
+| **Admin** | crea partite, modifica presenze, genera le squadre, inserisce risultato/gol/assist/autogol, conclude la partita, chiude le votazioni, gestisce pagamenti, giocatori, account, gruppi e statistiche |
+| **Manager** | crea e gestisce le partite dei suoi gruppi (presenze, squadre, risultato, votazioni); il resto come un giocatore |
+| **Giocatore** | conferma o disdice la presenza, vede partite e statistiche, dopo la partita vota tutti gli altri (1-10) e l'MVP, modifica il proprio profilo (foto, numero, ruolo, piede, password), scrive le sue curiosità, attiva le notifiche |
 
-Ciclo di una partita: l'admin crea la partita → i giocatori confermano → l'admin genera le
+Ciclo di una partita (dove si legge «admin» vale anche per il manager, per le sue partite): l'admin crea la partita → i giocatori confermano → l'admin genera le
 squadre bilanciate → a fine partita inserisce il risultato → i giocatori votano → l'admin chiude
 le votazioni e voti/MVP entrano nelle statistiche.
 

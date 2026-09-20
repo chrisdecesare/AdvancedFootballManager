@@ -3,14 +3,15 @@ require __DIR__ . '/lib/bootstrap.php';
 require_view();
 
 if (is_post() && ($_POST['do'] ?? '') === 'create') {
-    require_admin();
+    require_match_manager();
     $date = $_POST['date'] ?? '';
     $time = $_POST['time'] ?? '';
     $dt = DateTime::createFromFormat('Y-m-d H:i', "$date $time");
-    $gid = (int) ($_POST['group_id'] ?? 0) ?: (count(all_groups()) === 1 ? (int) array_key_first(all_groups()) : 0);
+    $mine = manageable_groups();   // l'admin crea partite in ogni gruppo, un manager solo nei suoi
+    $gid = (int) ($_POST['group_id'] ?? 0) ?: (count($mine) === 1 ? (int) array_key_first($mine) : 0);
     if (!$dt) {
         flash('err', 'Data o ora non valide.');
-    } elseif (!isset(all_groups()[$gid])) {
+    } elseif (!isset($mine[$gid])) {
         flash('err', 'Scegli il gruppo della partita.');
     } else {
         q('INSERT INTO matches (match_date, location, team_a_name, team_b_name, fee, notes, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [
@@ -24,6 +25,7 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
         ]);
         $id = (int) db()->lastInsertId();
         sync_match_players($id);
+        push_notify_new_match($id, (int) current_user()['id']);   // avvisa chi deve rispondere, dopo aver inviato la pagina
         flash('ok', 'Partita creata: ora i giocatori possono confermare.');
         redirect('match.php?id=' . $id);
     }
@@ -43,14 +45,14 @@ layout_start('Partite', 'matches');
 <div class="page-head"><h1>Partite</h1></div>
 <?= group_bar('matches.php') ?>
 
-<?php if (is_admin()): ?>
+<?php if (can_manage_matches() && manageable_groups()): ?>
 <details class="card collapsible" id="nuova" <?= $upcoming ? '' : 'open' ?>>
   <summary><strong>+ Nuova partita</strong></summary>
   <form method="post" class="form form-grid">
     <?= csrf_field() ?><input type="hidden" name="do" value="create">
     <label class="field"><span>Data</span><input type="date" name="date" required value="<?= date('Y-m-d', strtotime('next thursday')) ?>"></label>
     <label class="field"><span>Ora</span><input type="time" name="time" required value="21:00"></label>
-    <?php $groupOptions = all_groups(); $defaultGroup = group_filter() ?: (int) array_key_first($groupOptions); ?>
+    <?php $groupOptions = manageable_groups(); $defaultGroup = isset($groupOptions[group_filter()]) ? group_filter() : (int) array_key_first($groupOptions); ?>
     <?php if (count($groupOptions) > 1): ?>
       <label class="field span-2"><span>Gruppo (solo i suoi giocatori vedono e partecipano alla partita)</span>
         <select name="group_id"><?php foreach ($groupOptions as $gid => $gname): ?><option value="<?= $gid ?>" <?= $gid === $defaultGroup ? 'selected' : '' ?>><?= h($gname) ?></option><?php endforeach; ?></select></label>

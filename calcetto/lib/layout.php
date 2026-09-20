@@ -7,12 +7,15 @@ function layout_start(string $title, string $active = ''): void
         'matches' => ['matches.php', 'Partite', 'calendar-event'],
         'players' => ['players.php', 'Rosa', 'shirt'],
         'standings' => ['standings.php', 'Classifica', 'trophy'],
+        'curiosities' => ['curiosities.php', 'Curiosità', 'bulb'],
     ];
     if (is_admin()) {
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
         $pending = pending_count();
     }
+    // pulsante con la campanella: attiva/disattiva le notifiche (o porta alla scheda che le spiega)
+    $notifHref = ($u && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
     // versione = impronta del contenuto (non la data): se un upload FTP viene letto a metà, il browser non conserva
     // per 30 giorni un file troncato con lo stesso indirizzo di quello completo
     $ver = fn(string $f) => substr((string) @md5_file(__DIR__ . '/../assets/' . $f), 0, 10);
@@ -24,6 +27,18 @@ function layout_start(string $title, string $active = ''): void
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ffd23f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calcetto">
+<?php if ($u && push_supported() && ($pushKey = vapid_public_key()) !== ''): ?>
+<meta name="push-key" content="<?= h($pushKey) ?>">
+<meta name="push-user" content="<?= (int) $u['id'] ?>">
+<meta name="csrf-token" content="<?= h(csrf_token()) ?>">
+<script src="assets/push.js?v=<?= h($ver('push.js')) ?>" defer></script>
+<?php endif; ?>
 <title><?= h($title) ?> · <?= h(APP_NAME) ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -36,7 +51,7 @@ function layout_start(string $title, string $active = ''): void
 <noscript><style>@media (max-width: 799px) { .nav-toggle { display: none; } .nav { display: flex; position: static; flex-direction: row; grid-column: 1 / -1; overflow-x: auto; box-shadow: none; background: none; padding: 0 0 6px; border: 0; } .nav-extra { display: none !important; } }</style></noscript>
 </head>
 <body>
-<header class="topbar">
+<header class="topbar<?= count($nav) > 6 ? ' nav-many' : '' ?>">
   <div class="topbar-inner">
     <?php if ($u || PUBLIC_READ): ?>
     <button type="button" class="nav-toggle" aria-label="Apri il menu" aria-expanded="false" aria-controls="site-nav"><i class="ti ti-menu-2"></i></button>
@@ -49,6 +64,7 @@ function layout_start(string $title, string $active = ''): void
       <?php endforeach; ?>
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
+        <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="nav-extra" data-push-bell><i class="ti ti-bell"></i><span class="nav-label">Notifiche</span></a><?php endif; ?>
         <a href="index.php?tour=1" class="nav-extra"><i class="ti ti-help"></i><span class="nav-label">Rivedi il tutorial</span></a>
         <a href="logout.php" class="nav-extra"><i class="ti ti-logout"></i><span class="nav-label">Esci</span></a>
       <?php endif; ?>
@@ -59,9 +75,10 @@ function layout_start(string $title, string $active = ''): void
         <a href="profile.php" class="me <?= $active === 'profile' ? 'active' : '' ?>">
           <?= avatar(['name' => $u['player_name'] ?: $u['username'], 'photo' => $u['photo']], 'xs') ?>
           <span><?= h($u['player_name'] ?: $u['username']) ?></span>
-          <?php if ($u['role'] === 'admin'): ?><span class="tag tag-admin">admin</span><?php endif; ?>
+          <?php if ($u['role'] !== 'player'): ?><span class="tag tag-admin"><?= h(strtolower(role_label($u['role']))) ?></span><?php endif; ?>
         </a>
         <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a><?php endif; ?>
+        <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="btn btn-ghost btn-sm" data-push-bell title="Notifiche" aria-label="Notifiche"><i class="ti ti-bell"></i></a><?php endif; ?>
         <a href="index.php?tour=1" class="btn btn-ghost btn-sm" title="Rivedi il tutorial" aria-label="Rivedi il tutorial"><i class="ti ti-help"></i></a>
         <a href="logout.php" class="btn btn-ghost btn-sm" title="Esci"><i class="ti ti-logout"></i></a>
       <?php else: ?>
@@ -126,4 +143,30 @@ function player_line(array $p, string $extra = ''): string
         position_abbr($p['position'] ?? 'Jolly') . '</span>' .
         (!empty($p['position2']) ? '<span class="pos pos-' . strtolower(position_abbr($p['position2'])) . '" title="Seconda scelta">' .
             position_abbr($p['position2']) . '</span>' : '') . $extra . '</a>';
+}
+
+/**
+ * Riquadro per attivare le notifiche push su questo dispositivo (lo riempie assets/app.js).
+ * $banner = versione compatta per la Home, che sparisce da sola una volta scelto.
+ */
+function push_card(bool $banner = false): string
+{
+    if (!current_user() || !push_supported()) {
+        return '';
+    }
+    if ($banner) {
+        return '<section class="card push-banner" data-push-card data-push-banner hidden>'
+            . '<i class="ti ti-bell-ringing push-ic"></i>'
+            . '<div class="push-txt"><strong>Vuoi le notifiche?</strong> <span class="muted small">Ti avvisiamo quando c\'è una partita a cui non hai risposto e quando aprono o chiudono le votazioni.</span></div>'
+            . '<div class="btn-row"><button type="button" class="btn btn-primary btn-sm" data-push-toggle>Attiva</button>'
+            . '<button type="button" class="btn btn-ghost btn-sm" data-push-dismiss>Non ora</button></div></section>';
+    }
+    return '<section class="card push-card" data-push-card id="notifiche">'
+        . '<h2><i class="ti ti-bell"></i> Notifiche</h2>'
+        . '<p class="muted small">Ti avvisiamo con una notifica sul telefono quando c\'è una partita a cui non hai ancora risposto e quando aprono o chiudono le votazioni. '
+        . 'L\'attivazione vale per questo dispositivo: se usi più telefoni o computer, attivala su ognuno.</p>'
+        . '<p class="small push-status" data-push-status>Controllo…</p>'
+        . '<div class="btn-row"><button type="button" class="btn btn-primary btn-sm" data-push-toggle hidden></button>'
+        . '<button type="button" class="btn btn-ghost btn-sm" data-push-test hidden><i class="ti ti-send"></i> Invia una notifica di prova</button></div>'
+        . '</section>';
 }
