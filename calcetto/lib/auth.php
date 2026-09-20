@@ -23,6 +23,30 @@ function is_admin(): bool
     return $u !== null && $u['role'] === 'admin';
 }
 
+/** Manager: crea e gestisce le partite dei suoi gruppi, ma non è un admin (niente account, gruppi, giocatori, pagamenti). */
+function is_manager(): bool
+{
+    $u = current_user();
+    return $u !== null && $u['role'] === 'manager';
+}
+
+/** Può creare e gestire le partite (presenze, squadre, risultato, votazioni): admin e manager. */
+function can_manage_matches(): bool
+{
+    return is_admin() || is_manager();
+}
+
+/** Ruolo valido da un valore ricevuto dal browser ('player' se non riconosciuto). */
+function clean_role($role): string
+{
+    return in_array($role, ['admin', 'manager'], true) ? $role : 'player';
+}
+
+function role_label(string $role): string
+{
+    return ['admin' => 'Admin', 'manager' => 'Manager'][$role] ?? 'Giocatore';
+}
+
 function my_player_id(): ?int
 {
     $u = current_user();
@@ -43,6 +67,19 @@ function require_admin(): void
         http_response_code(403);
         layout_start('Accesso negato');
         echo '<div class="card"><h2>Accesso negato</h2><p>Questa pagina è riservata agli admin.</p></div>';
+        layout_end();
+        exit;
+    }
+}
+
+/** Pagina riservata a chi gestisce le partite (admin e manager). */
+function require_match_manager(): void
+{
+    require_login();
+    if (!can_manage_matches()) {
+        http_response_code(403);
+        layout_start('Accesso negato');
+        echo '<div class="card"><h2>Accesso negato</h2><p>Questa pagina è riservata a chi gestisce le partite.</p></div>';
         layout_end();
         exit;
     }

@@ -40,7 +40,11 @@ session_set_cookie_params([
     'httponly' => true,
     'samesite' => 'Lax',
 ]);
-session_start();
+if (defined('NO_SESSION')) {
+    $_SESSION = [];     // richieste automatiche (cron.php): niente cookie e niente file di sessione
+} else {
+    session_start();
+}
 
 require __DIR__ . '/db.php';
 require __DIR__ . '/helpers.php';
@@ -52,8 +56,14 @@ require __DIR__ . '/chemistry.php';
 require __DIR__ . '/balance.php';
 require __DIR__ . '/layout.php';
 require __DIR__ . '/tour.php';
+require __DIR__ . '/webpush.php';
+require __DIR__ . '/curiosities.php';
 
 verify_csrf();
 if (tables_exist()) {
     ensure_schema();
+    // mentre qualcuno usa il sito, a risposta già inviata, parte l'eventuale promemoria "non hai ancora risposto"
+    if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+        push_defer('push_maybe_run');
+    }
 }

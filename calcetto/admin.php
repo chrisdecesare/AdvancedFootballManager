@@ -111,7 +111,7 @@ if (is_post()) {
         case 'create':
             $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
-            $role = ($_POST['role'] ?? '') === 'admin' ? 'admin' : 'player';
+            $role = clean_role($_POST['role'] ?? '');
             $pid = (int) ($_POST['player_id'] ?? 0) ?: null;
             if (!preg_match('/^[A-Za-z0-9._-]{3,50}$/', $username)) {
                 flash('err', 'Username: 3-50 caratteri tra lettere, numeri, punto, trattino e underscore.');
@@ -140,7 +140,7 @@ if (is_post()) {
             if ($uid === $meUid) {
                 flash('err', 'Non puoi cambiare il tuo ruolo.');
             } else {
-                q('UPDATE users SET role = ? WHERE id = ?', [($_POST['role'] ?? '') === 'admin' ? 'admin' : 'player', $uid]);
+                q('UPDATE users SET role = ? WHERE id = ?', [clean_role($_POST['role'] ?? ''), $uid]);
                 flash('ok', 'Ruolo aggiornato.');
             }
             break;
@@ -188,6 +188,13 @@ foreach ($allPlayers as $ap) {
     }
 }
 $free = q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL ORDER BY p.name')->fetchAll();
+
+// notifiche push: chi le ha attive (almeno un dispositivo) e chi no
+$pushAccounts = q("SELECT u.id, u.username, p.name AS player_name, (SELECT COUNT(*) FROM push_subscriptions s WHERE s.user_id = u.id) AS n
+                   FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.status = 'attivo' ORDER BY p.name, u.username")->fetchAll();
+$pushOn = array_filter($pushAccounts, fn($a) => (int) $a['n'] > 0);
+$pushOff = array_filter($pushAccounts, fn($a) => (int) $a['n'] === 0);
+$cronUrl = site_base_url() . 'cron.php?key=' . push_cron_key();
 
 layout_start('Admin', 'admin');
 ?>
@@ -362,6 +369,7 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="role"><input type="hidden" name="user_id" value="<?= $uid ?>">
             <select name="role" class="mini-select" data-autosubmit <?= $uid === $meUid ? 'disabled' : '' ?>>
               <option value="player" <?= $u['role'] === 'player' ? 'selected' : '' ?>>Giocatore</option>
+              <option value="manager" <?= $u['role'] === 'manager' ? 'selected' : '' ?>>Manager</option>
               <option value="admin" <?= $u['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
             </select></form>
         </td>
@@ -389,9 +397,29 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
     <label class="field"><span>Giocatore</span><select name="player_id">
       <option value="">— nessuno —</option>
       <?php foreach ($free as $f): ?><option value="<?= (int) $f['id'] ?>"><?= h($f['name']) ?></option><?php endforeach; ?></select></label>
-    <label class="field"><span>Ruolo</span><select name="role"><option value="player">Giocatore</option><option value="admin">Admin</option></select></label>
+    <label class="field"><span>Ruolo</span><select name="role"><option value="player">Giocatore</option><option value="manager">Manager</option><option value="admin">Admin</option></select></label>
     <div><button class="btn btn-primary">Crea account</button></div>
   </form>
+</section>
+
+<section class="card" id="notifiche">
+  <h2><i class="ti ti-bell"></i> Notifiche</h2>
+  <?php if (!push_supported()): ?>
+    <div class="flash flash-err"><i class="ti ti-alert-triangle"></i> Questo server non può mandare notifiche push (manca l'estensione openssl di PHP con le curve ellittiche).</div>
+  <?php endif; ?>
+  <p class="muted small">Ogni giocatore le attiva dal proprio telefono (invito in Home, oppure Modifica profilo → Notifiche). Partono quando viene creata una partita, come promemoria
+    a chi non ha ancora risposto (a <?= implode(' e ', array_map(fn($h) => $h . ' ore', PUSH_REMINDER_HOURS)) ?> dalla partita, mai di notte) e quando le votazioni si aprono o si chiudono.
+    Su iPhone funzionano solo se il sito è stato aggiunto alla schermata Home.</p>
+  <p><strong><?= count($pushOn) ?></strong> account su <?= count($pushAccounts) ?> hanno le notifiche attive.</p>
+  <?php if ($pushOff): ?>
+    <p class="small"><span class="muted">Non ancora attive:</span>
+      <?php foreach ($pushOff as $a): ?><span class="tag tag-member"><?= h($a['player_name'] ?: $a['username']) ?></span> <?php endforeach; ?></p>
+  <?php endif; ?>
+  <details class="collapsible">
+    <summary><strong>Promemoria puntuali (facoltativo)</strong></summary>
+    <p class="muted small">I promemoria partono da soli quando qualcuno usa il sito. Per averli puntuali anche quando nessuno lo apre, fai chiamare questo indirizzo ogni 10-15 minuti da un pianificatore (cron del tuo hosting o un servizio gratuito come cron-job.org). Il codice nell'indirizzo è riservato: non condividerlo.</p>
+    <p><input type="text" readonly value="<?= h($cronUrl) ?>" class="mini-input" style="width:100%" onclick="this.select()" aria-label="Indirizzo per il cron"></p>
+  </details>
 </section>
 
 <section class="card">

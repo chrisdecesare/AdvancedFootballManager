@@ -24,7 +24,7 @@ layout_start('Il mio account', 'profile');
 <div class="narrow">
   <div class="card">
     <h1>Il mio account</h1>
-    <p class="muted">Username: <strong><?= h($u['username']) ?></strong> · ruolo <?= h($u['role']) ?></p>
+    <p class="muted">Username: <strong><?= h($u['username']) ?></strong> · ruolo <?= h(strtolower(role_label($u['role']))) ?></p>
     <p class="muted small">Questo account non è collegato a un giocatore<?= is_admin() ? ': puoi collegarlo dalla pagina Admin.' : '.' ?></p>
     <form method="post" class="form">
       <?= csrf_field() ?>
@@ -32,6 +32,7 @@ layout_start('Il mio account', 'profile');
       <button class="btn btn-primary">Cambia password</button>
     </form>
   </div>
+  <?= push_card() ?>
 </div>
 <?php
 layout_end();

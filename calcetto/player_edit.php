@@ -62,7 +62,7 @@ if (is_post()) {
     // account (username/password): l'admin li gestisce per tutti, il giocatore cambia solo la propria password
     $username = trim($_POST['username'] ?? '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
-    $role = ($_POST['role'] ?? 'player') === 'admin' ? 'admin' : 'player';
+    $role = clean_role($_POST['role'] ?? 'player');
     if ($password !== '' && ($err = password_error($password))) {
         $errors[] = $err;
     }
@@ -237,7 +237,8 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
         <label class="field"><span>Username</span><input name="username" value="<?= h($_POST['username'] ?? ($account['username'] ?? '')) ?>" placeholder="<?= $account ? '' : 'Vuoto = nessun account' ?>" autocomplete="off"></label>
         <label class="field"><span><?= $account ? 'Nuova password (vuoto = invariata)' : 'Password' ?></span><input type="password" name="password" minlength="8" maxlength="72" autocomplete="new-password"></label>
         <label class="field"><span>Ruolo</span><select name="role">
-          <option value="player" <?= ($account['role'] ?? '') !== 'admin' ? 'selected' : '' ?>>Giocatore</option>
+          <option value="player" <?= !in_array($account['role'] ?? '', ['admin', 'manager'], true) ? 'selected' : '' ?>>Giocatore</option>
+          <option value="manager" <?= ($account['role'] ?? '') === 'manager' ? 'selected' : '' ?>>Manager (gestisce le partite)</option>
           <option value="admin" <?= ($account['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option></select></label>
       </div>
       <p class="muted small">Con l'account il giocatore può confermare le presenze, votare e modificare il proprio profilo.</p>
@@ -280,6 +281,10 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     <button class="btn btn-primary">Salva</button>
   </div>
 </form>
+
+<?php if (!$isNew && my_player_id() === $id): ?>
+  <?= push_card() ?>
+<?php endif; ?>
 
 <?php if (!$isNew): ?>
   <div class="btn-row danger-zone">
