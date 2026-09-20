@@ -94,6 +94,41 @@ function match_vote_averages(): array
     return $c;
 }
 
+/** Il voto d'ufficio come si scrive a schermo: "6" (o "6,5"). */
+function default_vote_label(): string
+{
+    return rtrim(rtrim(fmt_num(DEFAULT_VOTE), '0'), ',');
+}
+
+/**
+ * Alla chiusura delle votazioni: chi ha giocato e non ha votato (nessun MVP scelto) riceve DEFAULT_VOTE come voto d'ufficio
+ * a ogni altro giocatore della partita (mai a se stesso). I voti veri non si toccano.
+ * @return string[] nomi di chi non ha votato
+ */
+function apply_default_votes(int $matchId): array
+{
+    $played = q('SELECT mp.player_id, p.name FROM match_players mp JOIN players p ON p.id = mp.player_id
+                 WHERE mp.match_id = ? AND mp.team IS NOT NULL ORDER BY p.name', [$matchId])->fetchAll();
+    $voted = array_map('intval', q('SELECT voter_id FROM mvp_votes WHERE match_id = ?', [$matchId])->fetchAll(PDO::FETCH_COLUMN));
+    $names = [];
+    db()->beginTransaction();
+    foreach ($played as $voter) {
+        $vid = (int) $voter['player_id'];
+        if (in_array($vid, $voted, true)) {
+            continue;
+        }
+        $names[] = $voter['name'];
+        foreach ($played as $rated) {
+            if ((int) $rated['player_id'] !== $vid) {
+                q('INSERT IGNORE INTO ratings (match_id, voter_id, rated_id, vote, is_auto) VALUES (?, ?, ?, ?, 1)',
+                    [$matchId, $vid, (int) $rated['player_id'], DEFAULT_VOTE]);
+            }
+        }
+    }
+    db()->commit();
+    return $names;
+}
+
 /** [match_id][player_id] => numero di voti MVP */
 function match_mvp_counts(): array
 {
