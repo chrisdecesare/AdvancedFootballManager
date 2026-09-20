@@ -18,6 +18,7 @@ if (!$p) {
 }
 [$p['position'], $p['position2']] = normalize_positions($p['position'] ?? null, $p['position2'] ?? null);
 $account = $isNew ? null : (q('SELECT id, username, role FROM users WHERE player_id = ?', [$id])->fetch() ?: null);
+$selfAccount = $account && (int) $account['id'] === (int) current_user()['id'];   // la propria password si cambia da account.php
 $adjFields = ['adj_apps' => 'Presenze', 'adj_goals' => 'Gol', 'adj_assists' => 'Assist', 'adj_mvp' => 'MVP',
     'adj_wins' => 'Vittorie', 'adj_draws' => 'Pareggi', 'adj_losses' => 'Sconfitte', 'adj_own_goals' => 'Autogol'];
 $errors = [];
@@ -114,18 +115,16 @@ if (is_post()) {
             if ($username !== '') {
                 if ($account) {
                     q('UPDATE users SET username = ?, role = ? WHERE id = ?', [$username, $role, $account['id']]);
-                    if ($password !== '') {
+                    if ($password !== '' && !$selfAccount) {
                         q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $account['id']]);
-                        remember_revoke((int) $account['id']);
+                        security_reset_sessions((int) $account['id']);   // i dispositivi di quell'account devono rifare l'accesso
+                        notify_password_changed((int) $account['id']);
                     }
                 } else {
                     q('INSERT INTO users (username, password_hash, role, player_id) VALUES (?, ?, ?, ?)',
                         [$username, password_hash($password, PASSWORD_DEFAULT), $role, $id]);
                 }
             }
-        } elseif ($password !== '' && $account) {
-            q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $account['id']]);
-            remember_revoke((int) $account['id']);
         }
 
         $photoErr = null;
@@ -237,16 +236,16 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     <?php if ($admin): ?>
       <div class="form-grid">
         <label class="field"><span>Username</span><input name="username" value="<?= h($_POST['username'] ?? ($account['username'] ?? '')) ?>" placeholder="<?= $account ? '' : 'Vuoto = nessun account' ?>" autocomplete="off"></label>
-        <label class="field"><span><?= $account ? 'Nuova password (vuoto = invariata)' : 'Password' ?></span><input type="password" name="password" minlength="8" maxlength="72" autocomplete="new-password"></label>
+        <?php if (!$selfAccount): ?><label class="field"><span><?= $account ? 'Nuova password (vuoto = invariata)' : 'Password' ?></span><input type="password" name="password" minlength="8" maxlength="72" autocomplete="new-password"></label><?php endif; ?>
         <label class="field"><span>Ruolo</span><select name="role">
           <option value="player" <?= !in_array($account['role'] ?? '', ['admin', 'manager'], true) ? 'selected' : '' ?>>Giocatore</option>
           <option value="manager" <?= ($account['role'] ?? '') === 'manager' ? 'selected' : '' ?>>Manager (gestisce le partite)</option>
           <option value="admin" <?= ($account['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option></select></label>
       </div>
-      <p class="muted small">Con l'account il giocatore può confermare le presenze, votare e modificare il proprio profilo.</p>
+      <p class="muted small">Con l'account il giocatore può confermare le presenze, votare e modificare il proprio profilo.<?= $selfAccount ? ' La tua password e la tua email si cambiano da «Sicurezza» qui sotto.' : '' ?></p>
     <?php elseif ($account): ?>
       <p class="muted">Username: <strong><?= h($account['username']) ?></strong></p>
-      <label class="field"><span>Nuova password (vuoto = invariata)</span><input type="password" name="password" minlength="8" maxlength="72" autocomplete="new-password"></label>
+      <p class="muted small">La password e l'email si cambiano da «Sicurezza» (sotto il modulo).</p>
     <?php endif; ?>
   </section>
 
@@ -285,6 +284,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
 </form>
 
 <?php if (!$isNew && my_player_id() === $id): ?>
+  <?= security_card() ?>
   <?= push_card() ?>
 <?php endif; ?>
 

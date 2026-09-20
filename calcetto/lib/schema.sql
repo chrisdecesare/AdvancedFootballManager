@@ -33,8 +33,12 @@ CREATE TABLE IF NOT EXISTS users (
   reg_name VARCHAR(80) NULL,                       -- dati inseriti all'iscrizione
   reg_json TEXT NULL,
   tour_done TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = ha già visto (o saltato) il tutorial di benvenuto
+  email VARCHAR(190) NULL,                         -- email confermata (serve al recupero della password)
+  pending_email VARCHAR(190) NULL,                 -- email indicata ma non ancora confermata
+  session_version INT NOT NULL DEFAULT 0,          -- cresce quando cambia la password: le sessioni con un numero diverso decadono
   player_id INT NULL UNIQUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE INDEX uq_users_email (email),
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -188,4 +192,18 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '12');
+-- codici monouso nei link delle email (conferma dell'indirizzo, recupero password): qui solo l'impronta del codice
+CREATE TABLE IF NOT EXISTS mail_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  purpose VARCHAR(10) NOT NULL,                    -- 'verify' o 'reset'
+  selector CHAR(18) NOT NULL UNIQUE,
+  token_hash CHAR(64) NOT NULL,
+  email VARCHAR(190) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (user_id, purpose),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '13');

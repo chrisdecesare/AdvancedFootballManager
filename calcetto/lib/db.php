@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -177,6 +177,27 @@ function ensure_schema(): void
     if ($v < 12) {
         // orario in cui terminano le votazioni (NULL = nessuna scadenza: le chiude chi gestisce la partita)
         $add('matches', 'voting_ends_at', 'DATETIME NULL');
+    }
+    if ($v < 13) {
+        // email dell'account (confermata = in `email`, da confermare = in `pending_email`), invalidazione delle sessioni e codici monouso
+        $add('users', 'email', 'VARCHAR(190) NULL');
+        $add('users', 'pending_email', 'VARCHAR(190) NULL');
+        $add('users', 'session_version', 'INT NOT NULL DEFAULT 0');
+        if (!q("SHOW INDEX FROM users WHERE Key_name = 'uq_users_email'")->fetch()) {
+            db()->exec('ALTER TABLE users ADD UNIQUE INDEX uq_users_email (email)');
+        }
+        db()->exec('CREATE TABLE IF NOT EXISTS mail_tokens (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            purpose VARCHAR(10) NOT NULL,
+            selector CHAR(18) NOT NULL UNIQUE,
+            token_hash CHAR(64) NOT NULL,
+            email VARCHAR(190) NOT NULL,
+            expires_at DATETIME NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX (user_id, purpose),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

@@ -816,3 +816,9 @@ a.fact-who:hover { color: var(--grass-d); }
 .vote-deadline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
 .deadline-form { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .deadline-form .field { margin: 0; }
+
+/* ---------- email e sicurezza ---------- */
+.email-banner[hidden] { display: none; }
+.acc-ok { color: var(--grass-d); }
+.card .form + p.muted { margin-top: 10px; }
+.card .inline + .form, .card p + .form { margin-top: 8px; }
