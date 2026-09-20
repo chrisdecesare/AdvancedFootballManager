@@ -286,6 +286,18 @@ function initials(string $name): string
     return mb_strtoupper($s);
 }
 
+/**
+ * Conto alla rovescia (lo aggiorna assets/app.js) verso un istante. $within = mostralo solo se mancano meno di tanti secondi
+ * (0 = sempre); $reload = a zero ricarica la pagina (per vedere le votazioni chiuse). L'ora del server serve a non dipendere
+ * da quella, magari sbagliata, del telefono.
+ */
+function countdown_html(string $dt, string $prefix, string $done, int $within = 0, bool $reload = false, string $icon = 'hourglass', string $cls = ''): string
+{
+    return '<span class="countdown ' . h($cls) . '" data-countdown="' . strtotime($dt) . '" data-now="' . time() . '" data-prefix="' . h($prefix)
+        . '" data-done="' . h($done) . '"' . ($within ? ' data-within="' . $within . '" hidden' : '') . ($reload ? ' data-reload="1"' : '')
+        . '><i class="ti ti-' . h($icon) . '"></i> <span data-cd-out></span></span>';
+}
+
 /** Foto del giocatore o, se manca, un cerchio con le iniziali. */
 function avatar(array $p, string $size = 'md'): string
 {

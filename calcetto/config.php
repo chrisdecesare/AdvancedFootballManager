@@ -40,6 +40,8 @@ define('TEAM_B_NAME', 'Arancio');
 
 // voto dato d'ufficio, alla chiusura delle votazioni, a chi non ha votato (a tutti gli altri giocatori della partita)
 define('DEFAULT_VOTE', 6.0);
+// ore a disposizione per votare, dalla fine della partita: poi le votazioni si chiudono da sole (l'orario si cambia dalla partita)
+define('VOTING_HOURS', 24);
 
 define('POINTS_WIN', 3);
 define('POINTS_DRAW', 1);

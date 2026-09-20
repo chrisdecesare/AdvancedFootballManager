@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS matches (
   score_a TINYINT UNSIGNED NULL,
   score_b TINYINT UNSIGNED NULL,
   voting_open TINYINT(1) NOT NULL DEFAULT 0,
+  voting_ends_at DATETIME NULL,                    -- quando terminano le votazioni (NULL = nessuna scadenza)
   notes TEXT NULL,
   group_id INT NOT NULL DEFAULT 1,                 -- gruppo (squadra/lega) a cui appartiene la partita
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -187,4 +188,4 @@ CREATE TABLE IF NOT EXISTS auth_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '11');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '12');

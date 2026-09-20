@@ -1,5 +1,37 @@
 // Piccole interazioni: conferme, select che salvano da sole, voti, calcolo risultato, anteprima foto.
 document.addEventListener('DOMContentLoaded', () => {
+  // conti alla rovescia (partita, fine votazioni): l'ora di riferimento è quella del server
+  document.querySelectorAll('[data-countdown]').forEach(el => {
+    const target = parseInt(el.dataset.countdown, 10) * 1000;
+    const skew = parseInt(el.dataset.now, 10) * 1000 - Date.now();
+    const within = parseInt(el.dataset.within || '0', 10) * 1000;
+    const out = el.querySelector('[data-cd-out]');
+    const two = n => String(n).padStart(2, '0');
+    const fmt = ms => {
+      const s = Math.ceil(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+      return d ? d + 'g ' + h + 'h' : h ? h + 'h ' + two(m) + 'min' : two(m) + ':' + two(s % 60);
+    };
+    let timer = 0;
+    const tick = () => {
+      const left = target - (Date.now() + skew);
+      if (within && left > within) { el.hidden = true; return; }
+      el.hidden = false;
+      if (left <= 0) {
+        out.textContent = el.dataset.done || '';
+        clearInterval(timer);
+        const key = 'cd-reload-' + target;
+        if (el.dataset.reload && !sessionStorage.getItem(key)) {          // una sola volta, per non ricaricare all'infinito
+          try { sessionStorage.setItem(key, '1'); } catch (e) { return; }
+          setTimeout(() => location.reload(), 2500);
+        }
+        return;
+      }
+      out.textContent = (el.dataset.prefix || '') + fmt(left) + (el.dataset.prefix && el.dataset.prefix.includes('(') ? ')' : '');
+    };
+    tick();
+    timer = setInterval(tick, 1000);
+  });
+
   // conferma dei voti: sparisce da sola, oppure con un tocco
   const voteDone = document.querySelector('[data-vote-done]');
   if (voteDone) {

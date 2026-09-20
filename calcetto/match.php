@@ -147,9 +147,10 @@ if (is_post()) {
                     flash('err', 'Inserisci il risultato prima di chiudere la partita.');
                     redirect($self . '#risultato');
                 }
-                q("UPDATE matches SET status = 'giocata', voting_open = 1 WHERE id = ?", [$id]);
+                $ends = default_voting_end();
+                q("UPDATE matches SET status = 'giocata', voting_open = 1, voting_ends_at = ? WHERE id = ?", [$ends, $id]);
                 push_notify_voting($id, true, $actor);   // parte dopo che la pagina è stata inviata
-                flash('ok', 'Partita conclusa: votazioni aperte per chi ha giocato.');
+                flash('ok', 'Partita conclusa: votazioni aperte per chi ha giocato, fino a ' . push_when($ends) . '.');
             } else {
                 flash('ok', 'Risultato salvato.');
             }
@@ -181,22 +182,43 @@ if (is_post()) {
             redirect($self . '#assist');
 
         case 'close_voting':
-            q('UPDATE matches SET voting_open = 0 WHERE id = ?', [$id]);
-            $late = $match['status'] === 'giocata' ? apply_default_votes($id) : [];   // chi non ha votato: 6 a tutti
-            push_notify_voting($id, false, $actor);
+            $late = close_voting_now($id, $actor);   // voti d'ufficio a chi non ha votato + notifica
+            if ($late === null) {
+                flash('err', 'Le votazioni erano già chiuse.');
+                break;
+            }
             flash('ok', 'Votazioni chiuse: voti e MVP ora contano nelle statistiche.'
                 . ($late ? ' A chi non ha votato (' . implode(', ', $late) . ') è stato dato ' . default_vote_label() . ' d\'ufficio a tutti gli altri.' : ''));
             break;
 
         case 'open_voting':
-            q('UPDATE matches SET voting_open = 1 WHERE id = ?', [$id]);
+            q('UPDATE matches SET voting_open = 1, voting_ends_at = ? WHERE id = ?', [default_voting_end(), $id]);
             q('DELETE FROM ratings WHERE match_id = ? AND is_auto = 1', [$id]);   // i voti d'ufficio si rifanno alla prossima chiusura
             push_notify_voting($id, true, $actor);
             flash('ok', 'Votazioni riaperte.');
             break;
 
+        case 'set_voting_end':
+            if ($match['status'] !== 'giocata' || !$match['voting_open']) {
+                flash('err', 'Le votazioni non sono aperte.');
+                break;
+            }
+            if (!empty($_POST['clear'])) {
+                q('UPDATE matches SET voting_ends_at = NULL WHERE id = ?', [$id]);
+                flash('ok', 'Nessuna scadenza: le votazioni si chiudono solo quando le chiudi tu.');
+                break;
+            }
+            $dt = DateTime::createFromFormat('Y-m-d\TH:i', (string) ($_POST['ends'] ?? ''));
+            if (!$dt || $dt->getTimestamp() <= time()) {
+                flash('err', 'Scegli un orario di fine votazioni che non sia già passato.');
+                break;
+            }
+            q('UPDATE matches SET voting_ends_at = ? WHERE id = ?', [$dt->format('Y-m-d H:i:s'), $id]);
+            flash('ok', 'Le votazioni terminano ' . push_when($dt->format('Y-m-d H:i:s')) . '.');
+            break;
+
         case 'reopen':
-            q("UPDATE matches SET status = 'programmata', voting_open = 0 WHERE id = ?", [$id]);
+            q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL WHERE id = ?", [$id]);
             flash('ok', 'Partita riportata a "programmata".');
             break;
 
@@ -331,6 +353,9 @@ if (!empty($_SESSION['vote_done'])):
       <?php if ((float) $match['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
     </div>
     <?php if ($match['notes']): ?><p class="muted"><?= nl2br(h($match['notes'])) ?></p><?php endif; ?>
+    <?php if (!$played && strtotime($match['match_date']) > time() - 3 * 3600): ?>
+      <div class="hero-count"><?= countdown_html($match['match_date'], 'Mancano ', 'Si gioca!', 86400, false, 'hourglass-high', 'countdown-big') ?></div>
+    <?php endif; ?>
     <?php if (!$played): ?><div class="match-cal"><?= gcal_button($match) ?></div><?php endif; ?>
   </div>
   <?php if ($played || $match['score_a'] !== null): ?>
@@ -527,6 +552,13 @@ if (!empty($_SESSION['vote_done'])):
     <span class="muted small">Hanno votato <?= count($voters) ?>/<?= count($participants) ?></span>
   </div>
 
+  <?php if ($votingOpen && $match['voting_ends_at']): ?>
+    <p class="vote-deadline"><i class="ti ti-alarm"></i> Le votazioni terminano <strong><?= h(push_when($match['voting_ends_at'])) ?></strong>
+      <?= countdown_html($match['voting_ends_at'], '· mancano ', 'chiusura in corso…', 0, true, 'hourglass', 'countdown-small') ?></p>
+  <?php elseif ($votingOpen): ?>
+    <p class="vote-deadline muted"><i class="ti ti-alarm"></i> Nessun orario di fine: le votazioni si chiudono quando le chiude chi gestisce la partita.</p>
+  <?php endif; ?>
+
   <?php if ($votingOpen && $iPlayed): ?>
     <form method="post" class="vote-form">
       <?= csrf_field() ?><input type="hidden" name="do" value="vote">
@@ -569,6 +601,15 @@ if (!empty($_SESSION['vote_done'])):
       <?php endforeach; ?>
       </tbody>
     </table></div>
+  <?php endif; ?>
+
+  <?php if ($votingOpen && can_manage_matches()): ?>
+    <form method="post" class="deadline-form"><?= csrf_field() ?><input type="hidden" name="do" value="set_voting_end">
+      <label class="field"><span>Fine votazioni</span>
+        <input type="datetime-local" name="ends" value="<?= $match['voting_ends_at'] ? h(date('Y-m-d\TH:i', strtotime($match['voting_ends_at']))) : '' ?>"></label>
+      <button class="btn btn-ghost btn-sm">Salva orario</button>
+      <?php if ($match['voting_ends_at']): ?><button class="btn btn-ghost btn-sm" name="clear" value="1">Nessuna scadenza</button><?php endif; ?>
+    </form>
   <?php endif; ?>
 
   <?php if (can_manage_matches()): ?>

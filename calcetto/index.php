@@ -62,6 +62,7 @@ layout_start('Home', 'home');
           <?php if ((float) $next['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($next['fee']) ?></span><?php endif; ?>
         </div>
         <div class="hero-vs"><span class="team-a"><?= h(team_name('A', $next)) ?></span> <b>vs</b> <span class="team-b"><?= h(team_name('B', $next)) ?></span></div>
+        <div class="hero-count"><?= countdown_html($next['match_date'], 'Mancano ', 'Si gioca!', 86400, false, 'hourglass-high', 'countdown-big') ?></div>
         <div class="hero-cal"><?= gcal_button($next) ?></div>
       </div>
       <?= availability_buttons($next, $myStatus, 'index.php') ?>
@@ -109,8 +110,9 @@ layout_start('Home', 'home');
 
     <?php if ($mustVote): ?>
       <a class="btn btn-primary btn-block" href="match.php?id=<?= (int) $last['id'] ?>#voti"><i class="ti ti-writing"></i> Vota i compagni e l'MVP</a>
+      <?php if ($last['voting_ends_at']): ?><p class="small center muted vote-deadline"><i class="ti ti-alarm"></i> Hai tempo fino a <?= h(push_when($last['voting_ends_at'])) ?> <?= countdown_html($last['voting_ends_at'], '(mancano ', 'chiusura in corso…', 0, true, 'hourglass', 'countdown-small') ?></p><?php endif; ?>
     <?php elseif ($last['voting_open']): ?>
-      <p class="small center muted"><i class="ti ti-hourglass"></i> Votazioni in corso: MVP e voti arrivano alla chiusura.</p>
+      <p class="small center muted"><i class="ti ti-hourglass"></i> Votazioni in corso: MVP e voti arrivano alla chiusura<?= $last['voting_ends_at'] ? ' (' . h(push_when($last['voting_ends_at'])) . ')' : '' ?>.</p>
     <?php endif; ?>
 
     <?php if ($slides): ?>
