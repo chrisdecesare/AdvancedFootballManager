@@ -116,6 +116,7 @@ if (is_post()) {
                     q('UPDATE users SET username = ?, role = ? WHERE id = ?', [$username, $role, $account['id']]);
                     if ($password !== '') {
                         q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $account['id']]);
+                        remember_revoke((int) $account['id']);
                     }
                 } else {
                     q('INSERT INTO users (username, password_hash, role, player_id) VALUES (?, ?, ?, ?)',
@@ -124,6 +125,7 @@ if (is_post()) {
             }
         } elseif ($password !== '' && $account) {
             q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $account['id']]);
+            remember_revoke((int) $account['id']);
         }
 
         $photoErr = null;

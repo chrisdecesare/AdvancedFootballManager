@@ -150,6 +150,104 @@ function registration_hit(): void
     q("INSERT INTO login_attempts (ip, username) VALUES (?, '__iscrizione__')", [client_ip()]);
 }
 
+const REMEMBER_DAYS = 180;   // per quanto tempo resta collegato chi non esce dall'account
+
+/**
+ * "Resta collegato": oltre alla sessione (che sparisce chiudendo il browser o l'app) si lascia un cookie a lunga scadenza
+ * con un codice casuale; nel database c'è solo la sua impronta. Il nome inizia come quello della sessione perché la cache
+ * di Altervista toglie gli altri cookie (vedi bootstrap.php).
+ */
+function remember_cookie_name(): string
+{
+    return 'wordpress_logged_in_' . md5('calcetto-manager-remember');
+}
+
+function remember_set_cookie(string $value, int $expires): void
+{
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    if (!headers_sent()) {
+        setcookie(remember_cookie_name(), $value, ['expires' => $expires, 'path' => '/', 'secure' => $https,
+            'httponly' => true, 'samesite' => 'Lax']);
+    }
+}
+
+/** Crea il codice "resta collegato" per questo dispositivo e lo mette nel cookie. */
+function remember_issue(int $uid): void
+{
+    $selector = bin2hex(random_bytes(9));
+    $validator = bin2hex(random_bytes(24));
+    $exp = time() + REMEMBER_DAYS * 86400;
+    q('DELETE FROM auth_tokens WHERE expires_at < ?', [date('Y-m-d H:i:s')]);
+    q('INSERT INTO auth_tokens (user_id, selector, token_hash, expires_at) VALUES (?, ?, ?, ?)',
+        [$uid, $selector, hash('sha256', $validator), date('Y-m-d H:i:s', $exp)]);
+    // al massimo 10 dispositivi per account: i più vecchi escono
+    q('DELETE FROM auth_tokens WHERE user_id = ? AND id NOT IN (SELECT id FROM (SELECT id FROM auth_tokens WHERE user_id = ? ORDER BY id DESC LIMIT 10) t)',
+        [$uid, $uid]);
+    remember_set_cookie($selector . ':' . $validator, $exp);
+    $_SESSION['remember_tried'] = 1;
+}
+
+/** Togli il "resta collegato" di questo dispositivo (uscita dall'account). */
+function remember_forget(): void
+{
+    $c = $_COOKIE[remember_cookie_name()] ?? '';
+    if (is_string($c) && preg_match('/^([0-9a-f]{18}):/', $c, $m)) {
+        q('DELETE FROM auth_tokens WHERE selector = ?', [$m[1]]);
+    }
+    remember_set_cookie('', time() - 3600);
+}
+
+/** Annulla tutti i "resta collegato" di un account (cambio password); se è l'account in uso, questo dispositivo resta collegato. */
+function remember_revoke(int $uid): void
+{
+    q('DELETE FROM auth_tokens WHERE user_id = ?', [$uid]);
+    if ($uid === (int) ($_SESSION['uid'] ?? 0) && !defined('NO_SESSION')) {
+        remember_issue($uid);
+    }
+}
+
+/**
+ * All'inizio di ogni richiesta: se la sessione è scaduta ma il cookie "resta collegato" è valido, ricollega l'utente;
+ * chi è già collegato e non ha ancora il cookie (accesso precedente) lo riceve alla prima pagina che apre.
+ */
+function remember_check(): void
+{
+    if (defined('NO_SESSION') || defined('NO_REMEMBER')) {
+        return;
+    }
+    $c = $_COOKIE[remember_cookie_name()] ?? '';
+    $valid = is_string($c) && preg_match('/^([0-9a-f]{18}):([0-9a-f]{48})$/', $c, $m);
+    if (!empty($_SESSION['uid'])) {
+        if (!$valid && empty($_SESSION['remember_tried']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+            remember_issue((int) $_SESSION['uid']);
+        }
+        return;
+    }
+    if (!$valid) {
+        return;
+    }
+    $t = q("SELECT t.id, t.user_id, t.token_hash, t.expires_at, u.status FROM auth_tokens t
+            JOIN users u ON u.id = t.user_id WHERE t.selector = ?", [$m[1]])->fetch();
+    if ($t && !hash_equals($t['token_hash'], hash('sha256', $m[2]))) {
+        q('DELETE FROM auth_tokens WHERE id = ?', [$t['id']]);      // selettore giusto e codice sbagliato: non è chi dice di essere
+        $t = null;
+    }
+    if (!$t || $t['status'] !== 'attivo' || strtotime($t['expires_at']) < time()) {
+        remember_set_cookie('', time() - 3600);
+        return;
+    }
+    session_regenerate_id(true);
+    $_SESSION['uid'] = (int) $t['user_id'];
+    $_SESSION['remember_tried'] = 1;
+    // la scadenza si sposta in avanti (al massimo una volta al giorno) finché lo si usa
+    $exp = time() + REMEMBER_DAYS * 86400;
+    if ($exp - strtotime($t['expires_at']) > 86400) {
+        q('UPDATE auth_tokens SET expires_at = ? WHERE id = ?', [date('Y-m-d H:i:s', $exp), $t['id']]);
+        remember_set_cookie($m[1] . ':' . $m[2], $exp);
+    }
+}
+
 /** Ritorna 'ok', 'pending' (iscrizione non ancora approvata), 'blocked' (troppi tentativi) o 'fail'. */
 function attempt_login(string $username, string $password): string
 {
@@ -171,6 +269,7 @@ function attempt_login(string $username, string $password): string
         }
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) $u['id'];
+        remember_issue((int) $u['id']);
         return 'ok';
     }
     q('INSERT INTO login_attempts (ip, username) VALUES (?, ?)', [client_ip(), $username]);

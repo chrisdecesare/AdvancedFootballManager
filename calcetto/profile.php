@@ -14,6 +14,7 @@ if (is_post()) {
         flash('err', $err);
     } else {
         q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $u['id']]);
+        remember_revoke((int) $u['id']);
         flash('ok', 'Password aggiornata.');
     }
     redirect('profile.php');

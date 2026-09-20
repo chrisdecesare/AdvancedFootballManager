@@ -133,6 +133,7 @@ if (is_post()) {
                 flash('err', $err);
             } else {
                 q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $uid]);
+                remember_revoke($uid);   // con la nuova password i dispositivi già collegati devono rifare l'accesso
                 flash('ok', 'Password aggiornata.');
             }
             break;

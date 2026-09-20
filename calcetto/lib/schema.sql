@@ -174,4 +174,16 @@ CREATE TABLE IF NOT EXISTS curiosities (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO meta (k, v) VALUES ('push_last_run', '0');
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '9');
+-- "resta collegato": codici a lunga scadenza (nel cookie c'è selettore:codice, qui solo l'impronta del codice)
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  selector CHAR(18) NOT NULL UNIQUE,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '10');
