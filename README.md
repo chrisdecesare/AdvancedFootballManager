@@ -24,6 +24,11 @@ può saltare. Una volta finito o saltato non riparte, ma si rivede dal pulsante 
 in `calcetto/lib/tour.php`, il disegno in `assets/app.js` e `assets/style.css`. Chi aveva già un
 account attivo prima dell'introduzione del tutorial non lo vede in automatico.
 
+**Resta collegato:** chi entra non deve rifare l'accesso ogni volta (anche chiudendo il browser o l'app dalla schermata Home): sul dispositivo
+resta un cookie con un codice casuale a lunga scadenza (180 giorni, che si sposta in avanti a ogni uso); nel database c'è solo la sua impronta
+(tabella `auth_tokens`). Si perde uscendo dall'account («Esci») e quando la password dell'account viene cambiata (da lui o dall'admin): allora
+tutti i dispositivi devono rifare l'accesso. Al massimo 10 dispositivi per account.
+
 Le password non si possono leggere da nessuno (sono salvate cifrate): l'admin può solo reimpostarle.
 Con `REGISTRATION = false` in `config.php` le iscrizioni si chiudono e gli account li crea solo l'admin.
 Senza login non si vede nulla (`PUBLIC_READ = false`).
