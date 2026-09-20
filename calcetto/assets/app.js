@@ -1,5 +1,17 @@
 // Piccole interazioni: conferme, select che salvano da sole, voti, calcolo risultato, anteprima foto.
 document.addEventListener('DOMContentLoaded', () => {
+  // invito ad aggiungere l'email: si può rimandare
+  const emailBanner = document.querySelector('[data-email-banner]');
+  if (emailBanner) {
+    let off = false;
+    try { off = localStorage.getItem('email-dismissed') === '1'; } catch (e) { /* memoria del browser non disponibile */ }
+    emailBanner.hidden = off;
+    emailBanner.querySelector('[data-email-dismiss]').addEventListener('click', () => {
+      try { localStorage.setItem('email-dismissed', '1'); } catch (e) { /* pazienza */ }
+      emailBanner.hidden = true;
+    });
+  }
+
   // conti alla rovescia (partita, fine votazioni): l'ora di riferimento è quella del server
   document.querySelectorAll('[data-countdown]').forEach(el => {
     const target = parseInt(el.dataset.countdown, 10) * 1000;

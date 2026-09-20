@@ -47,6 +47,16 @@ layout_start('Home', 'home');
 
   <?= push_card(true) ?>
 
+  <?php if ($me && empty(current_user()['email'])): ?>
+  <section class="card push-banner email-banner" data-email-banner hidden>
+    <i class="ti ti-mail-heart push-ic"></i>
+    <div class="push-txt"><strong><?= empty(current_user()['pending_email']) ? 'Aggiungi la tua email' : 'Conferma la tua email' ?></strong>
+      <span class="muted small"><?= empty(current_user()['pending_email']) ? 'Se dimentichi la password potrai recuperarla da solo.' : 'Apri il link nell\'email che ti abbiamo mandato (controlla anche lo spam).' ?></span></div>
+    <div class="btn-row"><a class="btn btn-primary btn-sm" href="account.php#email"><?= empty(current_user()['pending_email']) ? 'Aggiungi' : 'Gestisci' ?></a>
+      <button type="button" class="btn btn-ghost btn-sm" data-email-dismiss>Non ora</button></div>
+  </section>
+  <?php endif; ?>
+
   <section class="card hero">
     <div class="hero-head">
       <span class="eyebrow"><i class="ti ti-calendar-event"></i> Prossima partita</span>

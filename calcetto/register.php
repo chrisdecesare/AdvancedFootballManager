@@ -16,7 +16,8 @@ if (current_user()) {
 $errors = [];
 $done = false;
 $matchName = null;
-$v = ['name' => '', 'username' => '', 'shirt_number' => '', 'position' => 'Centrocampista', 'position2' => '', 'foot' => 'Destro'];
+$emailSent = false;
+$v = ['name' => '', 'username' => '', 'email' => '', 'shirt_number' => '', 'position' => 'Centrocampista', 'position2' => '', 'foot' => 'Destro'];
 
 if (is_post()) {
     // campo trappola per i bot: le persone non lo vedono
@@ -41,7 +42,11 @@ if (is_post()) {
     } elseif (q('SELECT 1 FROM users WHERE LOWER(username) = ?', [mb_strtolower($v['username'])])->fetch()) {
         $errors[] = 'Username già usato: scegline un altro.';
     }
-    if ($err = password_error($password)) {
+    $v['email'] = mb_strtolower($v['email']);
+    if ($v['email'] !== '' && (!filter_var($v['email'], FILTER_VALIDATE_EMAIL) || mb_strlen($v['email']) > 190)) {
+        $errors[] = 'L\'indirizzo email non è valido (puoi anche lasciarlo vuoto).';
+    }
+    if ($err = password_error($password, $v['username'])) {
         $errors[] = $err;
     } elseif ($password !== $password2) {
         $errors[] = 'Le due password non coincidono.';
@@ -70,7 +75,13 @@ if (is_post()) {
         ];
         q("INSERT INTO users (username, password_hash, role, status, reg_name, reg_json) VALUES (?, ?, 'player', 'in_attesa', ?, ?)",
             [$v['username'], password_hash($password, PASSWORD_DEFAULT), $v['name'], json_encode($data)]);
+        $newUserId = (int) db()->lastInsertId();   // prima di registration_hit(), che scrive un'altra riga
         registration_hit();
+        $emailSent = false;
+        if ($v['email'] !== '') {
+            // l'indirizzo va confermato dal link nell'email; senza conferma non serve al recupero della password
+            $emailSent = start_email_verification($newUserId, $v['email']) === null;
+        }
         $done = true;
     }
 }
@@ -88,6 +99,7 @@ layout_start('Iscriviti');
         <p><i class="ti ti-shirt"></i> Verrai aggiunto alla rosa come nuovo giocatore.</p>
       <?php endif; ?>
       <p>Appena l'admin approva la tua iscrizione potrai entrare con <strong><?= h($v['username']) ?></strong> e la tua password.</p>
+      <?php if ($emailSent): ?><p><i class="ti ti-mail-check"></i> Ti abbiamo mandato un'email a <strong><?= h($v['email']) ?></strong>: apri il link per confermare l'indirizzo (controlla anche lo spam).</p><?php endif; ?>
       <a class="btn btn-primary btn-block" href="login.php">Vai al login</a>
     <?php else: ?>
       <h1>Iscriviti</h1>
@@ -97,6 +109,7 @@ layout_start('Iscriviti');
         <?= csrf_field() ?>
         <label class="field"><span>Nome e cognome</span><input name="name" required maxlength="80" value="<?= h($v['name']) ?>" autocomplete="name"></label>
         <label class="field"><span>Username</span><input name="username" required maxlength="50" value="<?= h($v['username']) ?>" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
+        <label class="field"><span>Email (facoltativa, ma serve per recuperare la password)</span><input type="email" name="email" maxlength="190" value="<?= h($v['email']) ?>" autocomplete="email" placeholder="nome@esempio.it"></label>
         <div class="form-grid">
           <label class="field"><span>Password (min. <?= PASSWORD_MIN ?>)</span><input type="password" name="password" required minlength="<?= PASSWORD_MIN ?>" maxlength="72" autocomplete="new-password"></label>
           <label class="field"><span>Ripeti password</span><input type="password" name="password2" required minlength="<?= PASSWORD_MIN ?>" maxlength="72" autocomplete="new-password"></label>

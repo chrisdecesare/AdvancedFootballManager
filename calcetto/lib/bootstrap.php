@@ -57,12 +57,16 @@ require __DIR__ . '/balance.php';
 require __DIR__ . '/layout.php';
 require __DIR__ . '/tour.php';
 require __DIR__ . '/webpush.php';
+require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';
 
 verify_csrf();
 if (tables_exist()) {
     ensure_schema();
     remember_check();   // sessione scaduta ma dispositivo "collegato": rientra da solo
+    if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+        remember_base_url();   // un admin fissa l'indirizzo affidabile del sito per i link delle email
+    }
     close_due_votings();   // votazioni arrivate all'orario di fine: si chiudono da sole
     // mentre qualcuno usa il sito, a risposta già inviata, parte l'eventuale promemoria "non hai ancora risposto"
     if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {

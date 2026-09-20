@@ -7,11 +7,16 @@ function current_user(): ?array
     }
     $u = null;
     if (!empty($_SESSION['uid'])) {
-        $u = q('SELECT u.id, u.username, u.role, u.player_id, u.tour_done, p.name AS player_name, p.photo
+        $u = q('SELECT u.id, u.username, u.role, u.player_id, u.tour_done, u.email, u.pending_email, u.session_version, p.name AS player_name, p.photo
                 FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.id = ? AND u.status = \'attivo\'',
             [$_SESSION['uid']])->fetch() ?: null;
+        if ($u && !isset($_SESSION['sv'])) {
+            $_SESSION['sv'] = (int) $u['session_version'];       // sessione nata prima di questo controllo: la si adotta
+        } elseif ($u && (int) $_SESSION['sv'] !== (int) $u['session_version']) {
+            $u = null;                                            // la password è cambiata da un altro dispositivo: si rifà l'accesso
+        }
         if (!$u) {
-            unset($_SESSION['uid']);
+            unset($_SESSION['uid'], $_SESSION['sv']);
         }
     }
     return $u;
@@ -97,14 +102,26 @@ const LOGIN_MAX_PER_USER = 5;   // tentativi falliti per IP + username...
 const LOGIN_MAX_PER_IP = 20;    // ...e per solo IP, nella finestra sotto
 const LOGIN_WINDOW_MIN = 15;
 
+/** Password troppo comuni per essere accettate (in minuscolo). */
+const COMMON_PASSWORDS = ['password', 'password1', 'password123', '12345678', '123456789', '1234567890', '11111111', '00000000', 'qwertyui',
+    'qwerty123', 'qwertyuiop', 'abcd1234', 'abc12345', 'iloveyou', 'letmein1', 'admin123', 'calcetto', 'calcetto1', 'calcetto123',
+    'football', 'juventus', 'password!', 'passw0rd', 'welcome1', 'trustno1', 'asdfghjk', 'zxcvbnm1', 'ciaociao', 'ciao1234', 'italia123'];
+
 /** Messaggio d'errore se la password non è accettabile, altrimenti null. */
-function password_error(string $password): ?string
+function password_error(string $password, ?string $username = null): ?string
 {
     if (strlen($password) < PASSWORD_MIN) {
         return 'La password deve avere almeno ' . PASSWORD_MIN . ' caratteri.';
     }
     if (strlen($password) > 72) {
         return 'La password può avere al massimo 72 caratteri.';
+    }
+    $low = mb_strtolower($password);
+    if (in_array($low, COMMON_PASSWORDS, true) || preg_match('/^(.)\1*$/u', $password) || in_array($low, ['01234567', '0123456789', '87654321', 'abcdefgh'], true)) {
+        return 'Questa password è troppo semplice: scegline una meno prevedibile.';
+    }
+    if ($username !== null && $low === mb_strtolower($username)) {
+        return 'La password non può essere uguale allo username.';
     }
     return null;
 }
@@ -208,6 +225,19 @@ function remember_revoke(int $uid): void
 }
 
 /**
+ * Dopo un cambio di password: tutte le sessioni e i "resta collegato" di quell'account decadono (si rifà l'accesso);
+ * se è l'account in uso, questo dispositivo resta collegato.
+ */
+function security_reset_sessions(int $uid): void
+{
+    q('UPDATE users SET session_version = session_version + 1 WHERE id = ?', [$uid]);
+    if ($uid === (int) ($_SESSION['uid'] ?? 0) && !defined('NO_SESSION')) {
+        $_SESSION['sv'] = (int) q('SELECT session_version FROM users WHERE id = ?', [$uid])->fetchColumn();
+    }
+    remember_revoke($uid);
+}
+
+/**
  * All'inizio di ogni richiesta: se la sessione è scaduta ma il cookie "resta collegato" è valido, ricollega l'utente;
  * chi è già collegato e non ha ancora il cookie (accesso precedente) lo riceve alla prima pagina che apre.
  */
@@ -227,7 +257,7 @@ function remember_check(): void
     if (!$valid) {
         return;
     }
-    $t = q("SELECT t.id, t.user_id, t.token_hash, t.expires_at, u.status FROM auth_tokens t
+    $t = q("SELECT t.id, t.user_id, t.token_hash, t.expires_at, u.status, u.session_version FROM auth_tokens t
             JOIN users u ON u.id = t.user_id WHERE t.selector = ?", [$m[1]])->fetch();
     if ($t && !hash_equals($t['token_hash'], hash('sha256', $m[2]))) {
         q('DELETE FROM auth_tokens WHERE id = ?', [$t['id']]);      // selettore giusto e codice sbagliato: non è chi dice di essere
@@ -239,6 +269,7 @@ function remember_check(): void
     }
     session_regenerate_id(true);
     $_SESSION['uid'] = (int) $t['user_id'];
+    $_SESSION['sv'] = (int) $t['session_version'];
     $_SESSION['remember_tried'] = 1;
     // la scadenza si sposta in avanti (al massimo una volta al giorno) finché lo si usa
     $exp = time() + REMEMBER_DAYS * 86400;
@@ -255,7 +286,7 @@ function attempt_login(string $username, string $password): string
     if (login_blocked($username)) {
         return 'blocked';
     }
-    $u = q('SELECT id, password_hash, status FROM users WHERE LOWER(username) = ?', [$username])->fetch();
+    $u = q('SELECT id, password_hash, status, session_version FROM users WHERE LOWER(username) = ?', [$username])->fetch();
     // se l'utente non esiste verifica comunque un hash bcrypt valido (di una password qualsiasi): tempi simili, così non si scoprono gli username
     $hash = $u['password_hash'] ?? '$2y$10$.vGA1O9wmRjrwAVXD98HNOgsNpDczlqm3Jq7KnEd1rVAGv3Fykk1a';
     $valid = password_verify($password, $hash);
@@ -269,6 +300,7 @@ function attempt_login(string $username, string $password): string
         }
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) $u['id'];
+        $_SESSION['sv'] = (int) $u['session_version'];
         remember_issue((int) $u['id']);
         return 'ok';
     }

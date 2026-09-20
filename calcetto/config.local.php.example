@@ -13,4 +13,9 @@ define('DB_PASS', '');                  // vuota, se il pannello Database non ne
 define('DB_NAME', 'my_NOMEUTENTE');     // di solito my_ + nome utente
 
 // Codice da digitare in install.php per creare il primo admin
+// Facoltativi: email di recupero password e conferma indirizzo (di solito non serve toccarli)
+// define('SITE_URL', 'https://TUOSITO.altervista.org/wp-content/calcetto/');   // indirizzo del sito nei link delle email
+// define('MAIL_FROM', 'noreply@tuodominio.it');                                 // mittente (predefinito: noreply@<indirizzo del sito>)
+// define('MAIL_REPLY_TO', 'tuamail@esempio.it');                                // a chi risponde chi risponde alle email del sito
+
 define('INSTALL_KEY', 'scegli-un-codice-lungo-e-casuale');

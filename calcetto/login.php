@@ -43,6 +43,7 @@ layout_start('Accedi');
         <input type="password" name="password" required autocomplete="current-password"></label>
       <button class="btn btn-primary btn-block">Entra</button>
     </form>
+    <p class="login-alt"><a class="link" href="forgot.php">Password dimenticata?</a></p>
     <?php if (REGISTRATION): ?>
       <p class="login-alt">Non hai un account? <a class="link" href="register.php">Iscriviti</a></p>
     <?php endif; ?>

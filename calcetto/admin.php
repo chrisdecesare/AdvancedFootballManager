@@ -127,13 +127,24 @@ if (is_post()) {
                 flash('ok', "Account \"$username\" creato.");
             }
             break;
+        case 'mail_test':
+            $to = mb_strtolower(trim((string) ($_POST['to'] ?? '')));
+            if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+                flash('err', 'Scrivi un indirizzo email valido per la prova.');
+            } elseif (send_mail($to, 'Email di prova · ' . APP_NAME, mail_text('admin', ['Questa è una email di prova: se la leggi, il sito riesce a mandare posta e il recupero password funzionerà.']))) {
+                flash('ok', 'Email di prova accettata dal server di posta e diretta a ' . $to . '. Controlla la posta, anche lo spam: se non arriva, il recupero password non è affidabile.');
+            } else {
+                flash('err', 'Il server di posta ha rifiutato l\'invio: su questo hosting le email non partono.');
+            }
+            break;
         case 'reset':
             $password = $_POST['password'] ?? '';
             if ($err = password_error($password)) {
                 flash('err', $err);
             } else {
                 q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $uid]);
-                remember_revoke($uid);   // con la nuova password i dispositivi già collegati devono rifare l'accesso
+                security_reset_sessions($uid);   // con la nuova password i dispositivi già collegati devono rifare l'accesso
+                notify_password_changed($uid);   // e, se ha un'email confermata, lo sa
                 flash('ok', 'Password aggiornata.');
             }
             break;
@@ -356,6 +367,9 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
           <?php if (count($groupList) > 1 && $u['player_id']): ?>
             <?php foreach ($playerGroups[(int) $u['player_id']] ?? [] as $gid): ?><span class="tag tag-group"><i class="ti ti-users-group"></i> <?= h($groupList[$gid] ?? '?') ?></span> <?php endforeach; ?><br>
           <?php endif; ?>
+          <?php if ($u['email']): ?><i class="ti ti-mail-check" title="Email confermata"></i> <?= h($u['email']) ?><br>
+          <?php elseif ($u['pending_email']): ?><i class="ti ti-mail-question" title="Email non ancora confermata"></i> <?= h($u['pending_email']) ?> <span class="muted">(da confermare)</span><br>
+          <?php else: ?><span class="muted"><i class="ti ti-mail-off"></i> nessuna email</span><br><?php endif; ?>
           <span class="muted">creato il <?= fmt_date_short($u['created_at']) ?></span>
         </td>
         <td>
@@ -421,6 +435,19 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
     <p class="muted small">I promemoria partono da soli quando qualcuno usa il sito. Per averli puntuali anche quando nessuno lo apre, fai chiamare questo indirizzo ogni 10-15 minuti da un pianificatore (cron del tuo hosting o un servizio gratuito come cron-job.org). Il codice nell'indirizzo è riservato: non condividerlo.</p>
     <p><input type="text" readonly value="<?= h($cronUrl) ?>" class="mini-input" style="width:100%" onclick="this.select()" aria-label="Indirizzo per il cron"></p>
   </details>
+</section>
+
+<section class="card" id="email">
+  <h2><i class="ti ti-mail"></i> Email</h2>
+  <p class="muted small">Ogni giocatore può collegare e confermare la propria email da <em>Modifica profilo → Sicurezza</em>: serve a recuperare la password da solo («Password dimenticata?» nella pagina di accesso) e a ricevere un avviso se la password cambia.
+    Su Altervista le email partono con la funzione <code>mail()</code> del server, senza un servizio esterno: possono finire nello spam. Fai la prova qui sotto.</p>
+  <p class="small">Mittente: <code><?= h(mail_sender()[0]) ?></code> · indirizzo del sito nei link: <code><?= h(trusted_base_url()) ?></code>
+    · account con email confermata: <strong><?= (int) q('SELECT COUNT(*) FROM users WHERE email IS NOT NULL')->fetchColumn() ?></strong> su <?= count($users) ?></p>
+  <form method="post" class="form form-grid">
+    <?= csrf_field() ?><input type="hidden" name="do" value="mail_test">
+    <label class="field"><span>Manda una email di prova a</span><input type="email" name="to" required maxlength="190" placeholder="nome@esempio.it"></label>
+    <div><button class="btn btn-ghost btn-sm"><i class="ti ti-send"></i> Invia la prova</button></div>
+  </form>
 </section>
 
 <section class="card">

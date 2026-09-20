@@ -29,6 +29,20 @@ resta un cookie con un codice casuale a lunga scadenza (180 giorni, che si spost
 (tabella `auth_tokens`). Si perde uscendo dall'account («Esci») e quando la password dell'account viene cambiata (da lui o dall'admin): allora
 tutti i dispositivi devono rifare l'accesso. Al massimo 10 dispositivi per account.
 
+**Email, recupero password e sicurezza:** ogni giocatore può collegare la propria email da *Modifica profilo → Sicurezza* (`account.php`), o già
+all'iscrizione (facoltativa). L'indirizzo conta solo dopo la conferma con il link ricevuto (un passaggio con il pulsante «Sì, conferma»). Con un'email
+confermata, dalla pagina di accesso «Password dimenticata?» arriva un link per sceglierne una nuova: vale 60 minuti, si usa una volta sola e la risposta è
+identica sia che l'account esista o no (non si scopre chi è iscritto). Senza email confermata la password si reimposta dall'admin, come prima.
+Altre misure:
+- **Password attuale richiesta** per cambiare password o email da `account.php` (con un limite di tentativi), e avviso via email (all'indirizzo confermato) quando cambiano password o email.
+- **Cambio password = uscita ovunque:** cambiando o reimpostando la password (da sé, dal link o dall'admin) tutte le sessioni e i «resta collegato» degli altri dispositivi decadono
+  (`users.session_version`); da `account.php` si può anche «Uscire da tutti gli altri dispositivi».
+- **Password più solide:** minimo 8 caratteri, non troppo comuni («password», «12345678», «calcetto»...), non uguali allo username.
+- **Limiti anti-abuso:** al massimo 8 richieste di recupero all'ora per connessione, 3 email di recupero e 5 di conferma all'ora per account.
+- **I link delle email** usano l'indirizzo fissato da un admin (si salva da solo alla prima visita di un admin) e non l'intestazione `Host` della richiesta; i codici nei link sono casuali, nel database c'è solo l'impronta e si consumano al primo uso.
+- **Invio:** su Altervista partono con la funzione `mail()` di PHP, dal mittente `noreply@<indirizzo del sito>`: possono finire nello spam. In *Admin → Email* c'è una
+  email di prova. Facoltativi in `config.local.php`: `MAIL_FROM` (altro mittente), `MAIL_REPLY_TO`, `SITE_URL` (indirizzo del sito con la barra finale, per i link).
+
 Le password non si possono leggere da nessuno (sono salvate cifrate): l'admin può solo reimpostarle.
 Con `REGISTRATION = false` in `config.php` le iscrizioni si chiudono e gli account li crea solo l'admin.
 Senza login non si vede nulla (`PUBLIC_READ = false`).

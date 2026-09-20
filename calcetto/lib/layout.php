@@ -170,3 +170,18 @@ function push_card(bool $banner = false): string
         . '<button type="button" class="btn btn-ghost btn-sm" data-push-test hidden><i class="ti ti-send"></i> Invia una notifica di prova</button></div>'
         . '</section>';
 }
+
+/** Riquadro «Sicurezza» (email e password) con il collegamento alla pagina account.php. */
+function security_card(): string
+{
+    $u = current_user();
+    if (!$u) {
+        return '';
+    }
+    $state = !empty($u['email']) ? '<i class="ti ti-circle-check acc-ok"></i> Email confermata: <strong>' . h($u['email']) . '</strong>'
+        : (!empty($u['pending_email']) ? '<i class="ti ti-hourglass"></i> Email da confermare: <strong>' . h($u['pending_email']) . '</strong>'
+        : '<i class="ti ti-alert-triangle"></i> Nessuna email: se dimentichi la password dovrai chiedere all\'admin.');
+    return '<section class="card" id="sicurezza"><h2><i class="ti ti-shield-lock"></i> Sicurezza</h2><p class="small">' . $state . '</p>'
+        . '<p class="muted small">Email per recuperare la password, cambio password e uscita dagli altri dispositivi.</p>'
+        . '<a class="btn btn-ghost btn-sm" href="account.php"><i class="ti ti-settings"></i> Email, password e dispositivi</a></section>';
+}

@@ -114,6 +114,7 @@ function tour_steps(array $u): array
         'text' => 'Tocca il tuo nome per modificare i tuoi dati.',
         'bullets' => [
             'Foto, numero di maglia, ruolo, piede preferito e password.',
+            'Email e password: da «Sicurezza» colleghi la tua email (per recuperare la password da solo) e cambi la password.',
             'Le notifiche: ti avvisano quando c\'è una partita a cui non hai risposto e quando si aprono o chiudono le votazioni.',
         ],
     ];
