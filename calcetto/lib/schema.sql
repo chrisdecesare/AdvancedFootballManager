@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS players (
   bg_preset VARCHAR(16) NULL,                      -- ...oppure sfondo speciale comprato nel negozio (lib/shop.php)
   nick_key VARCHAR(16) NULL,                       -- nickname che porta adesso
   hat_key VARCHAR(16) NULL,                        -- copricapo che porta adesso
+  border_key VARCHAR(16) NULL,                     -- bordo speciale che porta adesso
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -253,4 +254,4 @@ CREATE TABLE IF NOT EXISTS player_items (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '15');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '16');

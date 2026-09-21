@@ -73,7 +73,7 @@ function tour_steps(array $u): array
             'text' => 'Punta sulle partite con gettoni finti (nessun euro) e spendili nel Negozio per personalizzare il profilo.',
             'bullets' => [
                 'Chi vince, chi segna, chi sarà l\'MVP: ogni scelta ha la sua quota e si punta fino al calcio d\'inizio.',
-                'Nel Negozio: sfondi speciali, nickname (alcuni si sbloccano con gol, assist, MVP) e copricapi simpatici.',
+                'Nel Negozio: 100 copricapi, 30 bordi, 50 sfondi e 50 nickname (33 si sbloccano con gol, assist, MVP e altri obiettivi).',
                 'In fondo c\'è la classifica dei più ricchi: chi è il Banco?',
             ],
         ],

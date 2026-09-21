@@ -909,7 +909,7 @@ a.fact-who:hover { color: var(--grass-d); }
 :is(.shop-look).role-cen { --pc: var(--grass); --pc2: #62dc95; }
 :is(.shop-look).role-att { --pc: var(--pink); --pc2: #ff8eb2; }
 :is(.shop-look).role-jol { --pc: var(--purple); --pc2: #bb9bf5; }
-.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 16px; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 14px; }
 .shop-item { margin: 0; display: grid; gap: 8px; align-content: start; text-align: center; padding: 14px; }
 .shop-item.is-worn { background: #eafff1; }
 .shop-item.is-locked { opacity: .78; }
@@ -919,9 +919,121 @@ a.fact-who:hover { color: var(--grass-d); }
 .shop-name { font: 400 1.05rem var(--font-d); display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center; }
 .shop-price { margin: 0; font: 400 1.3rem var(--font-d); }
 .shop-goal { margin: 0; }
-.shop-act { margin: 0; align-self: end; }
+.shop-act { margin: 0; align-self: end; display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.shop-act form { margin: 0; }
 
 .shop-item { overflow: hidden; }
 .shop-thumb .nick { white-space: normal; max-width: 100%; text-align: center; line-height: 1.15; padding: 3px 12px 1px; border-radius: 14px; }
 /* sugli sfondi speciali (anche quelli scuri) la riga di ruolo e piede resta leggibile */
 .pcard[class*="bgp-"] .pcard-sub { background: rgba(255, 255, 255, .88); border-radius: 999px; padding: 1px 10px; }
+
+/* ==== negozio: generato da un elenco (sfondi e bordi), si può modificare a mano ==== */
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_tramonto{background:linear-gradient(180deg,#ff5a5f 0%,#ff8c42 45%,#ffd23f 100%)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_oceano{background:repeating-linear-gradient(180deg,rgba(255,255,255,.18) 0 3px,transparent 3px 16px),linear-gradient(180deg,#53c8f5,#1b5fbf)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_foresta{background:repeating-linear-gradient(90deg,#1f7a3f 0 14px,#2a9450 14px 30px),#1f7a3f}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_lava{background:radial-gradient(circle at 20% 80%,#ffb01f 0 12%,transparent 30%),radial-gradient(circle at 75% 65%,#ff7a1f 0 14%,transparent 34%),linear-gradient(#5a0f0f,#2a0808)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_aurora{background:radial-gradient(ellipse at 30% 20%,rgba(56,209,120,.85),transparent 60%),radial-gradient(ellipse at 75% 40%,rgba(166,124,242,.85),transparent 55%),linear-gradient(#0f1b3d,#152a5c)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_caramella{background:repeating-linear-gradient(45deg,#ff9ec4 0 14px,#fff 14px 28px,#9be0ff 28px 42px,#fff 42px 56px)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_deserto{background:radial-gradient(ellipse at 20% 110%,#e0a458 0 40%,transparent 41%),radial-gradient(ellipse at 80% 120%,#c98a3b 0 45%,transparent 46%),linear-gradient(#ffe9b0,#ffcf7a)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_neve{background:radial-gradient(circle,#fff 0 2px,transparent 3px) 0 0/22px 22px,radial-gradient(circle,#fff 0 1.5px,transparent 2.5px) 11px 11px/22px 22px,linear-gradient(#bcdcf5,#e9f5ff)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_ciliegia{background:radial-gradient(circle,#fff 0 4px,transparent 5px) 0 0/24px 24px,#d6243b}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_menta{background:repeating-linear-gradient(90deg,#a8f0d0 0 12px,#d9fff0 12px 24px)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_limone{background:radial-gradient(circle,#fff6a8 0 5px,transparent 6px) 0 0/24px 24px,#ffe14d}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_mirtillo{background:radial-gradient(circle at 30% 30%,#7d7be8 0 6px,transparent 7px) 0 0/28px 28px,radial-gradient(circle at 70% 70%,#5b5bd6 0 5px,transparent 6px) 0 0/28px 28px,#2d2b73}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_zebra{background:repeating-linear-gradient(80deg,#1f1a2e 0 8px,#fff 8px 20px,#1f1a2e 20px 24px,#fff 24px 40px)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_tigre{background:repeating-linear-gradient(100deg,#1f1a2e 0 5px,transparent 5px 22px),repeating-linear-gradient(80deg,#1f1a2e 0 3px,transparent 3px 30px),#ff9a2e}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_camo{background:radial-gradient(ellipse at 20% 30%,#5a6b3a 0 22%,transparent 23%) 0 0/140px 140px,radial-gradient(ellipse at 70% 60%,#8a9a5a 0 24%,transparent 25%) 0 0/140px 140px,radial-gradient(ellipse at 45% 85%,#3d4a28 0 20%,transparent 21%) 0 0/140px 140px,#6f7d47}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_tartan{background:repeating-linear-gradient(0deg,rgba(255,255,255,.35) 0 4px,transparent 4px 28px),repeating-linear-gradient(90deg,rgba(0,0,0,.25) 0 10px,transparent 10px 28px),repeating-linear-gradient(90deg,rgba(255,255,255,.35) 0 4px,transparent 4px 28px),#b3202f}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_marinaio{background:repeating-linear-gradient(0deg,#fff 0 12px,#2a4d9b 12px 24px)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_mattoncini{background:linear-gradient(rgba(60,20,10,.55) 3px,transparent 3px) 0 0/60px 24px,linear-gradient(90deg,rgba(60,20,10,.55) 3px,transparent 3px) 0 0/60px 24px,#b5523b}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_damasco{background:radial-gradient(circle,#d4b26a 0 6px,transparent 7px) 0 0/30px 30px,radial-gradient(circle,#d4b26a 0 5px,transparent 6px) 15px 15px/30px 30px,#7a1f3a}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_onde{background:radial-gradient(circle at 50% 100%,#2f8fe0 0 9px,#8fd6ff 10px 12px,transparent 13px) 0 0/28px 14px,#2f8fe0}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_scaglie{background:radial-gradient(circle at 100% 50%,#3fb7a1 0 10px,#1f6f60 11px 12px,transparent 13px) 0 0/24px 24px,radial-gradient(circle at 0 50%,#3fb7a1 0 10px,#1f6f60 11px 12px,transparent 13px) 12px 12px/24px 24px,#2a8f7d}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_triangoli{background:linear-gradient(135deg,rgba(255,255,255,.2) 25%,transparent 25%) -14px 0/28px 28px,linear-gradient(225deg,rgba(255,255,255,.2) 25%,transparent 25%) -14px 0/28px 28px,linear-gradient(315deg,rgba(0,0,0,.15) 25%,transparent 25%) 0 0/28px 28px,linear-gradient(45deg,rgba(0,0,0,.15) 25%,transparent 25%) 0 0/28px 28px,#7d5fe0}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_zigzag{background:linear-gradient(135deg,#ff6b9a 25%,transparent 25%) -16px 0/32px 32px,linear-gradient(225deg,#ff6b9a 25%,transparent 25%) -16px 0/32px 32px,linear-gradient(315deg,#ff6b9a 25%,transparent 25%) 0 0/32px 32px,linear-gradient(45deg,#ff6b9a 25%,transparent 25%) 0 0/32px 32px,#ffd6e6}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_rombi{background:linear-gradient(45deg,#f2c14e 25%,transparent 25% 75%,#f2c14e 75%) 0 0/36px 36px,linear-gradient(45deg,#f2c14e 25%,transparent 25% 75%,#f2c14e 75%) 18px 18px/36px 36px,#c0392b}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_bersaglio{background:repeating-radial-gradient(circle at 50% 50%,#ff5a5f 0 12px,#fff 12px 24px)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_raggi{background:repeating-conic-gradient(from 0deg at 50% 50%,#ffd23f 0 10deg,#ff9a2e 10deg 20deg)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_pixel{background:conic-gradient(#38d178 25%,#2a9450 0 50%,#38d178 0 75%,#2a9450 0) 0 0/24px 24px}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_matrix{background:repeating-linear-gradient(90deg,rgba(56,209,120,.5) 0 2px,transparent 2px 14px),repeating-linear-gradient(0deg,rgba(56,209,120,.18) 0 2px,transparent 2px 6px),#031a0c}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_neon{background:linear-gradient(rgba(255,255,255,.14) 1px,transparent 1px) 0 0/24px 24px,linear-gradient(90deg,rgba(255,255,255,.14) 1px,transparent 1px) 0 0/24px 24px,linear-gradient(135deg,#ff2bd6,#2bd9ff)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_vaporwave{background:linear-gradient(transparent 55%,rgba(255,255,255,.35) 56%,transparent 58%),repeating-linear-gradient(90deg,rgba(255,255,255,.2) 0 1px,transparent 1px 22px),linear-gradient(180deg,#ff77b7,#7a5cff 60%,#2b1a6b)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_retro{background:repeating-linear-gradient(115deg,#ff4fa3 0 14px,#ffd23f 14px 28px,#3ee6ff 28px 42px,#7a4dff 42px 56px)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_disco{background:radial-gradient(circle at 20% 30%,#ff5a5f 0 14%,transparent 15%),radial-gradient(circle at 80% 25%,#ffd23f 0 14%,transparent 15%),radial-gradient(circle at 50% 80%,#53c8f5 0 16%,transparent 17%),radial-gradient(circle at 15% 85%,#a67cf2 0 12%,transparent 13%),radial-gradient(circle at 90% 80%,#38d178 0 12%,transparent 13%),#2a1b4d}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_carbonio{background:linear-gradient(27deg,#151515 5px,transparent 5px) 0 5px,linear-gradient(207deg,#151515 5px,transparent 5px) 10px 0,linear-gradient(27deg,#222 5px,transparent 5px) 0 10px,linear-gradient(207deg,#222 5px,transparent 5px) 10px 5px,linear-gradient(90deg,#1b1b1b 10px,transparent 10px),linear-gradient(#1d1d1d 25%,#1a1a1a 25% 50%,transparent 50% 75%,#242424 75%);background-color:#131313;background-size:20px 20px}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_marmo{background:radial-gradient(ellipse at 20% 30%,rgba(120,120,140,.25),transparent 40%),radial-gradient(ellipse at 80% 70%,rgba(120,120,140,.22),transparent 45%),linear-gradient(120deg,transparent 40%,rgba(150,150,170,.35) 41% 42%,transparent 43%),linear-gradient(60deg,transparent 60%,rgba(150,150,170,.3) 61% 62%,transparent 63%),#f3f3f6}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_legno{background:repeating-linear-gradient(90deg,rgba(0,0,0,.08) 0 2px,transparent 2px 14px),repeating-linear-gradient(0deg,#b77a45 0 18px,#a26a38 18px 20px,#c48a52 20px 38px,#a26a38 38px 40px)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_jeans{background:repeating-linear-gradient(45deg,rgba(255,255,255,.08) 0 1px,transparent 1px 3px),repeating-linear-gradient(-45deg,rgba(0,0,0,.08) 0 1px,transparent 1px 3px),#3a5d94}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_argento{background:linear-gradient(115deg,#c9ced6 0,#f4f6f9 25%,#b9bfc9 50%,#f7f9fb 75%,#aeb4bf 100%)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_bronzo{background:linear-gradient(115deg,#8a5a2b 0,#d9a066 25%,#8a5a2b 50%,#e0ab72 75%,#7a4d22 100%)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_rubino{background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.5) 0 6%,transparent 22%),linear-gradient(135deg,#ff4d6d,#a4133c 60%,#590d22)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_smeraldo{background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.5) 0 6%,transparent 22%),linear-gradient(135deg,#4ce08a,#0a8f4d 60%,#04502b)}
+:is(.pcard,.profile,.bg-preview,.shop-look,.shop-swatch).bgp-g_zaffiro{background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.5) 0 6%,transparent 22%),linear-gradient(135deg,#5aa8ff,#1650c4 60%,#0a2a6b)}
+
+/* bordi speciali: un anello colorato fuori dal contorno, disegnato con una maschera (segue gli angoli arrotondati).
+   ::before = contorno scuro dell'anello, ::after = anello colorato. --bw = spessore, --brd = colore o disegno, --glow = alone. */
+:is(.profile,.pcard,.shop-look,.shop-brdthumb)[class*="brd-"] { --bw: 7px; --rad: 18px; }
+.shop-brdthumb { --rad: 12px !important; }
+:is(.profile,.pcard,.shop-look,.shop-brdthumb)[class*="brd-"]::before,
+:is(.profile,.pcard,.shop-look,.shop-brdthumb)[class*="brd-"]::after {
+  content: ""; position: absolute; pointer-events: none; z-index: 0;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+:is(.profile,.pcard,.shop-look,.shop-brdthumb)[class*="brd-"]::before {
+  inset: calc(-5px - var(--bw)); padding: calc(var(--bw) + 4px); border-radius: calc(var(--rad) + var(--bw) + 2px); background: #1f1a2e; }
+:is(.profile,.pcard,.shop-look,.shop-brdthumb)[class*="brd-"]::after {
+  inset: calc(-3px - var(--bw)); padding: var(--bw); border-radius: calc(var(--rad) + var(--bw)); background: var(--brd, transparent); }
+:is(.profile,.pcard,.shop-look)[class*="brd-"] { box-shadow: var(--sh), 0 0 18px 5px var(--glow, transparent); }
+@keyframes brdSlide { to { background-position: 200% 0; } }
+@keyframes brdHue { to { filter: hue-rotate(360deg); } }
+@keyframes brdPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.4) saturate(1.3); } }
+@media (prefers-reduced-motion: reduce) { :is(.profile,.pcard,.shop-look,.shop-brdthumb)[class*="brd-"]::after { animation: none !important; } }
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_oro{--bw:7px;--brd:linear-gradient(135deg,#ffe27a,#ffb000 50%,#fff0a0);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_argento{--bw:7px;--brd:linear-gradient(135deg,#f4f6f9,#a9b0bb 50%,#e9edf2);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_bronzo{--bw:7px;--brd:linear-gradient(135deg,#e0ab72,#8a5a2b 50%,#d9a066);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_rubino{--bw:7px;--brd:linear-gradient(135deg,#ff6b81,#a4133c);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_smeraldo{--bw:7px;--brd:linear-gradient(135deg,#6ef0a2,#0a8f4d);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_zaffiro{--bw:7px;--brd:linear-gradient(135deg,#7dbcff,#1650c4);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_ametista{--bw:7px;--brd:linear-gradient(135deg,#c9a2ff,#6a2fc4);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_rosa{--bw:7px;--brd:linear-gradient(135deg,#ffb3d1,#ff4f9a);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_nero{--bw:8px;--brd:#1f1a2e;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_bianco{--bw:8px;--brd:#ffffff;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_arcobaleno{--bw:7px;--brd:linear-gradient(90deg,#ff5a5f,#ff8c42,#ffd23f,#38d178,#53c8f5,#a67cf2,#ff5a5f);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_fuoco{--bw:8px;--brd:linear-gradient(0deg,#ffe27a,#ff9a2e,#ff4a1f);--glow:#ff7a1f;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_ghiaccio{--bw:7px;--brd:linear-gradient(135deg,#ffffff,#a8e0ff 50%,#e6f8ff);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_tramonto{--bw:7px;--brd:linear-gradient(90deg,#ff5a5f,#ff8c42,#ffd23f);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_oceano{--bw:7px;--brd:linear-gradient(90deg,#53c8f5,#1b5fbf);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_neon_rosa{--bw:5px;--brd:#ff2bd6;--glow:#ff2bd6;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_neon_azzurro{--bw:5px;--brd:#2bd9ff;--glow:#2bd9ff;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_neon_verde{--bw:5px;--brd:#39ff88;--glow:#39ff88;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_cantiere{--bw:9px;--brd:repeating-linear-gradient(45deg,#ffd23f 0 10px,#1f1a2e 10px 20px);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_scacchi{--bw:8px;--brd:conic-gradient(#1f1a2e 25%,#fff 0 50%,#1f1a2e 0 75%,#fff 0) 0 0/16px 16px;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_punti{--bw:9px;--brd:radial-gradient(circle,#ff4f9a 0 3px,transparent 3.5px) 0 0/10px 10px,#ffd6e6;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_candy{--bw:9px;--brd:repeating-linear-gradient(45deg,#ff5a5f 0 8px,#fff 8px 16px);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_greca{--bw:8px;--brd:conic-gradient(#ffb000 25%,#7a4d00 0 50%,#ffb000 0 75%,#7a4d00 0) 0 0/12px 12px;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_legno{--bw:9px;--brd:repeating-linear-gradient(90deg,#b77a45 0 8px,#9a6232 8px 10px);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_pietra{--bw:9px;--brd:radial-gradient(circle at 30% 30%,#c9c9c9 0 4px,transparent 5px) 0 0/14px 14px,#8b8b8b;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_ferro{--bw:9px;--brd:radial-gradient(circle,#dfe3e8 0 2.5px,transparent 3px) 0 0/16px 16px,#5b6270;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_diamante{--bw:8px;--brd:conic-gradient(from 45deg,#e6f8ff,#7fd4ff,#ffffff,#a8e0ff,#e6f8ff);--glow:#7fd4ff;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_elettrico{--bw:6px;--brd:linear-gradient(90deg,#fff,#4dc3ff,#fff,#4dc3ff,#fff) 0 0/200% 100%;--glow:#4dc3ff;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_elettrico::after{animation:brdSlide 1.2s linear infinite}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_arcobaleno_a{--bw:7px;--brd:linear-gradient(90deg,#ff5a5f,#ff8c42,#ffd23f,#38d178,#53c8f5,#a67cf2,#ff5a5f);}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_arcobaleno_a::after{animation:brdHue 3s linear infinite}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_oro_pulsante{--bw:7px;--brd:linear-gradient(135deg,#ffe27a,#ffb000 50%,#fff0a0);--glow:#ffb000;}
+:is(.profile,.pcard,.shop-look,.shop-brdthumb).brd-b_oro_pulsante::after{animation:brdPulse 1.8s ease-in-out infinite}
+/* ==== fine negozio generato ==== */
+
+/* negozio: anteprima sempre visibile, schede e miniature dei bordi */
+.shop-bar { position: sticky; top: 74px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px; padding: 14px 20px 14px 14px; margin: 14px 0 12px; background: var(--yellow); }
+.shop-bar .wallet-num { font-size: 2rem; }
+.shop-bar .wallet-num .ti { font-size: 1.6rem; }
+.shop-bar-info p { margin: 2px 0 0; }
+@media (max-width: 640px) { .shop-bar { top: 64px; padding: 8px 12px 8px 10px; gap: 6px 14px; margin-top: 30px; } .shop-bar .shop-look { padding: 6px 12px 6px 8px; } .shop-bar-info p { display: none; } }
+.shop-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 10px; scroll-margin-top: 150px; }
+.shop-tabs a { display: inline-flex; align-items: center; gap: 8px; padding: 5px 14px; border-radius: 999px; border: var(--b2); background: var(--white); font: 400 1.05rem var(--font-d); box-shadow: 2px 2px 0 var(--ink); }
+.shop-tabs a.active { background: var(--ink); color: var(--yellow); }
+.shop-tabs .count { background: var(--paper-2); color: var(--ink); }
+.shop-filters { margin-bottom: 14px; }
+.shop-price.is-short { color: var(--red); }
+.shop-brdthumb { position: relative; display: block; width: 76px; height: 52px; margin: 14px auto; border: 3px solid var(--ink); border-radius: 12px; background: var(--paper); }
+.shop-swatch { border-radius: 12px; }
+.shop-item .btn-sm { padding: 4px 10px; }
