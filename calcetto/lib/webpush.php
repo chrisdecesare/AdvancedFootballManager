@@ -399,6 +399,74 @@ function push_notify_new_match(int $matchId, ?int $exceptUser = null): void
     });
 }
 
+/**
+ * Partita in programma modificata (data, ora, campo, quota, note) da un admin/manager. $old = la partita com'era prima,
+ * $reset = true se le risposte "ci sono / non ci sono" sono state azzerate (cambio di giorno): allora lo ricevono tutti
+ * e devono rispondere di nuovo; per le altre modifiche lo ricevono solo i giocatori che non hanno già detto di no.
+ */
+function push_notify_match_changed(int $matchId, array $old, bool $reset, ?int $exceptUser = null): void
+{
+    push_defer(function () use ($matchId, $old, $reset, $exceptUser) {
+        $m = get_match($matchId);
+        if (!$m || $m['status'] !== 'programmata') {
+            return;
+        }
+        $changes = [];
+        $moved = $m['match_date'] !== $old['match_date'];
+        if ($moved) {
+            $changes[] = 'Ora si gioca ' . push_when($m['match_date']) . ' (prima: ' . push_when($old['match_date']) . ')';
+        }
+        if ($m['location'] !== $old['location']) {
+            $changes[] = 'Campo: ' . ($m['location'] !== '' ? $m['location'] : 'da definire');
+        }
+        if (abs((float) $m['fee'] - (float) $old['fee']) > 0.001) {
+            $changes[] = 'Quota: ' . number_format((float) $m['fee'], 2, ',', '') . ' €';
+        }
+        if ((string) $m['notes'] !== (string) $old['notes']) {
+            $changes[] = 'Note: ' . ((string) $m['notes'] !== '' ? $m['notes'] : 'nessuna');
+        }
+        if (!$changes) {
+            return;
+        }
+        $users = push_match_recipients($matchId, $reset ? '1 = 1' : "mp.availability <> 'assente'", $exceptUser);
+        $body = implode('. ', $changes) . '.' . ($reset ? ' Le risposte sono state azzerate: ci sei? Rispondi ora.' : '');
+        push_notify_users($users, [
+            'title' => $moved ? 'Partita spostata' : 'Partita modificata',
+            'body' => mb_substr($body, 0, 400),
+            'url' => 'match.php?id=' . $matchId, 'tag' => 'match-' . $matchId,
+        ], 'high');
+        if ($reset) {
+            // hanno appena saputo della nuova data: il promemoria non deve partire subito dopo
+            foreach ($users as $pid => $_) {
+                q("INSERT INTO push_log (kind, match_id, player_id) VALUES ('new', ?, ?)
+                   ON DUPLICATE KEY UPDATE sent_at = CURRENT_TIMESTAMP", [$matchId, $pid]);
+            }
+        }
+    });
+}
+
+/**
+ * Partita in programma eliminata. Va chiamata PRIMA di cancellarla: i destinatari si calcolano subito (dopo la
+ * cancellazione l'elenco dei giocatori non esiste più), l'invio parte a pagina già inviata.
+ */
+function push_notify_match_cancelled(array $match, ?int $exceptUser = null): void
+{
+    if ($match['status'] !== 'programmata') {
+        return;
+    }
+    $users = push_match_recipients((int) $match['id'], "mp.availability <> 'assente'", $exceptUser);
+    if (!$users) {
+        return;
+    }
+    push_defer(function () use ($users, $match) {
+        push_notify_users($users, [
+            'title' => 'Partita annullata',
+            'body' => 'La partita di ' . push_when($match['match_date']) . ($match['location'] !== '' ? ' · ' . $match['location'] : '') . ' è stata annullata.',
+            'url' => 'matches.php', 'tag' => 'match-' . $match['id'],
+        ], 'high');
+    });
+}
+
 /** Votazioni aperte (o riaperte) o chiuse: le ricevono i giocatori che hanno giocato la partita. */
 function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): void
 {

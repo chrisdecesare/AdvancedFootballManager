@@ -68,7 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'off': 'Le notifiche non sono attive su questo dispositivo.',
         'on': 'Le notifiche sono attive su questo dispositivo.',
       }[state];
-      setText(card, '[data-push-status]', msg);
+      const lastErr = state === 'off' ? store.get('push-error') : null;
+      if (lastErr) store.del('push-error');
+      setText(card, '[data-push-status]', lastErr ? 'Non è stato possibile attivare le notifiche: ' + lastErr : msg);
       show(card, '[data-push-toggle]', state === 'off' || state === 'on');
       show(card, '[data-push-test]', state === 'on');
       if (toggle) {
@@ -84,19 +86,72 @@ document.addEventListener('DOMContentLoaded', () => {
   const busy = (card, on) => card.querySelectorAll('button').forEach(b => { b.disabled = on; });
   const notice = (card, text) => setText(card, '[data-push-status]', text);
 
+  const pause = ms => new Promise(r => setTimeout(r, ms));
+
+  // l'abbonamento è stato fatto con la chiave del sito attuale? (se le chiavi cambiano, le notifiche vecchie non arrivano più)
+  const sameKey = (sub, key) => {
+    const cur = sub.options && sub.options.applicationServerKey;
+    if (!cur) return true;   // il browser non lo dice: non si può confrontare
+    const a = new Uint8Array(cur);
+    return a.length === key.length && a.every((b, i) => b === key[i]);
+  };
+
+  // aspetta che il service worker appena registrato sia attivo (navigator.serviceWorker.ready non va bene dopo una nuova registrazione)
+  const activated = async reg => {
+    const sw = reg.installing || reg.waiting || reg.active;
+    if (!sw || sw.state === 'activated') return reg;
+    await new Promise((ok, no) => sw.addEventListener('statechange', () => {
+      if (sw.state === 'activated') ok(); else if (sw.state === 'redundant') no(new Error('service worker non installato'));
+    }));
+    return reg;
+  };
+
+  const withTimeout = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(Object.assign(new Error('timeout'), { name: 'AbortError' })), ms))]);
+
+  const pushHelp = 'il telefono non riesce a registrarsi presso il servizio notifiche di Google (errore «push service error»). '
+    + 'Prova così: controlla di avere internet, disattiva VPN, «DNS privato» e blocca-pubblicità (AdGuard ecc.), aggiorna Chrome e Google Play Services, '
+    + 'controlla che data e ora del telefono siano automatiche, poi riprova. Se usi Brave, attiva «Usa Google Services per le notifiche push» nelle impostazioni.';
+
+  // La registrazione presso il servizio notifiche del telefono (FCM) ogni tanto fallisce con «push service error»:
+  // si riprova fino a 3 volte, ripulendo prima l'abbonamento e poi anche il service worker.
+  const subscribe = async () => {
+    const key = keyBytes(keyMeta.content);
+    let reg = await navigator.serviceWorker.register('sw.js').then(activated);
+    let lastErr;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        if (attempt > 1) {
+          const old = await reg.pushManager.getSubscription().catch(() => null);
+          if (old) await old.unsubscribe().catch(() => {});
+          if (attempt === 3) {
+            await reg.unregister().catch(() => {});
+            reg = await navigator.serviceWorker.register('sw.js').then(activated);
+          }
+          await pause(1500 * (attempt - 1));
+        }
+        let sub = await reg.pushManager.getSubscription();
+        if (sub && !sameKey(sub, key)) {
+          await sub.unsubscribe().catch(() => {});
+          sub = null;
+        }
+        return sub || await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }), 20000);
+      } catch (err) {
+        lastErr = err;
+        if (err && (err.name === 'NotAllowedError' || err.name === 'InvalidAccessError' || err.name === 'NotSupportedError')) break;   // riprovare non serve
+      }
+    }
+    console.warn('Notifiche push: registrazione non riuscita', lastErr);
+    throw new Error(lastErr && lastErr.name === 'NotAllowedError'
+      ? 'le notifiche sono bloccate per questo sito nelle impostazioni del telefono o del browser.'
+      : pushHelp + (lastErr && lastErr.message ? ' (dettaglio: ' + lastErr.message + ')' : ''));
+  };
+
   const enable = async card => {
     // il permesso va chiesto subito, mentre è ancora valido il tocco dell'utente (Safari lo pretende)
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') return;
     notice(card, 'Attivazione in corso…');
-    await navigator.serviceWorker.register('sw.js');
-    const reg = await navigator.serviceWorker.ready;
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      // la prima registrazione presso il servizio di notifiche del browser può richiedere qualche secondo
-      const wait = new Promise((_, no) => setTimeout(() => no(new Error('il browser non riesce a collegarsi al servizio di notifiche (se usi Brave, attiva «Usa Google Services per le notifiche push» nelle impostazioni)')), 45000));
-      sub = await Promise.race([reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(keyMeta.content) }), wait]);
-    }
+    const sub = await subscribe();
     const res = await sendSub(sub);
     if (!res.ok) {
       await sub.unsubscribe().catch(() => {});
@@ -123,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (state === 'on') await disable(); else await enable(document.createElement('div'));
       await render();
     } catch (err) {
+      store.set('push-error', err && err.message ? err.message : 'errore sconosciuto');   // la scheda lo mostra
       window.location.href = bell.href;
     } finally {
       bell.classList.remove('is-busy');
@@ -174,7 +230,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // tiene aggiornato il service worker e riassocia il dispositivo all'account in uso (al massimo ogni 12 ore)
       try {
         await navigator.serviceWorker.register('sw.js');
-        const sub = await currentSub();
+        let sub = await currentSub();
+        if (sub && !sameKey(sub, keyBytes(keyMeta.content))) {
+          // abbonamento fatto con una chiave vecchia del sito: non riceverebbe più nulla, si rifà da solo
+          await sub.unsubscribe().catch(() => {});
+          sub = await subscribe();
+          store.del('push-sync-' + uid);
+        }
         const last = parseInt(store.get('push-sync-' + uid) || '0', 10);
         if (sub && Date.now() - last > 12 * 3600 * 1000) {
           const res = await sendSub(sub);

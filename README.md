@@ -168,6 +168,14 @@ notifiche?»), oppure da *Modifica profilo → Notifiche* (con il pulsante per u
 - **come promemoria** a chi non ha ancora confermato né disdetto: 48 ore e 6 ore prima della partita (mai di notte, dalle 23 alle 8;
   se la partita viene creata a ridosso ne parte uno solo, e non a chi ha appena ricevuto l'avviso di nuova partita);
 - **quando le votazioni si aprono** (o si riaprono) e **quando si chiudono** (con il nome dell'MVP), a chi ha giocato la partita.
+- **quando una partita in programma cambia** (data, ora, campo, quota o note) o **viene annullata**, ai giocatori della partita
+  (a chi aveva già risposto «Non ci sono» solo se cambia la data);
+- **se cambia il giorno della partita**, oltre alla notifica («Partita spostata») tutte le risposte «Ci sono / Non ci sono» tornano
+  «in attesa», le squadre già fatte si azzerano e ripartono i promemoria: tutti devono rispondere di nuovo. Cambiando solo l'ora o il campo le risposte restano.
+
+Se sul telefono compare l'errore «push service error» il problema è nella registrazione presso il servizio notifiche di Google (FCM), non nel sito:
+`assets/push.js` riprova da solo fino a 3 volte (ripulendo abbonamento e service worker) e, se non riesce, spiega cosa controllare
+(internet, VPN / DNS privato / blocca-pubblicità, Google Play Services, data e ora del telefono, Brave).
 
 Chi esce dall'account toglie il dispositivo dalle notifiche; al prossimo accesso (di chiunque) si riabbina da solo.
 In *Admin → Notifiche* si vede quanti account le hanno attive.
