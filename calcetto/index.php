@@ -67,7 +67,7 @@ layout_start('Home', 'home');
         <div class="hero-date"><?= h(ucfirst(fmt_date_long($next['match_date']))) ?></div>
         <div class="hero-meta">
           <span><i class="ti ti-clock"></i> <?= fmt_time($next['match_date']) ?></span>
-          <span><i class="ti ti-map-pin"></i> <?= h($next['location'] ?: 'Campo da definire') ?></span>
+          <?= place_chip($next['location']) ?>
           <?= group_tag((int) $next['group_id']) ?>
           <?php if ((float) $next['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($next['fee']) ?></span><?php endif; ?>
         </div>

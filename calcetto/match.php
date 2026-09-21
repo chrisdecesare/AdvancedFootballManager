@@ -366,7 +366,7 @@ if (!empty($_SESSION['vote_done'])):
     <h1><?= h(ucfirst(fmt_date_long($match['match_date']))) ?></h1>
     <div class="hero-meta">
       <span><i class="ti ti-clock"></i> <?= fmt_time($match['match_date']) ?></span>
-      <span><i class="ti ti-map-pin"></i> <?= h($match['location'] ?: 'Campo da definire') ?></span>
+      <?= place_chip($match['location']) ?>
       <?= group_tag((int) $match['group_id']) ?>
       <?php if ((float) $match['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
     </div>
@@ -665,7 +665,7 @@ if (!empty($_SESSION['vote_done'])):
     <?= csrf_field() ?><input type="hidden" name="do" value="edit_info">
     <label class="field"><span>Data</span><input type="date" name="date" value="<?= date('Y-m-d', strtotime($match['match_date'])) ?>" required></label>
     <label class="field"><span>Ora</span><input type="time" name="time" value="<?= fmt_time($match['match_date']) ?>" required></label>
-    <label class="field span-2"><span>Campo</span><input name="location" value="<?= h($match['location']) ?>"></label>
+    <label class="field span-2"><span>Campo (nome e indirizzo: cliccandoci sopra si apre l'itinerario su Google Maps)</span><input name="location" value="<?= h($match['location']) ?>" placeholder="Es. Centro sportivo Rossi, Via Roma 1, Milano"></label>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(team_name('A', $match)) ?>"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(team_name('B', $match)) ?>"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format((float) $match['fee'], 2, ',', '')) ?>"></label>

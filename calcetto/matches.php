@@ -59,7 +59,7 @@ layout_start('Partite', 'matches');
     <?php else: ?>
       <input type="hidden" name="group_id" value="<?= (int) $defaultGroup ?>">
     <?php endif; ?>
-    <label class="field span-2"><span>Campo</span><input name="location" value="<?= h(DEFAULT_LOCATION) ?>" placeholder="Es. Centro sportivo, campo 2"></label>
+    <label class="field span-2"><span>Campo (nome e indirizzo: cliccandoci sopra si apre l'itinerario su Google Maps)</span><input name="location" value="<?= h(DEFAULT_LOCATION) ?>" placeholder="Es. Centro sportivo Rossi, Via Roma 1, Milano"></label>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(TEAM_A_NAME) ?>" placeholder="Es. Scapoli"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(TEAM_B_NAME) ?>" placeholder="Es. Ammogliati"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format(DEFAULT_FEE, 2, ',', '')) ?>"></label>
