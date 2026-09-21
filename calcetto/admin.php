@@ -38,7 +38,11 @@ if (is_post()) {
             q("UPDATE users SET status = 'attivo', player_id = ?, reg_json = NULL WHERE id = ?", [$pid, $uid]);
             db()->commit();
             set_player_groups($pid, $groupIds);   // e con questo entra nelle partite programmate dei suoi gruppi
-            flash('ok', 'Iscrizione di ' . $u['reg_name'] . ' approvata.');
+            // avvisa l'utente: notifica sui dispositivi attivati mentre aspettava ed email (se ha un indirizzo)
+            $groupNames = array_values(array_intersect_key(all_groups(), array_flip($groupIds)));
+            push_notify_approved($uid, $groupNames);
+            $mailed = send_approval_email($uid, $groupNames);
+            flash('ok', 'Iscrizione di ' . $u['reg_name'] . ' approvata.' . ($mailed ? ' Gli abbiamo mandato anche un\'email.' : ''));
             break;
         case 'group_add':
         case 'group_rename':

@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -249,6 +249,11 @@ function ensure_schema(): void
     if ($v < 16) {
         // bordi speciali del profilo (negozio)
         $add('players', 'border_key', 'VARCHAR(16) NULL');
+    }
+    if ($v < 17) {
+        // regalo una tantum: 60 gettoni al giocatore dell'admin (il codice 'gift-adm-60' impedisce di darli due volte)
+        db()->exec("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref)
+                    SELECT player_id, 60, 'regalo', 'gift-adm-60' FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

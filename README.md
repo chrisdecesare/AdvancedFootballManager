@@ -216,6 +216,9 @@ notifiche?»), oppure da *Modifica profilo → Notifiche* (con il pulsante per u
   se la partita viene creata a ridosso ne parte uno solo, e non a chi ha appena ricevuto l'avviso di nuova partita);
 - **agli admin, quando qualcuno si iscrive** e chiede di entrare nella lega («Nuova richiesta di iscrizione»: nome, username, se è già in rosa e quante richieste ci sono da approvare); toccandola si apre *Admin*.
   Serve che l'admin abbia attivato le notifiche su almeno un dispositivo;
+- **a chi si è appena iscritto, quando l'admin approva** («Iscrizione approvata!»): chi non ha ancora il login non ha un account con cui entrare, quindi subito dopo l'iscrizione la pagina
+  «Richiesta inviata» offre di attivare le notifiche su quel dispositivo (vale solo per quel browser e solo finché la richiesta è in attesa). Se ha lasciato un'email, all'approvazione riceve anche
+  un'**email** con il link per entrare: va all'indirizzo confermato o, se non è ancora confermato, a quello scritto all'iscrizione;
 - **quando le votazioni si aprono** (o si riaprono) e **quando si chiudono** (con il nome dell'MVP), a chi ha giocato la partita.
 - **quando una partita in programma cambia** (data, ora, campo, quota o note) o **viene annullata**, ai giocatori della partita
   (a chi aveva già risposto «Non ci sono» solo se cambia la data);

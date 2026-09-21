@@ -10,8 +10,8 @@ function push_reply(array $data, int $status = 200): void
     exit;
 }
 
-$u = current_user();
-if (!$u) {
+$uid = push_account_id();   // chi ha fatto l'accesso, oppure chi si è appena iscritto e aspetta l'approvazione
+if (!$uid) {
     push_reply(['ok' => false, 'error' => 'Accedi di nuovo.'], 401);
 }
 if (!is_post()) {
@@ -25,7 +25,7 @@ $do = $_POST['do'] ?? '';
 $endpoint = is_string($_POST['endpoint'] ?? null) ? $_POST['endpoint'] : '';
 
 if ($do === 'subscribe') {
-    $err = push_save_subscription((int) $u['id'], $endpoint, (string) ($_POST['p256dh'] ?? ''), (string) ($_POST['auth'] ?? ''),
+    $err = push_save_subscription($uid, $endpoint, (string) ($_POST['p256dh'] ?? ''), (string) ($_POST['auth'] ?? ''),
         (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
     if ($err) {
         push_reply(['ok' => false, 'error' => $err], 422);
@@ -39,12 +39,12 @@ if ($do === 'subscribe') {
 }
 
 if ($do === 'unsubscribe') {
-    q('DELETE FROM push_subscriptions WHERE endpoint_hash = ? AND user_id = ?', [hash('sha256', $endpoint), $u['id']]);
+    q('DELETE FROM push_subscriptions WHERE endpoint_hash = ? AND user_id = ?', [hash('sha256', $endpoint), $uid]);
     push_reply(['ok' => true]);
 }
 
 if ($do === 'test') {
-    $sent = push_notify_users([(int) $u['id']], [
+    $sent = push_notify_users([$uid], [
         'title' => 'Notifiche attive',
         'body' => 'Funziona! Riceverai un avviso per le nuove partite e per le votazioni.',
         'url' => 'index.php', 'tag' => 'test',

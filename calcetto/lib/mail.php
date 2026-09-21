@@ -192,3 +192,22 @@ function notify_email_changed(string $oldEmail, int $uid, ?string $newEmail): vo
         'Se non sei stato tu, avvisa subito l\'admin.',
     ]));
 }
+
+/**
+ * Email all'utente appena approvato dall'admin. Va all'indirizzo confermato, se c'è, altrimenti a quello scritto all'iscrizione
+ * (la conferma di solito non è ancora arrivata). Ritorna true se il server di posta l'ha accettata, false se non c'è un indirizzo o non parte.
+ */
+function send_approval_email(int $uid, array $groupNames): bool
+{
+    $r = q('SELECT username, email, pending_email FROM users WHERE id = ?', [$uid])->fetch();
+    $to = $r ? ($r['email'] ?: $r['pending_email']) : null;
+    if (!$to) {
+        return false;
+    }
+    return send_mail((string) $to, 'Iscrizione approvata · ' . APP_NAME, mail_text(mail_name($uid), array_filter([
+        'L\'admin ha approvato la tua iscrizione a ' . APP_NAME . ': ora puoi entrare con lo username ' . $r['username'] . ' e la password che hai scelto.',
+        $groupNames ? 'Sei entrato in: ' . implode(', ', $groupNames) . '.' : null,
+        'Accedi da qui: ' . trusted_base_url() . 'login.php',
+        'Se non sei stato tu a iscriverti, ignora questo messaggio.',
+    ])));
+}

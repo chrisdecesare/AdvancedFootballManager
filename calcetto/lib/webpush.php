@@ -467,6 +467,32 @@ function push_notify_match_cancelled(array $match, ?int $exceptUser = null): voi
     });
 }
 
+/**
+ * Account a cui associare i dispositivi che attivano le notifiche: chi ha fatto l'accesso oppure chi si è appena iscritto e aspetta
+ * l'approvazione (stessa sessione del browser con cui si è iscritto: non può ancora fare il login, ma così l'admin può avvisarlo).
+ */
+function push_account_id(): ?int
+{
+    if ($u = current_user()) {
+        return (int) $u['id'];
+    }
+    $id = (int) ($_SESSION['reg_uid'] ?? 0);
+    return ($id && q("SELECT 1 FROM users WHERE id = ? AND status = 'in_attesa'", [$id])->fetch()) ? $id : null;
+}
+
+/** L'admin ha approvato l'iscrizione: notifica ai dispositivi che l'utente ha attivato mentre aspettava. $groupNames = gruppi in cui è entrato. */
+function push_notify_approved(int $userId, array $groupNames): void
+{
+    push_defer(function () use ($userId, $groupNames) {
+        push_notify_users([$userId], [
+            'title' => 'Iscrizione approvata!',
+            'body' => 'L\'admin ha accettato la tua iscrizione' . ($groupNames ? ' (' . implode(', ', array_map(fn($g) => mb_substr((string) $g, 0, 40), $groupNames)) . ')' : '')
+                . ': entra e rispondi alle partite.',
+            'url' => 'login.php', 'tag' => 'approved',
+        ], 'high');
+    });
+}
+
 /** Account degli admin attivi (sono loro ad approvare le iscrizioni). */
 function push_admin_users(): array
 {
