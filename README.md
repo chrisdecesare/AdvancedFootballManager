@@ -245,8 +245,9 @@ Per averli puntuali anche quando nessuno lo apre, si può far chiamare `cron.php
 
 Ogni giocatore può scrivere delle curiosità su di sé (max 300 caratteri, fino a 30) dalla propria scheda in Rosa, sezione «Curiosità»;
 le può scrivere e cancellare anche l'admin. Si leggono nella scheda del giocatore, nella scheda **Curiosità** (tutte, dalla più
-recente, filtrabili per gruppo come il resto del sito) e, sotto le informazioni sulle partite, in Home: lì ne compare una al giorno,
-scelta a caso, uguale per chi vede gli stessi gruppi. Come per il resto, ognuno vede solo le curiosità dei giocatori dei suoi gruppi.
+recente, filtrabili per gruppo come il resto del sito) e, sotto le informazioni sulle partite, in Home: lì girano da sole, una alla volta
+e **una nuova ogni 15 secondi** (dissolvenza e barretta che mostra il tempo che manca; si fermano se la pagina non è in primo piano), fino a 40 in ordine casuale a ogni visita
+(`HOME_FACTS` e `FACT_SECONDS` in `lib/curiosities.php`). Come per il resto, ognuno vede solo le curiosità dei giocatori dei suoi gruppi.
 
 ## Ruoli: admin, manager e giocatore
 

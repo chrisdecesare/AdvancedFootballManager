@@ -83,7 +83,7 @@ function tour_steps(array $u): array
             'text' => 'Le curiosità sui giocatori, scritte da loro stessi o dall\'admin.',
             'bullets' => [
                 'Ogni giocatore scrive le sue dalla propria scheda in Rosa (sezione «Curiosità»).',
-                'Ogni tanto ne compare una anche in Home, sotto le informazioni sulle partite.',
+                'In Home, sotto le informazioni sulle partite, girano da sole: una nuova ogni 15 secondi.',
             ],
         ],
     ];
