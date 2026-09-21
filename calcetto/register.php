@@ -77,6 +77,7 @@ if (is_post()) {
             [$v['username'], password_hash($password, PASSWORD_DEFAULT), $v['name'], json_encode($data)]);
         $newUserId = (int) db()->lastInsertId();   // prima di registration_hit(), che scrive un'altra riga
         registration_hit();
+        push_notify_registration($newUserId, $v['name'], $v['username'], $matchName ?: null);   // avvisa gli admin, a pagina già inviata
         $emailSent = false;
         if ($v['email'] !== '') {
             // l'indirizzo va confermato dal link nell'email; senza conferma non serve al recupero della password

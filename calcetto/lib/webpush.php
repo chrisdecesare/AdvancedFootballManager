@@ -467,6 +467,34 @@ function push_notify_match_cancelled(array $match, ?int $exceptUser = null): voi
     });
 }
 
+/** Account degli admin attivi (sono loro ad approvare le iscrizioni). */
+function push_admin_users(): array
+{
+    return array_map('intval', q("SELECT id FROM users WHERE role = 'admin' AND status = 'attivo'")->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
+ * Qualcuno si è iscritto e chiede di entrare nella lega: avvisa gli admin (chi ha le notifiche attive), che poi approvano o rifiutano da Admin.
+ * $matchName = nome del giocatore già in rosa a cui l'iscrizione è stata abbinata, se c'è.
+ */
+function push_notify_registration(int $newUserId, string $name, string $username, ?string $matchName = null): void
+{
+    push_defer(function () use ($newUserId, $name, $username, $matchName) {
+        $admins = push_admin_users();
+        if (!$admins) {
+            return;
+        }
+        $pending = pending_count();
+        push_notify_users($admins, [
+            'title' => 'Nuova richiesta di iscrizione',
+            'body' => mb_substr($name, 0, 80) . ' (@' . mb_substr($username, 0, 50) . ') vuole entrare nella lega'
+                . ($matchName ? ': è già in rosa come ' . mb_substr($matchName, 0, 80) : '') . '.'
+                . ($pending > 1 ? ' Richieste da approvare: ' . $pending . '.' : ' Approvala o rifiutala da Admin.'),
+            'url' => 'admin.php', 'tag' => 'reg-' . $newUserId,
+        ], 'high');
+    });
+}
+
 /** Votazioni aperte (o riaperte) o chiuse: le ricevono i giocatori che hanno giocato la partita. */
 function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): void
 {
