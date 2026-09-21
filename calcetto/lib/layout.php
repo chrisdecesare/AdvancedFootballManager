@@ -7,6 +7,7 @@ function layout_start(string $title, string $active = ''): void
         'matches' => ['matches.php', 'Partite', 'calendar-event'],
         'players' => ['players.php', 'Rosa', 'shirt'],
         'standings' => ['standings.php', 'Classifica', 'trophy'],
+        'bets' => ['bets.php', 'Scommesse', 'coin'],
         'curiosities' => ['curiosities.php', 'Curiosità', 'bulb'],
     ];
     if (is_admin()) {

@@ -167,6 +167,9 @@ if (is_post()) {
                 flash('ok', 'Risultato salvato.');
             }
             db()->commit();
+            if ($match['status'] === 'giocata' || !empty($_POST['finish'])) {
+                bets_resettle_result($id);   // risultato salvato o corretto: si pagano (o si rifanno) le scommesse su esito e marcatori
+            }
             redirect($self . '#risultato');
 
         case 'add_link':
@@ -206,6 +209,7 @@ if (is_post()) {
         case 'open_voting':
             q('UPDATE matches SET voting_open = 1, voting_ends_at = ? WHERE id = ?', [default_voting_end(), $id]);
             q('DELETE FROM ratings WHERE match_id = ? AND is_auto = 1', [$id]);   // i voti d'ufficio si rifanno alla prossima chiusura
+            bets_unsettle($id, ['mvp']);   // l'MVP torna in gioco: le scommesse si ripagano alla prossima chiusura
             push_notify_voting($id, true, $actor);
             flash('ok', 'Votazioni riaperte.');
             break;
@@ -231,6 +235,7 @@ if (is_post()) {
 
         case 'reopen':
             q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL WHERE id = ?", [$id]);
+            bets_unsettle($id);   // le scommesse tornano aperte e si ripagano quando la partita viene richiusa
             flash('ok', 'Partita riportata a "programmata".');
             break;
 

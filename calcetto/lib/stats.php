@@ -122,6 +122,7 @@ function close_voting_now(int $matchId, ?int $actorUser = null): ?array
         return null;
     }
     $late = apply_default_votes($matchId);
+    bets_settle($matchId);   // ora l'MVP è deciso: si pagano le scommesse
     push_notify_voting($matchId, false, $actorUser);
     return $late;
 }

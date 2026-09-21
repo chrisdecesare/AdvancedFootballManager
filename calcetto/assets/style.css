@@ -822,3 +822,27 @@ a.fact-who:hover { color: var(--grass-d); }
 .acc-ok { color: var(--grass-d); }
 .card .form + p.muted { margin-top: 10px; }
 .card .inline + .form, .card p + .form { margin-top: 8px; }
+
+/* ---------- scommesse (gettoni finti) ---------- */
+.wallet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; background: var(--yellow); }
+.wallet-who { display: flex; align-items: center; gap: 12px; }
+.wallet-who > div { display: grid; gap: 4px; justify-items: start; }
+.wallet-name { font: 400 1.3rem var(--font-d); }
+.wallet-num { display: flex; align-items: baseline; gap: 8px; font: 400 2.6rem/1 var(--font-d); text-shadow: 2px 2px 0 var(--white); }
+.wallet-num .ti { font-size: 2rem; align-self: center; }
+.wallet-num span { font: 800 1rem var(--font); text-shadow: none; }
+.wallet-rules { flex-basis: 100%; margin: 0; }
+.bet-match .card-head h2 { font-size: 1.15rem; }
+.bet-markets { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .bet-markets { grid-template-columns: 1fr; } }
+.bet-market { border: var(--b2); border-radius: 14px; padding: 12px; background: var(--paper); display: grid; gap: 8px; align-content: start; }
+.bet-market h3 { margin: 0; font-size: 1.05rem; }
+.bet-market p { margin: 0; }
+.pool { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pool-tot { font-weight: 900; }
+.pool-opt { background: var(--white); border: var(--b2); border-radius: 999px; padding: 0 9px; font-size: .82rem; font-weight: 800; }
+.pool-opt b { color: var(--grass-d); }
+.bet-form { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto; gap: 8px; align-items: center; }
+.bet-form select, .bet-form input { min-width: 0; }
+.bet-mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+@media (max-width: 640px) { .bet-col-title { display: none; } }

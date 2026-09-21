@@ -206,4 +206,37 @@ CREATE TABLE IF NOT EXISTS mail_tokens (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '13');
+-- scommesse goliardiche (gettoni finti): una puntata per giocatore, partita e mercato
+CREATE TABLE IF NOT EXISTS bets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  match_id INT NOT NULL,
+  player_id INT NOT NULL,
+  market VARCHAR(10) NOT NULL,                     -- esito, gol oppure mvp
+  pick VARCHAR(12) NOT NULL,                       -- A, X, B oppure l'id del giocatore
+  stake INT NOT NULL,
+  status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
+  payout INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  settled_at DATETIME NULL,
+  UNIQUE KEY uq_bet (match_id, player_id, market),
+  INDEX (player_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- il portafoglio e' la somma di queste mosse: benvenuto, sussidio, puntata, vincita, rimborso
+CREATE TABLE IF NOT EXISTS wallet_moves (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  player_id INT NOT NULL,
+  bet_id INT NULL,
+  delta INT NOT NULL,
+  kind VARCHAR(12) NOT NULL,
+  ref VARCHAR(20) NULL,                            -- per le mosse che si danno una volta sola (benvenuto, sussidio settimanale)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_ref (player_id, ref),
+  INDEX (bet_id),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '14');
