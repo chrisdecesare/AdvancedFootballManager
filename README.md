@@ -185,13 +185,22 @@ riceve un sussidio di 30 gettoni a settimana. Ci sono titoli goliardici in base 
 Il portafoglio non è un numero salvato ma la somma delle mosse (`wallet_moves`), quindi correggere un risultato, riaprire una partita o riaprire le votazioni
 rifà i pagamenti da solo, e cancellare una partita restituisce i gettoni. Le costanti (gettoni iniziali, soglia e importo del sussidio, margine) sono in cima a `lib/bets.php`.
 
-**Negozio** (`shop.php`, catalogo in `lib/shop.php`): i gettoni si spendono per personalizzare il profilo, e le personalizzazioni si vedono sul profilo e nella Rosa:
+**Negozio** (`shop.php`, logica in `lib/shop.php`, catalogo in `lib/shop_items.php`): i gettoni si spendono per personalizzare il profilo, e le personalizzazioni si vedono sul profilo e nella Rosa.
+Quattro schede, con filtro «che posso comprare / miei» e un pulsante **Prova** che mette l'oggetto addosso all'anteprima fissa in alto, prima di comprarlo:
 
-- **Sfondi speciali** (prato, notte di Champions, galassia, oro...) al posto delle strisce del ruolo; sostituiscono il colore o l'immagine scelti da *Modifica profilo* (e viceversa);
-- **Nickname** sotto il nome: alcuni si comprano, altri **si sbloccano da soli** con un obiettivo (10 gol, 10 assist, 3 MVP, 15 presenze, media voto 7,5, 5 scommesse vinte...);
-- **Copricapi** (cappellino, cowboy, mago, corona...) disegnati in diagonale su un angolo del riquadro del profilo.
+- **Copricapi (100)**, in diagonale su un angolo del riquadro: cappellini, berretti, cowboy, cuoco, mago, pirata, vichingo, corone, elmetti, orecchie da gatto, gelato, zucca, coppa... Sono disegni SVG in stile
+  fumetto costruiti da 52 forme (`lib/hats.php`) con colori diversi: per un cappello nuovo basta una riga nel catalogo;
+- **Bordi (30)**: un anello attorno al riquadro, in tinta unita, a gradiente, a motivi (cantiere, scacchi, greca), con alone al neon o animato (arcobaleno in movimento, scarica elettrica, oro pulsante; le
+  animazioni si fermano a chi ha attivo «riduci movimento»);
+- **Sfondi (50)** al posto delle strisce del ruolo (prato, aurora boreale, tigre, marmo, fibra di carbonio, rubino...); sostituiscono il colore o l'immagine scelti da *Modifica profilo* (e viceversa);
+- **Nickname (50)** sotto il nome: 17 si comprano, 33 **si sbloccano da soli** con un obiettivo: gol (5, 10, 25, 50; 3 o 4 in una partita), assist (3, 10, 25, 50), gol + assist, premi MVP (1, 3, 5, 10, 20),
+  presenze (1, 15, 30, 60), vittorie (10, 25, 5 di fila), media voto (7,5 o 8), autogol, sconfitte, scommesse vinte, gettoni e oggetti comprati.
 
-Prezzi e obiettivi si cambiano in `shop_catalog()`. Gli acquisti stanno in `player_items`, cosa si indossa adesso nelle colonne `bg_preset`, `nick_key`, `hat_key` di `players`.
+Prezzi e obiettivi si cambiano in `lib/shop_items.php` (una riga per oggetto); il disegno di sfondi e bordi sta in `assets/style.css` (classi `bgp-<chiave>` e `brd-<chiave>`). Gli acquisti stanno in `player_items`,
+cosa si indossa adesso nelle colonne `bg_preset`, `border_key`, `nick_key`, `hat_key` di `players`.
+
+**Overall:** dove prima si vedeva il rating (1-10, che sembrava un voto) ora si vede l'**overall** in stile videogioco, da 1 a 99 (rating × 10): in cima al profilo, sulla carta nella Rosa, in Classifica e nelle formazioni.
+Si calcola come prima (rating base deciso dall'admin, media voto e percentuale di vittorie) ed è quello che serve a bilanciare le squadre.
 
 **Campo:** il nome del campo (in Home e nella partita) è un link: apre l'itinerario di Google Maps fino al campo partendo dalla posizione attuale di chi clicca.
 Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Rossi, Via Roma 1, Milano»).

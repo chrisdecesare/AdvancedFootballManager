@@ -39,10 +39,10 @@ layout_start('Rosa', 'players');
 
 <div class="player-grid">
 <?php foreach ($players as $p): $s = $stats[(int) $p['id']]; ?>
-  <a class="pcard role-<?= strtolower(position_abbr($p['position'])) ?><?= bg_preset_class($p) ?> <?= $p['active'] ? '' : 'is-inactive' ?>" href="player.php?id=<?= (int) $p['id'] ?>"<?= ($bgStyle = profile_bg_style($p, true)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
+  <a class="pcard role-<?= strtolower(position_abbr($p['position'])) ?><?= bg_preset_class($p) ?><?= border_class($p) ?> <?= $p['active'] ? '' : 'is-inactive' ?>" href="player.php?id=<?= (int) $p['id'] ?>"<?= ($bgStyle = profile_bg_style($p, true)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
     <?= hat_html($p) ?>
     <div class="pcard-top">
-      <span class="pcard-ovr"><?= fmt_num($s['ovr'], 1) ?><small>OVR</small></span>
+      <span class="pcard-ovr"><?= overall($s['ovr']) ?><small>OVR</small></span>
       <?php if ($p['shirt_number'] !== null): ?><span class="pcard-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?>
     </div>
     <div class="pcard-photo"><?= avatar($p, 'xl') ?></div>

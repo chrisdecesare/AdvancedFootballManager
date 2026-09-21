@@ -14,7 +14,7 @@ $cols = [
     'mvp' => ['MVP', 'Premi MVP'],
     'avg_vote' => ['Media', 'Media voto'],
     'own_goals' => ['AG', 'Autogol'],
-    'ovr' => ['OVR', 'Rating per il bilanciamento'],
+    'ovr' => ['OVR', 'Overall (0-99), usato anche per bilanciare le squadre'],
 ];
 if (!isset($cols[$sort])) {
     $sort = 'points';
@@ -59,7 +59,7 @@ layout_start('Classifica', 'standings');
         <td class="<?= $sort === 'mvp' ? 'sorted' : '' ?>"><?= $r['mvp'] ?></td>
         <td class="<?= $sort === 'avg_vote' ? 'sorted' : '' ?>"><span class="vote <?= vote_class($r['avg_vote']) ?>"><?= fmt_num($r['avg_vote']) ?></span></td>
         <td class="<?= $sort === 'own_goals' ? 'sorted' : '' ?>"><?= $r['own_goals'] ?></td>
-        <td class="<?= $sort === 'ovr' ? 'sorted' : '' ?>"><?= fmt_num($r['ovr'], 1) ?></td>
+        <td class="<?= $sort === 'ovr' ? 'sorted' : '' ?>"><?= overall($r['ovr']) ?></td>
         <td class="nowrap"><?php foreach ($r['last5'] as $res) echo result_chip($res); ?></td>
       </tr>
     <?php endforeach; ?>

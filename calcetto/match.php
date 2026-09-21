@@ -465,7 +465,7 @@ if (!empty($_SESSION['vote_done'])):
             if ($r['own_goals']) $extra .= '<span class="ev ev-og">AG' . ($r['own_goals'] > 1 ? '×' . $r['own_goals'] : '') . '</span>';
             if ($showVotes && isset($avgs[$pid])) $extra .= '<span class="vote ' . vote_class($avgs[$pid]['avg']) . '">' . fmt_num($avgs[$pid]['avg']) . '</span>';
             if (!$votingOpen && $mvp === $pid) $extra .= '<span class="tag tag-mvp"><i class="ti ti-star-filled"></i> MVP</span>';
-            if (!$played) $extra .= '<span class="ovr" title="Rating">' . fmt_num($stats[$pid]['ovr'] ?? 6, 1) . '</span>';
+            if (!$played) $extra .= '<span class="ovr" title="Overall">' . overall($stats[$pid]['ovr'] ?? 6) . '</span>';
           ?>
             <div class="pline-row">
               <?= player_line($r, $extra) ?>

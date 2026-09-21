@@ -100,7 +100,7 @@ layout_start($p['name'], 'players');
 ?>
 <a class="back" href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a>
 
-<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= !empty($p['bg_image']) && empty($p['bg_preset']) ? ' has-bg-image' : '' ?><?= bg_preset_class($p) ?>"<?= ($bgStyle = profile_bg_style($p)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
+<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= !empty($p['bg_image']) && empty($p['bg_preset']) ? ' has-bg-image' : '' ?><?= bg_preset_class($p) ?><?= border_class($p) ?>"<?= ($bgStyle = profile_bg_style($p)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
   <?= hat_html($p) ?>
   <div class="profile-photo"><?= avatar($p, 'xxl') ?>
     <?php if ($p['shirt_number'] !== null): ?><span class="profile-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?></div>
@@ -116,7 +116,7 @@ layout_start($p['name'], 'players');
       <?= form_badge($s['form']) ?>
       <?php foreach ($myGroups as $gn): ?><span class="tag tag-group"><i class="ti ti-users-group"></i> <?= h($gn) ?></span><?php endforeach; ?>
     </div>
-    <div class="ovr-big"><span><?= fmt_num($s['ovr'], 1) ?></span><small>RATING</small></div>
+    <div class="ovr-big" title="Overall: il valore complessivo del giocatore (0-99), da rating base, voti e vittorie"><span><?= overall($s['ovr']) ?></span><small>OVERALL</small></div>
     <?php if ($canEdit): ?><a class="btn btn-ghost btn-sm" href="player_edit.php?id=<?= $id ?>"><i class="ti ti-pencil"></i> Modifica profilo</a><?php endif; ?>
     <?php if (my_player_id() === $id): ?><a class="btn btn-ghost btn-sm" href="shop.php"><i class="ti ti-shopping-bag"></i> Negozio</a><?php endif; ?>
   </div>
