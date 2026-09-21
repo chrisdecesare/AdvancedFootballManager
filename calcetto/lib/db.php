@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -197,6 +197,38 @@ function ensure_schema(): void
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX (user_id, purpose),
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 14) {
+        // scommesse goliardiche con gettoni finti (vedi lib/bets.php)
+        db()->exec("CREATE TABLE IF NOT EXISTS bets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            match_id INT NOT NULL,
+            player_id INT NOT NULL,
+            market VARCHAR(10) NOT NULL,
+            pick VARCHAR(12) NOT NULL,
+            stake INT NOT NULL,
+            status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
+            payout INT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            settled_at DATETIME NULL,
+            UNIQUE KEY uq_bet (match_id, player_id, market),
+            INDEX (player_id),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        db()->exec('CREATE TABLE IF NOT EXISTS wallet_moves (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            player_id INT NOT NULL,
+            bet_id INT NULL,
+            delta INT NOT NULL,
+            kind VARCHAR(12) NOT NULL,
+            ref VARCHAR(20) NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_ref (player_id, ref),
+            INDEX (bet_id),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

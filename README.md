@@ -158,6 +158,23 @@ cala (sotto 1340px sparisce il nome accanto alla foto, sotto 1100px restano le i
 attiva). Da telefono (sotto 800px) c'è il titolo al centro, un pulsante a panino a sinistra che apre il menu
 delle schede (con «Rivedi il tutorial» ed «Esci») e il profilo a destra, con il pallino delle iscrizioni.
 
+## Scommesse (goliardiche)
+
+La scheda **Scommesse** (`bets.php`, logica in `lib/bets.php`) fa puntare sulle partite in programma con **gettoni finti**: nessun euro in gioco.
+Ognuno parte con 100 gettoni. Per ogni partita si può fare una puntata per mercato:
+
+- **Chi vince?** (squadra 1, pareggio, squadra 2): si paga quando l'admin/manager chiude la partita col risultato;
+- **Chi segna?** (un giocatore segna almeno un gol): si paga alla chiusura della partita;
+- **Chi sarà l'MVP?**: si paga quando le votazioni si chiudono.
+
+Si punta fino al calcio d'inizio e fino ad allora si può cambiare o ritirare la puntata. Non ci sono quote fisse: per ogni partita e mercato i gettoni
+finiscono in un montepremi che si divide tra chi ha indovinato, in proporzione a quanto aveva puntato. Se non indovina nessuno, o manca il dato
+(nessuno ha votato l'MVP), tutti riprendono i propri gettoni. Chi resta al verde (meno di 20 gettoni e nulla in gioco) riceve un sussidio di 30 gettoni a
+settimana. Ci sono titoli goliardici in base ai gettoni e la classifica dei più ricchi.
+
+Il portafoglio non è un numero salvato ma la somma delle mosse (`wallet_moves`), quindi correggere un risultato, riaprire una partita o riaprire le votazioni
+rifà i pagamenti da solo, e cancellare una partita restituisce i gettoni. Le costanti (gettoni iniziali, soglia e importo del sussidio) sono in cima a `lib/bets.php`.
+
 ## Notifiche push
 
 I giocatori possono ricevere notifiche sul telefono (o sul computer) anche a sito chiuso, con il logo del sito

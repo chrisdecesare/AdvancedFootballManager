@@ -56,6 +56,7 @@ require __DIR__ . '/chemistry.php';
 require __DIR__ . '/balance.php';
 require __DIR__ . '/layout.php';
 require __DIR__ . '/tour.php';
+require __DIR__ . '/bets.php';
 require __DIR__ . '/webpush.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';

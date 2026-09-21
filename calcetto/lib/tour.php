@@ -68,6 +68,16 @@ function tour_steps(array $u): array
             ],
         ],
         [
+            'sel' => '.nav a[href="bets.php"]', 'icon' => 'coin',
+            'title' => 'Scommesse',
+            'text' => 'Punta sulle partite con gettoni finti: nessun euro, solo onore e sfottò.',
+            'bullets' => [
+                'Chi vince, chi segna, chi sarà l\'MVP: si punta fino al calcio d\'inizio.',
+                'Il montepremi si divide tra chi indovina. Se sei al verde ti arriva un sussidio.',
+                'In fondo c\'è la classifica dei più ricchi: chi è il Banco?',
+            ],
+        ],
+        [
             'sel' => '.nav a[href="curiosities.php"]', 'icon' => 'bulb',
             'title' => 'Curiosità',
             'text' => 'Le curiosità sui giocatori, scritte da loro stessi o dall\'admin.',
