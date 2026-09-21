@@ -1037,3 +1037,12 @@ a.fact-who:hover { color: var(--grass-d); }
 .shop-brdthumb { position: relative; display: block; width: 76px; height: 52px; margin: 14px auto; border: 3px solid var(--ink); border-radius: 12px; background: var(--paper); }
 .shop-swatch { border-radius: 12px; }
 .shop-item .btn-sm { padding: 4px 10px; }
+
+/* curiosità in Home: una alla volta, cambiano da sole (le schede stanno sovrapposte, così l'altezza non salta) */
+.fact-slides { display: grid; }
+.fact-slides > .fact-body { grid-area: 1 / 1; opacity: 0; visibility: hidden; transition: opacity .5s ease, visibility 0s linear .5s; }
+.fact-slides > .fact-body.is-active { opacity: 1; visibility: visible; transition: opacity .5s ease; }
+.fact-timer { height: 5px; margin-top: 14px; border-radius: 999px; background: var(--paper-2); border: 1.5px solid var(--ink); overflow: hidden; }
+.fact-timer span { display: block; height: 100%; width: 100%; background: var(--grass); transform-origin: left; animation: factTimer var(--fact-s, 15s) linear forwards; }
+@keyframes factTimer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) { .fact-slides > .fact-body, .fact-slides > .fact-body.is-active { transition: none; } .fact-timer span { animation: none; transform: none; } }

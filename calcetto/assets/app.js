@@ -162,6 +162,22 @@ document.addEventListener('DOMContentLoaded', () => {
     box.addEventListener('bg:update', apply);
     apply();
   });
+  // curiosità in Home: cambiano da sole ogni data-seconds secondi (15), ferme se la pagina non si vede
+  document.querySelectorAll('[data-facts]').forEach(box => {
+    const slides = [...box.querySelectorAll('[data-fact]')];
+    const bar = box.querySelector('[data-fact-bar]');
+    const secs = parseInt(box.dataset.seconds, 10) || 15;
+    if (slides.length < 2) return;
+    box.style.setProperty('--fact-s', secs + 's');
+    let i = 0;
+    setInterval(() => {
+      if (document.hidden) return;
+      slides[i].classList.remove('is-active');
+      i = (i + 1) % slides.length;
+      slides[i].classList.add('is-active');
+      if (bar) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = ''; }   // la barra riparte da zero
+    }, secs * 1000);
+  });
   // slider momenti salienti: frecce, pallini, scorrimento automatico
   document.querySelectorAll('[data-slider]').forEach(slider => {
     const track = slider.querySelector('[data-slides]');

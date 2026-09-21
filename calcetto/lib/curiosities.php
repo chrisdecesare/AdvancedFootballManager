@@ -35,12 +35,14 @@ function clean_curiosity($text): ?string
     return $t === '' ? null : $t;
 }
 
-/** Una curiosità per la Home: cambia una volta al giorno (uguale per tutti nella stessa giornata), null se non ce ne sono. */
-function curiosity_of_the_day(): ?array
+/** Quante curiosità arrivano alla Home, che le fa girare da sola (ogni FACT_SECONDS secondi). */
+const HOME_FACTS = 40;
+const FACT_SECONDS = 15;
+
+/** Curiosità per la Home in ordine casuale (cambia a ogni visita). Vuoto se non ce ne sono. */
+function curiosities_for_home(): array
 {
     $all = all_curiosities();
-    if (!$all) {
-        return null;
-    }
-    return $all[crc32(date('Y-m-d') . scope_key(scope_ids())) % count($all)];
+    shuffle($all);
+    return array_slice($all, 0, HOME_FACTS);
 }
