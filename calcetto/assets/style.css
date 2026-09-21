@@ -1023,7 +1023,8 @@ a.fact-who:hover { color: var(--grass-d); }
 /* ==== fine negozio generato ==== */
 
 /* negozio: anteprima sempre visibile, schede e miniature dei bordi */
-.shop-bar { position: sticky; top: 74px; z-index: 30; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px; padding: 14px 20px 14px 14px; margin: 14px 0 12px; background: var(--yellow); }
+.shop-bar { position: sticky; top: 74px; z-index: 10;   /* sotto l'intestazione (z-index 20), altrimenti copre il menu a tendina */
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px; padding: 14px 20px 14px 14px; margin: 14px 0 12px; background: var(--yellow); }
 .shop-bar .wallet-num { font-size: 2rem; }
 .shop-bar .wallet-num .ti { font-size: 1.6rem; }
 .shop-bar-info p { margin: 2px 0 0; }
