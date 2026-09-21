@@ -62,6 +62,16 @@ function sync_match_players(int $match_id): void
        WHERE m.id = ? AND p.active = 1", [$match_id]);
 }
 
+/**
+ * Azzera le risposte "ci sono / non ci sono" di una partita (tutti tornano "in attesa", squadre e posizioni saltano)
+ * e i promemoria già mandati: serve quando la partita cambia giorno e le vecchie risposte non valgono più.
+ */
+function reset_match_responses(int $match_id): void
+{
+    q("UPDATE match_players SET availability = 'in_attesa', team = NULL, slot = NULL WHERE match_id = ?", [$match_id]);
+    q('DELETE FROM push_log WHERE match_id = ?', [$match_id]);
+}
+
 function match_roster(int $match_id): array
 {
     return q('SELECT mp.*, p.name, p.photo, p.shirt_number, p.position, p.position2, p.foot

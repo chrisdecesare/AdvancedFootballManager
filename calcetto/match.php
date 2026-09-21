@@ -31,12 +31,24 @@ if (is_post()) {
         case 'edit_info':
             $dt = DateTime::createFromFormat('Y-m-d H:i', ($_POST['date'] ?? '') . ' ' . ($_POST['time'] ?? ''));
             if ($dt) {
+                $newDate = $dt->format('Y-m-d H:i:s');
+                // cambia il giorno di una partita in programma: le vecchie risposte non valgono più
+                $reset = $match['status'] === 'programmata' && substr($newDate, 0, 10) !== substr($match['match_date'], 0, 10);
+                db()->beginTransaction();
                 q('UPDATE matches SET match_date = ?, location = ?, team_a_name = ?, team_b_name = ?, fee = ?, notes = ? WHERE id = ?', [
-                    $dt->format('Y-m-d H:i:s'), trim($_POST['location'] ?? ''),
+                    $newDate, trim($_POST['location'] ?? ''),
                     clean_team_name($_POST['team_a'] ?? '', TEAM_A_NAME), clean_team_name($_POST['team_b'] ?? '', TEAM_B_NAME),
                     max(0, (float) str_replace(',', '.', $_POST['fee'] ?? '0')),
                     trim($_POST['notes'] ?? '') ?: null, $id]);
-                flash('ok', 'Dati della partita aggiornati.');
+                if ($reset) {
+                    sync_match_players($id);   // anche chi non aveva ancora una riga deve poter rispondere
+                    reset_match_responses($id);
+                }
+                db()->commit();
+                if ($match['status'] === 'programmata') {
+                    push_notify_match_changed($id, $match, $reset, $actor);   // avvisa i giocatori, a pagina già inviata
+                }
+                flash('ok', 'Dati della partita aggiornati.' . ($reset ? ' Il giorno è cambiato: le risposte dei giocatori sono state azzerate e dovranno rispondere di nuovo.' : ''));
             } else {
                 flash('err', 'Data o ora non valide.');
             }
@@ -235,6 +247,7 @@ if (is_post()) {
                 flash('err', 'Solo un admin può eliminare una partita.');
                 break;
             }
+            push_notify_match_cancelled($match, $actor);   // prima di cancellare: dopo non si saprebbe più a chi mandarla
             q('DELETE FROM matches WHERE id = ?', [$id]);
             flash('ok', 'Partita eliminata.');
             redirect('matches.php');
@@ -652,6 +665,7 @@ if (!empty($_SESSION['vote_done'])):
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(team_name('B', $match)) ?>"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format((float) $match['fee'], 2, ',', '')) ?>"></label>
     <label class="field span-2"><span>Note</span><input name="notes" value="<?= h($match['notes']) ?>"></label>
+    <?php if (!$played): ?><p class="muted small span-2">Se cambi il giorno, le risposte «Ci sono / Non ci sono» si azzerano. I giocatori ricevono una notifica per ogni modifica.</p><?php endif; ?>
     <div class="span-2"><button class="btn btn-ghost">Salva modifiche</button></div>
   </form>
   <div class="btn-row danger-zone">
