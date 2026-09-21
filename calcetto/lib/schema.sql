@@ -254,4 +254,4 @@ CREATE TABLE IF NOT EXISTS player_items (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '16');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '17');

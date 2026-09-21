@@ -76,6 +76,7 @@ if (is_post()) {
         q("INSERT INTO users (username, password_hash, role, status, reg_name, reg_json) VALUES (?, ?, 'player', 'in_attesa', ?, ?)",
             [$v['username'], password_hash($password, PASSWORD_DEFAULT), $v['name'], json_encode($data)]);
         $newUserId = (int) db()->lastInsertId();   // prima di registration_hit(), che scrive un'altra riga
+        $_SESSION['reg_uid'] = $newUserId;          // questo browser potrà attivare le notifiche per sapere quando viene approvato
         registration_hit();
         push_notify_registration($newUserId, $v['name'], $v['username'], $matchName ?: null);   // avvisa gli admin, a pagina già inviata
         $emailSent = false;
@@ -101,6 +102,7 @@ layout_start('Iscriviti');
       <?php endif; ?>
       <p>Appena l'admin approva la tua iscrizione potrai entrare con <strong><?= h($v['username']) ?></strong> e la tua password.</p>
       <?php if ($emailSent): ?><p><i class="ti ti-mail-check"></i> Ti abbiamo mandato un'email a <strong><?= h($v['email']) ?></strong>: apri il link per confermare l'indirizzo (controlla anche lo spam).</p><?php endif; ?>
+      <?= push_card(false, true) ?>
       <a class="btn btn-primary btn-block" href="login.php">Vai al login</a>
     <?php else: ?>
       <h1>Iscriviti</h1>

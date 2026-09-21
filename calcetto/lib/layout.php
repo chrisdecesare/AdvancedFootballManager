@@ -34,9 +34,9 @@ function layout_start(string $title, string $active = ''): void
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Calcetto">
-<?php if ($u && push_supported() && ($pushKey = vapid_public_key()) !== ''): ?>
+<?php if (($pushUid = push_account_id()) && push_supported() && ($pushKey = vapid_public_key()) !== ''): ?>
 <meta name="push-key" content="<?= h($pushKey) ?>">
-<meta name="push-user" content="<?= (int) $u['id'] ?>">
+<meta name="push-user" content="<?= (int) $pushUid ?>">
 <meta name="csrf-token" content="<?= h(csrf_token()) ?>">
 <script src="assets/push.js?v=<?= h($ver('push.js')) ?>" defer></script>
 <?php endif; ?>
@@ -150,9 +150,9 @@ function player_line(array $p, string $extra = ''): string
  * Riquadro per attivare le notifiche push su questo dispositivo (lo riempie assets/app.js).
  * $banner = versione compatta per la Home, che sparisce da sola una volta scelto.
  */
-function push_card(bool $banner = false): string
+function push_card(bool $banner = false, bool $waiting = false): string
 {
-    if (!current_user() || !push_supported()) {
+    if (!push_account_id() || !push_supported()) {
         return '';
     }
     if ($banner) {
@@ -162,10 +162,13 @@ function push_card(bool $banner = false): string
             . '<div class="btn-row"><button type="button" class="btn btn-primary btn-sm" data-push-toggle>Attiva</button>'
             . '<button type="button" class="btn btn-ghost btn-sm" data-push-dismiss>Non ora</button></div></section>';
     }
+    // $waiting = appena iscritto, in attesa dell'approvazione: la notifica gli dice quando può entrare
     return '<section class="card push-card" data-push-card id="notifiche">'
         . '<h2><i class="ti ti-bell"></i> Notifiche</h2>'
-        . '<p class="muted small">Ti avvisiamo con una notifica sul telefono quando c\'è una partita a cui non hai ancora risposto e quando aprono o chiudono le votazioni. '
-        . 'L\'attivazione vale per questo dispositivo: se usi più telefoni o computer, attivala su ognuno.</p>'
+        . ($waiting
+            ? '<p class="muted small">Vuoi sapere subito quando l\'admin approva la tua iscrizione? Attiva le notifiche su questo dispositivo: ti arriverà un avviso appena puoi entrare.</p>'
+            : '<p class="muted small">Ti avvisiamo con una notifica sul telefono quando c\'è una partita a cui non hai ancora risposto e quando aprono o chiudono le votazioni. '
+              . 'L\'attivazione vale per questo dispositivo: se usi più telefoni o computer, attivala su ognuno.</p>')
         . '<p class="small push-status" data-push-status>Controllo…</p>'
         . '<div class="btn-row"><button type="button" class="btn btn-primary btn-sm" data-push-toggle hidden></button>'
         . '<button type="button" class="btn btn-ghost btn-sm" data-push-test hidden><i class="ti ti-send"></i> Invia una notifica di prova</button></div>'
