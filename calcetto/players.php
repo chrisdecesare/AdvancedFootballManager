@@ -39,13 +39,15 @@ layout_start('Rosa', 'players');
 
 <div class="player-grid">
 <?php foreach ($players as $p): $s = $stats[(int) $p['id']]; ?>
-  <a class="pcard role-<?= strtolower(position_abbr($p['position'])) ?> <?= $p['active'] ? '' : 'is-inactive' ?>" href="player.php?id=<?= (int) $p['id'] ?>"<?= ($bgStyle = profile_bg_style($p, true)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
+  <a class="pcard role-<?= strtolower(position_abbr($p['position'])) ?><?= bg_preset_class($p) ?> <?= $p['active'] ? '' : 'is-inactive' ?>" href="player.php?id=<?= (int) $p['id'] ?>"<?= ($bgStyle = profile_bg_style($p, true)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
+    <?= hat_html($p) ?>
     <div class="pcard-top">
       <span class="pcard-ovr"><?= fmt_num($s['ovr'], 1) ?><small>OVR</small></span>
       <?php if ($p['shirt_number'] !== null): ?><span class="pcard-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?>
     </div>
     <div class="pcard-photo"><?= avatar($p, 'xl') ?></div>
     <div class="pcard-name"><?= h($p['name']) ?></div>
+    <?php if ($nick = nick_html($p)): ?><div class="pcard-nick"><?= $nick ?></div><?php endif; ?>
     <div class="pcard-sub"><span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>"><?= h($p['position']) ?></span><?php if ($p['position2']): ?> <span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>"><?= position_abbr($p['position2']) ?></span><?php endif; ?> · <?= h($p['foot']) ?></div>
     <div class="pcard-stats">
       <div><strong><?= $s['apps'] ?></strong><span>PG</span></div>

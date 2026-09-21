@@ -69,11 +69,11 @@ function tour_steps(array $u): array
         ],
         [
             'sel' => '.nav a[href="bets.php"]', 'icon' => 'coin',
-            'title' => 'Scommesse',
-            'text' => 'Punta sulle partite con gettoni finti: nessun euro, solo onore e sfottò.',
+            'title' => 'Scommesse e Negozio',
+            'text' => 'Punta sulle partite con gettoni finti (nessun euro) e spendili nel Negozio per personalizzare il profilo.',
             'bullets' => [
-                'Chi vince, chi segna, chi sarà l\'MVP: si punta fino al calcio d\'inizio.',
-                'Il montepremi si divide tra chi indovina. Se sei al verde ti arriva un sussidio.',
+                'Chi vince, chi segna, chi sarà l\'MVP: ogni scelta ha la sua quota e si punta fino al calcio d\'inizio.',
+                'Nel Negozio: sfondi speciali, nickname (alcuni si sbloccano con gol, assist, MVP) e copricapi simpatici.',
                 'In fondo c\'è la classifica dei più ricchi: chi è il Banco?',
             ],
         ],

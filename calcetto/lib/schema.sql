@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS players (
   adj_mvp INT NOT NULL DEFAULT 0,
   bg_color VARCHAR(7) NULL,                        -- sfondo del profilo: colore #rrggbb...
   bg_image VARCHAR(255) NULL,                      -- ...oppure immagine (uploads/players/b<id>_xxxx.jpg)
+  bg_preset VARCHAR(16) NULL,                      -- ...oppure sfondo speciale comprato nel negozio (lib/shop.php)
+  nick_key VARCHAR(16) NULL,                       -- nickname che porta adesso
+  hat_key VARCHAR(16) NULL,                        -- copricapo che porta adesso
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -214,6 +217,7 @@ CREATE TABLE IF NOT EXISTS bets (
   market VARCHAR(10) NOT NULL,                     -- esito, gol oppure mvp
   pick VARCHAR(12) NOT NULL,                       -- A, X, B oppure l'id del giocatore
   stake INT NOT NULL,
+  odds DECIMAL(6,2) NOT NULL DEFAULT 2.00,         -- quota fissata quando si e' puntato
   status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
   payout INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -239,4 +243,14 @@ CREATE TABLE IF NOT EXISTS wallet_moves (
   FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '14');
+-- personalizzazioni comprate nel negozio con i gettoni (cosa si porta adesso sta in players)
+CREATE TABLE IF NOT EXISTS player_items (
+  player_id INT NOT NULL,
+  item_key VARCHAR(16) NOT NULL,
+  price INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (player_id, item_key),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '15');

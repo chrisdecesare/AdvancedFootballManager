@@ -100,11 +100,13 @@ layout_start($p['name'], 'players');
 ?>
 <a class="back" href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a>
 
-<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= !empty($p['bg_image']) ? ' has-bg-image' : '' ?>"<?= ($bgStyle = profile_bg_style($p)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
+<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= !empty($p['bg_image']) && empty($p['bg_preset']) ? ' has-bg-image' : '' ?><?= bg_preset_class($p) ?>"<?= ($bgStyle = profile_bg_style($p)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
+  <?= hat_html($p) ?>
   <div class="profile-photo"><?= avatar($p, 'xxl') ?>
     <?php if ($p['shirt_number'] !== null): ?><span class="profile-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?></div>
   <div class="profile-info">
     <h1><?= h($p['name']) ?> <?= $p['active'] ? '' : '<span class="tag">non attivo</span>' ?></h1>
+    <?php if ($nick = nick_html($p)): ?><div class="profile-nick"><?= $nick ?></div><?php endif; ?>
     <div class="profile-tags">
       <span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>" title="Posizione preferita"><?= h($p['position']) ?></span>
       <?php if ($p['position2']): ?><span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>" title="Seconda scelta"><?= h($p['position2']) ?></span><?php endif; ?>
@@ -116,6 +118,7 @@ layout_start($p['name'], 'players');
     </div>
     <div class="ovr-big"><span><?= fmt_num($s['ovr'], 1) ?></span><small>RATING</small></div>
     <?php if ($canEdit): ?><a class="btn btn-ghost btn-sm" href="player_edit.php?id=<?= $id ?>"><i class="ti ti-pencil"></i> Modifica profilo</a><?php endif; ?>
+    <?php if (my_player_id() === $id): ?><a class="btn btn-ghost btn-sm" href="shop.php"><i class="ti ti-shopping-bag"></i> Negozio</a><?php endif; ?>
   </div>
 </section>
 

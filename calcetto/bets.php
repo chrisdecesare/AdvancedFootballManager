@@ -66,6 +66,7 @@ $markets = bet_markets();
 layout_start('Scommesse', 'bets');
 ?>
 <div class="page-head"><h1>Scommesse <span class="muted small">a gettoni finti</span></h1></div>
+<div class="sortbar"><a href="bets.php" class="active">Scommesse</a><a href="shop.php">Negozio</a></div>
 <?= group_bar('bets.php') ?>
 
 <section class="card wallet">
@@ -78,8 +79,9 @@ layout_start('Scommesse', 'bets');
   <?php else: ?>
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
-  <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Per ogni mercato il montepremi si divide tra chi indovina, in proporzione a quanto ha puntato
-    (se non indovina nessuno, tutti riprendono i propri gettoni). Si punta fino al calcio d'inizio. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
+  <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale. Si punta fino al calcio d'inizio.
+    I gettoni servono per il <a class="link" href="shop.php">Negozio</a>: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
 </section>
 
 <h2 class="section-title">Da giocare</h2>
@@ -89,6 +91,7 @@ layout_start('Scommesse', 'bets');
     $open = bets_open_for($m);
     $cands = bet_candidates($mid);
     $all = match_bets($mid);
+    $quotes = bet_quotes($m);
     $canBet = $me && $open && (is_admin() || player_in_group($me, (int) $m['group_id'])); ?>
 <section class="card bet-match" id="m<?= $mid ?>">
   <div class="card-head">
@@ -99,11 +102,6 @@ layout_start('Scommesse', 'bets');
   <div class="bet-markets">
   <?php foreach ($markets as $mk => $info):
       $list = $all[$mk] ?? [];
-      $pool = array_sum(array_column($list, 'stake'));
-      $byPick = [];
-      foreach ($list as $b) {
-          $byPick[$b['pick']] = ($byPick[$b['pick']] ?? 0) + (int) $b['stake'];
-      }
       $opts = [];
       if ($mk === 'esito') {
           $opts = ['A' => team_name('A', $m), 'X' => 'Pareggio', 'B' => team_name('B', $m)];
@@ -112,33 +110,37 @@ layout_start('Scommesse', 'bets');
               $opts[(string) $c['player_id']] = $c['name'];
           }
       }
+      $q = $quotes[$mk] ?? [];
+      $fav = $q;
+      asort($fav);   // favoriti = quote più basse
       $my = $mine[$mid][$mk] ?? null; ?>
     <div class="bet-market">
       <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
-      <?php if ($pool): ?>
-        <div class="pool"><span class="pool-tot"><i class="ti ti-coin"></i> <?= $pool ?> nel piatto</span>
-        <?php arsort($byPick); foreach (array_slice($byPick, 0, 4, true) as $pick => $sum): ?>
-          <span class="pool-opt"><?= h($opts[$pick] ?? '?') ?> <b>×<?= fmt_num($pool / $sum, 1) ?></b></span>
-        <?php endforeach; ?></div>
-        <p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? '?') ?><?php endforeach; ?></p>
-      <?php else: ?><p class="muted small">Ancora nessuna puntata: chi apre le danze?</p><?php endif; ?>
+      <div class="pool">
+        <?php foreach (array_slice($fav, 0, $mk === 'esito' ? 3 : 4, true) as $pick => $odd): ?>
+          <span class="pool-opt"><?= h($opts[$pick] ?? '?') ?> <b>×<?= fmt_num($odd, 2) ?></b></span>
+        <?php endforeach; ?>
+        <?php if ($mk !== 'esito'): ?><span class="muted small">i favoriti</span><?php endif; ?>
+      </div>
+      <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? '?') ?><?php endforeach; ?></p><?php endif; ?>
       <?php if ($canBet && $opts): ?>
         <form method="post" class="bet-form">
           <?= csrf_field() ?><input type="hidden" name="do" value="bet"><input type="hidden" name="match_id" value="<?= $mid ?>"><input type="hidden" name="market" value="<?= $mk ?>">
           <select name="pick" required aria-label="Su chi punti">
             <option value="">Scegli…</option>
-            <?php foreach ($opts as $val => $label): ?><option value="<?= h((string) $val) ?>" <?= $my && (string) $my['pick'] === (string) $val ? 'selected' : '' ?>><?= h($label) ?></option><?php endforeach; ?>
+            <?php foreach ($opts as $val => $label): ?><option value="<?= h((string) $val) ?>" data-odds="<?= h((string) ($q[$val] ?? 0)) ?>" <?= $my && (string) $my['pick'] === (string) $val ? 'selected' : '' ?>><?= h($label) ?> · ×<?= fmt_num($q[$val] ?? 0, 2) ?></option><?php endforeach; ?>
           </select>
           <input type="number" name="stake" min="1" max="<?= $balance + ($my ? (int) $my['stake'] : 0) ?>" inputmode="numeric" value="<?= $my ? (int) $my['stake'] : min(10, max(1, $balance)) ?>" required aria-label="Gettoni">
           <button class="btn btn-primary btn-sm"><?= $my ? 'Cambia' : 'Punta' ?></button>
+          <span class="bet-win small" data-bet-win></span>
         </form>
         <?php if ($my): ?>
           <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>"><input type="hidden" name="market" value="<?= $mk ?>">
-            <span class="tag tag-ok"><i class="ti ti-check"></i> Hai puntato <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?></span>
+            <span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span>
             <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button></form>
         <?php endif; ?>
       <?php elseif ($my): ?>
-        <p><span class="tag tag-ok"><i class="ti ti-check"></i> Hai puntato <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?></span></p>
+        <p><span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span></p>
       <?php endif; ?>
     </div>
   <?php endforeach; ?>
@@ -149,11 +151,11 @@ layout_start('Scommesse', 'bets');
 <?php if ($waiting): ?>
 <h2 class="section-title">Aspettando il verdetto</h2>
 <div class="card table-card"><div class="table-wrap"><table class="table">
-  <thead><tr><th>Partita</th><th>Mercato</th><th>La tua scelta</th><th>Puntati</th></tr></thead><tbody>
+  <thead><tr><th>Partita</th><th>Mercato</th><th>La tua scelta</th><th>Puntati</th><th>Quota</th></tr></thead><tbody>
   <?php foreach ($waiting as $b): ?>
     <tr><td><a href="match.php?id=<?= (int) $b['match_id'] ?>"><?= fmt_date_short($b['match_date']) ?></a></td>
       <td><?= h($markets[$b['market']]['label'] ?? $b['market']) ?></td>
-      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td></tr>
+      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td><td>×<?= fmt_num($b['odds'], 2) ?></td></tr>
   <?php endforeach; ?></tbody></table></div>
   <p class="muted small">Si pagano appena le votazioni si chiudono.</p></div>
 <?php endif; ?>
@@ -175,15 +177,27 @@ layout_start('Scommesse', 'bets');
 <?php if ($history): ?>
 <h2 class="section-title">Le tue ultime scommesse <span class="muted small">saldo <?= fmt_signed($net, 0) ?></span></h2>
 <div class="card table-card"><div class="table-wrap"><table class="table">
-  <thead><tr><th>Partita</th><th>Mercato</th><th>Scelta</th><th>Puntati</th><th>Esito</th></tr></thead><tbody>
+  <thead><tr><th>Partita</th><th>Mercato</th><th>Scelta</th><th>Puntati</th><th>Quota</th><th>Esito</th></tr></thead><tbody>
   <?php foreach ($history as $b): ?>
     <tr><td><a href="match.php?id=<?= (int) $b['match_id'] ?>"><?= fmt_date_short($b['match_date']) ?></a></td>
       <td><?= h($markets[$b['market']]['label'] ?? $b['market']) ?></td>
-      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td>
+      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td><td>×<?= fmt_num($b['odds'], 2) ?></td>
       <td><?php if ($b['status'] === 'vinta'): ?><span class="tag tag-ok">vinta +<?= (int) $b['payout'] - (int) $b['stake'] ?></span>
         <?php elseif ($b['status'] === 'persa'): ?><span class="tag tag-live">persa −<?= (int) $b['stake'] ?></span>
         <?php else: ?><span class="tag">rimborsata</span><?php endif; ?></td></tr>
   <?php endforeach; ?></tbody></table></div></div>
 <?php endif; ?>
+<script>
+// vincita potenziale mentre si sceglie e si digita la puntata
+document.querySelectorAll('.bet-form').forEach(f => {
+  const sel = f.querySelector('select'), stake = f.querySelector('input[name=stake]'), out = f.querySelector('[data-bet-win]');
+  const update = () => {
+    const odds = parseFloat((sel.selectedOptions[0] || {}).dataset ? sel.selectedOptions[0].dataset.odds : 0) || 0;
+    const n = parseInt(stake.value, 10) || 0;
+    out.textContent = odds && n > 0 ? 'Vinci ' + Math.floor(n * odds + 1e-9) + ' (+' + (Math.floor(n * odds + 1e-9) - n) + ')' : '';
+  };
+  sel.addEventListener('change', update); stake.addEventListener('input', update); update();
+});
+</script>
 <?php
 layout_end();

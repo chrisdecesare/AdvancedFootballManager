@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -229,6 +229,21 @@ function ensure_schema(): void
             INDEX (bet_id),
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
             FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 15) {
+        // scommesse a quota fissa e negozio delle personalizzazioni del profilo (vedi lib/bets.php e lib/shop.php)
+        $add('bets', 'odds', 'DECIMAL(6,2) NOT NULL DEFAULT 2.00 AFTER stake');
+        $add('players', 'bg_preset', 'VARCHAR(16) NULL');
+        $add('players', 'nick_key', 'VARCHAR(16) NULL');
+        $add('players', 'hat_key', 'VARCHAR(16) NULL');
+        db()->exec('CREATE TABLE IF NOT EXISTS player_items (
+            player_id INT NOT NULL,
+            item_key VARCHAR(16) NOT NULL,
+            price INT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (player_id, item_key),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

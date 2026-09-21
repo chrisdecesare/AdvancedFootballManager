@@ -144,7 +144,7 @@ if (is_post()) {
             $newBg = save_profile_bg($_FILES['bg_image'] ?? [], $id, $bgErr);
             if ($newBg) {
                 delete_photo_file($oldBg);
-                q('UPDATE players SET bg_image = ?, bg_color = NULL WHERE id = ?', [$newBg, $id]);
+                q('UPDATE players SET bg_image = ?, bg_color = NULL, bg_preset = NULL WHERE id = ?', [$newBg, $id]);
             } elseif ($bgErr) {
                 flash('err', $bgErr);
             } elseif (!$oldBg) {
@@ -152,7 +152,7 @@ if (is_post()) {
             }
         } elseif ($bgMode === 'color') {
             delete_photo_file($oldBg);
-            q('UPDATE players SET bg_color = ?, bg_image = NULL WHERE id = ?', [$bgColor, $id]);
+            q('UPDATE players SET bg_color = ?, bg_image = NULL, bg_preset = NULL WHERE id = ?', [$bgColor, $id]);
         } else {
             delete_photo_file($oldBg);
             q('UPDATE players SET bg_color = NULL, bg_image = NULL WHERE id = ?', [$id]);
@@ -194,6 +194,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     ?>
     <fieldset class="group-box bg-box" data-bg data-image="<?= h($bgImgUrl) ?>">
       <legend>Sfondo del profilo</legend>
+      <?php if ($id && my_player_id() === $id): ?><p class="muted small">Sfondi speciali, nickname e copricapi si comprano nel <a class="link" href="shop.php">Negozio</a> con i gettoni delle scommesse<?= !empty($p['bg_preset']) ? '. Ora hai uno sfondo speciale: scegliendo qui un colore o un\'immagine lo sostituisci, per toglierlo usa il Negozio' : '' ?>.</p><?php endif; ?>
       <div class="bg-layout">
         <div id="bg-preview" class="bg-preview role-<?= strtolower(position_abbr($p['position'])) ?>" aria-hidden="true"></div>
         <div class="bg-controls">

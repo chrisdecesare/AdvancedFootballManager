@@ -121,6 +121,26 @@ function site_base_url(): string
 }
 
 /**
+ * Indirizzo Google Maps con l'itinerario fino al campo. Senza punto di partenza Maps usa la posizione attuale di chi clicca
+ * (sul telefono apre l'app e chiede il permesso di localizzazione).
+ */
+function maps_url(string $place): string
+{
+    return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' . rawurlencode(trim($place));
+}
+
+/** Etichetta del campo con il nome che porta all'itinerario su Google Maps (o il semplice testo se il campo non è stato scelto). */
+function place_chip(?string $place): string
+{
+    $place = trim((string) $place);
+    if ($place === '') {
+        return '<span><i class="ti ti-map-pin"></i> Campo da definire</span>';
+    }
+    return '<a class="place-link" href="' . h(maps_url($place)) . '" target="_blank" rel="noopener noreferrer" title="Apri l\'itinerario in Google Maps, partendo da dove ti trovi">'
+        . '<i class="ti ti-map-pin"></i> ' . h($place) . ' <i class="ti ti-route place-go"></i></a>';
+}
+
+/**
  * Link "Aggiungi a Google Calendar" per una partita: apre Google Calendar con l'evento già compilato
  * (la partita non ha una durata salvata: si usa MATCH_DURATION_MIN). Le date vanno in ora locale + fuso.
  */
@@ -437,6 +457,9 @@ function lighten_hex(string $hex, float $amount = 0.3): string
 /** Attributo style dello sfondo scelto per il profilo e per la sua carta nella Rosa ('' = colori del ruolo). */
 function profile_bg_style(array $p, bool $halo = false): string
 {
+    if (!empty($p['bg_preset'])) {
+        return '';   // sfondo speciale del negozio: lo disegna la classe bgp-... (bg_preset_class in lib/shop.php)
+    }
     $img = $p['bg_image'] ?? null;
     if ($img && preg_match('#^uploads/players/[A-Za-z0-9_.-]+$#', $img) && is_file(__DIR__ . '/../' . $img)) {
         // $halo: nelle carte della Rosa resta il cerchio chiaro dietro la foto

@@ -158,7 +158,7 @@ cala (sotto 1340px sparisce il nome accanto alla foto, sotto 1100px restano le i
 attiva). Da telefono (sotto 800px) c'è il titolo al centro, un pulsante a panino a sinistra che apre il menu
 delle schede (con «Rivedi il tutorial» ed «Esci») e il profilo a destra, con il pallino delle iscrizioni.
 
-## Scommesse (goliardiche)
+## Scommesse e Negozio (goliardici)
 
 La scheda **Scommesse** (`bets.php`, logica in `lib/bets.php`) fa puntare sulle partite in programma con **gettoni finti**: nessun euro in gioco.
 Ognuno parte con 100 gettoni. Per ogni partita si può fare una puntata per mercato:
@@ -167,13 +167,34 @@ Ognuno parte con 100 gettoni. Per ogni partita si può fare una puntata per merc
 - **Chi segna?** (un giocatore segna almeno un gol): si paga alla chiusura della partita;
 - **Chi sarà l'MVP?**: si paga quando le votazioni si chiudono.
 
-Si punta fino al calcio d'inizio e fino ad allora si può cambiare o ritirare la puntata. Non ci sono quote fisse: per ogni partita e mercato i gettoni
-finiscono in un montepremi che si divide tra chi ha indovinato, in proporzione a quanto aveva puntato. Se non indovina nessuno, o manca il dato
-(nessuno ha votato l'MVP), tutti riprendono i propri gettoni. Chi resta al verde (meno di 20 gettoni e nulla in gioco) riceve un sussidio di 30 gettoni a
-settimana. Ci sono titoli goliardici in base ai gettoni e la classifica dei più ricchi.
+**Quote fisse, calcolate come dai bookmaker:** si stima la probabilità di ogni esito e la quota decimale è `1 / (probabilità × (1 + margine))`. Il margine (l'*overround*, il
+guadagno del banco) è del 6% sull'esito, 12% su chi segna, 15% sull'MVP: per questo la somma delle probabilità implicite (1 / quota) di un mercato supera il 100%. La quota si
+salva con la puntata (`bets.odds`): vincita = puntata × quota, chi sbaglia perde la puntata. Come si stimano le probabilità (`bet_quotes` in `lib/bets.php`):
+
+- **Chi vince?** modello di **Poisson** sui gol: dai gol medi per squadra del gruppo e dalla differenza di rating medio tra le due squadre si ricavano i gol attesi di ciascuna, poi si sommano
+  le probabilità di tutti i punteggi possibili per avere 1, X e 2 (con una correzione che aumenta i pareggi, come nei modelli tipo Dixon-Coles). Se le squadre non sono ancora fatte la partita è in equilibrio;
+- **Chi segna?** i gol attesi della partita (o della squadra) si ripartiscono tra i giocatori in proporzione ai loro gol a partita, mescolando **stagione** (stabilizzata: con poche partite conta il
+  valore tipico del ruolo), **ultime 5 partite** e **stato di forma**; probabilità di segnare = 1 − e^(−gol attesi). Chi segna spesso ed è in forma ha quota bassa, chi non segna mai quota alta
+  (un portiere arriva a ×50);
+- **Chi sarà l'MVP?** pesano i premi MVP, la media voto (stagione e ultime partite), la forma, i gol attesi e la probabilità che la sua squadra vinca; le probabilità si normalizzano a 100% prima del margine.
+
+Chi non ha ancora confermato la presenza vale meno (potrebbe non esserci). Le costanti (margini, peso della forma, correzione dei pareggi) sono in cima a `lib/bets.php`.
+Se manca il dato (nessuno ha votato l'MVP) le puntate sono rimborsate. Si punta fino al calcio d'inizio e fino ad allora si può cambiare o ritirare la puntata. Chi resta al verde (meno di 20 gettoni e nulla in gioco)
+riceve un sussidio di 30 gettoni a settimana. Ci sono titoli goliardici in base ai gettoni e la classifica dei più ricchi.
 
 Il portafoglio non è un numero salvato ma la somma delle mosse (`wallet_moves`), quindi correggere un risultato, riaprire una partita o riaprire le votazioni
-rifà i pagamenti da solo, e cancellare una partita restituisce i gettoni. Le costanti (gettoni iniziali, soglia e importo del sussidio) sono in cima a `lib/bets.php`.
+rifà i pagamenti da solo, e cancellare una partita restituisce i gettoni. Le costanti (gettoni iniziali, soglia e importo del sussidio, margine) sono in cima a `lib/bets.php`.
+
+**Negozio** (`shop.php`, catalogo in `lib/shop.php`): i gettoni si spendono per personalizzare il profilo, e le personalizzazioni si vedono sul profilo e nella Rosa:
+
+- **Sfondi speciali** (prato, notte di Champions, galassia, oro...) al posto delle strisce del ruolo; sostituiscono il colore o l'immagine scelti da *Modifica profilo* (e viceversa);
+- **Nickname** sotto il nome: alcuni si comprano, altri **si sbloccano da soli** con un obiettivo (10 gol, 10 assist, 3 MVP, 15 presenze, media voto 7,5, 5 scommesse vinte...);
+- **Copricapi** (cappellino, cowboy, mago, corona...) disegnati in diagonale su un angolo del riquadro del profilo.
+
+Prezzi e obiettivi si cambiano in `shop_catalog()`. Gli acquisti stanno in `player_items`, cosa si indossa adesso nelle colonne `bg_preset`, `nick_key`, `hat_key` di `players`.
+
+**Campo:** il nome del campo (in Home e nella partita) è un link: apre l'itinerario di Google Maps fino al campo partendo dalla posizione attuale di chi clicca.
+Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Rossi, Via Roma 1, Milano»).
 
 ## Notifiche push
 
