@@ -214,6 +214,8 @@ notifiche?»), oppure da *Modifica profilo → Notifiche* (con il pulsante per u
 - **quando viene creata una partita**, a tutti i giocatori del gruppo che devono ancora rispondere;
 - **come promemoria** a chi non ha ancora confermato né disdetto: 48 ore e 6 ore prima della partita (mai di notte, dalle 23 alle 8;
   se la partita viene creata a ridosso ne parte uno solo, e non a chi ha appena ricevuto l'avviso di nuova partita);
+- **agli admin, quando qualcuno si iscrive** e chiede di entrare nella lega («Nuova richiesta di iscrizione»: nome, username, se è già in rosa e quante richieste ci sono da approvare); toccandola si apre *Admin*.
+  Serve che l'admin abbia attivato le notifiche su almeno un dispositivo;
 - **quando le votazioni si aprono** (o si riaprono) e **quando si chiudono** (con il nome dell'MVP), a chi ha giocato la partita.
 - **quando una partita in programma cambia** (data, ora, campo, quota o note) o **viene annullata**, ai giocatori della partita
   (a chi aveva già risposto «Non ci sono» solo se cambia la data);
