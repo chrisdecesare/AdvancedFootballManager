@@ -35,6 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return post({ do: 'subscribe', endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
   };
 
+  // "push-sync" = account a cui il server ha abbinato per ultimo questo dispositivo e quando ("id:ora"): il dispositivo
+  // ha un solo abbonamento, quindi se qui entra un altro account le notifiche passano a lui e vanno riprese subito
+  const synced = () => {
+    const [owner, at] = (store.get('push-sync') || '').split(':');
+    return { owner, at: parseInt(at || '0', 10) };
+  };
+  const markSynced = () => store.set('push-sync', uid + ':' + Date.now());
+
   const bells = [...document.querySelectorAll('[data-push-bell]')];
   const setText = (card, sel, text) => { const el = card.querySelector(sel); if (el) el.textContent = text; };
   const show = (card, sel, on) => { const el = card.querySelector(sel); if (el) el.hidden = !on; };
@@ -157,12 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
       await sub.unsubscribe().catch(() => {});
       throw new Error(res.error || 'Attivazione non riuscita.');
     }
-    store.set('push-sync-' + uid, String(Date.now()));
+    markSynced();
   };
 
   const disable = async () => {
     const sub = await currentSub();
     if (!sub) return;
+    store.del('push-sync');
     await post({ do: 'unsubscribe', endpoint: sub.endpoint });
     await sub.unsubscribe();
   };
@@ -217,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('a[href="logout.php"]').forEach(a => a.addEventListener('click', async e => {
     if (!supported || Notification.permission !== 'granted') return;
     e.preventDefault();
-    store.del('push-sync-' + uid);
+    store.del('push-sync');
     try {
       const sub = await Promise.race([currentSub(), new Promise(r => setTimeout(() => r(null), 1500))]);
       if (sub) await Promise.race([post({ do: 'unsubscribe', endpoint: sub.endpoint }), new Promise(r => setTimeout(r, 2000))]);
@@ -227,7 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   (async () => {
     if (supported && Notification.permission === 'granted') {
-      // tiene aggiornato il service worker e riassocia il dispositivo all'account in uso (al massimo ogni 12 ore)
+      // tiene aggiornato il service worker e riassocia il dispositivo all'account in uso: subito se l'ultimo abbinamento
+      // era di un altro account (o è stato tolto uscendo), altrimenti un controllo ogni 12 ore
       try {
         await navigator.serviceWorker.register('sw.js');
         let sub = await currentSub();
@@ -235,12 +245,12 @@ document.addEventListener('DOMContentLoaded', () => {
           // abbonamento fatto con una chiave vecchia del sito: non riceverebbe più nulla, si rifà da solo
           await sub.unsubscribe().catch(() => {});
           sub = await subscribe();
-          store.del('push-sync-' + uid);
+          store.del('push-sync');
         }
-        const last = parseInt(store.get('push-sync-' + uid) || '0', 10);
-        if (sub && Date.now() - last > 12 * 3600 * 1000) {
+        const last = synced();
+        if (sub && (last.owner !== uid || Date.now() - last.at > 12 * 3600 * 1000)) {
           const res = await sendSub(sub);
-          if (res.ok) store.set('push-sync-' + uid, String(Date.now()));
+          if (res.ok) markSynced();
         }
       } catch (err) { /* al prossimo caricamento riprova */ }
     }
