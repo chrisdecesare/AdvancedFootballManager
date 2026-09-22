@@ -186,52 +186,71 @@ function push_endpoint_ok(string $url): bool
 }
 
 /**
- * Manda lo stesso messaggio a più abbonamenti. $msg = ['title', 'body', 'url' (relativo al sito), 'tag'].
- * Toglie dal database gli abbonamenti scaduti (il browser risponde 404/410).
- * @param array<int, array{id: int|string, endpoint: string, p256dh: string, auth: string}> $subs
- * @return int quante notifiche sono state accettate dal servizio push
+ * Manda lo stesso messaggio a più abbonamenti e dice com'è andata, uno per uno: serve alla coda (push_queue_run)
+ * per decidere se riprovare. $msg = ['title', 'body', 'url' (relativo al sito), 'tag'].
+ * Toglie dal database gli abbonamenti scaduti (il browser risponde 404/410) o con dati non validi.
+ * Ogni voce di $subs ha una chiave 'id' (che ritorna nel risultato) e 'sub_id' = abbonamento, se diverso.
+ * @param array<int, array{id: int|string, sub_id?: int, endpoint: string, p256dh: string, auth: string}> $subs
+ * @return array<int|string, array{code: int, error: ?string}> esito per ogni voce (codice 0 = nessuna risposta,
+ * -1 = scartata prima dell'invio perché i suoi dati non erano validi)
  */
-function webpush_send(array $subs, array $msg, string $urgency = 'normal'): int
+function webpush_deliver(array $subs, array $msg, string $urgency = 'normal'): array
 {
     if (!$subs || !push_supported() || !vapid_keys()) {
-        return 0;
+        return [];
     }
     $json = json_encode($msg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $jobs = [];
+    $out = [];
     $auth = [];
+    $subOf = [];       // chiave della voce => abbonamento a cui corrisponde
     foreach ($subs as $s) {
+        $subOf[$s['id']] = $subId = $s['sub_id'] ?? $s['id'];
         $ua = wp_b64u_dec($s['p256dh']);
         $secret = wp_b64u_dec($s['auth']);
         $body = ($ua !== null && $secret !== null && push_endpoint_ok($s['endpoint'])) ? webpush_encrypt($json, $ua, $secret) : null;
         if ($body === null) {
-            q('DELETE FROM push_subscriptions WHERE id = ?', [$s['id']]);   // dati non validi: inutile tenerlo
+            q('DELETE FROM push_subscriptions WHERE id = ?', [$subId]);   // dati non validi: inutile tenerlo
+            $out[$s['id']] = ['code' => -1, 'error' => null];
             continue;
         }
         $p = parse_url($s['endpoint']);
         $aud = 'https://' . $p['host'] . (isset($p['port']) ? ':' . $p['port'] : '');
         $auth[$aud] ??= vapid_authorization($aud);
         if ($auth[$aud] === null) {
-            return 0;
+            $out[$s['id']] = ['code' => 0, 'error' => 'il server non riesce a firmare la notifica (chiavi VAPID)'];
+            continue;
         }
         $jobs[] = ['id' => $s['id'], 'url' => $s['endpoint'], 'body' => $body, 'headers' => [
             'Authorization: ' . $auth[$aud], 'Content-Encoding: aes128gcm', 'Content-Type: application/octet-stream',
             'TTL: 86400', 'Urgency: ' . $urgency, 'Content-Length: ' . strlen($body)]];
     }
-    $codes = function_exists('curl_multi_init') ? webpush_post_curl($jobs) : webpush_post_streams($jobs);
-    $ok = 0;
-    foreach ($codes as $id => $code) {
-        if ($code >= 200 && $code < 300) {
-            $ok++;
-        } elseif ($code === 404 || $code === 410) {
-            q('DELETE FROM push_subscriptions WHERE id = ?', [$id]);      // il dispositivo non è più abbonato
-        } else {
+    $res = $jobs ? (function_exists('curl_multi_init') ? webpush_post_curl($jobs) : webpush_post_streams($jobs)) : [];
+    foreach ($res as $id => $r) {
+        $code = $r['code'];
+        if ($code === 404 || $code === 410) {
+            q('DELETE FROM push_subscriptions WHERE id = ?', [$subOf[$id] ?? $id]);   // il dispositivo non è più abbonato
+        } elseif ($code < 200 || $code >= 300) {
             error_log("webpush: risposta $code dal servizio push (abbonamento $id)");
         }
+        $out[$id] = $r;
     }
-    return $ok;
+    return $out;
 }
 
-/** @return array<int|string, int> codice HTTP per ogni abbonamento (0 = nessuna risposta) */
+/**
+ * Manda subito lo stesso messaggio a più abbonamenti, senza passare dalla coda (notifica di prova).
+ * @return int quante notifiche sono state accettate dal servizio push
+ */
+function webpush_send(array $subs, array $msg, string $urgency = 'normal'): int
+{
+    return count(array_filter(webpush_deliver($subs, $msg, $urgency), fn($r) => $r['code'] >= 200 && $r['code'] < 300));
+}
+
+/**
+ * @return array<int|string, array{code: int, error: ?string}> risposta per ogni abbonamento (codice 0 = non si è
+ * riusciti a parlare con il servizio push; in quel caso 'error' dice perché, ed è quello che l'admin legge nel registro)
+ */
 function webpush_post_curl(array $jobs): array
 {
     $mh = curl_multi_init();
@@ -250,30 +269,41 @@ function webpush_post_curl(array $jobs): array
             curl_multi_select($mh, 1.0);
         }
     } while ($running && $status === CURLM_OK);
-    $codes = [];
-    foreach ($handles as $id => $ch) {
-        $codes[$id] = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        if ($codes[$id] === 0) {
-            error_log('webpush: connessione al servizio push non riuscita: ' . curl_error($ch));
+    // il motivo del fallimento sta qui, non in curl_error(): con curl_multi quella resta vuota
+    $failed = [];
+    $key = fn($h) => is_object($h) ? spl_object_id($h) : (int) $h;   // in PHP 8 i manici di curl sono oggetti
+    while ($info = curl_multi_info_read($mh)) {
+        if ($info['result'] !== CURLE_OK) {
+            $failed[$key($info['handle'])] = curl_strerror($info['result']);
         }
+    }
+    $out = [];
+    foreach ($handles as $id => $ch) {
+        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $err = $code === 0 ? ($failed[$key($ch)] ?? curl_error($ch) ?: 'nessuna risposta') : null;
+        if ($err !== null) {
+            error_log("webpush: connessione al servizio push non riuscita: $err");
+        }
+        $out[$id] = ['code' => $code, 'error' => $err];
         curl_multi_remove_handle($mh, $ch);
         curl_close($ch);
     }
     curl_multi_close($mh);
-    return $codes;
+    return $out;
 }
 
 /** Se curl non c'è: un invio alla volta con i flussi di PHP. */
 function webpush_post_streams(array $jobs): array
 {
-    $codes = [];
+    $out = [];
     foreach ($jobs as $j) {
         $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => implode("\r\n", $j['headers']),
             'content' => $j['body'], 'timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0]]);
-        @file_get_contents($j['url'], false, $ctx);
-        $codes[$j['id']] = isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m) ? (int) $m[1] : 0;
+        $res = @file_get_contents($j['url'], false, $ctx);
+        $code = isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m) ? (int) $m[1] : 0;
+        $out[$j['id']] = ['code' => $code, 'error' => $code === 0 ? (($e = error_get_last()) ? $e['message'] : 'nessuna risposta') : null];
     }
-    return $codes;
+    return $out;
 }
 
 /* ---------------------------------------------------------------- abbonamenti */
@@ -286,8 +316,12 @@ function push_save_subscription(int $userId, string $endpoint, string $p256dh, s
     if (!push_endpoint_ok($endpoint) || $key === null || strlen($key) !== 65 || $secret === null || strlen($secret) !== 16) {
         return 'Abbonamento non valido.';
     }
-    if ((int) q('SELECT COUNT(*) FROM push_subscriptions WHERE user_id = ?', [$userId])->fetchColumn() >= 10) {
-        return 'Troppi dispositivi con le notifiche attive: disattivane qualcuno.';
+    // non più di 10 dispositivi per account: i più vecchi lasciano il posto al nuovo (rifiutarlo spegneva
+    // le notifiche proprio sul telefono che le stava attivando)
+    $old = q('SELECT id FROM push_subscriptions WHERE user_id = ? AND endpoint_hash <> ? ORDER BY created_at DESC LIMIT 9, 50',
+        [$userId, hash('sha256', $endpoint)])->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($old as $id) {
+        q('DELETE FROM push_subscriptions WHERE id = ?', [$id]);
     }
     q('INSERT INTO push_subscriptions (user_id, endpoint_hash, endpoint, p256dh, auth, ua) VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth), ua = VALUES(ua)',
@@ -319,10 +353,153 @@ function push_users_of_players(array $playerIds): array
     return $out;
 }
 
-/** Manda una notifica a questi account (tutti i loro dispositivi). Ritorna quante ne sono state accettate. */
-function push_notify_users(array $userIds, array $msg, string $urgency = 'normal'): int
+/* ---------------------------------------------------------------- coda di spedizione */
+
+/*
+ * Le notifiche non partono più "al volo": ogni dispositivo destinatario diventa una riga di push_queue, che
+ * viene spedita subito e, se il servizio push non risponde o risponde male, riprovata (dopo 1, 5, 15, 60
+ * minuti, poi si arrende). Le righe restano come registro di consegna: Admin -> Notifiche le mostra.
+ * Senza coda una sola risposta lenta di Google faceva sparire la notifica per sempre, senza che nessuno lo sapesse.
+ */
+
+/** Minuti di attesa prima di riprovare, in base ai tentativi già fatti. */
+const PUSH_RETRY_MINUTES = [1, 5, 15, 60];
+
+/** Mette in coda un messaggio per tutti i dispositivi di questi account. Ritorna quante righe ha scritto. */
+function push_queue_add(array $userIds, array $msg, string $urgency, string $kind): int
 {
-    return webpush_send(push_subs_of_users($userIds), $msg, $urgency);
+    $subs = push_subs_of_users($userIds);
+    if (!$subs) {
+        return 0;
+    }
+    $payload = json_encode($msg, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    foreach ($subs as $s) {
+        q('INSERT INTO push_queue (kind, user_id, sub_id, title, payload, urgency) VALUES (?, ?, ?, ?, ?, ?)',
+            [mb_substr($kind, 0, 20), $s['user_id'], $s['id'], mb_substr((string) ($msg['title'] ?? ''), 0, 120), $payload, $urgency]);
+    }
+    return count($subs);
+}
+
+/**
+ * Spedisce le notifiche in coda pronte a partire (e quelle da riprovare). Più richieste possono girare insieme:
+ * ogni esecuzione "prende" le sue righe con un codice suo, così nessuna notifica parte due volte.
+ * @return int quante sono state consegnate
+ */
+function push_queue_run(int $max = 40): int
+{
+    if (!push_supported()) {
+        return 0;
+    }
+    $claim = bin2hex(random_bytes(6));
+    $max = max(1, min(200, $max));
+    // il tentativo si conta subito e la riga si sposta avanti: se questa esecuzione muore a metà, la notifica
+    // non resta bloccata "in lavorazione" per sempre ma torna disponibile tra qualche minuto
+    q("UPDATE push_queue SET claim = ?, attempts = attempts + 1, next_try = DATE_ADD(NOW(), INTERVAL 5 MINUTE)
+       WHERE status = 'in_attesa' AND claim IS NULL AND next_try <= NOW() ORDER BY next_try LIMIT $max", [$claim]);
+    $rows = q('SELECT p.id, p.attempts, p.payload, p.urgency, p.sub_id, s.endpoint, s.p256dh, s.auth
+               FROM push_queue p LEFT JOIN push_subscriptions s ON s.id = p.sub_id
+               WHERE p.claim = ?', [$claim])->fetchAll();
+    if (!$rows) {
+        return 0;
+    }
+    // un solo invio per messaggio uguale: i destinatari di una stessa notifica partono insieme
+    $groups = [];
+    foreach ($rows as $r) {
+        if ($r['sub_id'] === null || $r['endpoint'] === null) {
+            push_queue_close((int) $r['id'], 0, 'fallita', 'il dispositivo non è più abbonato');
+            continue;
+        }
+        $groups[$r['urgency'] . "\n" . $r['payload']][] = $r;
+    }
+    $done = 0;
+    foreach ($groups as $key => $batch) {
+        [$urgency, $payload] = explode("\n", $key, 2);
+        $msg = json_decode($payload, true);
+        if (!is_array($msg)) {
+            foreach ($batch as $r) {
+                push_queue_close((int) $r['id'], 0, 'fallita', 'messaggio non valido');
+            }
+            continue;
+        }
+        $esiti = webpush_deliver($batch, $msg, $urgency);
+        foreach ($batch as $r) {
+            $id = (int) $r['id'];
+            $esito = $esiti[$r['id']] ?? ['code' => 0, 'error' => null];
+            $code = (int) $esito['code'];
+            $why = push_code_reason($code) . ($esito['error'] !== null && $code === 0 ? ': ' . $esito['error'] : '');
+            if ($code >= 200 && $code < 300) {
+                push_queue_close($id, $code, 'consegnata', null);
+                $done++;
+            } elseif (in_array($code, [400, 401, 403, 404, 410, 413, -1], true)) {
+                // non ha senso riprovare: abbonamento sparito, chiavi rifiutate o messaggio non accettabile
+                push_queue_close($id, $code, 'fallita', $why);
+            } elseif ((int) $r['attempts'] >= count(PUSH_RETRY_MINUTES) + 1) {
+                push_queue_close($id, $code, 'fallita', $why . ' (dopo ' . (int) $r['attempts'] . ' tentativi)');
+            } else {
+                $wait = PUSH_RETRY_MINUTES[min((int) $r['attempts'], count(PUSH_RETRY_MINUTES)) - 1];
+                q("UPDATE push_queue SET claim = NULL, last_code = ?, last_error = ?, next_try = DATE_ADD(NOW(), INTERVAL $wait MINUTE) WHERE id = ?",
+                    [$code, mb_substr($why, 0, 190), $id]);
+            }
+        }
+    }
+    return $done;
+}
+
+/** Chiude una riga della coda: resta come registro di consegna. */
+function push_queue_close(int $id, int $code, string $status, ?string $error): void
+{
+    q('UPDATE push_queue SET status = ?, last_code = ?, last_error = ?, claim = NULL, sent_at = NOW() WHERE id = ?',
+        [$status, $code, $error === null ? null : mb_substr($error, 0, 190), $id]);
+}
+
+/** Spiegazione in italiano della risposta del servizio push (è quella che si legge in Admin -> Notifiche). */
+function push_code_reason(int $code): string
+{
+    return [
+        -1 => 'dati dell\'abbonamento non validi',
+        0 => 'il servizio push non ha risposto (rete o server lento)',
+        400 => 'richiesta rifiutata dal servizio push',
+        401 => 'chiavi del sito rifiutate (VAPID)',
+        403 => 'chiavi del sito rifiutate (VAPID)',
+        404 => 'il dispositivo non è più abbonato',
+        410 => 'il dispositivo non è più abbonato',
+        413 => 'messaggio troppo lungo',
+        429 => 'troppe notifiche insieme: il servizio push ha chiesto di rallentare',
+    ][$code] ?? ('risposta ' . $code . ' dal servizio push');
+}
+
+/** C'è qualcosa da spedire adesso? (una riga su indice: si può chiamare a ogni pagina) */
+function push_queue_pending(): bool
+{
+    return (bool) q("SELECT 1 FROM push_queue WHERE status = 'in_attesa' AND claim IS NULL AND next_try <= NOW() LIMIT 1")->fetchColumn();
+}
+
+/** Svuota la coda se serve, a risposta già inviata (lo chiama bootstrap.php a ogni richiesta). */
+function push_queue_kick(): void
+{
+    if (push_queue_pending()) {
+        push_queue_run();
+    }
+}
+
+/** Butta via il registro più vecchio di un mese (lo chiama il cron). */
+function push_queue_cleanup(): void
+{
+    q("DELETE FROM push_queue WHERE status <> 'in_attesa' AND created_at < DATE_SUB(NOW(), INTERVAL 30 DAY)");
+}
+
+/**
+ * Manda una notifica a questi account (tutti i loro dispositivi): la mette in coda e prova subito a spedirla.
+ * $kind serve solo al registro in Admin -> Notifiche.
+ * @return int a quanti dispositivi è stata messa in coda
+ */
+function push_notify_users(array $userIds, array $msg, string $urgency = 'normal', string $kind = 'notifica'): int
+{
+    $n = push_queue_add($userIds, $msg, $urgency, $kind);
+    if ($n) {
+        push_queue_run();
+    }
+    return $n;
 }
 
 /**
@@ -392,7 +569,7 @@ function push_notify_new_match(int $matchId, ?int $exceptUser = null): void
             'title' => 'Nuova partita',
             'body' => ucfirst(push_when($m['match_date'])) . ($m['location'] !== '' ? ' · ' . $m['location'] : '') . '. Ci sei? Rispondi ora.',
             'url' => 'match.php?id=' . $matchId, 'tag' => 'match-' . $matchId,
-        ], 'high');
+        ], 'high', 'nuova partita');
         foreach ($users as $pid => $_) {
             q("INSERT IGNORE INTO push_log (kind, match_id, player_id) VALUES ('new', ?, ?)", [$matchId, $pid]);
         }
@@ -434,7 +611,7 @@ function push_notify_match_changed(int $matchId, array $old, bool $reset, ?int $
             'title' => $moved ? 'Partita spostata' : 'Partita modificata',
             'body' => mb_substr($body, 0, 400),
             'url' => 'match.php?id=' . $matchId, 'tag' => 'match-' . $matchId,
-        ], 'high');
+        ], 'high', $moved ? 'partita spostata' : 'partita modificata');
         if ($reset) {
             // hanno appena saputo della nuova data: il promemoria non deve partire subito dopo
             foreach ($users as $pid => $_) {
@@ -463,7 +640,7 @@ function push_notify_match_cancelled(array $match, ?int $exceptUser = null): voi
             'title' => 'Partita annullata',
             'body' => 'La partita di ' . push_when($match['match_date']) . ($match['location'] !== '' ? ' · ' . $match['location'] : '') . ' è stata annullata.',
             'url' => 'matches.php', 'tag' => 'match-' . $match['id'],
-        ], 'high');
+        ], 'high', 'partita annullata');
     });
 }
 
@@ -489,7 +666,7 @@ function push_notify_approved(int $userId, array $groupNames): void
             'body' => 'L\'admin ha accettato la tua iscrizione' . ($groupNames ? ' (' . implode(', ', array_map(fn($g) => mb_substr((string) $g, 0, 40), $groupNames)) . ')' : '')
                 . ': entra e rispondi alle partite.',
             'url' => 'login.php', 'tag' => 'approved',
-        ], 'high');
+        ], 'high', 'approvazione');
     });
 }
 
@@ -517,7 +694,7 @@ function push_notify_registration(int $newUserId, string $name, string $username
                 . ($matchName ? ': è già in rosa come ' . mb_substr($matchName, 0, 80) : '') . '.'
                 . ($pending > 1 ? ' Richieste da approvare: ' . $pending . '.' : ' Approvala o rifiutala da Admin.'),
             'url' => 'admin.php', 'tag' => 'reg-' . $newUserId,
-        ], 'high');
+        ], 'high', 'iscrizione');
     });
 }
 
@@ -541,7 +718,8 @@ function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): 
             $msg = ['title' => 'Votazioni chiuse',
                 'body' => ($name ? 'L\'MVP è ' . $name . '. ' : '') . 'Guarda i voti della partita.'];
         }
-        push_notify_users($users, $msg + ['url' => 'match.php?id=' . $matchId . '#voti', 'tag' => 'voting-' . $matchId]);
+        push_notify_users($users, $msg + ['url' => 'match.php?id=' . $matchId . '#voti', 'tag' => 'voting-' . $matchId],
+            'normal', $open ? 'votazioni aperte' : 'votazioni chiuse');
     });
 }
 
@@ -604,7 +782,7 @@ function push_run_due(): int
                 'title' => 'Ci sei alla partita?',
                 'body' => 'Non hai ancora risposto: si gioca ' . push_when($r['match_date']) . ($r['location'] !== '' ? ' · ' . $r['location'] : '') . '.',
                 'url' => 'match.php?id=' . $mid, 'tag' => 'match-' . $mid,
-            ], 'high');
+            ], 'high', 'promemoria');
             if ($count > 0) {
                 $sent += $count;
                 foreach ($applicable as $h) {

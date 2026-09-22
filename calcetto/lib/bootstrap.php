@@ -62,7 +62,9 @@ require __DIR__ . '/webpush.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';
 
-verify_csrf();
+if (!defined('NO_CSRF')) {   // push.php la salta solo per il rinnovo dell'abbonamento, che non ha una sessione (vedi push.php)
+    verify_csrf();
+}
 if (tables_exist()) {
     ensure_schema();
     remember_check();   // sessione scaduta ma dispositivo "collegato": rientra da solo
@@ -71,7 +73,9 @@ if (tables_exist()) {
     }
     close_due_votings();   // votazioni arrivate all'orario di fine: si chiudono da sole
     bets_settle_pending();  // scommesse rimaste da pagare (di solito nessuna)
-    // mentre qualcuno usa il sito, a risposta già inviata, parte l'eventuale promemoria "non hai ancora risposto"
+    // a risposta già inviata: prima si spediscono le notifiche in coda (e si riprovano quelle non riuscite),
+    // poi, per chi è collegato, parte l'eventuale promemoria "non hai ancora risposto"
+    push_defer('push_queue_kick');
     if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         push_defer('push_maybe_run');
     }

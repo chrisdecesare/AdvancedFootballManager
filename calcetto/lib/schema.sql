@@ -172,6 +172,29 @@ CREATE TABLE IF NOT EXISTS push_log (
   FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- notifiche da spedire e gia' spedite (coda con riprove + registro di consegna: vedi lib/webpush.php)
+CREATE TABLE IF NOT EXISTS push_queue (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  kind VARCHAR(20) NOT NULL,                       -- nuova partita, iscrizione, promemoria... (serve al registro in Admin)
+  user_id INT NOT NULL,
+  sub_id INT NULL,                                 -- dispositivo destinatario (NULL se nel frattempo e' sparito)
+  title VARCHAR(120) NOT NULL,
+  payload TEXT NOT NULL,                           -- il messaggio in JSON, come arriva al browser
+  urgency VARCHAR(10) NOT NULL DEFAULT 'normal',
+  status ENUM('in_attesa','consegnata','fallita') NOT NULL DEFAULT 'in_attesa',
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  next_try DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  claim CHAR(12) NULL,                             -- chi la sta spedendo adesso (evita invii doppi)
+  last_code SMALLINT NOT NULL DEFAULT 0,           -- risposta del servizio push (0 = nessuna)
+  last_error VARCHAR(190) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  sent_at DATETIME NULL,
+  INDEX (status, next_try),
+  INDEX (created_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (sub_id) REFERENCES push_subscriptions(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- curiosità sui giocatori (le scrivono i giocatori stessi e l'admin)
 CREATE TABLE IF NOT EXISTS curiosities (
   id INT AUTO_INCREMENT PRIMARY KEY,

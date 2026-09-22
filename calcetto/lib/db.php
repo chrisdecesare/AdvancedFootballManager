@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -254,6 +254,30 @@ function ensure_schema(): void
         // regalo una tantum: 60 gettoni al giocatore dell'admin (il codice 'gift-adm-60' impedisce di darli due volte)
         db()->exec("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref)
                     SELECT player_id, 60, 'regalo', 'gift-adm-60' FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL");
+    }
+    if ($v < 18) {
+        // coda delle notifiche: si riprova a spedirle quando il servizio push non risponde, e resta il registro
+        db()->exec("CREATE TABLE IF NOT EXISTS push_queue (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              kind VARCHAR(20) NOT NULL,                       -- nuova partita, iscrizione, promemoria... (serve al registro in Admin)
+              user_id INT NOT NULL,
+              sub_id INT NULL,                                 -- dispositivo destinatario (NULL se nel frattempo e' sparito)
+              title VARCHAR(120) NOT NULL,
+              payload TEXT NOT NULL,                           -- il messaggio in JSON, come arriva al browser
+              urgency VARCHAR(10) NOT NULL DEFAULT 'normal',
+              status ENUM('in_attesa','consegnata','fallita') NOT NULL DEFAULT 'in_attesa',
+              attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+              next_try DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              claim CHAR(12) NULL,                             -- chi la sta spedendo adesso (evita invii doppi)
+              last_code SMALLINT NOT NULL DEFAULT 0,           -- risposta del servizio push (0 = nessuna)
+              last_error VARCHAR(190) NULL,
+              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              sent_at DATETIME NULL,
+              INDEX (status, next_try),
+              INDEX (created_at),
+              FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+              FOREIGN KEY (sub_id) REFERENCES push_subscriptions(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

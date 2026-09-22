@@ -194,6 +194,27 @@ function notify_email_changed(string $oldEmail, int $uid, ?string $newEmail): vo
 }
 
 /**
+ * Avviso agli admin che qualcuno si è iscritto. Arriva insieme alla notifica push, non al suo posto: è la rete
+ * di sicurezza per l'unica cosa che l'admin non può permettersi di perdere, perché l'email non dipende né dal
+ * servizio push né dalle impostazioni del telefono. Va solo agli admin con l'email confermata.
+ * @return int a quanti admin è partita
+ */
+function notify_admins_registration(string $name, string $username): int
+{
+    $sent = 0;
+    foreach (q("SELECT id FROM users WHERE role = 'admin' AND status = 'attivo'")->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+        if (!($email = verified_email((int) $uid))) {
+            continue;
+        }
+        $sent += (int) send_mail($email, 'Nuova iscrizione da approvare · ' . APP_NAME, mail_text(mail_name((int) $uid), [
+            $name . ' (@' . $username . ') chiede di entrare in ' . APP_NAME . '.',
+            'Approvala o rifiutala da qui: ' . trusted_base_url() . 'admin.php',
+        ]));
+    }
+    return $sent;
+}
+
+/**
  * Email all'utente appena approvato dall'admin. Va all'indirizzo confermato, se c'è, altrimenti a quello scritto all'iscrizione
  * (la conferma di solito non è ancora arrivata). Ritorna true se il server di posta l'ha accettata, false se non c'è un indirizzo o non parte.
  */

@@ -35,13 +35,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return post({ do: 'subscribe', endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth });
   };
 
-  // "push-sync" = account a cui il server ha abbinato per ultimo questo dispositivo e quando ("id:ora"): il dispositivo
-  // ha un solo abbonamento, quindi se qui entra un altro account le notifiche passano a lui e vanno riprese subito
+  // "push-sync" = cosa sa il server di questo dispositivo: account, quando e quale abbonamento ("id:ora:coda").
+  // Il dispositivo ha un solo abbonamento, quindi se qui entra un altro account le notifiche passano a lui e
+  // vanno riprese subito; se il telefono rinnova l'abbonamento, il server va aggiornato con quello nuovo.
+  const subKey = sub => sub.endpoint.slice(-24);
   const synced = () => {
-    const [owner, at] = (store.get('push-sync') || '').split(':');
-    return { owner, at: parseInt(at || '0', 10) };
+    const [owner, at, endpoint] = (store.get('push-sync') || '').split(':');
+    return { owner, at: parseInt(at || '0', 10), endpoint: endpoint || '' };
   };
-  const markSynced = () => store.set('push-sync', uid + ':' + Date.now());
+  const markSynced = sub => store.set('push-sync', uid + ':' + Date.now() + ':' + (sub ? subKey(sub) : ''));
 
   const bells = [...document.querySelectorAll('[data-push-bell]')];
   const setText = (card, sel, text) => { const el = card.querySelector(sel); if (el) el.textContent = text; };
@@ -165,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await sub.unsubscribe().catch(() => {});
       throw new Error(res.error || 'Attivazione non riuscita.');
     }
-    markSynced();
+    markSynced(sub);
   };
 
   const disable = async () => {
@@ -237,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
   (async () => {
     if (supported && Notification.permission === 'granted') {
       // tiene aggiornato il service worker e riassocia il dispositivo all'account in uso: subito se l'ultimo abbinamento
-      // era di un altro account (o è stato tolto uscendo), altrimenti un controllo ogni 12 ore
+      // era di un altro account, se il telefono ha cambiato abbonamento o se uscendo era stato tolto; ogni 12 ore per sicurezza
       try {
         await navigator.serviceWorker.register('sw.js');
         let sub = await currentSub();
@@ -247,10 +249,16 @@ document.addEventListener('DOMContentLoaded', () => {
           sub = await subscribe();
           store.del('push-sync');
         }
+        if (!sub) {
+          // il permesso c'è ma l'abbonamento no: il telefono l'ha buttato via (succede). Si rifà in silenzio,
+          // senza aspettare che qualcuno si accorga della campanella spenta e la ritocchi.
+          sub = await subscribe();
+          store.del('push-sync');
+        }
         const last = synced();
-        if (sub && (last.owner !== uid || Date.now() - last.at > 12 * 3600 * 1000)) {
+        if (sub && (last.owner !== uid || last.at === 0 || last.endpoint !== subKey(sub) || Date.now() - last.at > 12 * 3600 * 1000)) {
           const res = await sendSub(sub);
-          if (res.ok) markSynced();
+          if (res.ok) markSynced(sub);
         }
       } catch (err) { /* al prossimo caricamento riprova */ }
     }

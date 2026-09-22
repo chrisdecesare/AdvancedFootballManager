@@ -14,4 +14,7 @@ if (!tables_exist() || !hash_equals(push_cron_key(), (string) ($_GET['key'] ?? '
 }
 meta_set('push_last_run', (string) time());   // così non parte anche il controllo "al volo" degli utenti
 close_due_votings();
-echo 'ok ' . push_run_due() . "\n";
+$due = push_run_due();          // promemoria "non hai ancora risposto": finiscono in coda come le altre
+$sent = push_queue_run(200);    // spedisce la coda: notifiche nuove e riprove di quelle non riuscite
+push_queue_cleanup();           // il registro tiene un mese
+echo 'ok ' . $due . ' in coda, ' . $sent . " consegnate\n";

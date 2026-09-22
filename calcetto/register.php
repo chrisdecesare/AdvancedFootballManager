@@ -79,6 +79,7 @@ if (is_post()) {
         $_SESSION['reg_uid'] = $newUserId;          // questo browser potrà attivare le notifiche per sapere quando viene approvato
         registration_hit();
         push_notify_registration($newUserId, $v['name'], $v['username'], $matchName ?: null);   // avvisa gli admin, a pagina già inviata
+        push_defer(fn() => notify_admins_registration($v['name'], $v['username']));             // e per sicurezza anche via email
         $emailSent = false;
         if ($v['email'] !== '') {
             // l'indirizzo va confermato dal link nell'email; senza conferma non serve al recupero della password

@@ -211,6 +211,12 @@ $pushAccounts = q("SELECT u.id, u.username, p.name AS player_name, (SELECT COUNT
 $pushOn = array_filter($pushAccounts, fn($a) => (int) $a['n'] > 0);
 $pushOff = array_filter($pushAccounts, fn($a) => (int) $a['n'] === 0);
 $cronUrl = site_base_url() . 'cron.php?key=' . push_cron_key();
+// registro di consegna: com'è andata alle ultime notifiche (chi non l'ha ricevuta, e perché)
+$pushRecent = q("SELECT p.kind, p.status, p.attempts, p.last_error, p.created_at, u.username, pl.name AS player_name
+                 FROM push_queue p JOIN users u ON u.id = p.user_id LEFT JOIN players pl ON pl.id = u.player_id
+                 ORDER BY p.id DESC LIMIT 50")->fetchAll();
+$pushQueued = (int) q("SELECT COUNT(*) FROM push_queue WHERE status = 'in_attesa'")->fetchColumn();
+$pushFailed = (int) q("SELECT COUNT(*) FROM push_queue WHERE status = 'fallita' AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
 
 layout_start('Admin', 'admin');
 ?>
@@ -434,6 +440,38 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
     <p class="small"><span class="muted">Non ancora attive:</span>
       <?php foreach ($pushOff as $a): ?><span class="tag tag-member"><?= h($a['player_name'] ?: $a['username']) ?></span> <?php endforeach; ?></p>
   <?php endif; ?>
+  <?php if ($pushQueued): ?>
+    <p class="small"><i class="ti ti-clock"></i> <strong><?= $pushQueued ?></strong> notifiche in coda: verranno riprovate da sole.</p>
+  <?php endif; ?>
+  <details class="collapsible">
+    <summary><strong>Ultime notifiche inviate</strong><?= $pushFailed ? ' <span class="count count-no">' . $pushFailed . ' non riuscite</span>' : '' ?></summary>
+    <p class="muted small">Ogni riga è una notifica verso un dispositivo. «Consegnata» vuol dire che Google o Apple l'hanno accettata: se poi non compare sul telefono, il problema è nelle impostazioni di quel telefono. Il registro tiene un mese.</p>
+    <?php if (!$pushRecent): ?>
+      <p class="muted small">Ancora nessuna notifica inviata.</p>
+    <?php else: ?>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Quando</th><th>A chi</th><th>Tipo</th><th>Esito</th></tr></thead>
+        <tbody>
+        <?php foreach ($pushRecent as $r): ?>
+          <tr>
+            <td class="small"><?= h(fmt_date_short($r['created_at'])) ?> <?= h(fmt_time($r['created_at'])) ?></td>
+            <td><?= h($r['player_name'] ?: $r['username'] ?: '—') ?></td>
+            <td class="small"><?= h($r['kind']) ?></td>
+            <td class="small">
+              <?php if ($r['status'] === 'consegnata'): ?>
+                <i class="ti ti-check"></i> consegnata
+              <?php elseif ($r['status'] === 'in_attesa'): ?>
+                <i class="ti ti-clock"></i> in coda<?= (int) $r['attempts'] ? ' (tentativi: ' . (int) $r['attempts'] . ')' : '' ?>
+              <?php else: ?>
+                <i class="ti ti-alert-triangle"></i> <?= h($r['last_error'] ?: 'non riuscita') ?>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table></div>
+    <?php endif; ?>
+  </details>
   <details class="collapsible">
     <summary><strong>Promemoria puntuali (facoltativo)</strong></summary>
     <p class="muted small">I promemoria partono da soli quando qualcuno usa il sito. Per averli puntuali anche quando nessuno lo apre, fai chiamare questo indirizzo ogni 10-15 minuti da un pianificatore (cron del tuo hosting o un servizio gratuito come cron-job.org). Il codice nell'indirizzo è riservato: non condividerlo.</p>
