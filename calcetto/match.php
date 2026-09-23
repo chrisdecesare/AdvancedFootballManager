@@ -551,16 +551,38 @@ if (!empty($_SESSION['vote_done'])):
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
-  <form method="post" class="form form-grid form-grid-4">
+  <form method="post" class="form form-grid form-grid-4" id="assist-form">
     <?= csrf_field() ?><input type="hidden" name="do" value="add_link">
-    <label class="field"><span>Assist di</span><select name="assister_id">
-      <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?></select></label>
-    <label class="field"><span>per il gol di</span><select name="scorer_id">
-      <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?></select></label>
+    <label class="field"><span>Assist di</span><select name="assister_id" data-assist-from>
+      <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>" data-team="<?= h($r['team']) ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?></select></label>
+    <label class="field"><span>per il gol di <span class="muted small">(solo compagni di squadra)</span></span><select name="scorer_id" data-assist-to>
+      <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>" data-team="<?= h($r['team']) ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?></select></label>
     <label class="field"><span>Quante volte</span><input type="number" name="n" min="1" max="20" value="1"></label>
     <div><button class="btn btn-primary btn-sm">Aggiungi</button></div>
   </form>
 </section>
+<script>
+// l'assist si dà solo a un compagno di squadra: appena si sceglie chi lo fa, "per il gol di" mostra solo la sua squadra
+(() => {
+  const form = document.getElementById('assist-form');
+  if (!form) return;
+  const from = form.querySelector('[data-assist-from]'), to = form.querySelector('[data-assist-to]');
+  const sync = () => {
+    const team = (from.selectedOptions[0] || {}).dataset?.team;
+    const prev = to.value;
+    let firstOk = null;
+    [...to.options].forEach(o => {
+      const ok = o.dataset.team === team && o.value !== from.value;
+      o.hidden = !ok;
+      if (ok && firstOk === null) firstOk = o.value;
+    });
+    if (to.selectedOptions[0]?.hidden && firstOk !== null) to.value = firstOk;
+    else to.value = prev;
+  };
+  from.addEventListener('change', sync);
+  sync();
+})();
+</script>
 <?php endif; ?>
 
 <?php if ($played): ?>

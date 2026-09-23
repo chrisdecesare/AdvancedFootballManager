@@ -82,6 +82,10 @@ img { max-width: 100%; }
 .nav a:hover { border-color: var(--ink); background: rgba(255, 255, 255, .5); }
 .nav a.active { background: var(--white); border: var(--b2); box-shadow: var(--sh-sm); }
 .userbox { position: relative; display: flex; align-items: center; gap: 8px; }
+.coin-pill { display: inline-flex; align-items: center; gap: 5px; font-weight: 900; font-size: .88rem; padding: 4px 11px;
+  border-radius: 999px; background: var(--yellow); border: var(--b2); flex: none; }
+.coin-pill:hover { border-color: var(--ink); }
+.coin-pill .ti { font-size: 1rem; }
 .me { display: flex; align-items: center; gap: 8px; padding: 3px 12px 3px 3px; border-radius: 999px; font-weight: 800; border: 2px solid transparent; }
 .me:hover, .me.active { background: var(--white); border-color: var(--ink); }
 
@@ -255,7 +259,9 @@ img { max-width: 100%; }
 .mvp-card .avatar, .scorer-card .avatar { box-shadow: var(--sh-sm); }
 
 /* ---------- avatar ---------- */
-.avatar { display: inline-block; vertical-align: middle; border-radius: 50%; object-fit: cover; flex: none; background: var(--paper-2); border: var(--b2); }
+/* aspect-ratio è una difesa in più oltre a width/height: se qualcosa (un flex/grid stretto sul telefono) restringe
+   solo la larghezza, l'altezza la segue e la foto resta un cerchio invece di stirarsi a ovale */
+.avatar { display: inline-block; vertical-align: middle; border-radius: 50%; object-fit: cover; aspect-ratio: 1 / 1; flex: none; background: var(--paper-2); border: var(--b2); }
 .avatar-initials { display: inline-grid; place-items: center; font-family: var(--font-d); color: var(--ink);
   background: hsl(var(--hue), 85%, 72%); }
 .avatar-xs { width: 28px; height: 28px; font-size: .75rem; border-width: 2px; }
@@ -777,8 +783,8 @@ html.tour-open { overflow: hidden; }
 .fact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; align-items: start; }
 .fact-card { margin: 0; display: grid; gap: 8px; }
 .fact-card p, .fact p { margin: 0; overflow-wrap: anywhere; }
-.fact-head { display: flex; align-items: center; gap: 10px; }
-.fact-who { font: 400 1.1rem var(--font-d); }
+.fact-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fact-who { font: 400 1.1rem var(--font-d); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 a.fact-who:hover { color: var(--grass-d); }
 .home > .fact { grid-column: 1 / -1; }
 .fact-body { display: flex; align-items: center; gap: 12px; }
@@ -838,9 +844,27 @@ a.fact-who:hover { color: var(--grass-d); }
 .bet-market { border: var(--b2); border-radius: 14px; padding: 12px; background: var(--paper); display: grid; gap: 8px; align-content: start; }
 .bet-market h3 { margin: 0; font-size: 1.05rem; }
 .bet-market p { margin: 0; }
+.pool-label { margin: -4px 0 0; }
 .pool { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .pool-tot { font-weight: 900; }
 .pool-opt { background: var(--white); border: var(--b2); border-radius: 999px; padding: 0 9px; font-size: .82rem; font-weight: 800; }
+
+/* ---------- multiple (combo) ---------- */
+.combo-card { display: grid; gap: 10px; }
+.combo-legs-view { display: flex; flex-wrap: wrap; gap: 6px; }
+.combo-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; font-weight: 800; }
+.combo-cart { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--white); border-top: var(--b);
+  box-shadow: 0 -4px 0 rgba(31, 26, 46, .08); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.combo-cart[hidden] { display: none; }
+.combo-cart-legs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 260px; max-height: 78px; overflow-y: auto; }
+.combo-leg { background: var(--paper-2); border: var(--b2); border-radius: 999px; padding: 3px 8px 3px 12px; font-size: .8rem; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; }
+.combo-leg button { background: none; border: 0; cursor: pointer; color: var(--muted); font: 900 1.1rem var(--font); line-height: 1; padding: 0 2px; }
+.combo-leg button:hover { color: var(--red); }
+.combo-cart-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.combo-cart-odds b { color: var(--grass-d); }
+.combo-cart input[type=number] { width: 84px; }
+@media (max-width: 640px) { .combo-cart { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); } .combo-cart-legs { max-height: 58px; } }
 .pool-opt b { color: var(--grass-d); }
 .bet-form { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto; gap: 8px; align-items: center; }
 .bet-win { grid-column: 1 / -1; font-weight: 900; color: var(--grass-d); min-height: 1.2em; }

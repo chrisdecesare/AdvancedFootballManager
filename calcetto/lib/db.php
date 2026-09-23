@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -278,6 +278,41 @@ function ensure_schema(): void
               FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
               FOREIGN KEY (sub_id) REFERENCES push_subscriptions(id) ON DELETE SET NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+    if ($v < 19) {
+        // scommesse multiple (combo): più selezioni in un'unica giocata, quota combinata = prodotto delle quote (vedi lib/bets.php)
+        db()->exec('CREATE TABLE IF NOT EXISTS combo_bets (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            player_id INT NOT NULL,
+            stake INT NOT NULL,
+            odds DECIMAL(8,2) NOT NULL,
+            status ENUM(\'aperta\',\'vinta\',\'persa\',\'rimborsata\') NOT NULL DEFAULT \'aperta\',
+            payout INT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            settled_at DATETIME NULL,
+            INDEX (player_id),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS combo_legs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            combo_id INT NOT NULL,
+            match_id INT NOT NULL,
+            market VARCHAR(10) NOT NULL,
+            pick VARCHAR(12) NOT NULL,
+            odds DECIMAL(6,2) NOT NULL,
+            status ENUM(\'aperta\',\'vinta\',\'persa\',\'rimborsata\') NOT NULL DEFAULT \'aperta\',
+            UNIQUE KEY uq_leg (combo_id, match_id, market),
+            INDEX (match_id, market),
+            FOREIGN KEY (combo_id) REFERENCES combo_bets(id) ON DELETE CASCADE,
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        $add('wallet_moves', 'combo_id', 'INT NULL AFTER bet_id');
+        if (!q("SHOW INDEX FROM wallet_moves WHERE Key_name = 'combo_id'")->fetch()) {
+            db()->exec('ALTER TABLE wallet_moves ADD INDEX (combo_id)');
+        }
+        if (!q("SHOW KEYS FROM wallet_moves WHERE Key_name = 'fk_wallet_combo'")->fetch()) {
+            db()->exec('ALTER TABLE wallet_moves ADD CONSTRAINT fk_wallet_combo FOREIGN KEY (combo_id) REFERENCES combo_bets(id) ON DELETE CASCADE');
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
 }

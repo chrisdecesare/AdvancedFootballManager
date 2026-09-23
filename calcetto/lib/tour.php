@@ -69,12 +69,21 @@ function tour_steps(array $u): array
         ],
         [
             'sel' => '.nav a[href="bets.php"]', 'icon' => 'coin',
-            'title' => 'Scommesse e Negozio',
-            'text' => 'Punta sulle partite con gettoni finti (nessun euro) e spendili nel Negozio per personalizzare il profilo.',
+            'title' => 'Scommesse',
+            'text' => 'Punta sulle partite con gettoni finti (nessun euro): li vedi sempre in alto accanto al tuo profilo.',
             'bullets' => [
                 'Chi vince, chi segna, chi sarà l\'MVP: ogni scelta ha la sua quota e si punta fino al calcio d\'inizio.',
-                'Nel Negozio: 100 copricapi, 30 bordi, 50 sfondi e 50 nickname (33 si sbloccano con gol, assist, MVP e altri obiettivi).',
-                'In fondo c\'è la classifica dei più ricchi: chi è il Banco?',
+                'Con «Multipla» combini più scelte in una sola giocata: le quote si moltiplicano, ma basta sbagliarne una per perdere tutto (scheda «Multiple»).',
+                'La classifica dei più ricchi è nella scheda «Classifica»: chi è il Banco?',
+            ],
+        ],
+        [
+            'sel' => '.nav a[href="shop.php"]', 'icon' => 'shopping-bag',
+            'title' => 'Negozio',
+            'text' => 'Spendi i gettoni delle scommesse per personalizzare il profilo.',
+            'bullets' => [
+                '100 copricapi, 30 bordi, 50 sfondi e 50 nickname (33 si sbloccano con gol, assist, MVP e altri obiettivi).',
+                'Premi «Prova» su un oggetto per vederlo addosso a te prima di comprarlo.',
             ],
         ],
         [
