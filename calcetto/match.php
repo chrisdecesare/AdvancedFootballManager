@@ -247,12 +247,39 @@ if (is_post()) {
             q('UPDATE match_players SET paid = 1 - paid WHERE match_id = ? AND player_id = ?', [$id, $pid]);
             redirect($self . '#pagamenti');
 
+        case 'add_guest':
+            if (!is_admin()) {
+                flash('err', 'Gli ospiti li aggiunge solo un admin.');
+                break;
+            }
+            $res = guest_create($match, $_POST);
+            if (isset($res['error'])) {
+                flash('err', $res['error']);
+            } else {
+                // la password non si può rivedere: è l'unico momento in cui compare
+                flash('ok', 'Ospite aggiunto. Manda questi dati a ' . trim((string) ($_POST['name'] ?? '')) . ' — indirizzo: ' . trusted_base_url() . 'login.php · utente «' . $res['username']
+                    . '» · password «' . $res['password'] . '». Vede questa partita e la formazione, l\'accesso vale fino a ' . GUEST_KEEP_DAYS . ' giorni dopo la partita.');
+            }
+            redirect($self . '#presenze');
+
+        case 'remove_guest':
+            if (!is_admin()) {
+                flash('err', 'Gli ospiti li toglie solo un admin.');
+                break;
+            }
+            $removed = guest_delete($pid);
+            flash($removed ? 'ok' : 'err', $removed ? 'Ospite tolto dalla partita.' : 'Ospite non trovato.');
+            redirect($self . '#presenze');
+
         case 'delete':
             if (!is_admin()) {
                 flash('err', 'Solo un admin può eliminare una partita.');
                 break;
             }
             push_notify_match_cancelled($match, $actor);   // prima di cancellare: dopo non si saprebbe più a chi mandarla
+            foreach (match_guests($id) as $g) {
+                guest_delete((int) $g['id']);              // gli ospiti se ne vanno con la partita
+            }
             q('DELETE FROM matches WHERE id = ?', [$id]);
             flash('ok', 'Partita eliminata.');
             redirect('matches.php');
@@ -267,9 +294,13 @@ function handle_vote(array $match, ?int $me): void
         flash('err', 'Le votazioni per questa partita sono chiuse.');
         return;
     }
+    if (is_guest()) {
+        flash('err', 'Gli ospiti non votano.');
+        return;
+    }
     $mates = [];
     foreach (match_roster($id) as $r) {
-        if ($r['team']) {
+        if ($r['team'] && !$r['is_guest']) {   // chi vota e chi viene votato: solo i giocatori della lega
             $mates[(int) $r['player_id']] = true;
         }
     }
@@ -303,8 +334,9 @@ function handle_vote(array $match, ?int $me): void
 if ($match['status'] === 'programmata') {
     sync_match_players($id);
 }
+$isGuest = is_guest();
 $roster = match_roster($id);
-$stats = compute_stats([(int) $match['group_id']]);
+$stats = $isGuest ? [] : compute_stats([(int) $match['group_id']]);
 $byStatus = ['confermato' => [], 'in_attesa' => [], 'assente' => []];
 $teams = ['A' => [], 'B' => []];
 $myRow = null;
@@ -337,7 +369,8 @@ if ($votingOpen && $iPlayed) {
 }
 $voters = $played ? array_map('intval', q('SELECT voter_id FROM mvp_votes WHERE match_id = ?', [$id])->fetchAll(PDO::FETCH_COLUMN)) : [];
 $participants = array_merge($teams['A'], $teams['B']);
-$chem = !$played && $hasTeams ? chemistry([(int) $match['group_id']]) : ['pairs' => [], 'players' => []];
+$voteParticipants = array_values(array_filter($participants, fn($r) => !$r['is_guest']));   // gli ospiti non votano e non si votano
+$chem = !$played && $hasTeams && !$isGuest ? chemistry([(int) $match['group_id']]) : ['pairs' => [], 'players' => []];
 $nameOf = short_names($roster);
 $links = $hasTeams ? q('SELECT ml.assister_id, ml.scorer_id, ml.n, a.name AS an, s.name AS sn FROM match_links ml
                         JOIN players a ON a.id = ml.assister_id JOIN players s ON s.id = ml.scorer_id
@@ -358,7 +391,7 @@ if (!empty($_SESSION['vote_done'])):
   </div>
 </div>
 <?php endif; ?>
-<a class="back" href="matches.php"><i class="ti ti-arrow-left"></i> Partite</a>
+<?php if (!$isGuest): ?><a class="back" href="matches.php"><i class="ti ti-arrow-left"></i> Partite</a><?php endif; ?>
 
 <section class="card match-head">
   <div class="match-when">
@@ -386,8 +419,32 @@ if (!empty($_SESSION['vote_done'])):
   <?= availability_buttons($match, $myRow['availability'] ?? null, $self) ?>
 </section>
 
+<?php if ($isGuest): // l'ospite vede la sua partita e in che squadra gioca, non la rosa ?>
+<section class="card guest-card">
+  <h2><i class="ti ti-shirt"></i> La tua squadra</h2>
+  <?php if ($myRow && $myRow['team']): $mt = $myRow['team']; ?>
+    <p class="guest-team"><span class="team-dot team-<?= strtolower($mt) ?>"></span> Giochi con <strong><?= h(team_name($mt, $match)) ?></strong>
+      contro <strong><?= h(team_name($mt === 'A' ? 'B' : 'A', $match)) ?></strong>.</p>
+  <?php elseif ($played): ?>
+    <p class="muted">Non risulti tra chi ha giocato questa partita.</p>
+  <?php elseif (($myRow['availability'] ?? '') === 'assente'): ?>
+    <p class="muted">Hai detto che non ci sei. Se cambi idea, tocca «Ci sono» qui sopra.</p>
+  <?php else: ?>
+    <p class="muted">Le squadre non sono ancora state fatte: quando l'admin le decide, qui vedrai in quale giochi.<?= ($myRow['availability'] ?? '') === 'confermato' ? ' Intanto la tua presenza è confermata.' : ' Ricordati di dire se ci sei.' ?></p>
+  <?php endif; ?>
+  <p class="small muted"><i class="ti ti-info-circle"></i> Sei un ospite: vedi questa partita e la formazione in campo, ma non le presenze, e non voti né scommetti.
+    Il tuo accesso resta attivo fino al <?= h(date('d/m', strtotime($match['match_date']) + GUEST_KEEP_DAYS * 86400)) ?>.</p>
+</section>
+<?php if ($hasTeams): ?>
+<section class="card" id="squadre">
+  <h2><i class="ti ti-layout-grid"></i> Formazione</h2>
+  <div class="squad-pitch"><?= render_pitch($match, $roster, false, false) ?></div>
+</section>
+<?php endif; ?>
+<?php layout_end(); exit; endif; ?>
+
 <?php if (!$played): ?>
-<section class="card">
+<section class="card" id="presenze">
   <h2>Presenze</h2>
   <div class="avail-cols">
     <?php foreach (['confermato' => '<i class="ti ti-user-check"></i> Confermati', 'in_attesa' => '<i class="ti ti-user-question"></i> Da confermare', 'assente' => '<i class="ti ti-user-x"></i> Assenti'] as $st => $label): ?>
@@ -411,6 +468,39 @@ if (!empty($_SESSION['vote_done'])):
       </div>
     <?php endforeach; ?>
   </div>
+  <?php if (is_admin()): $guests = match_guests($id); ?>
+  <div class="guest-admin">
+    <h3><i class="ti ti-user-plus"></i> Ospiti <span class="count"><?= count($guests) ?></span></h3>
+    <?php foreach ($guests as $g): ?>
+      <div class="pline-row">
+        <span><strong><?= h($g['name']) ?></strong> <span class="muted small">· utente <code><?= h($g['username'] ?? '—') ?></code><?= $g['guest_email'] ? ' · ' . h($g['guest_email']) : '' ?></span></span>
+        <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="remove_guest"><input type="hidden" name="player_id" value="<?= (int) $g['id'] ?>">
+          <button class="icon-btn" title="Togli l'ospite" data-confirm="Togliere <?= h($g['name']) ?> dalla partita? Il suo accesso viene cancellato."><i class="ti ti-x"></i></button></form>
+      </div>
+    <?php endforeach; ?>
+    <details class="collapsible">
+      <summary><strong>Aggiungi un ospite</strong></summary>
+      <p class="muted small">Per chi gioca solo questa partita e non fa parte della lega. Riceve un utente e una password: vede la partita, in che squadra gioca e la formazione in campo (non le presenze), può dire se ci sarà, ma non vota e non scommette, e gli altri non possono votarlo né scommettere su di lui.
+        L'accesso sparisce <?= GUEST_KEEP_DAYS ?> giorni dopo la partita. Se scrivi la sua email e un giorno si iscrive davvero (e la conferma), questa partita gli comparirà tra quelle giocate.</p>
+      <form method="post" class="form form-grid">
+        <?= csrf_field() ?><input type="hidden" name="do" value="add_guest">
+        <label class="field span-2"><span>Nome e cognome</span><input name="name" required maxlength="80" autocomplete="off"></label>
+        <label class="field"><span>Posizione preferita</span><select name="position">
+          <?php foreach (main_positions() as $o): ?><option <?= $o === 'Centrocampista' ? 'selected' : '' ?>><?= h($o) ?></option><?php endforeach; ?></select></label>
+        <label class="field"><span>Seconda posizione</span><select name="position2">
+          <option value="">— nessuna —</option>
+          <?php foreach (positions() as $o): ?><option><?= h($o) ?></option><?php endforeach; ?></select></label>
+        <label class="field"><span>Piede</span><select name="foot">
+          <?php foreach (feet() as $o): ?><option><?= h($o) ?></option><?php endforeach; ?></select></label>
+        <label class="field"><span>Numero di maglia (facoltativo)</span><input type="number" name="shirt_number" min="0" max="99"></label>
+        <label class="field span-2"><span>Email (facoltativa)</span><input type="email" name="email" maxlength="190" autocomplete="off" placeholder="nome@esempio.it"></label>
+        <label class="field"><span>Username (se vuoto lo scelgo io)</span><input name="username" maxlength="50" autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+        <label class="field"><span>Password (se vuota la genero io)</span><input name="password" maxlength="72" autocomplete="off"></label>
+        <div class="span-2"><button class="btn btn-primary btn-sm"><i class="ti ti-user-plus"></i> Crea l'ospite</button></div>
+      </form>
+    </details>
+  </div>
+  <?php endif; ?>
 </section>
 <?php endif; ?>
 
@@ -465,7 +555,7 @@ if (!empty($_SESSION['vote_done'])):
             if ($r['own_goals']) $extra .= '<span class="ev ev-og">AG' . ($r['own_goals'] > 1 ? '×' . $r['own_goals'] : '') . '</span>';
             if ($showVotes && isset($avgs[$pid])) $extra .= '<span class="vote ' . vote_class($avgs[$pid]['avg']) . '">' . fmt_num($avgs[$pid]['avg']) . '</span>';
             if (!$votingOpen && $mvp === $pid) $extra .= '<span class="tag tag-mvp"><i class="ti ti-star-filled"></i> MVP</span>';
-            if (!$played) $extra .= '<span class="ovr" title="Overall">' . overall($stats[$pid]['ovr'] ?? 6) . '</span>';
+            if (!$played && !$r['is_guest']) $extra .= '<span class="ovr" title="Overall">' . overall($stats[$pid]['ovr'] ?? 6) . '</span>';
           ?>
             <div class="pline-row">
               <?= player_line($r, $extra) ?>
@@ -589,7 +679,7 @@ if (!empty($_SESSION['vote_done'])):
 <section class="card" id="voti">
   <div class="card-head">
     <h2>Voti <?= $votingOpen ? '<span class="tag tag-live">aperti</span>' : '<span class="tag">chiusi</span>' ?></h2>
-    <span class="muted small">Hanno votato <?= count($voters) ?>/<?= count($participants) ?></span>
+    <span class="muted small">Hanno votato <?= count($voters) ?>/<?= count($voteParticipants) ?></span>
   </div>
 
   <?php if ($votingOpen && $match['voting_ends_at']): ?>
@@ -603,7 +693,7 @@ if (!empty($_SESSION['vote_done'])):
     <form method="post" class="vote-form">
       <?= csrf_field() ?><input type="hidden" name="do" value="vote">
       <p class="muted">Dai un voto da 1 a 10 a ogni compagno e avversario, poi scegli l'MVP. <?= $myMvp ? '<strong>Hai già votato:</strong> puoi modificare.' : '' ?> <span class="small">Se non voti entro la chiusura, a tutti gli altri viene dato <?= default_vote_label() ?> d'ufficio.</span></p>
-      <?php foreach ($participants as $r): $pid = (int) $r['player_id']; if ($pid === $me) continue;
+      <?php foreach ($voteParticipants as $r): $pid = (int) $r['player_id']; if ($pid === $me) continue;
         $val = $myVotes[$pid] ?? 6; ?>
         <div class="vote-row">
           <div class="vote-who"><?= avatar($r, 'sm') ?><span><?= h($r['name']) ?></span><span class="team-dot team-<?= strtolower($r['team']) ?>"></span></div>
@@ -618,14 +708,14 @@ if (!empty($_SESSION['vote_done'])):
     <p class="muted">Votano solo i giocatori che hanno partecipato. I risultati si vedono alla chiusura delle votazioni.</p>
   <?php endif; ?>
 
-  <?php $missing = array_filter($participants, fn($r) => !in_array((int) $r['player_id'], $voters, true)); ?>
+  <?php $missing = array_filter($voteParticipants, fn($r) => !in_array((int) $r['player_id'], $voters, true)); ?>
   <?php if ($missing && $votingOpen): ?><p class="small muted">Mancano: <?= h(implode(', ', array_column($missing, 'name'))) ?></p><?php endif; ?>
   <?php if ($missing && !$votingOpen): ?><p class="small muted"><i class="ti ti-info-circle"></i> Non hanno votato: <?= h(implode(', ', array_column($missing, 'name'))) ?> (a tutti gli altri è stato dato <?= default_vote_label() ?> d'ufficio).</p><?php endif; ?>
 
   <?php if ($showVotes): ?>
     <?php if ($votingOpen): ?><p class="small muted"><i class="ti ti-eye"></i> Anteprima visibile solo agli admin.</p><?php endif; ?>
     <?php
-    $rank = $participants;
+    $rank = $voteParticipants;
     usort($rank, fn($a, $b) => ($avgs[(int) $b['player_id']]['avg'] ?? 0) <=> ($avgs[(int) $a['player_id']]['avg'] ?? 0));
     ?>
     <div class="table-wrap"><table class="table">

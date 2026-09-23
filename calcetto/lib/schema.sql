@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS players (
   nick_key VARCHAR(16) NULL,                       -- nickname che porta adesso
   hat_key VARCHAR(16) NULL,                        -- copricapo che porta adesso
   border_key VARCHAR(16) NULL,                     -- bordo speciale che porta adesso
+  is_guest TINYINT(1) NOT NULL DEFAULT 0,          -- 1 = Ospite: gioca una partita sola, fuori da rosa e statistiche (lib/guests.php)
+  guest_email VARCHAR(190) NULL,                   -- email dell'Ospite: se poi si iscrive con questa, la partita passa al suo profilo
+  guest_match_id INT NULL,                         -- la partita a cui e' invitato
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -32,7 +35,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('admin','manager','player') NOT NULL DEFAULT 'player',   -- manager = crea e gestisce le partite dei suoi gruppi
+  role ENUM('admin','manager','player','ospite') NOT NULL DEFAULT 'player',   -- manager = crea e gestisce le partite dei suoi gruppi, ospite = vede solo la sua partita
   status ENUM('attivo','in_attesa') NOT NULL DEFAULT 'attivo',   -- in_attesa = iscrizione da approvare
   reg_name VARCHAR(80) NULL,                       -- dati inseriti all'iscrizione
   reg_json TEXT NULL,
@@ -207,6 +210,7 @@ CREATE TABLE IF NOT EXISTS curiosities (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO meta (k, v) VALUES ('push_last_run', '0');
+INSERT IGNORE INTO meta (k, v) VALUES ('guests_cleanup', '0');
 -- "resta collegato": codici a lunga scadenza (nel cookie c'è selettore:codice, qui solo l'impronta del codice)
 CREATE TABLE IF NOT EXISTS auth_tokens (
   id INT AUTO_INCREMENT PRIMARY KEY,

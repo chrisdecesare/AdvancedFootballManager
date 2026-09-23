@@ -11,15 +11,19 @@ function layout_start(string $title, string $active = ''): void
         'shop' => ['shop.php', 'Negozio', 'shopping-bag'],
         'curiosities' => ['curiosities.php', 'Curiosità', 'bulb'],
     ];
+    $guest = is_guest();
+    if ($guest) {
+        $nav = ['match' => ['match.php?id=' . (int) guest_match_id(), 'La partita', 'calendar-event']];   // vede solo la sua partita
+    }
     if (is_admin()) {
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
         $pending = pending_count();
     }
     // pulsante con la campanella: attiva/disattiva le notifiche (o porta alla scheda che le spiega)
-    $notifHref = ($u && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
+    $notifHref = ($u && !$guest && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
     // gettoni delle scommesse: sempre visibili accanto al profilo, non solo nella pagina Scommesse
-    $myId = my_player_id();
+    $myId = $guest ? null : my_player_id();   // un ospite non ha gettoni
     if ($u && $myId) {
         $dole = wallet_open($myId);
         if ($dole) {
@@ -76,14 +80,14 @@ function layout_start(string $title, string $active = ''): void
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="nav-extra" data-push-bell><i class="ti ti-bell"></i><span class="nav-label">Notifiche</span></a><?php endif; ?>
-        <a href="index.php?tour=1" class="nav-extra"><i class="ti ti-help"></i><span class="nav-label">Rivedi il tutorial</span></a>
+        <?php if (!$guest): ?><a href="index.php?tour=1" class="nav-extra"><i class="ti ti-help"></i><span class="nav-label">Rivedi il tutorial</span></a><?php endif; ?>
         <a href="logout.php" class="nav-extra"><i class="ti ti-logout"></i><span class="nav-label">Esci</span></a>
       <?php endif; ?>
     </nav>
     <?php else: ?><div class="nav"></div><?php endif; ?>
     <div class="userbox">
       <?php if ($u): ?>
-        <a href="profile.php" class="me <?= $active === 'profile' ? 'active' : '' ?>">
+        <a href="<?= $guest ? 'account.php' : 'profile.php' ?>" class="me <?= $active === 'profile' ? 'active' : '' ?>">
           <?= avatar(['name' => $u['player_name'] ?: $u['username'], 'photo' => $u['photo']], 'xs') ?>
           <span><?= h($u['player_name'] ?: $u['username']) ?></span>
           <?php if ($u['role'] !== 'player'): ?><span class="tag tag-admin"><?= h(strtolower(role_label($u['role']))) ?></span><?php endif; ?>
@@ -91,7 +95,7 @@ function layout_start(string $title, string $active = ''): void
         <?php if ($coins !== null): ?><a href="shop.php" class="coin-pill" title="I tuoi gettoni: si spendono nel Negozio"><i class="ti ti-coin"></i> <?= $coins ?></a><?php endif; ?>
         <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a><?php endif; ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="btn btn-ghost btn-sm" data-push-bell title="Notifiche" aria-label="Notifiche"><i class="ti ti-bell"></i></a><?php endif; ?>
-        <a href="index.php?tour=1" class="btn btn-ghost btn-sm" title="Rivedi il tutorial" aria-label="Rivedi il tutorial"><i class="ti ti-help"></i></a>
+        <?php if (!$guest): ?><a href="index.php?tour=1" class="btn btn-ghost btn-sm" title="Rivedi il tutorial" aria-label="Rivedi il tutorial"><i class="ti ti-help"></i></a><?php endif; ?>
         <a href="logout.php" class="btn btn-ghost btn-sm" title="Esci"><i class="ti ti-logout"></i></a>
       <?php else: ?>
         <a href="login.php" class="btn btn-primary btn-sm">Accedi</a>
@@ -104,7 +108,7 @@ function layout_start(string $title, string $active = ''): void
   <div class="flash flash-err"><i class="ti ti-database-exclamation"></i> L'ultimo aggiornamento del database non è andato a buon fine (schema v<?= (int) meta_get('schema') ?>, serve v<?= SCHEMA_VERSION ?>): qualche funzione nuova potrebbe non funzionare.
     <?php if ($schemaErr = meta_get('schema_error')): ?><br><small>Errore: <code><?= h($schemaErr) ?></code></small><?php endif; ?></div>
 <?php endif; ?>
-<?php if ($u && !is_admin() && !allowed_group_ids()): ?>
+<?php if ($u && !$guest && !is_admin() && !allowed_group_ids()): ?>
   <div class="flash flash-err"><i class="ti ti-users-group"></i> Non fai ancora parte di nessun gruppo: chiedi all'admin di assegnarti al tuo, poi vedrai giocatori e partite.</div>
 <?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
@@ -153,12 +157,17 @@ function availability_buttons(array $match, ?string $myStatus, string $back): st
 function player_line(array $p, string $extra = ''): string
 {
     $num = $p['shirt_number'] !== null && $p['shirt_number'] !== '' ? '<span class="num">' . (int) $p['shirt_number'] . '</span>' : '';
-    return '<a class="pline" href="player.php?id=' . (int) ($p['player_id'] ?? $p['id']) . '">' .
+    if (!empty($p['is_guest'])) {
+        $extra = '<span class="tag" title="Gioca solo questa partita">Ospite</span>' . $extra;
+    }
+    $open = empty($p['is_guest']) ? '<a class="pline" href="player.php?id=' . (int) ($p['player_id'] ?? $p['id']) . '">' : '<span class="pline">';
+    $close = empty($p['is_guest']) ? '</a>' : '</span>';
+    return $open .
         avatar($p, 'sm') . '<span class="pline-name">' . h($p['name']) . '</span>' . $num .
         '<span class="pos pos-' . strtolower(position_abbr($p['position'] ?? 'Jolly')) . '" title="Posizione preferita">' .
         position_abbr($p['position'] ?? 'Jolly') . '</span>' .
         (!empty($p['position2']) ? '<span class="pos pos-' . strtolower(position_abbr($p['position2'])) . '" title="Seconda scelta">' .
-            position_abbr($p['position2']) . '</span>' : '') . $extra . '</a>';
+            position_abbr($p['position2']) . '</span>' : '') . $extra . $close;
 }
 
 /**

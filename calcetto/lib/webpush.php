@@ -299,8 +299,15 @@ function webpush_post_streams(array $jobs): array
     foreach ($jobs as $j) {
         $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => implode("\r\n", $j['headers']),
             'content' => $j['body'], 'timeout' => 10, 'ignore_errors' => true, 'follow_location' => 0]]);
-        $res = @file_get_contents($j['url'], false, $ctx);
-        $code = isset($http_response_header[0]) && preg_match('#\s(\d{3})\s#', $http_response_header[0], $m) ? (int) $m[1] : 0;
+        @file_get_contents($j['url'], false, $ctx);
+        // le intestazioni della risposta: da PHP 8.5 si leggono con la funzione (la variabile magica e' deprecata),
+        // prima esisteva solo la variabile, che il motore riempie soltanto se il codice la nomina qui dentro
+        if (function_exists('http_get_last_response_headers')) {
+            $head = http_get_last_response_headers() ?? [];
+        } else {
+            $head = $http_response_header ?? [];
+        }
+        $code = isset($head[0]) && preg_match('#\s(\d{3})\s#', $head[0], $m) ? (int) $m[1] : 0;
         $out[$j['id']] = ['code' => $code, 'error' => $code === 0 ? (($e = error_get_last()) ? $e['message'] : 'nessuna risposta') : null];
     }
     return $out;
@@ -706,7 +713,7 @@ function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): 
         if (!$m || $m['status'] !== 'giocata') {
             return;
         }
-        $users = push_match_recipients($matchId, 'mp.team IS NOT NULL', $exceptUser);
+        $users = push_match_recipients($matchId, 'mp.team IS NOT NULL AND NOT EXISTS (SELECT 1 FROM players g WHERE g.id = mp.player_id AND g.is_guest = 1)', $exceptUser);   // gli ospiti non votano
         if ($open) {
             $msg = ['title' => 'Votazioni aperte',
                 'body' => team_name('A', $m) . ' ' . (int) $m['score_a'] . '–' . (int) $m['score_b'] . ' ' . team_name('B', $m)

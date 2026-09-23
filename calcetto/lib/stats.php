@@ -74,7 +74,7 @@ function reset_match_responses(int $match_id): void
 
 function match_roster(int $match_id): array
 {
-    return q('SELECT mp.*, p.name, p.photo, p.shirt_number, p.position, p.position2, p.foot
+    return q('SELECT mp.*, p.name, p.photo, p.shirt_number, p.position, p.position2, p.foot, p.is_guest
               FROM match_players mp JOIN players p ON p.id = mp.player_id
               WHERE mp.match_id = ? ORDER BY p.name', [$match_id])->fetchAll();
 }
@@ -150,7 +150,7 @@ function default_vote_label(): string
 function apply_default_votes(int $matchId): array
 {
     $played = q('SELECT mp.player_id, p.name FROM match_players mp JOIN players p ON p.id = mp.player_id
-                 WHERE mp.match_id = ? AND mp.team IS NOT NULL ORDER BY p.name', [$matchId])->fetchAll();
+                 WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0 ORDER BY p.name', [$matchId])->fetchAll();   // gli ospiti non votano e non si votano
     $voted = array_map('intval', q('SELECT voter_id FROM mvp_votes WHERE match_id = ?', [$matchId])->fetchAll(PDO::FETCH_COLUMN));
     $names = [];
     db()->beginTransaction();
@@ -403,7 +403,7 @@ function standings(string $sort = 'points'): array
 function match_highlights(array $m): array
 {
     $mid = (int) $m['id'];
-    $roster = array_values(array_filter(match_roster($mid), fn($r) => $r['team']));
+    $roster = array_values(array_filter(match_roster($mid), fn($r) => $r['team'] && !$r['is_guest']));   // gli ospiti restano fuori dai riepiloghi
     if (!$roster) {
         return [];
     }

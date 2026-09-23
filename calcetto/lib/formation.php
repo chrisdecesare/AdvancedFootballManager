@@ -276,7 +276,7 @@ function short_names(array $rows): array
  * Campo verde con le pedine. La squadra A difende in basso, la B in alto.
  * Se $editable, l'admin tocca due pedine per scambiarle e sceglie il modulo.
  */
-function render_pitch(array $match, array $roster, bool $editable = false): string
+function render_pitch(array $match, array $roster, bool $editable = false, bool $links = true): string
 {
     $teams = ['A' => [], 'B' => []];
     foreach ($roster as $r) {
@@ -341,6 +341,9 @@ function render_pitch(array $match, array $roster, bool $editable = false): stri
             if ($editable) {
                 $h .= '<button type="button" class="token team-' . strtolower($t) . '" style="' . $style . '" data-swap="' . $pid .
                     '" title="' . h($title) . '">' . $inner . '</button>';
+            } elseif (!$links || !empty($r['is_guest'])) {
+                // niente link: un ospite non ha una scheda da aprire, e chi guarda da ospite non puo' aprire le schede degli altri
+                $h .= '<span class="token team-' . strtolower($t) . '" style="' . $style . '" title="' . h($title . (!empty($r['is_guest']) ? ' · ospite' : '')) . '">' . $inner . '</span>';
             } else {
                 $h .= '<a class="token team-' . strtolower($t) . '" style="' . $style . '" href="player.php?id=' . $pid .
                     '" title="' . h($title) . '">' . $inner . '</a>';

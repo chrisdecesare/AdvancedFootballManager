@@ -26,6 +26,7 @@ if ($tok && is_post()) {
         if ($old && $old !== $tok['email']) {
             notify_email_changed($old, (int) $tok['user_id'], $tok['email']);
         }
+        guests_merge_for_user((int) $tok['user_id']);   // se aveva giocato da ospite con questa email, la partita gli compare tra quelle giocate
         $done = true;
     }
 }

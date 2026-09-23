@@ -15,7 +15,7 @@ if (is_post()) {
 }
 
 // quote dovute: partite con quota > 0 in cui il giocatore era in squadra
-$rows = q("SELECT p.id, p.name, p.photo, m.id AS match_id, m.match_date, m.fee, mp.paid
+$rows = q("SELECT p.id, p.name, p.photo, p.is_guest, m.id AS match_id, m.match_date, m.fee, mp.paid
            FROM match_players mp
            JOIN matches m ON m.id = mp.match_id
            JOIN players p ON p.id = mp.player_id
@@ -55,7 +55,11 @@ layout_start('Pagamenti', 'payments');
 <?php foreach ($byPlayer as $pid => $b): $owed = $b['due'] - $b['paid']; ?>
   <section class="card pay-card" id="p<?= $pid ?>">
     <div class="card-head">
-      <a class="tname" href="player.php?id=<?= $pid ?>"><?= avatar($b['player'], 'sm') ?> <strong><?= h($b['player']['name']) ?></strong></a>
+      <?php if ($b['player']['is_guest']): // un ospite non ha una scheda da aprire ?>
+        <span class="tname"><?= avatar($b['player'], 'sm') ?> <strong><?= h($b['player']['name']) ?></strong> <span class="tag">Ospite</span></span>
+      <?php else: ?>
+        <a class="tname" href="player.php?id=<?= $pid ?>"><?= avatar($b['player'], 'sm') ?> <strong><?= h($b['player']['name']) ?></strong></a>
+      <?php endif; ?>
       <div class="pay-sum">
         <?php if ($owed > 0): ?>
           <span class="owed">deve <?= fmt_money($owed) ?></span>

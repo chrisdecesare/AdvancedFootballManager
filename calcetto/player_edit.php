@@ -13,7 +13,7 @@ $p = $isNew ? [
     'base_rating' => '6.0', 'active' => 1, 'adj_apps' => 0, 'adj_wins' => 0, 'adj_draws' => 0, 'adj_losses' => 0,
     'adj_goals' => 0, 'adj_assists' => 0, 'adj_own_goals' => 0, 'adj_mvp' => 0,
 ] : get_player($id);
-if (!$p) {
+if (!$p || !empty($p['is_guest'])) {   // un ospite non ha una scheda da modificare: si gestisce dalla sua partita
     redirect('players.php');
 }
 [$p['position'], $p['position2']] = normalize_positions($p['position'] ?? null, $p['position2'] ?? null);

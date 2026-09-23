@@ -7,7 +7,7 @@ function current_user(): ?array
     }
     $u = null;
     if (!empty($_SESSION['uid'])) {
-        $u = q('SELECT u.id, u.username, u.role, u.player_id, u.tour_done, u.email, u.pending_email, u.session_version, p.name AS player_name, p.photo
+        $u = q('SELECT u.id, u.username, u.role, u.player_id, u.tour_done, u.email, u.pending_email, u.session_version, p.name AS player_name, p.photo, p.guest_match_id
                 FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.id = ? AND u.status = \'attivo\'',
             [$_SESSION['uid']])->fetch() ?: null;
         if ($u && !isset($_SESSION['sv'])) {
@@ -49,7 +49,7 @@ function clean_role($role): string
 
 function role_label(string $role): string
 {
-    return ['admin' => 'Admin', 'manager' => 'Manager'][$role] ?? 'Giocatore';
+    return ['admin' => 'Admin', 'manager' => 'Manager', 'ospite' => 'Ospite'][$role] ?? 'Giocatore';
 }
 
 function my_player_id(): ?int
@@ -63,6 +63,7 @@ function require_login(): void
     if (!current_user()) {
         redirect('login.php?next=' . urlencode($_SERVER['REQUEST_URI'] ?? 'index.php'));
     }
+    guest_gate();   // un ospite vede solo la sua partita
 }
 
 function require_admin(): void
@@ -95,6 +96,7 @@ function require_view(): void
     if (!PUBLIC_READ) {
         require_login();
     }
+    guest_gate();
 }
 
 const PASSWORD_MIN = 8;

@@ -83,7 +83,7 @@ $devices = (int) q('SELECT COUNT(*) FROM auth_tokens WHERE user_id = ? AND expir
 layout_start('Sicurezza', 'profile');
 ?>
 <div class="narrow">
-  <?php if (my_player_id()): ?><a class="back" href="player_edit.php?id=<?= (int) my_player_id() ?>"><i class="ti ti-arrow-left"></i> Modifica profilo</a><?php endif; ?>
+  <?php if (my_player_id() && !is_guest()): ?><a class="back" href="player_edit.php?id=<?= (int) my_player_id() ?>"><i class="ti ti-arrow-left"></i> Modifica profilo</a><?php endif; ?>
   <div class="page-head"><h1>Sicurezza dell'account</h1></div>
   <p class="muted">Account <strong><?= h($acc['username']) ?></strong></p>
 

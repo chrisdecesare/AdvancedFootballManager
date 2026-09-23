@@ -177,6 +177,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
     sync_match_players($id);
     $roster = array_values(array_filter(match_roster($id), fn($r) => $r['availability'] !== 'assente'));
     $mu = bet_goals_per_team((int) $match['group_id']);
+    $betRoster = array_values(array_filter($roster, fn($r) => !$r['is_guest']));   // gol e MVP: gli ospiti non sono in lista
 
     // gol attesi delle due squadre dal rating medio
     $sum = ['A' => 0.0, 'B' => 0.0];
@@ -201,7 +202,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
     // gol e MVP
     $rows = [];
     $den = 0.0;
-    foreach ($roster as $r) {
+    foreach ($betRoster as $r) {
         $pid = (int) $r['player_id'];
         $s = $stats[$pid] ?? ['apps' => 0, 'goals' => 0, 'mvp' => 0, 'avg_vote' => null, 'last5' => [], 'goals_last5' => 0, 'avg_vote_last5' => null, 'form' => 'none'];
         $here = $r['availability'] === 'confermato' ? 1.0 : 0.7;
@@ -300,7 +301,7 @@ function bets_open_for(array $match): bool
 function bet_candidates(int $matchId): array
 {
     sync_match_players($matchId);
-    return array_values(array_filter(match_roster($matchId), fn($r) => $r['availability'] !== 'assente'));
+    return array_values(array_filter(match_roster($matchId), fn($r) => $r['availability'] !== 'assente' && !$r['is_guest']));
 }
 
 /** Puntate di una partita e mercato, con chi le ha fatte. */
@@ -337,6 +338,9 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
 {
     if (!isset(bet_markets()[$market])) {
         return 'Mercato non valido.';
+    }
+    if (q('SELECT is_guest FROM players WHERE id = ?', [$playerId])->fetchColumn()) {
+        return 'Gli ospiti non possono scommettere.';
     }
     if (!bets_open_for($match)) {
         return 'Le scommesse su questa partita sono chiuse: il calcio d\'inizio è passato.';
@@ -584,6 +588,9 @@ function combo_odds(array $legs): float
 /** Fa una multipla. Ritorna il messaggio d'errore oppure null se è andata. */
 function combo_place(int $playerId, array $legs, int $stake): ?string
 {
+    if (q('SELECT is_guest FROM players WHERE id = ?', [$playerId])->fetchColumn()) {
+        return 'Gli ospiti non possono scommettere.';
+    }
     if ($stake < 1) {
         return 'Punta almeno 1 gettone.';
     }
