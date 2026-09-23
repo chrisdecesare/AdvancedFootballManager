@@ -358,23 +358,31 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     if ($odds === null) {
         return 'Su questa scelta non ci sono quote.';
     }
-    return bet_atomic(function () use ($match, $playerId, $market, $pick, $stake, $odds) {
-        q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due puntate insieme non possono spendere due volte gli stessi gettoni
-        // si può avere una puntata aperta per scelta: su "chi segna" o "chi è MVP" si punta su più giocatori insieme, ognuno la sua;
-        // ripuntare sulla STESSA scelta la sostituisce (cambia importo/quota) invece di sommarsi.
-        $old = q("SELECT id, stake FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
-            [$match['id'], $playerId, $market, $pick])->fetch();
-        $available = wallet_balance($playerId) + ($old ? (int) $old['stake'] : 0);
-        if ($stake > $available) {
-            return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
+    try {
+        return bet_atomic(function () use ($match, $playerId, $market, $pick, $stake, $odds) {
+            q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due puntate insieme non possono spendere due volte gli stessi gettoni
+            // si può avere una puntata aperta per scelta: su "chi segna" o "chi è MVP" si punta su più giocatori insieme, ognuno la sua;
+            // ripuntare sulla STESSA scelta la sostituisce (cambia importo/quota) invece di sommarsi.
+            $old = q("SELECT id, stake FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
+                [$match['id'], $playerId, $market, $pick])->fetch();
+            $available = wallet_balance($playerId) + ($old ? (int) $old['stake'] : 0);
+            if ($stake > $available) {
+                return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
+            }
+            if ($old) {
+                q('DELETE FROM bets WHERE id = ?', [$old['id']]);   // le sue mosse spariscono con lei (rimborso)
+            }
+            q('INSERT INTO bets (match_id, player_id, market, pick, stake, odds) VALUES (?, ?, ?, ?, ?, ?)', [$match['id'], $playerId, $market, $pick, $stake, $odds]);
+            q("INSERT INTO wallet_moves (player_id, bet_id, delta, kind) VALUES (?, ?, ?, 'puntata')", [$playerId, db()->lastInsertId(), -$stake]);
+            return null;
+        });
+    } catch (PDOException $e) {
+        error_log('bet_place: ' . $e->getMessage());
+        if ($e->getCode() === '23000') {   // vincolo del database non ancora aggiornato: capita se la migrazione dello schema non è andata a buon fine
+            return 'Il sito non è ancora del tutto aggiornato per puntare su più scelte dello stesso mercato: avvisa l\'admin.';
         }
-        if ($old) {
-            q('DELETE FROM bets WHERE id = ?', [$old['id']]);   // le sue mosse spariscono con lei (rimborso)
-        }
-        q('INSERT INTO bets (match_id, player_id, market, pick, stake, odds) VALUES (?, ?, ?, ?, ?, ?)', [$match['id'], $playerId, $market, $pick, $stake, $odds]);
-        q("INSERT INTO wallet_moves (player_id, bet_id, delta, kind) VALUES (?, ?, ?, 'puntata')", [$playerId, db()->lastInsertId(), -$stake]);
-        return null;
-    });
+        return 'La puntata non è andata a buon fine: riprova (se continua, avvisa l\'admin).';
+    }
 }
 
 /** Ritira una puntata (una precisa scelta di un mercato) prima del fischio d'inizio (i gettoni tornano). Ritorna il messaggio d'errore oppure null. */
@@ -571,21 +579,29 @@ function combo_place(int $playerId, array $legs, int $stake): ?string
         return 'Punta almeno 1 gettone.';
     }
     $odds = combo_odds($legs);
-    return bet_atomic(function () use ($playerId, $legs, $stake, $odds) {
-        q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);
-        $available = wallet_balance($playerId);
-        if ($stake > $available) {
-            return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
+    try {
+        return bet_atomic(function () use ($playerId, $legs, $stake, $odds) {
+            q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);
+            $available = wallet_balance($playerId);
+            if ($stake > $available) {
+                return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
+            }
+            q('INSERT INTO combo_bets (player_id, stake, odds) VALUES (?, ?, ?)', [$playerId, $stake, $odds]);
+            $comboId = (int) db()->lastInsertId();
+            foreach ($legs as $l) {
+                q('INSERT INTO combo_legs (combo_id, match_id, market, pick, odds) VALUES (?, ?, ?, ?, ?)',
+                    [$comboId, $l['match_id'], $l['market'], $l['pick'], $l['odds']]);
+            }
+            q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'puntata')", [$playerId, $comboId, -$stake]);
+            return null;
+        });
+    } catch (PDOException $e) {
+        error_log('combo_place: ' . $e->getMessage());
+        if ($e->getCode() === '23000') {
+            return 'Il sito non è ancora del tutto aggiornato per le multiple con più scelte dello stesso mercato: avvisa l\'admin.';
         }
-        q('INSERT INTO combo_bets (player_id, stake, odds) VALUES (?, ?, ?)', [$playerId, $stake, $odds]);
-        $comboId = (int) db()->lastInsertId();
-        foreach ($legs as $l) {
-            q('INSERT INTO combo_legs (combo_id, match_id, market, pick, odds) VALUES (?, ?, ?, ?, ?)',
-                [$comboId, $l['match_id'], $l['market'], $l['pick'], $l['odds']]);
-        }
-        q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'puntata')", [$playerId, $comboId, -$stake]);
-        return null;
-    });
+        return 'La multipla non è andata a buon fine: riprova (se continua, avvisa l\'admin).';
+    }
 }
 
 /** Ritira una multipla, se nessuna delle sue partite è ancora iniziata (i gettoni tornano). */
