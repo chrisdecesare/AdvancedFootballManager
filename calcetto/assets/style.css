@@ -150,7 +150,7 @@ img { max-width: 100%; }
 /* ---------- layout ---------- */
 .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
 /* con la schedina aperta (in basso, position: fixed) si lascia spazio perché non copra l'ultimo pezzo di pagina */
-body:has(.combo-cart:not([hidden])) .wrap { padding-bottom: 220px; }
+body:has(.betslip:not([hidden])) .wrap { padding-bottom: 260px; }
 .narrow { max-width: 440px; margin: 30px auto; }
 .narrow-lg { max-width: 760px; margin: 0 auto; }
 .footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
@@ -848,39 +848,46 @@ a.fact-who:hover { color: var(--grass-d); }
 .bet-market { border: var(--b2); border-radius: 14px; padding: 12px; background: var(--paper); display: grid; gap: 8px; align-content: start; }
 .bet-market h3 { margin: 0; font-size: 1.05rem; }
 .bet-market p { margin: 0; }
-.pool-label { margin: -4px 0 0; }
-.pool { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.pool-tot { font-weight: 900; }
-.pool-opt { background: var(--white); border: var(--b2); border-radius: 999px; padding: 0 9px; font-size: .82rem; font-weight: 800; }
 
-/* ---------- multiple (combo) ---------- */
+/* le quote si cliccano direttamente (come nelle app di scommesse vere): il tap aggiunge/toglie la scelta dalla schedina */
+.quota-picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.quota-btn { background: var(--white); border: var(--b2); border-radius: 999px; padding: 4px 11px; font-size: .82rem; font-weight: 800;
+  cursor: pointer; transition: transform .08s, box-shadow .08s; }
+.quota-btn:hover { box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px, -1px); }
+.quota-btn b { color: var(--grass-d); }
+.quota-btn.is-picked { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
+.quota-btn.is-picked b { color: var(--yellow); }
+.quota-btn.is-mine { border-color: var(--grass-d); border-width: 2px; }
+.bet-mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+@media (max-width: 640px) { .bet-col-title { display: none; } }
+
+/* ---------- multiple (combo) e schedina ---------- */
 .combo-card { display: grid; gap: 10px; }
 .combo-legs-view { display: flex; flex-wrap: wrap; gap: 6px; }
 .combo-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; font-weight: 800; }
-.combo-cart { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--white); border-top: var(--b);
+
+.betslip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--white); border-top: var(--b);
   box-shadow: 0 -4px 0 rgba(31, 26, 46, .08); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-  display: flex; flex-direction: column; gap: 8px; max-height: 62vh; }
-.combo-cart[hidden] { display: none; }
-.combo-cart-head { display: flex; align-items: center; gap: 6px; }
-.combo-cart-legs { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
-.combo-leg { background: var(--paper-2); border: var(--b2); border-radius: 12px; padding: 6px 6px 6px 12px; font-size: .82rem; font-weight: 800;
+  display: flex; flex-direction: column; gap: 8px; max-height: 68vh; }
+.betslip[hidden] { display: none; }
+.betslip-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.slip-tabs { display: flex; gap: 6px; }
+.slip-tab { background: var(--paper-2); border: var(--b2); border-radius: 999px; padding: 3px 13px; font: 700 .85rem var(--font); cursor: pointer; }
+.slip-tab.active { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
+.slip-tab:disabled { opacity: .45; cursor: not-allowed; }
+.betslip-legs { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.slip-leg { background: var(--paper-2); border: var(--b2); border-radius: 12px; padding: 6px 6px 6px 12px; font-size: .82rem; font-weight: 800;
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.combo-leg-txt { flex: 1 1 180px; }
-.combo-leg-single { display: flex; align-items: center; gap: 6px; }
-.combo-leg-single input[type=number] { width: 64px; }
-.combo-leg-rm { background: none; border: 0; cursor: pointer; color: var(--muted); font: 900 1.2rem var(--font); line-height: 1; padding: 0 4px; }
-.combo-leg-rm:hover { color: var(--red); }
-.combo-cart-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: var(--b2); padding-top: 8px; }
-.combo-cart-odds b { color: var(--grass-d); }
-.combo-cart input[type=number] { width: 84px; }
-@media (max-width: 640px) { .combo-cart { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); max-height: 70vh; }
-  .combo-leg-txt { flex-basis: 100%; } }
-.pool-opt b { color: var(--grass-d); }
-.bet-form { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto; gap: 8px; align-items: center; }
-.bet-win { grid-column: 1 / -1; font-weight: 900; color: var(--grass-d); min-height: 1.2em; }
-.bet-form select, .bet-form input { min-width: 0; }
-.bet-mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-@media (max-width: 640px) { .bet-col-title { display: none; } }
+.slip-leg-txt { flex: 1 1 180px; }
+.slip-leg-stake { width: 64px; }
+.slip-leg-win { font-weight: 700; color: var(--grass-d); flex: none; }
+.slip-leg-rm { background: none; border: 0; cursor: pointer; color: var(--muted); font: 900 1.2rem var(--font); line-height: 1; padding: 0 4px; }
+.slip-leg-rm:hover { color: var(--red); }
+.betslip-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: var(--b2); padding-top: 8px; }
+.betslip-odds b { color: var(--grass-d); }
+.betslip input[type=number] { width: 84px; }
+@media (max-width: 640px) { .betslip { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); max-height: 74vh; }
+  .slip-leg-txt { flex-basis: 100%; } }
 
 /* campo: cliccabile, apre l'itinerario in Google Maps */
 .hero-meta a.place-link { text-decoration: none; cursor: pointer; transition: transform .08s, box-shadow .08s; }
