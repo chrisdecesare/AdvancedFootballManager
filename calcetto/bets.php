@@ -98,7 +98,7 @@ if (is_post()) {
             flash('ok', "Puntati {$stake} gettoni su «{$label}». " . $jokes[array_rand($jokes)]);
         }
     } elseif ($do === 'cancel') {
-        $err = bet_cancel($match, $me, $market);
+        $err = bet_cancel($match, $me, $market, (string) ($_POST['pick'] ?? ''));
         flash($err ? 'err' : 'ok', $err ?: 'Puntata ritirata: i gettoni sono tornati nel portafoglio. Vigliacco.');
     }
     redirect($back);
@@ -114,10 +114,10 @@ $inPlay = $me ? wallet_in_play($me) : 0;
 $board = bet_leaderboard();
 
 $upcoming = q("SELECT * FROM matches WHERE status = 'programmata' AND " . scope_sql('group_id') . ' ORDER BY match_date ASC')->fetchAll();
-$mine = [];        // le mie puntate, per partita e mercato
+$mine = [];        // le mie puntate aperte, per partita e mercato: può essercene più di una (scelte diverse dello stesso mercato)
 if ($me) {
     foreach (q('SELECT * FROM bets WHERE player_id = ?', [$me])->fetchAll() as $b) {
-        $mine[(int) $b['match_id']][$b['market']] = $b;
+        $mine[(int) $b['match_id']][$b['market']][] = $b;
     }
 }
 // scommesse fatte su partite già giocate ma non ancora pagate (aspettano l'MVP) e ultime decise
@@ -152,7 +152,7 @@ layout_start('Scommesse', 'bets');
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Si punta fino al calcio d'inizio.
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Su «chi segna» e «MVP» puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
     I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
 </section>
@@ -191,28 +191,32 @@ layout_start('Scommesse', 'bets');
           }
       }
       $q = $quotes[$mk] ?? [];
-      $my = $mine[$mid][$mk] ?? null; ?>
+      $myList = $mine[$mid][$mk] ?? [];
+      $myPicks = array_column($myList, 'pick'); ?>
     <div class="bet-market">
       <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
       <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? '?') ?><?php endforeach; ?></p><?php endif; ?>
       <?php if ($canBet && $opts): ?>
-        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina:</p>
+        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= $mk !== 'esito' ? ' (anche più di una: es. due marcatori diversi)' : '' ?>:</p>
         <div class="quota-picks">
           <?php foreach ($opts as $val => $label): $qv = $q[$val] ?? 0;
-              $isMine = $my && (string) $my['pick'] === (string) $val; ?>
+              $isMine = in_array((string) $val, $myPicks, true); ?>
             <button type="button" class="quota-btn<?= $isMine ? ' is-mine' : '' ?>" data-slip-add
               data-match="<?= $mid ?>" data-market="<?= $mk ?>" data-pick="<?= h((string) $val) ?>" data-label="<?= h($label) ?>" data-odds="<?= h((string) $qv) ?>"
               data-match-label="<?= h(fmt_date_short($m['match_date'])) ?> · <?= h($info['label']) ?>"
               title="<?= $isMine ? 'Hai già puntato qui' : 'Aggiungi alla schedina' ?>"><?= h($label) ?> <b>×<?= fmt_num($qv, 2) ?></b></button>
           <?php endforeach; ?>
         </div>
-        <?php if ($my): ?>
-          <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>"><input type="hidden" name="market" value="<?= $mk ?>">
+      <?php endif; ?>
+      <?php if ($myList): ?>
+        <div class="bet-mine-list">
+        <?php foreach ($myList as $my): ?>
+          <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>">
+            <input type="hidden" name="market" value="<?= $mk ?>"><input type="hidden" name="pick" value="<?= h((string) $my['pick']) ?>">
             <span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span>
-            <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button></form>
-        <?php endif; ?>
-      <?php elseif ($my): ?>
-        <p><span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span></p>
+            <?php if ($canBet): ?><button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button><?php endif; ?></form>
+        <?php endforeach; ?>
+        </div>
       <?php endif; ?>
     </div>
   <?php endforeach; ?>
@@ -425,10 +429,10 @@ layout_start('Scommesse', 'bets');
   };
 
   document.querySelectorAll('[data-slip-add]').forEach(btn => btn.addEventListener('click', () => {
+    // si può puntare su più scelte dello stesso mercato (es. due marcatori diversi): si toglie solo ri-toccando la STESSA quota.
     const matchId = btn.dataset.match, market = btn.dataset.market, pick = btn.dataset.pick;
-    const already = cart.findIndex(l => l.matchId === matchId && l.market === market);
-    if (already !== -1 && cart[already].pick === pick) { cart.splice(already, 1); save(cart); render(); return; }   // ri-tocca la stessa: la toglie
-    if (already !== -1) cart.splice(already, 1);   // stessa partita/mercato, scelta diversa: la sostituisce
+    const already = cart.findIndex(l => l.matchId === matchId && l.market === market && l.pick === pick);
+    if (already !== -1) { cart.splice(already, 1); save(cart); render(); return; }
     cart.push({ matchId, market, pick, label: btn.dataset.label, odds: parseFloat(btn.dataset.odds) || 1, matchLabel: btn.dataset.matchLabel });
     save(cart); render();
   }));

@@ -360,8 +360,10 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     }
     return bet_atomic(function () use ($match, $playerId, $market, $pick, $stake, $odds) {
         q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due puntate insieme non possono spendere due volte gli stessi gettoni
-        $old = q("SELECT id, stake FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND status = 'aperta'",
-            [$match['id'], $playerId, $market])->fetch();
+        // si può avere una puntata aperta per scelta: su "chi segna" o "chi è MVP" si punta su più giocatori insieme, ognuno la sua;
+        // ripuntare sulla STESSA scelta la sostituisce (cambia importo/quota) invece di sommarsi.
+        $old = q("SELECT id, stake FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
+            [$match['id'], $playerId, $market, $pick])->fetch();
         $available = wallet_balance($playerId) + ($old ? (int) $old['stake'] : 0);
         if ($stake > $available) {
             return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
@@ -375,13 +377,14 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     });
 }
 
-/** Ritira una puntata prima del fischio d'inizio (i gettoni tornano). Ritorna il messaggio d'errore oppure null. */
-function bet_cancel(array $match, int $playerId, string $market): ?string
+/** Ritira una puntata (una precisa scelta di un mercato) prima del fischio d'inizio (i gettoni tornano). Ritorna il messaggio d'errore oppure null. */
+function bet_cancel(array $match, int $playerId, string $market, string $pick): ?string
 {
     if (!bets_open_for($match)) {
         return 'Ormai è tardi: le scommesse sono chiuse.';
     }
-    q("DELETE FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND status = 'aperta'", [$match['id'], $playerId, $market]);
+    q("DELETE FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
+        [$match['id'], $playerId, $market, $pick]);
     return null;
 }
 
@@ -522,9 +525,11 @@ function combo_prepare(array $raw, int $playerId): array
         if (!bets_open_for($match)) {
             return [null, 'Una delle partite scelte è già chiusa: rifai la multipla.'];
         }
-        $dup = $matchId . '|' . $market;
+        // stessa scelta due volte non ha senso (raddoppierebbe l'esposizione sulla stessa gamba); scelte diverse dello
+        // stesso mercato della stessa partita invece sì (es. due marcatori diversi nella stessa multipla).
+        $dup = $matchId . '|' . $market . '|' . $pick;
         if (isset($seen[$dup])) {
-            return [null, 'Non puoi mettere due volte lo stesso mercato della stessa partita nella multipla.'];
+            return [null, 'Hai messo due volte la stessa selezione nella multipla.'];
         }
         $seen[$dup] = true;
         if ($market === 'esito') {

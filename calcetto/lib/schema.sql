@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS bets (
   payout INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   settled_at DATETIME NULL,
-  UNIQUE KEY uq_bet (match_id, player_id, market),
+  UNIQUE KEY uq_bet_pick (match_id, player_id, market, pick),   -- una per scelta: si può puntare su più giocatori dello stesso mercato
   INDEX (player_id),
   FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS combo_legs (
   pick VARCHAR(12) NOT NULL,
   odds DECIMAL(6,2) NOT NULL,
   status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
-  UNIQUE KEY uq_leg (combo_id, match_id, market),
+  UNIQUE KEY uq_leg_pick (combo_id, match_id, market, pick),
   INDEX (match_id, market),
   FOREIGN KEY (combo_id) REFERENCES combo_bets(id) ON DELETE CASCADE,
   FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
@@ -309,4 +309,4 @@ CREATE TABLE IF NOT EXISTS player_items (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '19');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '20');
