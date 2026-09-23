@@ -871,6 +871,8 @@ a.fact-who:hover { color: var(--grass-d); }
   box-shadow: 0 -4px 0 rgba(31, 26, 46, .08); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: 8px; max-height: 68vh; }
 .betslip[hidden] { display: none; }
+/* con il menu a panino (o il tutorial) aperto la schedina si toglie di mezzo: riappare uguale quando si chiude */
+html.menu-open .betslip, html.tour-open .betslip { display: none; }
 .betslip-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .slip-tabs { display: flex; gap: 6px; }
 .slip-tab { background: var(--paper-2); border: var(--b2); border-radius: 999px; padding: 3px 13px; font: 700 .85rem var(--font); cursor: pointer; }
