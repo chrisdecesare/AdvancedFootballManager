@@ -50,6 +50,7 @@ function ensure_schema(): void
     if ($v >= SCHEMA_VERSION) {
         return;
     }
+    try {
     $add = function (string $table, string $col, string $def) {
         if (!q("SHOW COLUMNS FROM `$table` LIKE '$col'")->fetch()) {
             db()->exec("ALTER TABLE `$table` ADD COLUMN $col $def");
@@ -331,6 +332,11 @@ function ensure_schema(): void
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
+    } catch (Throwable $e) {
+        // una migrazione non è andata a buon fine (es. un lock, un permesso mancante): il sito continua a funzionare
+        // con lo schema attuale invece di rompersi su ogni pagina; si riprova al prossimo caricamento.
+        error_log('ensure_schema: ' . $e->getMessage());
+    }
 }
 
 function meta_get(string $k): ?string
