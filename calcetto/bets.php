@@ -11,6 +11,45 @@ if (is_post()) {
     require_login();
     $do = $_POST['do'] ?? '';
 
+    if ($do === 'bet_multi') {
+        if (!$me) {
+            flash('err', 'Il tuo account non è collegato a un giocatore: chiedi all\'admin, altrimenti niente scommesse.');
+        } else {
+            wallet_open($me);
+            $legsRaw = is_array($_POST['legs'] ?? null) ? $_POST['legs'] : [];
+            $stakesRaw = is_array($_POST['stakes'] ?? null) ? $_POST['stakes'] : [];
+            $ok = 0;
+            $total = 0;
+            $firstErr = null;
+            foreach ($legsRaw as $i => $r) {
+                [$matchId, $market, $pick] = array_pad(explode(':', (string) $r, 3), 3, null);
+                $m = ((int) $matchId) ? get_match((int) $matchId) : null;
+                $stake = max(0, (int) ($stakesRaw[$i] ?? 0));
+                if (!$m || !match_access($m)) {
+                    $firstErr ??= 'Una delle partite della schedina non è più valida.';
+                    continue;
+                }
+                if (!is_admin() && !player_in_group($me, (int) $m['group_id'])) {
+                    $firstErr ??= 'Puoi scommettere solo sulle partite del tuo gruppo.';
+                    continue;
+                }
+                $err = bet_place($m, $me, (string) $market, (string) $pick, $stake);
+                if ($err) {
+                    $firstErr ??= $err;
+                } else {
+                    $ok++;
+                    $total += $stake;
+                }
+            }
+            if ($ok) {
+                flash('ok', $ok . ($ok > 1 ? ' puntate singole piazzate' : ' puntata singola piazzata') . " ({$total} gettoni in tutto)."
+                    . ($firstErr ? ' Una non è andata a buon fine: ' . $firstErr : ''));
+            } else {
+                flash('err', $firstErr ?: 'Nessuna puntata piazzata.');
+            }
+        }
+        redirect('bets.php');
+    }
     if ($do === 'combo_bet') {
         if (!$me) {
             flash('err', 'Il tuo account non è collegato a un giocatore: chiedi all\'admin, altrimenti niente scommesse.');
@@ -114,7 +153,7 @@ layout_start('Scommesse', 'bets');
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
     (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Si punta fino al calcio d'inizio.
-    Con «Schedina» raccogli più scelte anche da partite diverse: da lì punti ognuna da sola e/o le combini in una multipla, dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
+    Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
     I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
 </section>
 
@@ -152,31 +191,21 @@ layout_start('Scommesse', 'bets');
           }
       }
       $q = $quotes[$mk] ?? [];
-      $fav = $q;
-      asort($fav);   // favoriti = quote più basse
       $my = $mine[$mid][$mk] ?? null; ?>
     <div class="bet-market">
       <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
-      <p class="pool-label muted small"><?= $mk === 'esito' ? 'Quote' : 'Quote dei favoriti (i più probabili: quota più bassa = più probabile)' ?></p>
-      <div class="pool">
-        <?php foreach (array_slice($fav, 0, $mk === 'esito' ? 3 : 4, true) as $pick => $odd): ?>
-          <span class="pool-opt"><?= h($opts[$pick] ?? '?') ?> <b>×<?= fmt_num($odd, 2) ?></b></span>
-        <?php endforeach; ?>
-      </div>
       <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? '?') ?><?php endforeach; ?></p><?php endif; ?>
       <?php if ($canBet && $opts): ?>
-        <form method="post" class="bet-form">
-          <?= csrf_field() ?><input type="hidden" name="do" value="bet"><input type="hidden" name="match_id" value="<?= $mid ?>"><input type="hidden" name="market" value="<?= $mk ?>">
-          <select name="pick" required aria-label="Su chi punti">
-            <option value="">Scegli…</option>
-            <?php foreach ($opts as $val => $label): ?><option value="<?= h((string) $val) ?>" data-label="<?= h($label) ?>" data-odds="<?= h((string) ($q[$val] ?? 0)) ?>" <?= $my && (string) $my['pick'] === (string) $val ? 'selected' : '' ?>><?= h($label) ?> · ×<?= fmt_num($q[$val] ?? 0, 2) ?></option><?php endforeach; ?>
-          </select>
-          <input type="number" name="stake" min="1" max="<?= $balance + ($my ? (int) $my['stake'] : 0) ?>" inputmode="numeric" value="<?= $my ? (int) $my['stake'] : min(10, max(1, $balance)) ?>" required aria-label="Gettoni">
-          <button class="btn btn-primary btn-sm"><?= $my ? 'Cambia' : 'Punta' ?></button>
-          <button type="button" class="btn btn-ghost btn-sm" data-combo-add data-match="<?= $mid ?>" data-market="<?= $mk ?>"
-            data-match-label="<?= h(fmt_date_short($m['match_date'])) ?> · <?= h($info['label']) ?>" title="Aggiungi alla schedina: da lì puoi puntarla singola, o combinarla con altre in una multipla"><i class="ti ti-stack-2"></i> Schedina</button>
-          <span class="bet-win small" data-bet-win></span>
-        </form>
+        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina:</p>
+        <div class="quota-picks">
+          <?php foreach ($opts as $val => $label): $qv = $q[$val] ?? 0;
+              $isMine = $my && (string) $my['pick'] === (string) $val; ?>
+            <button type="button" class="quota-btn<?= $isMine ? ' is-mine' : '' ?>" data-slip-add
+              data-match="<?= $mid ?>" data-market="<?= $mk ?>" data-pick="<?= h((string) $val) ?>" data-label="<?= h($label) ?>" data-odds="<?= h((string) $qv) ?>"
+              data-match-label="<?= h(fmt_date_short($m['match_date'])) ?> · <?= h($info['label']) ?>"
+              title="<?= $isMine ? 'Hai già puntato qui' : 'Aggiungi alla schedina' ?>"><?= h($label) ?> <b>×<?= fmt_num($qv, 2) ?></b></button>
+          <?php endforeach; ?>
+        </div>
         <?php if ($my): ?>
           <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>"><input type="hidden" name="market" value="<?= $mk ?>">
             <span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span>
@@ -220,7 +249,7 @@ layout_start('Scommesse', 'bets');
 <?php elseif ($tab === 'multiple'): ?>
 
 <h2 class="section-title">Le tue multiple aperte</h2>
-<p class="muted small">Costruiscile dalla scheda <a class="link" href="bets.php">Partite</a>: premi «Schedina» sotto ogni scelta per aggiungerla alla schedina in basso, poi combinane almeno due in una multipla (o punta ognuna da sola direttamente da lì).</p>
+<p class="muted small">Costruiscile dalla scheda <a class="link" href="bets.php">Partite</a>: tocca una quota per aggiungerla alla schedina in basso, poi nella scheda «Multipla» della schedina combinane almeno due in un'unica giocata.</p>
 <?php if (!$comboOpen): ?><p class="empty card">Nessuna multipla in corso.</p><?php else: ?>
 <div class="list">
   <?php foreach ($comboOpen as $c): ?>
@@ -281,101 +310,135 @@ layout_start('Scommesse', 'bets');
 
 <?php endif; ?>
 
-<div id="combo-cart" class="combo-cart" data-csrf="<?= h(csrf_token()) ?>" data-balance="<?= (int) $balance ?>" hidden>
-  <div class="combo-cart-head muted small"><i class="ti ti-stack-2"></i> La tua schedina: punta ogni scelta da sola, oppure combinale in una multipla qui sotto.</div>
-  <div class="combo-cart-legs" id="combo-cart-legs"></div>
-  <form method="post" class="combo-cart-actions" id="combo-multi-form">
+<div id="betslip" class="betslip" data-balance="<?= (int) $balance ?>" hidden>
+  <div class="betslip-head">
+    <span class="muted small"><i class="ti ti-stack-2"></i> Schedina (<span id="slip-count">0</span>)</span>
+    <div class="slip-tabs">
+      <button type="button" class="slip-tab active" data-slip-tab="singole">Singole</button>
+      <button type="button" class="slip-tab" data-slip-tab="multipla" id="slip-tab-multi" disabled title="Servono almeno 2 selezioni">Multipla</button>
+    </div>
+  </div>
+  <div class="betslip-legs" id="slip-legs"></div>
+
+  <form method="post" class="betslip-actions" id="slip-singles-form" data-slip-panel="singole">
+    <?= csrf_field() ?><input type="hidden" name="do" value="bet_multi">
+    <button type="submit" class="btn btn-primary btn-sm" id="slip-singles-submit" disabled>Punta le singole</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="slip-clear">Svuota schedina</button>
+  </form>
+
+  <form method="post" class="betslip-actions" id="slip-multi-form" data-slip-panel="multipla" hidden>
     <?= csrf_field() ?><input type="hidden" name="do" value="combo_bet">
-    <div id="combo-multi-legs"></div>
-    <span class="combo-cart-odds muted small">Multipla <b id="combo-cart-odds">×0</b></span>
-    <input type="number" name="stake" id="combo-cart-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="Gettoni sulla multipla">
-    <button type="submit" class="btn btn-primary btn-sm" id="combo-cart-submit" disabled>Punta la multipla</button>
-    <button type="button" class="btn btn-ghost btn-sm" id="combo-cart-clear">Svuota tutto</button>
+    <div id="slip-multi-legs"></div>
+    <span class="betslip-odds muted small">Quota multipla <b id="slip-multi-odds">×0</b></span>
+    <input type="number" name="stake" id="slip-multi-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="Gettoni sulla multipla">
+    <button type="submit" class="btn btn-primary btn-sm" id="slip-multi-submit">Punta la multipla</button>
+    <button type="button" class="btn btn-ghost btn-sm" id="slip-clear-2">Svuota schedina</button>
   </form>
 </div>
 
 <script>
-// vincita potenziale mentre si sceglie e si digita la puntata (scommessa singola)
-document.querySelectorAll('.bet-form').forEach(f => {
-  const sel = f.querySelector('select'), stake = f.querySelector('input[name=stake]'), out = f.querySelector('[data-bet-win]');
-  const update = () => {
-    const odds = parseFloat((sel.selectedOptions[0] || {}).dataset ? sel.selectedOptions[0].dataset.odds : 0) || 0;
-    const n = parseInt(stake.value, 10) || 0;
-    out.textContent = odds && n > 0 ? 'Vinci ' + Math.floor(n * odds + 1e-9) + ' (+' + (Math.floor(n * odds + 1e-9) - n) + ')' : '';
-  };
-  sel.addEventListener('change', update); stake.addEventListener('input', update); update();
-});
-
-// schedina: selezioni raccolte da più partite, da qui si punta ognuna da sola e/o tutte insieme come multipla.
-// Sopravvive alla navigazione tra le schede (sessionStorage); una selezione punta singola resta nella schedina finché non la togli tu.
+// Schedina: si clicca su una quota per aggiungerla (come in un'app di scommesse vera). Da qui si punta ogni selezione
+// da sola (scheda «Singole», una puntata indipendente ciascuna) oppure tutte insieme in una sola multipla (scheda «Multipla»,
+// quota = prodotto delle quote). Sopravvive alla navigazione tra le schede della pagina (sessionStorage).
 (() => {
-  const KEY = 'comboCart';
-  const cart_ = document.getElementById('combo-cart');
-  if (!cart_) return;
-  const csrf = cart_.dataset.csrf, balance = parseInt(cart_.dataset.balance, 10) || 0;
-  const legsBox = document.getElementById('combo-cart-legs');
-  const multiLegs = document.getElementById('combo-multi-legs');
-  const oddsOut = document.getElementById('combo-cart-odds');
-  const submitBtn = document.getElementById('combo-cart-submit');
+  const KEY = 'betslipCart';
+  const slip = document.getElementById('betslip');
+  if (!slip) return;
+  const balance = parseInt(slip.dataset.balance, 10) || 0;
+  const legsBox = document.getElementById('slip-legs');
+  const countOut = document.getElementById('slip-count');
+  const tabSingole = document.querySelector('[data-slip-tab="singole"]');
+  const tabMulti = document.getElementById('slip-tab-multi');
+  const panelSingole = document.getElementById('slip-singles-form');
+  const panelMulti = document.getElementById('slip-multi-form');
+  const multiLegsBox = document.getElementById('slip-multi-legs');
+  const multiOddsOut = document.getElementById('slip-multi-odds');
+  const singlesSubmit = document.getElementById('slip-singles-submit');
+
   const load = () => { try { return JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
   const save = cart => { try { sessionStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {} };
   let cart = load();
+  let tab = 'singole';
 
   const hidden = (name, value) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; return i; };
+  const win = (stake, odds) => Math.floor(stake * odds + 1e-9);
+
+  const showTab = t => {
+    tab = t;
+    tabSingole.classList.toggle('active', t === 'singole');
+    tabMulti.classList.toggle('active', t === 'multipla');
+    panelSingole.hidden = t !== 'singole';
+    panelMulti.hidden = t !== 'multipla';
+  };
 
   const render = () => {
     legsBox.innerHTML = '';
-    multiLegs.innerHTML = '';
-    let odds = 1;
+    multiLegsBox.innerHTML = '';
+    countOut.textContent = cart.length;
+    let multiOdds = 1;
+
     cart.forEach((leg, i) => {
-      odds *= leg.odds;
+      multiOdds *= leg.odds;
 
       const row = document.createElement('div');
-      row.className = 'combo-leg';
-      row.innerHTML = '<span class="combo-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2) + '</span>';
+      row.className = 'slip-leg';
+      row.innerHTML = '<span class="slip-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2) + '</span>';
 
-      // punta questa selezione da sola, subito (una scommessa singola vera e propria)
-      const single = document.createElement('form');
-      single.method = 'post'; single.className = 'combo-leg-single';
-      single.appendChild(hidden('csrf', csrf));
-      single.appendChild(hidden('do', 'bet'));
-      single.appendChild(hidden('match_id', leg.matchId));
-      single.appendChild(hidden('market', leg.market));
-      single.appendChild(hidden('pick', leg.pick));
+      // scheda «Singole»: uno stake per selezione, aggiornato in tempo reale
       const stakeIn = document.createElement('input');
-      stakeIn.type = 'number'; stakeIn.name = 'stake'; stakeIn.min = 1; stakeIn.max = Math.max(1, balance);
-      stakeIn.value = Math.min(10, Math.max(1, balance)); stakeIn.inputMode = 'numeric'; stakeIn.setAttribute('aria-label', 'Gettoni sulla singola');
-      single.appendChild(stakeIn);
-      const singleBtn = document.createElement('button');
-      singleBtn.type = 'submit'; singleBtn.className = 'btn btn-ghost btn-sm'; singleBtn.textContent = 'Punta singola';
-      single.appendChild(singleBtn);
-      row.appendChild(single);
+      stakeIn.type = 'number'; stakeIn.name = 'stakes[]'; stakeIn.className = 'slip-leg-stake';
+      stakeIn.min = 1; stakeIn.max = Math.max(1, balance); stakeIn.inputMode = 'numeric';
+      stakeIn.value = leg.stake || Math.min(10, Math.max(1, balance));
+      stakeIn.setAttribute('aria-label', 'Gettoni su questa selezione');
+      row.appendChild(hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick));
+      row.appendChild(stakeIn);
+      const winOut = document.createElement('span');
+      winOut.className = 'slip-leg-win small';
+      row.appendChild(winOut);
+      const updateWin = () => {
+        const n = parseInt(stakeIn.value, 10) || 0;
+        leg.stake = n; save(cart);
+        winOut.textContent = n > 0 ? 'vinci ' + win(n, leg.odds) : '';
+      };
+      stakeIn.addEventListener('input', updateWin);
+      updateWin();
 
       const rm = document.createElement('button');
-      rm.type = 'button'; rm.className = 'combo-leg-rm'; rm.textContent = '×'; rm.title = 'Togli dalla schedina';
+      rm.type = 'button'; rm.className = 'slip-leg-rm'; rm.textContent = '×'; rm.title = 'Togli dalla schedina';
       rm.addEventListener('click', () => { cart.splice(i, 1); save(cart); render(); });
       row.appendChild(rm);
       legsBox.appendChild(row);
 
-      multiLegs.appendChild(hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick));
+      multiLegsBox.appendChild(hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick));
     });
-    oddsOut.textContent = '×' + (cart.length ? odds.toFixed(2) : '0');
-    submitBtn.disabled = cart.length < 2;
-    cart_.hidden = cart.length === 0;
+
+    multiOddsOut.textContent = '×' + (cart.length ? multiOdds.toFixed(2) : '0');
+    singlesSubmit.disabled = cart.length === 0;
+    tabMulti.disabled = cart.length < 2;
+    if (cart.length < 2 && tab === 'multipla') showTab('singole');
+    slip.hidden = cart.length === 0;
+
+    // aggiorna anche i pulsanti-quota già scelti (evidenziati) e le quote in tutte le partite, in caso una scelta sia sparita
+    document.querySelectorAll('[data-slip-add]').forEach(btn => {
+      btn.classList.toggle('is-picked', cart.some(l => l.matchId === btn.dataset.match && l.market === btn.dataset.market && l.pick === btn.dataset.pick));
+    });
   };
 
-  document.querySelectorAll('[data-combo-add]').forEach(btn => btn.addEventListener('click', () => {
-    const form = btn.closest('form');
-    const sel = form.querySelector('select[name=pick]');
-    const opt = sel.selectedOptions[0];
-    if (!opt || !opt.value) { alert('Scegli prima su chi puntare.'); return; }
-    const matchId = btn.dataset.match, market = btn.dataset.market;
-    if (cart.some(l => l.matchId === matchId && l.market === market)) { alert('Questa selezione è già nella schedina.'); return; }
-    cart.push({ matchId, market, pick: opt.value, label: opt.dataset.label, odds: parseFloat(opt.dataset.odds) || 1, matchLabel: btn.dataset.matchLabel });
+  document.querySelectorAll('[data-slip-add]').forEach(btn => btn.addEventListener('click', () => {
+    const matchId = btn.dataset.match, market = btn.dataset.market, pick = btn.dataset.pick;
+    const already = cart.findIndex(l => l.matchId === matchId && l.market === market);
+    if (already !== -1 && cart[already].pick === pick) { cart.splice(already, 1); save(cart); render(); return; }   // ri-tocca la stessa: la toglie
+    if (already !== -1) cart.splice(already, 1);   // stessa partita/mercato, scelta diversa: la sostituisce
+    cart.push({ matchId, market, pick, label: btn.dataset.label, odds: parseFloat(btn.dataset.odds) || 1, matchLabel: btn.dataset.matchLabel });
     save(cart); render();
   }));
-  document.getElementById('combo-cart-clear').addEventListener('click', () => { cart = []; save(cart); render(); });
-  document.getElementById('combo-multi-form').addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
+  tabSingole.addEventListener('click', () => showTab('singole'));
+  tabMulti.addEventListener('click', () => { if (!tabMulti.disabled) showTab('multipla'); });
+  const clearAll = () => { cart = []; save(cart); render(); };
+  document.getElementById('slip-clear').addEventListener('click', clearAll);
+  document.getElementById('slip-clear-2').addEventListener('click', clearAll);
+  panelSingole.addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
+  panelMulti.addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
 
   render();
 })();
