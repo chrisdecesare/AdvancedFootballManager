@@ -4,7 +4,7 @@ require_view();
 
 $id = int_get('id');
 $p = get_player($id);
-if (!$p || !player_access($id)) {   // inesistente o di un gruppo che non è il tuo
+if (!$p || !empty($p['is_guest']) || !player_access($id)) {   // inesistente, un ospite (non ha scheda) o di un gruppo che non è il tuo
     http_response_code(404);
     layout_start('Giocatore non trovato', 'players');
     echo '<div class="card"><h2>Giocatore non trovato</h2><a href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a></div>';

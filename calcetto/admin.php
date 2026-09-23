@@ -38,6 +38,7 @@ if (is_post()) {
             q("UPDATE users SET status = 'attivo', player_id = ?, reg_json = NULL WHERE id = ?", [$pid, $uid]);
             db()->commit();
             set_player_groups($pid, $groupIds);   // e con questo entra nelle partite programmate dei suoi gruppi
+            guests_merge_for_user($uid);          // se aveva giocato da ospite con questa email (confermata), la partita gli compare
             // avvisa l'utente: notifica sui dispositivi attivati mentre aspettava ed email (se ha un indirizzo)
             $groupNames = array_values(array_intersect_key(all_groups(), array_flip($groupIds)));
             push_notify_approved($uid, $groupNames);
@@ -155,6 +156,8 @@ if (is_post()) {
         case 'role':
             if ($uid === $meUid) {
                 flash('err', 'Non puoi cambiare il tuo ruolo.');
+            } elseif (q("SELECT 1 FROM users WHERE id = ? AND role = 'ospite'", [$uid])->fetch()) {
+                flash('err', 'Un ospite resta ospite: togli l\'ospite dalla sua partita e, se serve, crea un account vero.');
             } else {
                 q('UPDATE users SET role = ? WHERE id = ?', [clean_role($_POST['role'] ?? ''), $uid]);
                 flash('ok', 'Ruolo aggiornato.');
@@ -162,7 +165,9 @@ if (is_post()) {
             break;
         case 'link':
             $pid = (int) ($_POST['player_id'] ?? 0) ?: null;
-            if ($pid && q('SELECT 1 FROM users WHERE player_id = ? AND id <> ?', [$pid, $uid])->fetch()) {
+            if (q("SELECT 1 FROM users WHERE id = ? AND role = 'ospite'", [$uid])->fetch()) {
+                flash('err', 'Un ospite non si collega a un giocatore della rosa.');
+            } elseif ($pid && q('SELECT 1 FROM users WHERE player_id = ? AND id <> ?', [$pid, $uid])->fetch()) {
                 flash('err', 'Quel giocatore ha già un account.');
             } else {
                 q('UPDATE users SET player_id = ? WHERE id = ?', [$pid, $uid]);
@@ -196,18 +201,18 @@ $playerGroups = [];
 foreach (q('SELECT player_id, group_id FROM player_groups')->fetchAll() as $r) {
     $playerGroups[(int) $r['player_id']][] = (int) $r['group_id'];
 }
-$allPlayers = q('SELECT id, name, position, active FROM players ORDER BY name')->fetchAll();
+$allPlayers = q('SELECT id, name, position, active FROM players WHERE is_guest = 0 ORDER BY name')->fetchAll();
 $membersOf = [];   // gruppo => [giocatori]
 foreach ($allPlayers as $ap) {
     foreach ($playerGroups[(int) $ap['id']] ?? [] as $gid) {
         $membersOf[$gid][] = $ap;
     }
 }
-$free = q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL ORDER BY p.name')->fetchAll();
+$free = q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL AND p.is_guest = 0 ORDER BY p.name')->fetchAll();
 
 // notifiche push: chi le ha attive (almeno un dispositivo) e chi no
 $pushAccounts = q("SELECT u.id, u.username, p.name AS player_name, (SELECT COUNT(*) FROM push_subscriptions s WHERE s.user_id = u.id) AS n
-                   FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.status = 'attivo' ORDER BY p.name, u.username")->fetchAll();
+                   FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.status = 'attivo' AND u.role <> 'ospite' ORDER BY p.name, u.username")->fetchAll();
 $pushOn = array_filter($pushAccounts, fn($a) => (int) $a['n'] > 0);
 $pushOff = array_filter($pushAccounts, fn($a) => (int) $a['n'] === 0);
 $cronUrl = site_base_url() . 'cron.php?key=' . push_cron_key();
@@ -383,20 +388,22 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
           <span class="muted">creato il <?= fmt_date_short($u['created_at']) ?></span>
         </td>
         <td>
+          <?php if ($u['role'] === 'ospite'): ?><span class="muted small">ospite: solo la sua partita</span><?php else: ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="link"><input type="hidden" name="user_id" value="<?= $uid ?>">
             <select name="player_id" class="mini-select" data-autosubmit>
               <option value="">— nessuno —</option>
               <?php if ($u['player_id']): ?><option value="<?= (int) $u['player_id'] ?>" selected><?= h($u['player_name']) ?></option><?php endif; ?>
               <?php foreach ($free as $f): ?><option value="<?= (int) $f['id'] ?>"><?= h($f['name']) ?></option><?php endforeach; ?>
-            </select></form>
+            </select></form><?php endif; ?>
         </td>
         <td>
+          <?php if ($u['role'] === 'ospite'): ?><span class="tag">Ospite</span><?php else: ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="role"><input type="hidden" name="user_id" value="<?= $uid ?>">
             <select name="role" class="mini-select" data-autosubmit <?= $uid === $meUid ? 'disabled' : '' ?>>
               <option value="player" <?= $u['role'] === 'player' ? 'selected' : '' ?>>Giocatore</option>
               <option value="manager" <?= $u['role'] === 'manager' ? 'selected' : '' ?>>Manager</option>
               <option value="admin" <?= $u['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
-            </select></form>
+            </select></form><?php endif; ?>
         </td>
         <td>
           <form method="post" class="inline pw-form"><?= csrf_field() ?><input type="hidden" name="do" value="reset"><input type="hidden" name="user_id" value="<?= $uid ?>">

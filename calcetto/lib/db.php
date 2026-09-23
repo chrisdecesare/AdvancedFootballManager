@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 20;
+const SCHEMA_VERSION = 21;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -333,6 +333,14 @@ function ensure_schema(): void
         if (q("SHOW KEYS FROM combo_legs WHERE Key_name = 'uq_leg'")->fetch()) {
             db()->exec('ALTER TABLE combo_legs DROP INDEX uq_leg');
         }
+    }
+    if ($v < 21) {
+        // profili "Ospite" (lib/guests.php): un giocatore per una partita sola, con un account che vede solo quella
+        db()->exec("ALTER TABLE users MODIFY role ENUM('admin','manager','player','ospite') NOT NULL DEFAULT 'player'");
+        $add('players', 'is_guest', 'TINYINT(1) NOT NULL DEFAULT 0');
+        $add('players', 'guest_email', 'VARCHAR(190) NULL');
+        $add('players', 'guest_match_id', 'INT NULL');
+        db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('guests_cleanup', '0')");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

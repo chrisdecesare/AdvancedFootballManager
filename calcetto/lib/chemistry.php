@@ -46,7 +46,7 @@ function chemistry($scope = 'current'): array
     $teamOf = [];     // [match][player] = squadra
     $players = [];    // [player] => apps, pts, goals
     foreach (q("SELECT mp.match_id, mp.player_id, mp.team, mp.goals FROM match_players mp
-                JOIN matches m ON m.id = mp.match_id
+                JOIN matches m ON m.id = mp.match_id JOIN players gp ON gp.id = mp.player_id AND gp.is_guest = 0
                 WHERE m.status = 'giocata' AND mp.team IS NOT NULL AND $where")->fetchAll() as $r) {
         $mid = (int) $r['match_id'];
         if (!isset($matches[$mid])) {

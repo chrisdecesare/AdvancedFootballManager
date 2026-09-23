@@ -59,6 +59,7 @@ require __DIR__ . '/tour.php';
 require __DIR__ . '/bets.php';
 require __DIR__ . '/shop.php';
 require __DIR__ . '/webpush.php';
+require __DIR__ . '/guests.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';
 
@@ -76,6 +77,7 @@ if (tables_exist()) {
     // a risposta già inviata: prima si spediscono le notifiche in coda (e si riprovano quelle non riuscite),
     // poi, per chi è collegato, parte l'eventuale promemoria "non hai ancora risposto"
     push_defer('push_queue_kick');
+    push_defer('guests_maybe_cleanup');   // toglie gli account degli ospiti la cui partita e' vecchia di una settimana
     if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         push_defer('push_maybe_run');
     }

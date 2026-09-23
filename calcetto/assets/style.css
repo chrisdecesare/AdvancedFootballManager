@@ -419,6 +419,13 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .team-head strong { font: 400 1.5rem var(--font-d); }
 .team-score { font: 400 1.5rem var(--font-d); background: var(--ink); color: var(--white); border-radius: 8px; padding: 0 9px; }
 .team-str { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 900; font-size: .88rem; background: var(--white); border: var(--b2); border-radius: 999px; padding: 1px 10px; }
+/* profili Ospite (lib/guests.php): elenco e modulo dell'admin sotto le presenze, scheda "La tua squadra" per l'ospite */
+.guest-admin { margin-top: 18px; padding-top: 14px; border-top: 2px dashed var(--muted); }
+.guest-admin h3 { margin: 0 0 8px; }
+.guest-admin .pline-row { justify-content: space-between; gap: 10px; }
+.guest-admin details { margin-top: 10px; }
+.guest-team { display: flex; align-items: center; gap: 8px; font-size: 1.1rem; margin: 0 0 10px; }
+.guest-card h2 { display: flex; align-items: center; gap: 8px; }
 .bench { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .bench-item { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 11px; border-radius: 999px; background: var(--paper); border: var(--b2); font-weight: 800; font-size: .88rem; }
 .result-inputs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font: 400 1.25rem var(--font-d); }

@@ -148,7 +148,7 @@ function player_scope_sql(string $col, ?array $scope = null, bool $explicit = fa
 {
     $s = $explicit ? $scope : scope_ids();
     if ($s === null) {
-        return '1=1';
+        return 'NOT EXISTS (SELECT 1 FROM players gst WHERE gst.id = ' . $col . ' AND gst.is_guest = 1)';   // gli ospiti non sono nella rosa
     }
     if (!$s) {
         return '0=1';
@@ -165,6 +165,9 @@ function match_access(array $m): bool
 {
     if (!current_user()) {
         return defined('PUBLIC_READ') && PUBLIC_READ;
+    }
+    if (is_guest()) {
+        return (int) ($m['id'] ?? 0) === guest_match_id();   // un ospite non ha gruppi: vede solo la sua partita
     }
     $gid = (int) ($m['group_id'] ?? 0);
     if (!in_array($gid, allowed_group_ids(), true)) {

@@ -195,7 +195,7 @@ function gcal_icon_button(array $match): string
 /** Giocatori in rosa che non hanno ancora un account collegato. */
 function free_roster_players(): array
 {
-    return q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL ORDER BY p.name')->fetchAll();
+    return q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL AND p.is_guest = 0 ORDER BY p.name')->fetchAll();
 }
 
 /** Nome "confrontabile": senza maiuscole, accenti e punteggiatura, con le parole in ordine alfabetico. */

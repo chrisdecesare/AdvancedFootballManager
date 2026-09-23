@@ -17,4 +17,5 @@ close_due_votings();
 $due = push_run_due();          // promemoria "non hai ancora risposto": finiscono in coda come le altre
 $sent = push_queue_run(200);    // spedisce la coda: notifiche nuove e riprove di quelle non riuscite
 push_queue_cleanup();           // il registro tiene un mese
+guests_cleanup();               // toglie gli account degli ospiti la cui partita e' vecchia di una settimana
 echo 'ok ' . $due . ' in coda, ' . $sent . " consegnate\n";

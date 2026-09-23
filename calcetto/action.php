@@ -20,7 +20,7 @@ if (($_POST['do'] ?? '') === 'availability') {
         flash('err', 'Questa partita non è del tuo gruppo.');
     } elseif (!$pid) {
         flash('err', 'Il tuo account non è collegato a un giocatore: chiedi all\'admin.');
-    } elseif (!player_in_group($pid, (int) $match['group_id'])) {
+    } elseif (!(is_guest() ? $pid === my_player_id() : player_in_group($pid, (int) $match['group_id']))) {   // l'ospite non ha gruppi: basta che la partita sia la sua
         flash('err', 'Il giocatore non fa parte del gruppo di questa partita.');
     } elseif (!in_array($status, ['confermato', 'assente', 'in_attesa'], true)) {
         flash('err', 'Stato non valido.');
