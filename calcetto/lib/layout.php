@@ -101,7 +101,8 @@ function layout_start(string $title, string $active = ''): void
 </header>
 <main class="wrap">
 <?php if ($u && is_admin() && (int) meta_get('schema') < SCHEMA_VERSION): ?>
-  <div class="flash flash-err"><i class="ti ti-database-exclamation"></i> L'ultimo aggiornamento del database non è andato a buon fine (schema v<?= (int) meta_get('schema') ?>, serve v<?= SCHEMA_VERSION ?>): qualche funzione nuova potrebbe non funzionare. Controlla il log degli errori PHP sull'hosting per il dettaglio, o avvisa chi ha fatto lo sviluppo.</div>
+  <div class="flash flash-err"><i class="ti ti-database-exclamation"></i> L'ultimo aggiornamento del database non è andato a buon fine (schema v<?= (int) meta_get('schema') ?>, serve v<?= SCHEMA_VERSION ?>): qualche funzione nuova potrebbe non funzionare.
+    <?php if ($schemaErr = meta_get('schema_error')): ?><br><small>Errore: <code><?= h($schemaErr) ?></code></small><?php endif; ?></div>
 <?php endif; ?>
 <?php if ($u && !is_admin() && !allowed_group_ids()): ?>
   <div class="flash flash-err"><i class="ti ti-users-group"></i> Non fai ancora parte di nessun gruppo: chiedi all'admin di assegnarti al tuo, poi vedrai giocatori e partite.</div>

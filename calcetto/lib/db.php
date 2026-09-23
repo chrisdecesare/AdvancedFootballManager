@@ -317,25 +317,34 @@ function ensure_schema(): void
     }
     if ($v < 20) {
         // ora si può puntare su più scelte dello stesso mercato della stessa partita (es. due marcatori diversi), non solo una:
-        // il limite "una per mercato" diventa "una per scelta", sia per le singole che per le gambe delle multiple
-        if (q("SHOW KEYS FROM bets WHERE Key_name = 'uq_bet'")->fetch()) {
-            db()->exec('ALTER TABLE bets DROP INDEX uq_bet');
-        }
+        // il limite "una per mercato" diventa "una per scelta", sia per le singole che per le gambe delle multiple.
+        // Attenzione all'ordine: il vecchio indice unico (che inizia con match_id / combo_id) regge anche la chiave esterna
+        // su quella colonna, e MySQL non lo lascia togliere finché non ce n'è un altro che inizia con la stessa colonna
+        // ("needed in a foreign key constraint"). Quindi prima si aggiunge il nuovo, poi si toglie il vecchio.
         if (!q("SHOW KEYS FROM bets WHERE Key_name = 'uq_bet_pick'")->fetch()) {
             db()->exec('ALTER TABLE bets ADD UNIQUE KEY uq_bet_pick (match_id, player_id, market, pick)');
         }
-        if (q("SHOW KEYS FROM combo_legs WHERE Key_name = 'uq_leg'")->fetch()) {
-            db()->exec('ALTER TABLE combo_legs DROP INDEX uq_leg');
+        if (q("SHOW KEYS FROM bets WHERE Key_name = 'uq_bet'")->fetch()) {
+            db()->exec('ALTER TABLE bets DROP INDEX uq_bet');
         }
         if (!q("SHOW KEYS FROM combo_legs WHERE Key_name = 'uq_leg_pick'")->fetch()) {
             db()->exec('ALTER TABLE combo_legs ADD UNIQUE KEY uq_leg_pick (combo_id, match_id, market, pick)');
         }
+        if (q("SHOW KEYS FROM combo_legs WHERE Key_name = 'uq_leg'")->fetch()) {
+            db()->exec('ALTER TABLE combo_legs DROP INDEX uq_leg');
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
+    q("DELETE FROM meta WHERE k = 'schema_error'");
     } catch (Throwable $e) {
         // una migrazione non è andata a buon fine (es. un lock, un permesso mancante): il sito continua a funzionare
         // con lo schema attuale invece di rompersi su ogni pagina; si riprova al prossimo caricamento.
+        // Il messaggio resta anche in meta, così l'admin lo vede in pagina senza dover cercare il log dell'hosting.
         error_log('ensure_schema: ' . $e->getMessage());
+        try {
+            q("INSERT INTO meta (k, v) VALUES ('schema_error', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [mb_substr($e->getMessage(), 0, 250)]);
+        } catch (Throwable $e2) {
+        }
     }
 }
 
