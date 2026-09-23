@@ -245,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const icon = burger.querySelector('i');
     const setMenu = open => {
       bar.classList.toggle('menu-open', open);
+      document.documentElement.classList.toggle('menu-open', open);   // serve a nascondere la schedina delle scommesse sotto il menu
       burger.setAttribute('aria-expanded', open ? 'true' : 'false');
       burger.setAttribute('aria-label', open ? 'Chiudi il menu' : 'Apri il menu');
       icon.className = 'ti ' + (open ? 'ti-x' : 'ti-menu-2');
