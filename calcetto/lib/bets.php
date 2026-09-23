@@ -3,9 +3,12 @@
  * Scommesse goliardiche sulle partite: si punta con gettoni finti (nessun euro), per l'onore e per sfottere gli amici.
  * I gettoni servono poi per le personalizzazioni del profilo (vedi lib/shop.php).
  *
- * Quote fisse, calcolate come le fanno i bookmaker: si stimano le probabilità dei risultati con un modello statistico (gol come
- * distribuzione di Poisson) e la quota è 1 / (probabilità x (1 + margine)). Il margine (in gergo "overround") è il guadagno del banco:
- * per questo la somma delle probabilità implicite (1 / quota) di tutti gli esiti di un mercato supera il 100%. La quota si salva con la
+ * Quote calcolate come le fanno i bookmaker: si stimano le probabilità dei risultati con un modello statistico (gol come
+ * distribuzione di Poisson) e la quota "di apertura" è 1 / (probabilità x (1 + margine)). Il margine (in gergo "overround") è il
+ * guadagno del banco: per questo la somma delle probabilità implicite (1 / quota) di tutti gli esiti di un mercato supera il 100%.
+ * Poi, sempre come nella vita reale, la quota si abbassa un po' per ogni gettone già puntato su quella stessa scelta in quella
+ * partita (bet_demand_shorten): chi punta per primo su una scelta prende la quota piena, chi arriva dopo su una scelta già
+ * affollata ne prende una più bassa (il banco si protegge, non paga tutti alla stessa quota). La quota si salva con la
  * puntata: vincita = puntata x quota, chi sbaglia perde la puntata. Se manca il dato (per esempio nessuno ha votato l'MVP) tutti
  * riprendono i propri gettoni.
  *
@@ -27,6 +30,9 @@ const BET_FORM = ['hot' => 1.12, 'ok' => 1.0, 'cold' => 0.88, 'none' => 1.0];   
 const BET_DRAW_BOOST = 1.15;     // i pareggi sono più frequenti di quanto dica Poisson puro (correzione tipo Dixon-Coles)
 const BET_PRIOR_GOALS = 4.0;     // gol a squadra per partita finché il gruppo ha giocato poco...
 const BET_PRIOR_MATCHES = 3;     // ...pesano come tante partite
+const BET_DEMAND_K = 0.5;        // forza con cui la quota si abbassa in base ai gettoni già puntati sulla stessa scelta
+const BET_DEMAND_REF = 120.0;    // scala di riferimento (gettoni): con questa cifra già puntata la quota scende di circa un terzo
+const BET_DEMAND_FLOOR = 0.55;   // la domanda da sola non può mai abbassare una quota sotto il 55% di quella "di apertura"
 
 function bet_markets(): array
 {
@@ -164,7 +170,7 @@ function bet_poisson_1x2(float $la, float $lb): array
  *    le probabilità si normalizzano a 100% prima del margine.
  * Chi non ha ancora confermato vale meno: potrebbe non esserci.
  */
-function bet_quotes(array $match): array
+function bet_quotes(array $match, ?int $excludePlayerId = null): array
 {
     $id = (int) $match['id'];
     $stats = compute_stats([(int) $match['group_id']]);
@@ -224,7 +230,56 @@ function bet_quotes(array $match): array
     foreach ($mvpW as $pid => $x) {
         $out['mvp'][$pid] = bet_odds($x / $tot, 'mvp', 1.10, 60);
     }
+
+    // il banco si protegge: la quota di ogni scelta scende un po' per ogni gettone già puntato su di lei in questa partita
+    // (tranne la propria puntata aperta, se si sta cambiando: cambiare idea non deve penalizzare la nuova quota)
+    $demand = bet_market_demand($id, $excludePlayerId);
+    foreach ($out as $mk => $picks) {
+        $out[$mk] = bet_demand_shorten($picks, $demand[$mk] ?? []);
+    }
     return $out;
+}
+
+/**
+ * Gettoni già puntati (scommesse aperte, singole e dentro le multiple) su ogni scelta di una partita, per mercato:
+ * ['esito' => ['A' => 40, ...], 'gol' => [...], 'mvp' => [...]]. Di una multipla conta l'intera puntata su ogni sua gamba
+ * (se quella gamba perde, il banco tiene comunque tutta la puntata): è una stima prudente dell'esposizione, non un conto esatto.
+ * $excludePlayerId esclude le puntate singole aperte di quel giocatore (per non penalizzare chi sta solo cambiando la sua).
+ */
+function bet_market_demand(int $matchId, ?int $excludePlayerId = null): array
+{
+    $out = [];
+    $sql = "SELECT market, pick, SUM(stake) AS s FROM bets WHERE match_id = ? AND status = 'aperta'";
+    $params = [$matchId];
+    if ($excludePlayerId) {
+        $sql .= ' AND player_id <> ?';
+        $params[] = $excludePlayerId;
+    }
+    foreach (q($sql . ' GROUP BY market, pick', $params)->fetchAll() as $r) {
+        $out[$r['market']][$r['pick']] = ($out[$r['market']][$r['pick']] ?? 0) + (float) $r['s'];
+    }
+    foreach (q("SELECT cl.market, cl.pick, SUM(cb.stake) AS s FROM combo_legs cl JOIN combo_bets cb ON cb.id = cl.combo_id
+                WHERE cl.match_id = ? AND cl.status = 'aperta' AND cb.status = 'aperta' GROUP BY cl.market, cl.pick",
+        [$matchId])->fetchAll() as $r) {
+        $out[$r['market']][$r['pick']] = ($out[$r['market']][$r['pick']] ?? 0) + (float) $r['s'];
+    }
+    return $out;
+}
+
+/**
+ * Abbassa le quote di un mercato in base a quanto è già puntato su ogni scelta: quota_finale = quota / (1 + K x gettoni / riferimento),
+ * mai sotto BET_DEMAND_FLOOR della quota di apertura. Chi punta per primo su una scelta (0 gettoni già sopra) prende la quota piena.
+ */
+function bet_demand_shorten(array $odds, array $demand): array
+{
+    foreach ($odds as $pick => $o) {
+        $staked = $demand[$pick] ?? 0;
+        if ($staked > 0) {
+            $adj = $o / (1 + BET_DEMAND_K * $staked / BET_DEMAND_REF);
+            $odds[$pick] = round(max($o * BET_DEMAND_FLOOR, $adj), 2);
+        }
+    }
+    return $odds;
 }
 
 /** Vincita di una puntata (comprende i gettoni puntati). */
@@ -299,7 +354,7 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     if ($stake < 1) {
         return 'Punta almeno 1 gettone.';
     }
-    $odds = bet_quotes($match)[$market][$pick] ?? null;   // la quota la decide il sito, non chi punta
+    $odds = bet_quotes($match, $playerId)[$market][$pick] ?? null;   // la quota la decide il sito, non chi punta
     if ($odds === null) {
         return 'Su questa scelta non ci sono quote.';
     }

@@ -73,7 +73,7 @@ function tour_steps(array $u): array
             'text' => 'Punta sulle partite con gettoni finti (nessun euro): li vedi sempre in alto accanto al tuo profilo.',
             'bullets' => [
                 'Chi vince, chi segna, chi sarà l\'MVP: ogni scelta ha la sua quota e si punta fino al calcio d\'inizio.',
-                'Con «Multipla» combini più scelte in una sola giocata: le quote si moltiplicano, ma basta sbagliarne una per perdere tutto (scheda «Multiple»).',
+                'Con «Schedina» raccogli più scelte, anche da partite diverse: da lì punti ognuna da sola e/o le combini in una multipla, dove le quote si moltiplicano (basta sbagliarne una per perdere tutto).',
                 'La classifica dei più ricchi è nella scheda «Classifica»: chi è il Banco?',
             ],
         ],

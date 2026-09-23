@@ -113,8 +113,8 @@ layout_start('Scommesse', 'bets');
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale. Si punta fino al calcio d'inizio.
-    Con «+ Multipla» combini più scelte in una sola giocata: le quote si moltiplicano, ma basta sbagliarne una per perdere tutto.
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Si punta fino al calcio d'inizio.
+    Con «Schedina» raccogli più scelte anche da partite diverse: da lì punti ognuna da sola e/o le combini in una multipla, dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
     I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
 </section>
 
@@ -174,7 +174,7 @@ layout_start('Scommesse', 'bets');
           <input type="number" name="stake" min="1" max="<?= $balance + ($my ? (int) $my['stake'] : 0) ?>" inputmode="numeric" value="<?= $my ? (int) $my['stake'] : min(10, max(1, $balance)) ?>" required aria-label="Gettoni">
           <button class="btn btn-primary btn-sm"><?= $my ? 'Cambia' : 'Punta' ?></button>
           <button type="button" class="btn btn-ghost btn-sm" data-combo-add data-match="<?= $mid ?>" data-market="<?= $mk ?>"
-            data-match-label="<?= h(fmt_date_short($m['match_date'])) ?> · <?= h($info['label']) ?>"><i class="ti ti-stack-2"></i> Multipla</button>
+            data-match-label="<?= h(fmt_date_short($m['match_date'])) ?> · <?= h($info['label']) ?>" title="Aggiungi alla schedina: da lì puoi puntarla singola, o combinarla con altre in una multipla"><i class="ti ti-stack-2"></i> Schedina</button>
           <span class="bet-win small" data-bet-win></span>
         </form>
         <?php if ($my): ?>
@@ -220,7 +220,7 @@ layout_start('Scommesse', 'bets');
 <?php elseif ($tab === 'multiple'): ?>
 
 <h2 class="section-title">Le tue multiple aperte</h2>
-<p class="muted small">Costruiscile dalla scheda <a class="link" href="bets.php">Partite</a>: premi «Multipla» sotto ogni scelta per aggiungerla al carrello qui in basso, poi punta quando ne hai almeno due.</p>
+<p class="muted small">Costruiscile dalla scheda <a class="link" href="bets.php">Partite</a>: premi «Schedina» sotto ogni scelta per aggiungerla alla schedina in basso, poi combinane almeno due in una multipla (o punta ognuna da sola direttamente da lì).</p>
 <?php if (!$comboOpen): ?><p class="empty card">Nessuna multipla in corso.</p><?php else: ?>
 <div class="list">
   <?php foreach ($comboOpen as $c): ?>
@@ -281,16 +281,18 @@ layout_start('Scommesse', 'bets');
 
 <?php endif; ?>
 
-<form method="post" id="combo-bar" class="combo-cart" hidden>
-  <?= csrf_field() ?><input type="hidden" name="do" value="combo_bet">
+<div id="combo-cart" class="combo-cart" data-csrf="<?= h(csrf_token()) ?>" data-balance="<?= (int) $balance ?>" hidden>
+  <div class="combo-cart-head muted small"><i class="ti ti-stack-2"></i> La tua schedina: punta ogni scelta da sola, oppure combinale in una multipla qui sotto.</div>
   <div class="combo-cart-legs" id="combo-cart-legs"></div>
-  <div class="combo-cart-actions">
-    <span class="combo-cart-odds muted small">Quota <b id="combo-cart-odds">×0</b></span>
+  <form method="post" class="combo-cart-actions" id="combo-multi-form">
+    <?= csrf_field() ?><input type="hidden" name="do" value="combo_bet">
+    <div id="combo-multi-legs"></div>
+    <span class="combo-cart-odds muted small">Multipla <b id="combo-cart-odds">×0</b></span>
     <input type="number" name="stake" id="combo-cart-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="Gettoni sulla multipla">
     <button type="submit" class="btn btn-primary btn-sm" id="combo-cart-submit" disabled>Punta la multipla</button>
-    <button type="button" class="btn btn-ghost btn-sm" id="combo-cart-clear">Svuota</button>
-  </div>
-</form>
+    <button type="button" class="btn btn-ghost btn-sm" id="combo-cart-clear">Svuota tutto</button>
+  </form>
+</div>
 
 <script>
 // vincita potenziale mentre si sceglie e si digita la puntata (scommessa singola)
@@ -304,38 +306,62 @@ document.querySelectorAll('.bet-form').forEach(f => {
   sel.addEventListener('change', update); stake.addEventListener('input', update); update();
 });
 
-// carrello delle multiple: sopravvive alla navigazione tra le schede (sessionStorage), si svuota quando si punta o si preme "Svuota"
+// schedina: selezioni raccolte da più partite, da qui si punta ognuna da sola e/o tutte insieme come multipla.
+// Sopravvive alla navigazione tra le schede (sessionStorage); una selezione punta singola resta nella schedina finché non la togli tu.
 (() => {
   const KEY = 'comboCart';
-  const bar = document.getElementById('combo-bar');
-  if (!bar) return;
+  const cart_ = document.getElementById('combo-cart');
+  if (!cart_) return;
+  const csrf = cart_.dataset.csrf, balance = parseInt(cart_.dataset.balance, 10) || 0;
   const legsBox = document.getElementById('combo-cart-legs');
+  const multiLegs = document.getElementById('combo-multi-legs');
   const oddsOut = document.getElementById('combo-cart-odds');
   const submitBtn = document.getElementById('combo-cart-submit');
   const load = () => { try { return JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
   const save = cart => { try { sessionStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {} };
   let cart = load();
 
+  const hidden = (name, value) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; return i; };
+
   const render = () => {
     legsBox.innerHTML = '';
+    multiLegs.innerHTML = '';
     let odds = 1;
     cart.forEach((leg, i) => {
       odds *= leg.odds;
-      const chip = document.createElement('span');
-      chip.className = 'combo-leg';
-      chip.innerHTML = '<span>' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2) + '</span>';
+
+      const row = document.createElement('div');
+      row.className = 'combo-leg';
+      row.innerHTML = '<span class="combo-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2) + '</span>';
+
+      // punta questa selezione da sola, subito (una scommessa singola vera e propria)
+      const single = document.createElement('form');
+      single.method = 'post'; single.className = 'combo-leg-single';
+      single.appendChild(hidden('csrf', csrf));
+      single.appendChild(hidden('do', 'bet'));
+      single.appendChild(hidden('match_id', leg.matchId));
+      single.appendChild(hidden('market', leg.market));
+      single.appendChild(hidden('pick', leg.pick));
+      const stakeIn = document.createElement('input');
+      stakeIn.type = 'number'; stakeIn.name = 'stake'; stakeIn.min = 1; stakeIn.max = Math.max(1, balance);
+      stakeIn.value = Math.min(10, Math.max(1, balance)); stakeIn.inputMode = 'numeric'; stakeIn.setAttribute('aria-label', 'Gettoni sulla singola');
+      single.appendChild(stakeIn);
+      const singleBtn = document.createElement('button');
+      singleBtn.type = 'submit'; singleBtn.className = 'btn btn-ghost btn-sm'; singleBtn.textContent = 'Punta singola';
+      single.appendChild(singleBtn);
+      row.appendChild(single);
+
       const rm = document.createElement('button');
-      rm.type = 'button'; rm.textContent = '×'; rm.title = 'Togli dalla multipla';
+      rm.type = 'button'; rm.className = 'combo-leg-rm'; rm.textContent = '×'; rm.title = 'Togli dalla schedina';
       rm.addEventListener('click', () => { cart.splice(i, 1); save(cart); render(); });
-      chip.appendChild(rm);
-      legsBox.appendChild(chip);
-      const hid = document.createElement('input');
-      hid.type = 'hidden'; hid.name = 'legs[]'; hid.value = leg.matchId + ':' + leg.market + ':' + leg.pick;
-      legsBox.appendChild(hid);
+      row.appendChild(rm);
+      legsBox.appendChild(row);
+
+      multiLegs.appendChild(hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick));
     });
     oddsOut.textContent = '×' + (cart.length ? odds.toFixed(2) : '0');
     submitBtn.disabled = cart.length < 2;
-    bar.hidden = cart.length === 0;
+    cart_.hidden = cart.length === 0;
   };
 
   document.querySelectorAll('[data-combo-add]').forEach(btn => btn.addEventListener('click', () => {
@@ -344,12 +370,12 @@ document.querySelectorAll('.bet-form').forEach(f => {
     const opt = sel.selectedOptions[0];
     if (!opt || !opt.value) { alert('Scegli prima su chi puntare.'); return; }
     const matchId = btn.dataset.match, market = btn.dataset.market;
-    if (cart.some(l => l.matchId === matchId && l.market === market)) { alert('Questa selezione è già nella multipla.'); return; }
+    if (cart.some(l => l.matchId === matchId && l.market === market)) { alert('Questa selezione è già nella schedina.'); return; }
     cart.push({ matchId, market, pick: opt.value, label: opt.dataset.label, odds: parseFloat(opt.dataset.odds) || 1, matchLabel: btn.dataset.matchLabel });
     save(cart); render();
   }));
   document.getElementById('combo-cart-clear').addEventListener('click', () => { cart = []; save(cart); render(); });
-  bar.addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
+  document.getElementById('combo-multi-form').addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
 
   render();
 })();

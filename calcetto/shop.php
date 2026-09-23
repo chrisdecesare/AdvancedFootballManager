@@ -176,7 +176,9 @@ layout_start('Negozio', 'shop');
       if (!nick) { nick = document.createElement('span'); nick.className = 'nick'; box.append(nick); }
       nick.textContent = btn.dataset.text;
     }
-    document.getElementById('anteprima').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // l'anteprima è "sticky" (resta incollata in alto mentre si scorre): è sempre visibile da sola, non va inseguita.
+    // scrollIntoView() la considerava sempre un filo fuori vista per via dell'offset e la faceva risalire a ogni click
+    // (ripetuto su più oggetti, la pagina saliva tutta): niente scroll automatico, non serve.
   }));
 })();
 </script>
