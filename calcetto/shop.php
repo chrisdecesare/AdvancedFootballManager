@@ -79,10 +79,9 @@ uasort($items, function ($a, $b) {
 
 $tabUrl = fn(string $t, string $f = 'all') => 'shop.php?s=' . $t . ($f !== 'all' ? '&f=' . $f : '') . '#oggetti';
 
-layout_start('Negozio', 'bets');
+layout_start('Negozio', 'shop');
 ?>
 <div class="page-head"><h1>Negozio <span class="muted small">personalizza il profilo</span></h1></div>
-<div class="sortbar"><a href="bets.php">Scommesse</a><a href="shop.php" class="active">Negozio</a></div>
 
 <?php if ($mp): ?>
 <section class="card shop-bar" id="anteprima">

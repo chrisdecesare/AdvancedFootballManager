@@ -72,7 +72,8 @@ function shop_progress(int $playerId): array
         'top_avg' => (int) ($s['apps'] ?? 0) >= 5 ? (float) ($s['avg_vote'] ?? 0) : 0.0,
         'max_goals' => (int) q('SELECT COALESCE(MAX(mp.goals), 0) FROM match_players mp JOIN matches m ON m.id = mp.match_id
                                 WHERE mp.player_id = ? AND m.status = \'giocata\' AND mp.team IS NOT NULL', [$playerId])->fetchColumn(),
-        'bets_won' => (int) q("SELECT COUNT(*) FROM bets WHERE player_id = ? AND status = 'vinta'", [$playerId])->fetchColumn(),
+        'bets_won' => (int) q("SELECT COUNT(*) FROM bets WHERE player_id = ? AND status = 'vinta'", [$playerId])->fetchColumn()
+            + (int) q("SELECT COUNT(*) FROM combo_bets WHERE player_id = ? AND status = 'vinta'", [$playerId])->fetchColumn(),
         'coins' => wallet_balance($playerId) + wallet_in_play($playerId),
         'items' => (int) q('SELECT COUNT(*) FROM player_items WHERE player_id = ?', [$playerId])->fetchColumn(),
     ];

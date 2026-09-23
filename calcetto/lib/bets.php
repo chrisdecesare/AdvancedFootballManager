@@ -45,10 +45,11 @@ function wallet_balance(int $playerId): int
     return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ?', [$playerId])->fetchColumn();
 }
 
-/** Gettoni puntati su scommesse non ancora decise. */
+/** Gettoni puntati su scommesse (singole e multiple) non ancora decise. */
 function wallet_in_play(int $playerId): int
 {
-    return (int) q("SELECT COALESCE(SUM(stake), 0) FROM bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn();
+    return (int) q("SELECT COALESCE(SUM(stake), 0) FROM bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn()
+        + (int) q("SELECT COALESCE(SUM(stake), 0) FROM combo_bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn();
 }
 
 /**
@@ -81,14 +82,17 @@ function bet_title(int $balance): string
     return 'Lupo di Wall Street';
 }
 
-/** Classifica di chi ha un portafoglio: gettoni disponibili + in gioco, dal più ricco. */
+/** Classifica di chi ha un portafoglio: gettoni disponibili + in gioco (singole e multiple), dal più ricco. */
 function bet_leaderboard(): array
 {
     return q('SELECT p.id, p.name, p.photo,
                      (SELECT COALESCE(SUM(delta), 0) FROM wallet_moves w WHERE w.player_id = p.id) AS balance,
-                     (SELECT COALESCE(SUM(stake), 0) FROM bets b WHERE b.player_id = p.id AND b.status = \'aperta\') AS in_play,
-                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.status = \'vinta\') AS wins,
-                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.status IN (\'vinta\', \'persa\')) AS decided
+                     (SELECT COALESCE(SUM(stake), 0) FROM bets b WHERE b.player_id = p.id AND b.status = \'aperta\')
+                       + (SELECT COALESCE(SUM(stake), 0) FROM combo_bets c WHERE c.player_id = p.id AND c.status = \'aperta\') AS in_play,
+                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.status = \'vinta\')
+                       + (SELECT COUNT(*) FROM combo_bets c WHERE c.player_id = p.id AND c.status = \'vinta\') AS wins,
+                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.status IN (\'vinta\', \'persa\'))
+                       + (SELECT COUNT(*) FROM combo_bets c WHERE c.player_id = p.id AND c.status IN (\'vinta\', \'persa\')) AS decided
               FROM players p
               WHERE EXISTS (SELECT 1 FROM wallet_moves w WHERE w.player_id = p.id) AND ' . player_scope_sql('p.id') . '
               ORDER BY (balance + in_play) DESC, p.name')->fetchAll();
@@ -389,6 +393,7 @@ function bets_settle(int $matchId, array $markets = ['esito', 'gol', 'mvp']): vo
                 }
             }
         });
+        combo_legs_settle_for_match($matchId, $market, $win);   // le stesse selezioni contano anche dentro le multiple
     }
 }
 
@@ -398,8 +403,11 @@ function bets_settle(int $matchId, array $markets = ['esito', 'gol', 'mvp']): vo
  */
 function bets_settle_pending(): void
 {
-    foreach (q("SELECT DISTINCT b.match_id FROM bets b JOIN matches m ON m.id = b.match_id
-                WHERE b.status = 'aperta' AND m.status = 'giocata' AND (m.voting_open = 0 OR b.market <> 'mvp')")->fetchAll(PDO::FETCH_COLUMN) as $id) {
+    $ids = q("SELECT DISTINCT b.match_id FROM bets b JOIN matches m ON m.id = b.match_id
+              WHERE b.status = 'aperta' AND m.status = 'giocata' AND (m.voting_open = 0 OR b.market <> 'mvp')")->fetchAll(PDO::FETCH_COLUMN);
+    $ids2 = q("SELECT DISTINCT cl.match_id FROM combo_legs cl JOIN combo_bets cb ON cb.id = cl.combo_id JOIN matches m ON m.id = cl.match_id
+               WHERE cl.status = 'aperta' AND cb.status = 'aperta' AND m.status = 'giocata' AND (m.voting_open = 0 OR cl.market <> 'mvp')")->fetchAll(PDO::FETCH_COLUMN);
+    foreach (array_unique(array_merge($ids, $ids2)) as $id) {
         bets_settle((int) $id);
     }
 }
@@ -413,6 +421,14 @@ function bets_unsettle(int $matchId, array $markets = ['esito', 'gol', 'mvp']): 
            WHERE b.match_id = ? AND b.market IN ($in) AND w.kind IN ('vincita', 'rimborso')", array_merge([$matchId], $markets));
         q("UPDATE bets SET status = 'aperta', payout = 0, settled_at = NULL WHERE match_id = ? AND market IN ($in) AND status <> 'aperta'",
             array_merge([$matchId], $markets));
+        // le multiple che avevano una gamba su questa partita/mercato tornano in gioco: si ripagano alla prossima chiusura
+        q("DELETE w FROM wallet_moves w JOIN combo_legs cl ON cl.combo_id = w.combo_id
+           WHERE cl.match_id = ? AND cl.market IN ($in) AND w.kind IN ('vincita', 'rimborso')", array_merge([$matchId], $markets));
+        q("UPDATE combo_legs SET status = 'aperta' WHERE match_id = ? AND market IN ($in) AND status <> 'aperta'",
+            array_merge([$matchId], $markets));
+        q("UPDATE combo_bets cb SET status = 'aperta', payout = 0, settled_at = NULL
+           WHERE status <> 'aperta' AND EXISTS (SELECT 1 FROM combo_legs cl WHERE cl.combo_id = cb.id AND cl.match_id = ? AND cl.market IN ($in))",
+            array_merge([$matchId], $markets));
     });
 }
 
@@ -422,6 +438,202 @@ function bets_resettle_result(int $matchId): void
     bet_atomic(function () use ($matchId) {
         bets_unsettle($matchId, ['esito', 'gol']);
         bets_settle($matchId, ['esito', 'gol']);
+    });
+}
+
+/* ---------------------------------------------------------------- multiple (combo) */
+
+const COMBO_MIN_LEGS = 2;    // sotto sono solo scommesse singole
+const COMBO_MAX_LEGS = 8;
+
+/**
+ * Valida le selezioni di una multipla dal carrello (array di "match_id:market:pick") e calcola le rispettive quote.
+ * @return array{0: array|null, 1: string|null} [gambe pronte, null] oppure [null, messaggio d'errore]
+ */
+function combo_prepare(array $raw, int $playerId): array
+{
+    $seen = [];
+    $legs = [];
+    foreach ($raw as $r) {
+        [$matchId, $market, $pick] = array_pad(explode(':', (string) $r, 3), 3, null);
+        $matchId = (int) $matchId;
+        $match = $matchId ? get_match($matchId) : null;
+        if (!$match || !match_access($match) || $market === null || !isset(bet_markets()[$market]) || $pick === null || $pick === '') {
+            return [null, 'Una delle selezioni della multipla non è valida.'];
+        }
+        if (!is_admin() && !player_in_group($playerId, (int) $match['group_id'])) {
+            return [null, 'Puoi scommettere solo sulle partite del tuo gruppo.'];
+        }
+        if (!bets_open_for($match)) {
+            return [null, 'Una delle partite scelte è già chiusa: rifai la multipla.'];
+        }
+        $dup = $matchId . '|' . $market;
+        if (isset($seen[$dup])) {
+            return [null, 'Non puoi mettere due volte lo stesso mercato della stessa partita nella multipla.'];
+        }
+        $seen[$dup] = true;
+        if ($market === 'esito') {
+            if (!in_array($pick, ['A', 'X', 'B'], true)) {
+                return [null, 'Scelta non valida su «chi vince».'];
+            }
+        } elseif (!array_filter(bet_candidates($matchId), fn($c) => (string) $c['player_id'] === $pick)) {
+            return [null, 'Scegli un giocatore che gioca quella partita.'];
+        }
+        $odds = bet_quotes($match)[$market][$pick] ?? null;
+        if ($odds === null) {
+            return [null, 'Su una delle selezioni non ci sono quote.'];
+        }
+        $legs[] = ['match_id' => $matchId, 'market' => $market, 'pick' => $pick, 'odds' => (float) $odds];
+    }
+    if (count($legs) < COMBO_MIN_LEGS) {
+        return [null, 'Una multipla serve almeno ' . COMBO_MIN_LEGS . ' selezioni: per una sola, punta normale.'];
+    }
+    if (count($legs) > COMBO_MAX_LEGS) {
+        return [null, 'Al massimo ' . COMBO_MAX_LEGS . ' selezioni in una multipla.'];
+    }
+    return [$legs, null];
+}
+
+/** Quota combinata di una multipla: il prodotto delle quote delle sue gambe. */
+function combo_odds(array $legs): float
+{
+    $o = 1.0;
+    foreach ($legs as $l) {
+        $o *= (float) $l['odds'];
+    }
+    return round($o, 2);
+}
+
+/** Fa una multipla. Ritorna il messaggio d'errore oppure null se è andata. */
+function combo_place(int $playerId, array $legs, int $stake): ?string
+{
+    if ($stake < 1) {
+        return 'Punta almeno 1 gettone.';
+    }
+    $odds = combo_odds($legs);
+    return bet_atomic(function () use ($playerId, $legs, $stake, $odds) {
+        q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);
+        $available = wallet_balance($playerId);
+        if ($stake > $available) {
+            return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
+        }
+        q('INSERT INTO combo_bets (player_id, stake, odds) VALUES (?, ?, ?)', [$playerId, $stake, $odds]);
+        $comboId = (int) db()->lastInsertId();
+        foreach ($legs as $l) {
+            q('INSERT INTO combo_legs (combo_id, match_id, market, pick, odds) VALUES (?, ?, ?, ?, ?)',
+                [$comboId, $l['match_id'], $l['market'], $l['pick'], $l['odds']]);
+        }
+        q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'puntata')", [$playerId, $comboId, -$stake]);
+        return null;
+    });
+}
+
+/** Ritira una multipla, se nessuna delle sue partite è ancora iniziata (i gettoni tornano). */
+function combo_cancel(int $comboId, int $playerId): ?string
+{
+    $combo = q('SELECT * FROM combo_bets WHERE id = ? AND player_id = ?', [$comboId, $playerId])->fetch();
+    if (!$combo) {
+        return 'Multipla non trovata.';
+    }
+    if ($combo['status'] !== 'aperta') {
+        return 'Questa multipla è già stata decisa.';
+    }
+    foreach (q('SELECT cl.match_id FROM combo_legs cl WHERE cl.combo_id = ?', [$comboId])->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+        $m = get_match((int) $mid);
+        if (!$m || !bets_open_for($m)) {
+            return 'Una delle partite della multipla è già chiusa: non si può più ritirare.';
+        }
+    }
+    q('DELETE FROM combo_bets WHERE id = ?', [$comboId]);   // gambe e mossa spariscono con lei (rimborso)
+    return null;
+}
+
+/** Multiple aperte di un giocatore, con le loro gambe. */
+function combo_open(int $playerId): array
+{
+    $combos = q("SELECT * FROM combo_bets WHERE player_id = ? AND status = 'aperta' ORDER BY id DESC", [$playerId])->fetchAll();
+    return combo_with_legs($combos);
+}
+
+/** Ultime multiple decise di un giocatore, con le loro gambe. */
+function combo_history(int $playerId, int $limit = 8): array
+{
+    $combos = q("SELECT * FROM combo_bets WHERE player_id = ? AND status <> 'aperta' ORDER BY settled_at DESC, id DESC LIMIT " . $limit,
+        [$playerId])->fetchAll();
+    return combo_with_legs($combos);
+}
+
+/** Attacca a ogni combo le sue gambe, con l'etichetta leggibile della scelta. */
+function combo_with_legs(array $combos): array
+{
+    if (!$combos) {
+        return [];
+    }
+    $ids = array_column($combos, 'id');
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $legs = q("SELECT cl.*, m.match_date, m.team_a_name, m.team_b_name FROM combo_legs cl JOIN matches m ON m.id = cl.match_id
+               WHERE cl.combo_id IN ($in) ORDER BY cl.id", $ids)->fetchAll();
+    $byCombo = [];
+    $markets = bet_markets();
+    foreach ($legs as $l) {
+        $byCombo[(int) $l['combo_id']][] = $l + ['label' => bet_pick_label($l, $l['market'], $l['pick']), 'market_label' => $markets[$l['market']]['label'] ?? $l['market']];
+    }
+    foreach ($combos as &$c) {
+        $c['legs'] = $byCombo[(int) $c['id']] ?? [];
+    }
+    return $combos;
+}
+
+/** Aggiorna lo stato delle gambe di una partita/mercato appena deciso, poi salda le multiple che così sono complete. */
+function combo_legs_settle_for_match(int $matchId, string $market, array|false $win): void
+{
+    bet_atomic(function () use ($matchId, $market, $win) {
+        $legs = q("SELECT * FROM combo_legs WHERE match_id = ? AND market = ? AND status = 'aperta' FOR UPDATE", [$matchId, $market])->fetchAll();
+        foreach ($legs as $l) {
+            $status = $win === false ? 'rimborsata' : (in_array($l['pick'], $win, true) ? 'vinta' : 'persa');
+            q('UPDATE combo_legs SET status = ? WHERE id = ?', [$status, $l['id']]);
+        }
+    });
+    $ids = q("SELECT DISTINCT cb.id FROM combo_bets cb JOIN combo_legs cl ON cl.combo_id = cb.id
+              WHERE cb.status = 'aperta' AND cl.match_id = ? AND cl.market = ?", [$matchId, $market])->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($ids as $cid) {
+        combo_maybe_settle((int) $cid);
+    }
+}
+
+/** Se una gamba ha perso la multipla è persa subito; se sono tutte decise (vinte o rimborsate) si paga. Altrimenti aspetta. */
+function combo_maybe_settle(int $comboId): void
+{
+    bet_atomic(function () use ($comboId) {
+        $combo = q("SELECT * FROM combo_bets WHERE id = ? AND status = 'aperta' FOR UPDATE", [$comboId])->fetch();
+        if (!$combo) {
+            return;
+        }
+        $legs = q('SELECT * FROM combo_legs WHERE combo_id = ?', [$comboId])->fetchAll();
+        if (!$legs) {
+            return;
+        }
+        if (array_filter($legs, fn($l) => $l['status'] === 'persa')) {
+            q("UPDATE combo_bets SET status = 'persa', payout = 0, settled_at = NOW() WHERE id = ?", [$comboId]);
+            return;
+        }
+        if (array_filter($legs, fn($l) => $l['status'] === 'aperta')) {
+            return;   // qualche partita non è ancora decisa: si aspetta
+        }
+        $won = array_filter($legs, fn($l) => $l['status'] === 'vinta');
+        if (!$won) {   // tutte le gambe rimborsate (mancava sempre il dato): si riprendono i gettoni
+            q("UPDATE combo_bets SET status = 'rimborsata', payout = ?, settled_at = NOW() WHERE id = ?", [(int) $combo['stake'], $comboId]);
+            q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'rimborso')", [$combo['player_id'], $comboId, (int) $combo['stake']]);
+            return;
+        }
+        // le gambe rimborsate escono dal conto (come i mercati saltati dai bookmaker veri): la quota resta quella delle altre
+        $odds = 1.0;
+        foreach ($won as $l) {
+            $odds *= (float) $l['odds'];
+        }
+        $pay = (int) floor((int) $combo['stake'] * $odds + 1e-9);
+        q("UPDATE combo_bets SET status = 'vinta', payout = ?, settled_at = NOW() WHERE id = ?", [$pay, $comboId]);
+        q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'vincita')", [$combo['player_id'], $comboId, $pay]);
     });
 }
 

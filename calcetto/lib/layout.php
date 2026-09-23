@@ -8,6 +8,7 @@ function layout_start(string $title, string $active = ''): void
         'players' => ['players.php', 'Rosa', 'shirt'],
         'standings' => ['standings.php', 'Classifica', 'trophy'],
         'bets' => ['bets.php', 'Scommesse', 'coin'],
+        'shop' => ['shop.php', 'Negozio', 'shopping-bag'],
         'curiosities' => ['curiosities.php', 'Curiosità', 'bulb'],
     ];
     if (is_admin()) {
@@ -17,6 +18,15 @@ function layout_start(string $title, string $active = ''): void
     }
     // pulsante con la campanella: attiva/disattiva le notifiche (o porta alla scheda che le spiega)
     $notifHref = ($u && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
+    // gettoni delle scommesse: sempre visibili accanto al profilo, non solo nella pagina Scommesse
+    $myId = my_player_id();
+    if ($u && $myId) {
+        $dole = wallet_open($myId);
+        if ($dole) {
+            flash('ok', $dole);
+        }
+    }
+    $coins = $myId ? wallet_balance($myId) : null;
     // versione = impronta del contenuto (non la data): se un upload FTP viene letto a metà, il browser non conserva
     // per 30 giorni un file troncato con lo stesso indirizzo di quello completo
     $ver = fn(string $f) => substr((string) @md5_file(__DIR__ . '/../assets/' . $f), 0, 10);
@@ -78,6 +88,7 @@ function layout_start(string $title, string $active = ''): void
           <span><?= h($u['player_name'] ?: $u['username']) ?></span>
           <?php if ($u['role'] !== 'player'): ?><span class="tag tag-admin"><?= h(strtolower(role_label($u['role']))) ?></span><?php endif; ?>
         </a>
+        <?php if ($coins !== null): ?><a href="shop.php" class="coin-pill" title="I tuoi gettoni: si spendono nel Negozio"><i class="ti ti-coin"></i> <?= $coins ?></a><?php endif; ?>
         <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a><?php endif; ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="btn btn-ghost btn-sm" data-push-bell title="Notifiche" aria-label="Notifiche"><i class="ti ti-bell"></i></a><?php endif; ?>
         <a href="index.php?tour=1" class="btn btn-ghost btn-sm" title="Rivedi il tutorial" aria-label="Rivedi il tutorial"><i class="ti ti-help"></i></a>

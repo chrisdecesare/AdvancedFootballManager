@@ -252,19 +252,51 @@ CREATE TABLE IF NOT EXISTS bets (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- il portafoglio e' la somma di queste mosse: benvenuto, sussidio, puntata, vincita, rimborso
+-- scommesse multiple (combo): più selezioni in un'unica giocata, quota combinata = prodotto delle quote
+CREATE TABLE IF NOT EXISTS combo_bets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  player_id INT NOT NULL,
+  stake INT NOT NULL,
+  odds DECIMAL(8,2) NOT NULL,
+  status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
+  payout INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  settled_at DATETIME NULL,
+  INDEX (player_id),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- le singole selezioni di una multipla
+CREATE TABLE IF NOT EXISTS combo_legs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  combo_id INT NOT NULL,
+  match_id INT NOT NULL,
+  market VARCHAR(10) NOT NULL,
+  pick VARCHAR(12) NOT NULL,
+  odds DECIMAL(6,2) NOT NULL,
+  status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
+  UNIQUE KEY uq_leg (combo_id, match_id, market),
+  INDEX (match_id, market),
+  FOREIGN KEY (combo_id) REFERENCES combo_bets(id) ON DELETE CASCADE,
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- il portafoglio e' la somma di queste mosse: benvenuto, sussidio, puntata, vincita, rimborso (di una singola o di una multipla)
 CREATE TABLE IF NOT EXISTS wallet_moves (
   id INT AUTO_INCREMENT PRIMARY KEY,
   player_id INT NOT NULL,
   bet_id INT NULL,
+  combo_id INT NULL,
   delta INT NOT NULL,
   kind VARCHAR(12) NOT NULL,
   ref VARCHAR(20) NULL,                            -- per le mosse che si danno una volta sola (benvenuto, sussidio settimanale)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ref (player_id, ref),
   INDEX (bet_id),
+  INDEX (combo_id),
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-  FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE
+  FOREIGN KEY (bet_id) REFERENCES bets(id) ON DELETE CASCADE,
+  FOREIGN KEY (combo_id) REFERENCES combo_bets(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- personalizzazioni comprate nel negozio con i gettoni (cosa si porta adesso sta in players)
@@ -277,4 +309,4 @@ CREATE TABLE IF NOT EXISTS player_items (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-INSERT IGNORE INTO meta (k, v) VALUES ('schema', '17');
+INSERT IGNORE INTO meta (k, v) VALUES ('schema', '19');
