@@ -540,6 +540,15 @@ function combo_prepare(array $raw, int $playerId): array
             return [null, 'Hai messo due volte la stessa selezione nella multipla.'];
         }
         $seen[$dup] = true;
+        // «chi vince» e «MVP» hanno un solo esito vincente: due scelte della stessa partita in una multipla si escludono
+        // a vicenda (sarebbe persa di sicuro), come nei bookmaker veri. I marcatori invece possono segnare in tanti.
+        if ($market !== 'gol') {
+            $excl = $matchId . '|' . $market;
+            if (isset($seen[$excl])) {
+                return [null, 'Nella multipla puoi mettere una sola scelta di «' . bet_markets()[$market]['label'] . '» per partita: si escludono a vicenda. Due marcatori invece sì.'];
+            }
+            $seen[$excl] = true;
+        }
         if ($market === 'esito') {
             if (!in_array($pick, ['A', 'X', 'B'], true)) {
                 return [null, 'Scelta non valida su «chi vince».'];

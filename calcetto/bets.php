@@ -336,6 +336,7 @@ layout_start('Scommesse', 'bets');
     <span class="betslip-odds muted small">Quota multipla <b id="slip-multi-odds">×0</b></span>
     <input type="number" name="stake" id="slip-multi-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="Gettoni sulla multipla">
     <button type="submit" class="btn btn-primary btn-sm" id="slip-multi-submit">Punta la multipla</button>
+    <span class="muted small" id="slip-multi-warn" hidden></span>
     <button type="button" class="btn btn-ghost btn-sm" id="slip-clear-2">Svuota schedina</button>
   </form>
 </div>
@@ -422,6 +423,19 @@ layout_start('Scommesse', 'bets');
     });
 
     multiOddsOut.textContent = '×' + (cart.length ? multiOdds.toFixed(2) : '0');
+    // «chi vince» e «MVP»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori invece si sommano
+    const seen = {};
+    const clash = cart.some(l => {
+      if (l.market === 'gol') return false;
+      const k = l.matchId + '|' + l.market;
+      if (seen[k]) return true;
+      seen[k] = true;
+      return false;
+    });
+    const multiWarn = document.getElementById('slip-multi-warn');
+    multiWarn.hidden = !clash;
+    multiWarn.textContent = clash ? 'Due scelte di «chi vince» o «MVP» della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).' : '';
+    document.getElementById('slip-multi-submit').disabled = clash || cart.length < 2;
     singlesSubmit.disabled = cart.length === 0;
     tabMulti.disabled = cart.length < 2;
     if (cart.length < 2 && tab === 'multipla') showTab('singole');
