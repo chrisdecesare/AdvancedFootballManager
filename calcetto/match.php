@@ -368,7 +368,7 @@ if (!empty($_SESSION['vote_done'])):
       <span><i class="ti ti-clock"></i> <?= fmt_time($match['match_date']) ?></span>
       <?= place_chip($match['location']) ?>
       <?= group_tag((int) $match['group_id']) ?>
-      <?php if ((float) $match['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
+      <?php if ((float) $match['fee'] > 0): ?><span><?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
     </div>
     <?php if ($match['notes']): ?><p class="muted"><?= nl2br(h($match['notes'])) ?></p><?php endif; ?>
     <?php if (!$played && strtotime($match['match_date']) > time() - 3 * 3600): ?>

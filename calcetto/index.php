@@ -69,7 +69,7 @@ layout_start('Home', 'home');
           <span><i class="ti ti-clock"></i> <?= fmt_time($next['match_date']) ?></span>
           <?= place_chip($next['location']) ?>
           <?= group_tag((int) $next['group_id']) ?>
-          <?php if ((float) $next['fee'] > 0): ?><span><i class="ti ti-currency-euro"></i> <?= fmt_money($next['fee']) ?></span><?php endif; ?>
+          <?php if ((float) $next['fee'] > 0): ?><span><?= fmt_money($next['fee']) ?></span><?php endif; ?>
         </div>
         <div class="hero-vs"><span class="team-a"><?= h(team_name('A', $next)) ?></span> <b>vs</b> <span class="team-b"><?= h(team_name('B', $next)) ?></span></div>
         <div class="hero-count"><?= countdown_html($next['match_date'], 'Mancano ', 'Si gioca!', 86400, false, 'hourglass-high', 'countdown-big') ?></div>

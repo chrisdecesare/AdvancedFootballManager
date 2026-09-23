@@ -388,13 +388,18 @@ layout_start('Scommesse', 'bets');
       row.className = 'slip-leg';
       row.innerHTML = '<span class="slip-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2) + '</span>';
 
-      // scheda «Singole»: uno stake per selezione, aggiornato in tempo reale
+      // scheda «Singole»: uno stake per selezione, aggiornato in tempo reale. La lista è fuori dal <form> (resta visibile
+      // anche nella scheda Multipla), quindi questi campi si legano al form con l'attributo form="..." invece che con il nesting,
+      // altrimenti il browser non li invia e "Punta le singole" risulta come se non si fosse puntato nulla.
+      const legIn = hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick);
+      legIn.setAttribute('form', 'slip-singles-form');
       const stakeIn = document.createElement('input');
       stakeIn.type = 'number'; stakeIn.name = 'stakes[]'; stakeIn.className = 'slip-leg-stake';
       stakeIn.min = 1; stakeIn.max = Math.max(1, balance); stakeIn.inputMode = 'numeric';
       stakeIn.value = leg.stake || Math.min(10, Math.max(1, balance));
       stakeIn.setAttribute('aria-label', 'Gettoni su questa selezione');
-      row.appendChild(hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick));
+      stakeIn.setAttribute('form', 'slip-singles-form');
+      row.appendChild(legIn);
       row.appendChild(stakeIn);
       const winOut = document.createElement('span');
       winOut.className = 'slip-leg-win small';
