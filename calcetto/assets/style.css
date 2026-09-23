@@ -149,6 +149,8 @@ img { max-width: 100%; }
 
 /* ---------- layout ---------- */
 .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
+/* con la schedina aperta (in basso, position: fixed) si lascia spazio perché non copra l'ultimo pezzo di pagina */
+body:has(.combo-cart:not([hidden])) .wrap { padding-bottom: 220px; }
 .narrow { max-width: 440px; margin: 30px auto; }
 .narrow-lg { max-width: 760px; margin: 0 auto; }
 .footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 0px)); }
@@ -259,9 +261,11 @@ img { max-width: 100%; }
 .mvp-card .avatar, .scorer-card .avatar { box-shadow: var(--sh-sm); }
 
 /* ---------- avatar ---------- */
-/* aspect-ratio è una difesa in più oltre a width/height: se qualcosa (un flex/grid stretto sul telefono) restringe
-   solo la larghezza, l'altezza la segue e la foto resta un cerchio invece di stirarsi a ovale */
-.avatar { display: inline-block; vertical-align: middle; border-radius: 50%; object-fit: cover; aspect-ratio: 1 / 1; flex: none; background: var(--paper-2); border: var(--b2); }
+/* max-width: none annulla la regola generica "img { max-width: 100% }" qui sopra: senza, su un contenitore
+   che sul telefono diventa più stretto della foto (es. la barra del profilo in alto) il browser restringe
+   solo la larghezza (l'altezza resta quella fissa della classe avatar-*) e il cerchio diventa un ovale.
+   aspect-ratio è una difesa in più per gli stessi casi. */
+.avatar { display: inline-block; vertical-align: middle; border-radius: 50%; object-fit: cover; aspect-ratio: 1 / 1; max-width: none; flex: none; background: var(--paper-2); border: var(--b2); }
 .avatar-initials { display: inline-grid; place-items: center; font-family: var(--font-d); color: var(--ink);
   background: hsl(var(--hue), 85%, 72%); }
 .avatar-xs { width: 28px; height: 28px; font-size: .75rem; border-width: 2px; }
@@ -855,16 +859,22 @@ a.fact-who:hover { color: var(--grass-d); }
 .combo-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; font-weight: 800; }
 .combo-cart { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--white); border-top: var(--b);
   box-shadow: 0 -4px 0 rgba(31, 26, 46, .08); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+  display: flex; flex-direction: column; gap: 8px; max-height: 62vh; }
 .combo-cart[hidden] { display: none; }
-.combo-cart-legs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 260px; max-height: 78px; overflow-y: auto; }
-.combo-leg { background: var(--paper-2); border: var(--b2); border-radius: 999px; padding: 3px 8px 3px 12px; font-size: .8rem; font-weight: 800; display: inline-flex; align-items: center; gap: 6px; }
-.combo-leg button { background: none; border: 0; cursor: pointer; color: var(--muted); font: 900 1.1rem var(--font); line-height: 1; padding: 0 2px; }
-.combo-leg button:hover { color: var(--red); }
-.combo-cart-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.combo-cart-head { display: flex; align-items: center; gap: 6px; }
+.combo-cart-legs { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.combo-leg { background: var(--paper-2); border: var(--b2); border-radius: 12px; padding: 6px 6px 6px 12px; font-size: .82rem; font-weight: 800;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.combo-leg-txt { flex: 1 1 180px; }
+.combo-leg-single { display: flex; align-items: center; gap: 6px; }
+.combo-leg-single input[type=number] { width: 64px; }
+.combo-leg-rm { background: none; border: 0; cursor: pointer; color: var(--muted); font: 900 1.2rem var(--font); line-height: 1; padding: 0 4px; }
+.combo-leg-rm:hover { color: var(--red); }
+.combo-cart-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: var(--b2); padding-top: 8px; }
 .combo-cart-odds b { color: var(--grass-d); }
 .combo-cart input[type=number] { width: 84px; }
-@media (max-width: 640px) { .combo-cart { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); } .combo-cart-legs { max-height: 58px; } }
+@media (max-width: 640px) { .combo-cart { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); max-height: 70vh; }
+  .combo-leg-txt { flex-basis: 100%; } }
 .pool-opt b { color: var(--grass-d); }
 .bet-form { display: grid; grid-template-columns: minmax(0, 1fr) 84px auto; gap: 8px; align-items: center; }
 .bet-win { grid-column: 1 / -1; font-weight: 900; color: var(--grass-d); min-height: 1.2em; }
