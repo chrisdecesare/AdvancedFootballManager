@@ -265,7 +265,8 @@ layout_start('Scommesse', 'bets');
         <?php endforeach; ?>
       </div>
       <div class="combo-card-foot">
-        <span><?= (int) $c['stake'] ?> gettoni a ×<?= fmt_num($c['odds'], 2) ?> = vinci <?= bet_payout((int) $c['stake'], $c['odds']) ?></span>
+        <span><?= (int) $c['stake'] ?> gettoni a ×<?= fmt_num($c['odds'], 2) ?> = vinci <?= bet_payout((int) $c['stake'], $c['odds']) ?>
+          <span class="muted small">· solo se sono giuste tutte le <?= count($c['legs']) ?> scelte</span></span>
         <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="combo_cancel"><input type="hidden" name="combo_id" value="<?= (int) $c['id'] ?>">
           <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la multipla? Vigliacco.">Ritira</button></form>
       </div>
@@ -314,18 +315,20 @@ layout_start('Scommesse', 'bets');
 
 <?php endif; ?>
 
-<div id="betslip" class="betslip" data-balance="<?= (int) $balance ?>" hidden>
+<div id="betslip" class="betslip" data-balance="<?= (int) $balance ?>" data-mode="singole" hidden>
   <div class="betslip-head">
     <span class="muted small"><i class="ti ti-stack-2"></i> Schedina (<span id="slip-count">0</span>)</span>
-    <div class="slip-tabs">
-      <button type="button" class="slip-tab active" data-slip-tab="singole">Singole</button>
-      <button type="button" class="slip-tab" data-slip-tab="multipla" id="slip-tab-multi" disabled title="Servono almeno 2 selezioni">Multipla</button>
+    <div class="slip-tabs" role="tablist">
+      <button type="button" class="slip-tab active" data-slip-tab="singole" role="tab" aria-selected="true">Singole</button>
+      <button type="button" class="slip-tab" data-slip-tab="multipla" id="slip-tab-multi" role="tab" aria-selected="false" disabled title="Servono almeno 2 selezioni">Multipla</button>
     </div>
   </div>
+  <p class="slip-hint muted small" id="slip-hint"></p>
   <div class="betslip-legs" id="slip-legs"></div>
 
   <form method="post" class="betslip-actions" id="slip-singles-form" data-slip-panel="singole">
     <?= csrf_field() ?><input type="hidden" name="do" value="bet_multi">
+    <span class="betslip-total small" id="slip-singles-total"></span>
     <button type="submit" class="btn btn-primary btn-sm" id="slip-singles-submit" disabled>Punta le singole</button>
     <button type="button" class="btn btn-ghost btn-sm" id="slip-clear">Svuota schedina</button>
   </form>
@@ -333,11 +336,12 @@ layout_start('Scommesse', 'bets');
   <form method="post" class="betslip-actions" id="slip-multi-form" data-slip-panel="multipla" hidden>
     <?= csrf_field() ?><input type="hidden" name="do" value="combo_bet">
     <div id="slip-multi-legs"></div>
-    <span class="betslip-odds muted small">Quota multipla <b id="slip-multi-odds">×0</b></span>
-    <input type="number" name="stake" id="slip-multi-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="Gettoni sulla multipla">
+    <span class="betslip-odds small">Quota multipla <b id="slip-multi-odds">×0</b></span>
+    <label class="betslip-stake small">Importo <input type="number" name="stake" id="slip-multi-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="Gettoni sulla multipla"></label>
+    <span class="betslip-total small" id="slip-multi-win"></span>
     <button type="submit" class="btn btn-primary btn-sm" id="slip-multi-submit">Punta la multipla</button>
-    <span class="muted small" id="slip-multi-warn" hidden></span>
     <button type="button" class="btn btn-ghost btn-sm" id="slip-clear-2">Svuota schedina</button>
+    <span class="muted small slip-multi-warn" id="slip-multi-warn" hidden></span>
   </form>
 </div>
 
@@ -368,13 +372,39 @@ layout_start('Scommesse', 'bets');
   const hidden = (name, value) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; return i; };
   const win = (stake, odds) => Math.floor(stake * odds + 1e-9);
 
+  const hint = document.getElementById('slip-hint');
+  const singlesTotal = document.getElementById('slip-singles-total');
+  const multiStake = document.getElementById('slip-multi-stake');
+  const multiWin = document.getElementById('slip-multi-win');
+
+  // Singole: ogni selezione ha il suo importo ed è una scommessa a sé. Multipla: un solo importo per tutte le selezioni,
+  // la quota è il prodotto delle quote e si viene pagati solo se sono giuste TUTTE (basta un errore e si perde tutto).
   const showTab = t => {
     tab = t;
+    slip.dataset.mode = t;
     tabSingole.classList.toggle('active', t === 'singole');
     tabMulti.classList.toggle('active', t === 'multipla');
+    tabSingole.setAttribute('aria-selected', t === 'singole');
+    tabMulti.setAttribute('aria-selected', t === 'multipla');
     panelSingole.hidden = t !== 'singole';
     panelMulti.hidden = t !== 'multipla';
+    updateTotals();
   };
+
+  const multiOddsNow = () => cart.reduce((o, l) => o * l.odds, 1);
+  const updateTotals = () => {
+    let staked = 0, maxWin = 0;
+    cart.forEach(l => { const n = l.stake || 0; staked += n; maxWin += n > 0 ? win(n, l.odds) : 0; });
+    singlesTotal.textContent = cart.length ? 'Totale puntato ' + staked + ' · se vincono tutte incassi ' + maxWin : '';
+    const n = parseInt(multiStake.value, 10) || 0;
+    multiWin.textContent = cart.length >= 2 && n > 0
+      ? 'Vinci ' + win(n, multiOddsNow()) + ' solo se sono giuste tutte le ' + cart.length + ' scelte'
+      : '';
+    hint.textContent = tab === 'singole'
+      ? 'Singole: ogni scelta è una scommessa separata con il suo importo, si paga ognuna per conto suo.'
+      : 'Multipla: un solo importo su tutte le scelte insieme, le quote si moltiplicano. Si viene pagati solo se sono giuste tutte: basta un errore e si perde la puntata.';
+  };
+  multiStake.addEventListener('input', updateTotals);
 
   const render = () => {
     legsBox.innerHTML = '';
@@ -409,6 +439,7 @@ layout_start('Scommesse', 'bets');
         const n = parseInt(stakeIn.value, 10) || 0;
         leg.stake = n; save(cart);
         winOut.textContent = n > 0 ? 'vinci ' + win(n, leg.odds) : '';
+        updateTotals();
       };
       stakeIn.addEventListener('input', updateWin);
       updateWin();
@@ -438,8 +469,10 @@ layout_start('Scommesse', 'bets');
     document.getElementById('slip-multi-submit').disabled = clash || cart.length < 2;
     singlesSubmit.disabled = cart.length === 0;
     tabMulti.disabled = cart.length < 2;
+    tabMulti.title = cart.length < 2 ? 'Servono almeno 2 selezioni' : '';
     if (cart.length < 2 && tab === 'multipla') showTab('singole');
     slip.hidden = cart.length === 0;
+    updateTotals();
 
     // aggiorna anche i pulsanti-quota già scelti (evidenziati) e le quote in tutte le partite, in caso una scelta sia sparita
     document.querySelectorAll('[data-slip-add]').forEach(btn => {

@@ -885,6 +885,15 @@ a.fact-who:hover { color: var(--grass-d); }
 .slip-leg-rm { background: none; border: 0; cursor: pointer; color: var(--muted); font: 900 1.2rem var(--font); line-height: 1; padding: 0 4px; }
 .slip-leg-rm:hover { color: var(--red); }
 .betslip-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: var(--b2); padding-top: 8px; }
+.betslip-actions[hidden] { display: none; }
+/* scheda Multipla: le selezioni restano elencate ma senza importo singolo (c'è un solo importo per tutta la multipla) */
+.betslip[data-mode="multipla"] .slip-leg-stake, .betslip[data-mode="multipla"] .slip-leg-win { display: none; }
+.betslip[data-mode="multipla"] .slip-leg { background: var(--white); border-style: dashed; }
+.slip-hint { margin: 0; }
+.slip-tab:not(:disabled):hover { border-color: var(--ink); }
+.betslip-total { font-weight: 800; color: var(--grass-d); flex-basis: 100%; }
+.betslip-stake { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.slip-multi-warn { flex-basis: 100%; color: var(--red); }
 .betslip-odds b { color: var(--grass-d); }
 .betslip input[type=number] { width: 84px; }
 @media (max-width: 640px) { .betslip { padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)); max-height: 74vh; }
