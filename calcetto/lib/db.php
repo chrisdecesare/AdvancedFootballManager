@@ -35,7 +35,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 19;
+const SCHEMA_VERSION = 20;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -312,6 +312,22 @@ function ensure_schema(): void
         }
         if (!q("SHOW KEYS FROM wallet_moves WHERE Key_name = 'fk_wallet_combo'")->fetch()) {
             db()->exec('ALTER TABLE wallet_moves ADD CONSTRAINT fk_wallet_combo FOREIGN KEY (combo_id) REFERENCES combo_bets(id) ON DELETE CASCADE');
+        }
+    }
+    if ($v < 20) {
+        // ora si può puntare su più scelte dello stesso mercato della stessa partita (es. due marcatori diversi), non solo una:
+        // il limite "una per mercato" diventa "una per scelta", sia per le singole che per le gambe delle multiple
+        if (q("SHOW KEYS FROM bets WHERE Key_name = 'uq_bet'")->fetch()) {
+            db()->exec('ALTER TABLE bets DROP INDEX uq_bet');
+        }
+        if (!q("SHOW KEYS FROM bets WHERE Key_name = 'uq_bet_pick'")->fetch()) {
+            db()->exec('ALTER TABLE bets ADD UNIQUE KEY uq_bet_pick (match_id, player_id, market, pick)');
+        }
+        if (q("SHOW KEYS FROM combo_legs WHERE Key_name = 'uq_leg'")->fetch()) {
+            db()->exec('ALTER TABLE combo_legs DROP INDEX uq_leg');
+        }
+        if (!q("SHOW KEYS FROM combo_legs WHERE Key_name = 'uq_leg_pick'")->fetch()) {
+            db()->exec('ALTER TABLE combo_legs ADD UNIQUE KEY uq_leg_pick (combo_id, match_id, market, pick)');
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

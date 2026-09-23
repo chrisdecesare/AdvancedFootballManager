@@ -858,6 +858,7 @@ a.fact-who:hover { color: var(--grass-d); }
 .quota-btn.is-picked { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
 .quota-btn.is-picked b { color: var(--yellow); }
 .quota-btn.is-mine { border-color: var(--grass-d); border-width: 2px; }
+.bet-mine-list { display: grid; gap: 6px; }
 .bet-mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 @media (max-width: 640px) { .bet-col-title { display: none; } }
 
