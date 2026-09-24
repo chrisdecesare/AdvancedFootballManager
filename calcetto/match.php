@@ -29,6 +29,28 @@ if (is_post()) {
         redirect($self . '#voti');
     }
 
+    // cronaca in diretta: la tengono anche i giocatori in campo, non solo chi gestisce le partite
+    if (in_array($do, ['live_goal', 'live_injury', 'live_undo'], true)) {
+        require_login();
+        $uid = (int) current_user()['id'];
+        if ($do === 'live_goal') {
+            $err = live_can_edit($match, $me)
+                ? live_add_goal($match, $pid, (int) ($_POST['assist_id'] ?? 0) ?: null, !empty($_POST['own']), $uid)
+                : 'Gol e autogol si segnano a partita in corso, da chi gioca o da chi gestisce le partite.';
+            $ok = !empty($_POST['own']) ? 'Autogol segnato.' : 'Gol segnato!';
+        } elseif ($do === 'live_injury') {
+            $err = live_can_edit($match, $me, 'infortunio')
+                ? live_add_injury($match, $pid, (string) ($_POST['note'] ?? ''), $uid)
+                : 'Gli infortuni si segnano dal calcio d\'inizio, da chi gioca o da chi gestisce le partite.';
+            $ok = 'Infortunio segnato. Forza e rimettiti presto!';
+        } else {
+            $err = live_remove_event($match, (int) ($_POST['event_id'] ?? 0), $me);
+            $ok = 'Evento tolto.';
+        }
+        flash($err ? 'err' : 'ok', $err ?: $ok);
+        redirect($self . '#diretta');
+    }
+
     require_login();
     if (!$canManage) {
         flash('err', 'Questa partita la gestisce chi amministra la sua lega.');
@@ -46,14 +68,17 @@ if (is_post()) {
                 // cambia il giorno di una partita in programma: le vecchie risposte non valgono più
                 $reset = $match['status'] === 'programmata' && substr($newDate, 0, 10) !== substr($match['match_date'], 0, 10);
                 db()->beginTransaction();
-                q('UPDATE matches SET match_date = ?, location = ?, team_a_name = ?, team_b_name = ?, fee = ?, notes = ? WHERE id = ?', [
+                q('UPDATE matches SET match_date = ?, location = ?, team_a_name = ?, team_b_name = ?, fee = ?, notes = ?, keepers = ? WHERE id = ?', [
                     $newDate, trim($_POST['location'] ?? ''),
                     clean_team_name($_POST['team_a'] ?? '', TEAM_A_NAME), clean_team_name($_POST['team_b'] ?? '', TEAM_B_NAME),
                     max(0, (float) str_replace(',', '.', $_POST['fee'] ?? '0')),
-                    trim($_POST['notes'] ?? '') ?: null, $id]);
+                    trim($_POST['notes'] ?? '') ?: null, ($_POST['keepers'] ?? '') === 'fissi' ? 'fissi' : 'volanti', $id]);
                 if ($reset) {
                     sync_match_players($id);   // anche chi non aveva ancora una riga deve poter rispondere
                     reset_match_responses($id);
+                } elseif ($newDate !== $match['match_date']) {
+                    // cambia solo l'ora: gli avvisi delle scommesse (apertura, ultima ora) si rifanno sul nuovo orario
+                    q("DELETE FROM push_log WHERE match_id = ? AND kind IN ('betsopen', 'bets1h')", [$id]);
                 }
                 db()->commit();
                 if ($match['status'] === 'programmata') {
@@ -68,9 +93,11 @@ if (is_post()) {
         case 'set_avail':
             $st = $_POST['status'] ?? '';
             if (in_array($st, ['confermato', 'in_attesa', 'assente'], true)) {
+                $was = (string) q('SELECT availability FROM match_players WHERE match_id = ? AND player_id = ?', [$id, $pid])->fetchColumn();
                 q("UPDATE match_players SET availability = ?, team = IF(? = 'confermato', team, NULL)
                    WHERE match_id = ? AND player_id = ?", [$st, $st, $id, $pid]);
                 assign_formation($id);
+                push_notify_roster_change($id, $pid, $was, $st, $actor);   // lo sanno gli altri confermati
             }
             break;
 
@@ -138,6 +165,8 @@ if (is_post()) {
 
         case 'add_to_team':
             $t = ($_POST['team'] ?? '') === 'B' ? 'B' : 'A';
+            $was = (string) q('SELECT availability FROM match_players WHERE match_id = ? AND player_id = ?', [$id, $pid])->fetchColumn();
+            push_notify_roster_change($id, $pid, $was, 'confermato', $actor);
             q("UPDATE match_players SET team = ?, availability = 'confermato' WHERE match_id = ? AND player_id = ?", [$t, $id, $pid]);
             assign_formation($id);
             redirect($self . '#squadre');
@@ -388,6 +417,17 @@ $nameOf = short_names($roster);
 $links = $hasTeams ? q('SELECT ml.assister_id, ml.scorer_id, ml.n, a.name AS an, s.name AS sn FROM match_links ml
                         JOIN players a ON a.id = ml.assister_id JOIN players s ON s.id = ml.scorer_id
                         WHERE ml.match_id = ? ORDER BY a.name, s.name', [$id])->fetchAll() : [];
+// cronaca in diretta (lib/live.php)
+$events = $isGuest ? [] : live_events($id);
+$injured = [];
+foreach ($events as $ev) {
+    if ($ev['kind'] === 'infortunio') {
+        $injured[(int) $ev['player_id']] = (string) $ev['note'];
+    }
+}
+$liveOn = live_is_on($match);
+$canLive = $hasTeams && live_can_edit($match, $me);
+$canInjury = $hasTeams && live_can_edit($match, $me, 'infortunio');
 
 layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
 if (!empty($_SESSION['vote_done'])):
@@ -408,13 +448,14 @@ if (!empty($_SESSION['vote_done'])):
 
 <section class="card match-head">
   <div class="match-when">
-    <span class="eyebrow"><?= $played ? 'Partita giocata' : '<i class="ti ti-calendar-event"></i> In programma' ?></span>
+    <span class="eyebrow"><?= $played ? 'Partita giocata' : ($liveOn ? '<span class="tag tag-live"><i class="ti ti-broadcast"></i> in corso</span>' : '<i class="ti ti-calendar-event"></i> In programma') ?></span>
     <h1><?= h(ucfirst(fmt_date_long($match['match_date']))) ?></h1>
     <div class="hero-meta">
       <span><i class="ti ti-clock"></i> <?= fmt_time($match['match_date']) ?></span>
       <?= place_chip($match['location']) ?>
       <?= group_tag((int) $match['group_id']) ?>
       <?php if ((float) $match['fee'] > 0): ?><span><?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
+      <span><i class="ti ti-hand-stop"></i> <?= h(keepers_label(match_keepers($match))) ?></span>
     </div>
     <?php if ($match['notes']): ?><p class="muted"><?= nl2br(h($match['notes'])) ?></p><?php endif; ?>
     <?php if (!$played && strtotime($match['match_date']) > time() - 3 * 3600): ?>
@@ -455,6 +496,87 @@ if (!empty($_SESSION['vote_done'])):
 </section>
 <?php endif; ?>
 <?php layout_end(); exit; endif; ?>
+
+<?php if ($events || $canLive || $canInjury): ?>
+<section class="card" id="diretta">
+  <div class="card-head">
+    <h2><i class="ti ti-broadcast"></i> <?= $liveOn ? 'Diretta' : 'Cronaca' ?></h2>
+    <?php if ($liveOn): ?><a class="btn btn-ghost btn-sm" href="<?= h($self) ?>#diretta"><i class="ti ti-refresh"></i> Aggiorna</a><?php endif; ?>
+  </div>
+  <?php if (!$events): ?>
+    <p class="empty"><?= $liveOn ? 'Ancora nessun evento. Segna qui i gol mentre giocate: il risultato si aggiorna da solo e chi non gioca riceve la notifica.' : 'Nessun evento segnato.' ?></p>
+  <?php else: ?>
+    <ol class="live-events">
+      <?php foreach (array_reverse($events) as $ev):
+          $canUndo = live_can_edit($match, $me, $ev['kind']) && ($canManage || (int) $ev['created_by'] === (int) (current_user()['id'] ?? 0))
+              && ($ev['kind'] === 'infortunio' || $liveOn); ?>
+        <li class="live-ev">
+          <span class="live-min"><?= h(live_minute($match, $ev['created_at'])) ?></span>
+          <?php if ($ev['kind'] === 'gol'): ?><i class="ti ti-ball-football"></i>
+          <?php elseif ($ev['kind'] === 'autogol'): ?><span class="ev ev-og">AG</span>
+          <?php else: ?><i class="ti ti-first-aid-kit ev-inj"></i><?php endif; ?>
+          <span class="live-who"><span class="team-dot team-<?= strtolower((string) $ev['team']) ?>"></span><strong><?= h($ev['name']) ?></strong>
+            <?php if ($ev['kind'] === 'gol' && $ev['assist_name']): ?><span class="muted small">assist <?= h($ev['assist_name']) ?></span><?php endif; ?>
+            <?php if ($ev['kind'] === 'autogol'): ?><span class="muted small">autogol</span><?php endif; ?>
+            <?php if ($ev['kind'] === 'infortunio'): ?><span class="muted small">infortunato<?= $ev['note'] ? ': ' . h($ev['note']) : '' ?></span><?php endif; ?></span>
+          <?php if ($canUndo): ?>
+            <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="live_undo"><input type="hidden" name="event_id" value="<?= (int) $ev['id'] ?>">
+              <button class="icon-btn" title="Togli (segnato per sbaglio)" data-confirm="Togliere questo evento?<?= $ev['kind'] !== 'infortunio' ? ' Il risultato torna indietro di un gol.' : '' ?>"><i class="ti ti-x"></i></button></form>
+          <?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ol>
+  <?php endif; ?>
+
+  <?php if ($canLive): ?>
+    <form method="post" class="form form-grid live-form" id="live-goal-form">
+      <?= csrf_field() ?><input type="hidden" name="do" value="live_goal">
+      <label class="field"><span><i class="ti ti-ball-football"></i> Chi ha segnato</span><select name="player_id" required data-assist-from>
+        <?php foreach (['A', 'B'] as $t): ?><optgroup label="<?= h(team_name($t, $match)) ?>">
+          <?php foreach ($teams[$t] as $r): ?><option value="<?= (int) $r['player_id'] ?>" data-team="<?= $t ?>"><?= h($r['name']) ?></option><?php endforeach; ?></optgroup><?php endforeach; ?>
+      </select></label>
+      <label class="field"><span>Assist (facoltativo)</span><select name="assist_id" data-assist-to>
+        <option value="">— nessuno —</option>
+        <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>" data-team="<?= h($r['team']) ?>"><?= h($r['name']) ?></option><?php endforeach; ?>
+      </select></label>
+      <label class="field check span-2"><input type="checkbox" name="own" value="1"> Autogol (il gol va all'altra squadra)</label>
+      <div class="span-2"><button class="btn btn-primary"><i class="ti ti-ball-football"></i> Gol!</button></div>
+    </form>
+  <?php endif; ?>
+  <?php if ($canInjury): ?>
+    <details class="collapsible">
+      <summary><strong><i class="ti ti-first-aid-kit"></i> Segna un infortunio</strong></summary>
+      <form method="post" class="form form-grid">
+        <?= csrf_field() ?><input type="hidden" name="do" value="live_injury">
+        <label class="field"><span>Chi si è fatto male</span><select name="player_id" required>
+          <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?>
+        </select></label>
+        <label class="field"><span>Cosa è successo (facoltativo)</span><input name="note" maxlength="120" placeholder="Es. caviglia, stiramento..."></label>
+        <div class="span-2"><button class="btn btn-ghost btn-sm"><i class="ti ti-first-aid-kit"></i> Segna infortunio</button></div>
+      </form>
+    </details>
+  <?php endif; ?>
+</section>
+<?php if ($canLive): ?>
+<script>
+// l'assist lo fa un compagno di chi segna: la lista mostra solo la sua squadra (e niente assist sugli autogol)
+(() => {
+  const form = document.getElementById('live-goal-form');
+  if (!form) return;
+  const from = form.querySelector('[data-assist-from]'), to = form.querySelector('[data-assist-to]'), own = form.querySelector('[name=own]');
+  const sync = () => {
+    const team = (from.selectedOptions[0] || {}).dataset?.team;
+    [...to.options].forEach(o => { if (o.value) o.hidden = own.checked || o.dataset.team !== team || o.value === from.value; });
+    if (to.selectedOptions[0]?.hidden) to.value = '';
+    to.disabled = own.checked;
+  };
+  from.addEventListener('change', sync);
+  own.addEventListener('change', sync);
+  sync();
+})();
+</script>
+<?php endif; ?>
+<?php endif; ?>
 
 <?php if (!$played): ?>
 <section class="card" id="presenze">
@@ -566,6 +688,7 @@ if (!empty($_SESSION['vote_done'])):
             if ($r['goals']) $extra .= '<span class="ev"><i class="ti ti-ball-football"></i>' . ($r['goals'] > 1 ? '×' . $r['goals'] : '') . '</span>';
             if ($r['assists']) $extra .= '<span class="ev"><b class="ast">A</b>' . ($r['assists'] > 1 ? '×' . $r['assists'] : '') . '</span>';
             if ($r['own_goals']) $extra .= '<span class="ev ev-og">AG' . ($r['own_goals'] > 1 ? '×' . $r['own_goals'] : '') . '</span>';
+            if (isset($injured[$pid])) $extra .= '<span class="ev ev-inj" title="Infortunato' . ($injured[$pid] !== '' ? ': ' . h($injured[$pid]) : '') . '"><i class="ti ti-first-aid-kit"></i></span>';
             if ($showVotes && isset($avgs[$pid])) $extra .= '<span class="vote ' . vote_class($avgs[$pid]['avg']) . '">' . fmt_num($avgs[$pid]['avg']) . '</span>';
             if (!$votingOpen && $mvp === $pid) $extra .= '<span class="tag tag-mvp"><i class="ti ti-star-filled"></i> MVP</span>';
             if (!$played && !$r['is_guest']) $extra .= '<span class="ovr" title="Overall">' . overall($stats[$pid]['ovr'] ?? 6) . '</span>';
@@ -794,6 +917,8 @@ if (!empty($_SESSION['vote_done'])):
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(team_name('A', $match)) ?>"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(team_name('B', $match)) ?>"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format((float) $match['fee'], 2, ',', '')) ?>"></label>
+    <label class="field"><span>Portieri (cambia le quote dei marcatori)</span><select name="keepers">
+      <?php foreach (['volanti' => 'Volanti (in porta a turno)', 'fissi' => 'Fissi'] as $kv => $kl): ?><option value="<?= $kv ?>" <?= match_keepers($match) === $kv ? 'selected' : '' ?>><?= $kl ?></option><?php endforeach; ?></select></label>
     <label class="field span-2"><span>Note</span><input name="notes" value="<?= h($match['notes']) ?>"></label>
     <?php if (!$played): ?><p class="muted small span-2">Se cambi il giorno, le risposte «Ci sono / Non ci sono» si azzerano. I giocatori ricevono una notifica per ogni modifica.</p><?php endif; ?>
     <div class="span-2"><button class="btn btn-ghost">Salva modifiche</button></div>

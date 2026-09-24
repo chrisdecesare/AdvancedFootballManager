@@ -31,6 +31,10 @@ $selfAccount = $account && (int) $account['id'] === (int) current_user()['id']; 
 $adjFields = ['adj_apps' => 'Presenze', 'adj_goals' => 'Gol', 'adj_assists' => 'Assist', 'adj_mvp' => 'MVP',
     'adj_wins' => 'Vittorie', 'adj_draws' => 'Pareggi', 'adj_losses' => 'Sconfitte', 'adj_own_goals' => 'Autogol'];
 $errors = [];
+// con le scommesse aperte il giocatore non può cambiarsi il ruolo; per correggere possono l'admin del sito
+// e chi amministra la sua lega (ma non sul proprio profilo)
+$roleLock = $isNew ? null : role_lock_match($id);
+$roleLocked = $roleLock && !$admin && !($staff && my_player_id() !== $id);
 
 if (is_post()) {
     $do = $_POST['do'] ?? 'save';
@@ -56,6 +60,12 @@ if (is_post()) {
     [$pos, $pos2] = normalize_positions(
         is_string($_POST['position'] ?? null) ? $_POST['position'] : null,
         is_string($_POST['position2'] ?? null) && $_POST['position2'] !== '' ? $_POST['position2'] : null);
+    if ($roleLocked) {
+        if (isset($_POST['position']) && ($pos !== $p['position'] || $pos2 !== $p['position2'])) {   // i menu sono disattivati: arriva solo forzando la pagina
+            flash('err', 'Ruolo non cambiato: con le scommesse aperte (partita di ' . push_when($roleLock['match_date']) . ') i ruoli sono bloccati fino alla fine della partita.');
+        }
+        [$pos, $pos2] = [$p['position'], $p['position2']];
+    }
     $foot = in_array($_POST['foot'] ?? '', feet(), true) ? $_POST['foot'] : 'Destro';
     if ($name === '' || mb_strlen($name) > 80) {
         $errors[] = 'Inserisci un nome (max 80 caratteri).';
@@ -264,9 +274,14 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     <div class="form-grid">
       <label class="field span-2"><span>Nome</span><input name="name" required maxlength="80" value="<?= h($p['name']) ?>"></label>
       <label class="field"><span>Numero di maglia</span><input type="number" name="shirt_number" min="0" max="99" value="<?= h($p['shirt_number']) ?>"></label>
-      <label class="field"><span>Posizione preferita</span><select name="position">
+      <?php if ($roleLock): ?>
+        <p class="flash <?= $roleLocked ? 'flash-err' : '' ?> span-2 small"><i class="ti ti-lock"></i>
+          <?= $roleLocked ? 'Ruolo bloccato' : 'Ruolo bloccato per il giocatore (tu puoi comunque correggerlo)' ?>: le scommesse sulla partita di <?= h(push_when($roleLock['match_date'])) ?> sono aperte,
+          e cambiare ruolo cambierebbe le quote. Si sblocca a partita finita.</p>
+      <?php endif; ?>
+      <label class="field"><span>Posizione preferita</span><select name="position" <?= $roleLocked ? 'disabled' : '' ?>>
         <?php foreach (main_positions() as $o): ?><option <?= $p['position'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
-      <label class="field"><span>Seconda posizione (facoltativa; Jolly = si adatta a tutto)</span><select name="position2">
+      <label class="field"><span>Seconda posizione (facoltativa; Jolly = si adatta a tutto)</span><select name="position2" <?= $roleLocked ? 'disabled' : '' ?>>
         <option value="">— nessuna —</option>
         <?php foreach (positions() as $o): ?><option <?= ($p['position2'] ?? '') === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
       <label class="field"><span>Piede preferito</span><select name="foot">

@@ -14,7 +14,7 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
     } elseif (!isset($mine[$gid])) {
         flash('err', 'Scegli il gruppo della partita.');
     } else {
-        q('INSERT INTO matches (match_date, location, team_a_name, team_b_name, fee, notes, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)', [
+        q('INSERT INTO matches (match_date, location, team_a_name, team_b_name, fee, notes, group_id, keepers) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
             $dt->format('Y-m-d H:i:s'),
             trim($_POST['location'] ?? ''),
             clean_team_name($_POST['team_a'] ?? '', TEAM_A_NAME),
@@ -22,11 +22,13 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
             max(0, (float) str_replace(',', '.', $_POST['fee'] ?? '0')),
             trim($_POST['notes'] ?? '') ?: null,
             $gid,
+            ($_POST['keepers'] ?? '') === 'fissi' ? 'fissi' : 'volanti',
         ]);
         $id = (int) db()->lastInsertId();
         log_activity('partita_creata', $dt->format('d/m/Y H:i') . ' · ' . trim($_POST['location'] ?? ''), $gid);
         sync_match_players($id);
         push_notify_new_match($id, (int) current_user()['id']);   // avvisa chi deve rispondere, dopo aver inviato la pagina
+        push_notify_bets_open_now($id);                            // se si gioca entro 48 ore le scommesse sono già aperte: avviso subito
         flash('ok', 'Partita creata: ora i giocatori possono confermare.');
         redirect('match.php?id=' . $id);
     }
@@ -64,6 +66,8 @@ layout_start('Partite', 'matches');
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(TEAM_A_NAME) ?>" placeholder="Es. Scapoli"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(TEAM_B_NAME) ?>" placeholder="Es. Ammogliati"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format(DEFAULT_FEE, 2, ',', '')) ?>"></label>
+    <label class="field"><span>Portieri</span><select name="keepers">
+      <option value="volanti" selected>Volanti (in porta a turno)</option><option value="fissi">Fissi</option></select></label>
     <label class="field span-2"><span>Note</span><input name="notes" placeholder="Facoltative"></label>
     <div class="span-2"><button class="btn btn-primary">Crea partita</button></div>
   </form>

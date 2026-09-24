@@ -65,6 +65,7 @@ require __DIR__ . '/bets.php';
 require __DIR__ . '/shop.php';
 require __DIR__ . '/webpush.php';
 require __DIR__ . '/guests.php';
+require __DIR__ . '/live.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';
 

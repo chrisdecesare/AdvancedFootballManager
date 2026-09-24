@@ -281,6 +281,35 @@ function position_abbr(string $p): string
         'Attaccante' => 'ATT', 'Jolly' => 'JOL'][$p] ?? 'JOL';
 }
 
+/** Portieri della partita: 'volanti' (in porta a turno, il default) oppure 'fissi'. */
+function match_keepers(array $m): string
+{
+    return ($m['keepers'] ?? 'volanti') === 'fissi' ? 'fissi' : 'volanti';
+}
+
+function keepers_label(string $k): string
+{
+    return $k === 'fissi' ? 'Portieri fissi' : 'Portieri volanti';
+}
+
+/**
+ * Partita che blocca il cambio di ruolo di un giocatore, se c'è: una partita del suo gruppo (o in cui è in lista) con le scommesse già
+ * aperte e non ancora chiusa. Senza blocco c'era chi si segnava portiere per alzare la quota "segna", puntava e poi tornava attaccante
+ * (quote falsate e squadre generate con ruoli sbagliati). Il blocco dura fino a qualche ora dopo il calcio d'inizio, anche se nessuno
+ * chiude la partita. @return array|null la partita
+ */
+function role_lock_match(int $playerId): ?array
+{
+    $now = time();
+    $m = q("SELECT m.* FROM matches m
+            WHERE m.status = 'programmata' AND m.match_date <= ? AND m.match_date > ?
+              AND (EXISTS (SELECT 1 FROM player_groups pg WHERE pg.group_id = m.group_id AND pg.player_id = ?)
+                   OR EXISTS (SELECT 1 FROM match_players mp WHERE mp.match_id = m.id AND mp.player_id = ?))
+            ORDER BY m.match_date LIMIT 1",
+        [date('Y-m-d H:i:s', $now + BET_OPEN_HOURS * 3600), date('Y-m-d H:i:s', $now - 12 * 3600), $playerId, $playerId])->fetch();
+    return $m ?: null;
+}
+
 function feet(): array
 {
     return ['Destro', 'Sinistro', 'Ambidestro'];
