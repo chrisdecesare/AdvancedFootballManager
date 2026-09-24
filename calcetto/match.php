@@ -13,6 +13,9 @@ if (!$match || !match_access($match)) {   // partita inesistente o di un gruppo 
 }
 $me = my_player_id();
 $self = 'match.php?id=' . $id;
+$gid = (int) $match['group_id'];
+$canManage = can_manage_group($gid);   // presenze, squadre, risultato, votazioni: admin/manager della lega (e l'admin del sito)
+$canAdmin = can_admin_group($gid);     // pagamenti, ospiti, eliminazione: chi amministra la lega
 
 /* ---------------------------------------------------------------- azioni */
 if (is_post()) {
@@ -22,11 +25,19 @@ if (is_post()) {
     if ($do === 'vote') {
         require_login();
         handle_vote($match, $me);
+        log_activity('voto', fmt_date_short($match['match_date']), $gid);
         redirect($self . '#voti');
     }
 
-    require_match_manager();
+    require_login();
+    if (!$canManage) {
+        flash('err', 'Questa partita la gestisce chi amministra la sua lega.');
+        redirect($self);
+    }
     $actor = (int) current_user()['id'];
+    if ($canAdmin || !in_array($do, ['toggle_paid', 'add_guest', 'remove_guest', 'delete'], true)) {   // quelle rifiutate sotto non contano
+        log_activity('partita', $do . ' · ' . fmt_date_short($match['match_date']), $gid);
+    }
     switch ($do) {
         case 'edit_info':
             $dt = DateTime::createFromFormat('Y-m-d H:i', ($_POST['date'] ?? '') . ' ' . ($_POST['time'] ?? ''));
@@ -240,7 +251,7 @@ if (is_post()) {
             break;
 
         case 'toggle_paid':
-            if (!is_admin()) {
+            if (!$canAdmin) {
                 flash('err', 'I pagamenti li gestisce solo un admin.');
                 break;
             }
@@ -248,7 +259,7 @@ if (is_post()) {
             redirect($self . '#pagamenti');
 
         case 'add_guest':
-            if (!is_admin()) {
+            if (!$canAdmin) {
                 flash('err', 'Gli ospiti li aggiunge solo un admin.');
                 break;
             }
@@ -263,7 +274,7 @@ if (is_post()) {
             redirect($self . '#presenze');
 
         case 'remove_guest':
-            if (!is_admin()) {
+            if (!$canAdmin) {
                 flash('err', 'Gli ospiti li toglie solo un admin.');
                 break;
             }
@@ -272,7 +283,7 @@ if (is_post()) {
             redirect($self . '#presenze');
 
         case 'delete':
-            if (!is_admin()) {
+            if (!$canAdmin) {
                 flash('err', 'Solo un admin può eliminare una partita.');
                 break;
             }
@@ -356,7 +367,7 @@ $avgs = match_vote_averages()[$id] ?? [];
 $mvpCounts = match_mvp_counts()[$id] ?? [];
 $mvp = $played ? match_mvp($id) : null;
 $iPlayed = $myRow && $myRow['team'];
-$showVotes = $played && (!$votingOpen || is_admin());
+$showVotes = $played && (!$votingOpen || $canAdmin);
 
 // voti già dati dal giocatore collegato (per precompilare il modulo)
 $myVotes = [];
@@ -453,7 +464,7 @@ if (!empty($_SESSION['vote_done'])):
         <?php foreach ($byStatus[$st] as $r): ?>
           <div class="pline-row">
             <?= player_line($r) ?>
-            <?php if (can_manage_matches()): ?>
+            <?php if ($canManage): ?>
               <form method="post" class="inline">
                 <?= csrf_field() ?><input type="hidden" name="do" value="set_avail"><input type="hidden" name="player_id" value="<?= (int) $r['player_id'] ?>">
                 <select name="status" class="mini-select" data-autosubmit aria-label="Cambia stato">
@@ -468,7 +479,7 @@ if (!empty($_SESSION['vote_done'])):
       </div>
     <?php endforeach; ?>
   </div>
-  <?php if (is_admin()): $guests = match_guests($id); ?>
+  <?php if ($canAdmin): $guests = match_guests($id); ?>
   <div class="guest-admin">
     <h3><i class="ti ti-user-plus"></i> Ospiti <span class="count"><?= count($guests) ?></span></h3>
     <?php foreach ($guests as $g): ?>
@@ -507,7 +518,7 @@ if (!empty($_SESSION['vote_done'])):
 <section class="card" id="squadre">
   <div class="card-head">
     <h2>Squadre</h2>
-    <?php if (can_manage_matches() && !$played): ?>
+    <?php if ($canManage && !$played): ?>
       <div class="btn-row">
         <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="gen_teams">
           <button class="btn btn-primary btn-sm"><i class="ti ti-scale"></i> <?= $hasTeams ? 'Rigenera' : 'Genera squadre bilanciate' ?></button></form>
@@ -519,12 +530,12 @@ if (!empty($_SESSION['vote_done'])):
     <?php endif; ?>
   </div>
   <?php if (!$hasTeams): ?>
-    <p class="empty"><?= can_manage_matches() ? 'Quando ci sono abbastanza confermati, premi "Genera squadre bilanciate": l\'algoritmo divide i giocatori in due squadre con forza complessiva simile.' : 'Le squadre non sono ancora state fatte.' ?></p>
+    <p class="empty"><?= $canManage ? 'Quando ci sono abbastanza confermati, premi "Genera squadre bilanciate": l\'algoritmo divide i giocatori in due squadre con forza complessiva simile.' : 'Le squadre non sono ancora state fatte.' ?></p>
   <?php else: ?>
     <div class="squad-grid">
     <div class="squad-pitch">
-      <?= render_pitch($match, $roster, can_manage_matches() && !$played) ?>
-      <?php if (can_manage_matches() && !$played): ?>
+      <?= render_pitch($match, $roster, $canManage && !$played) ?>
+      <?php if ($canManage && !$played): ?>
         <form method="post" class="center"><?= csrf_field() ?><input type="hidden" name="do" value="reset_formation">
           <button class="btn btn-ghost btn-sm"><i class="ti ti-refresh"></i> Ricalcola posizioni dalle preferenze</button></form>
       <?php endif; ?>
@@ -559,7 +570,7 @@ if (!empty($_SESSION['vote_done'])):
           ?>
             <div class="pline-row">
               <?= player_line($r, $extra) ?>
-              <?php if (can_manage_matches() && !$played): ?>
+              <?php if ($canManage && !$played): ?>
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="move_team"><input type="hidden" name="player_id" value="<?= $pid ?>">
                   <button class="icon-btn" title="Sposta nell'altra squadra"><i class="ti ti-arrows-exchange"></i></button></form>
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="remove_from_team"><input type="hidden" name="player_id" value="<?= $pid ?>">
@@ -573,7 +584,7 @@ if (!empty($_SESSION['vote_done'])):
     </div>
     <?php
     $benched = array_filter($byStatus['confermato'], fn($r) => !$r['team']);
-    if (can_manage_matches() && !$played && $benched): ?>
+    if ($canManage && !$played && $benched): ?>
       <div class="bench">
         <span class="muted small">Confermati senza squadra:</span>
         <?php foreach ($benched as $r): ?>
@@ -589,7 +600,7 @@ if (!empty($_SESSION['vote_done'])):
   <?php endif; ?>
 </section>
 
-<?php if (can_manage_matches() && $hasTeams): ?>
+<?php if ($canManage && $hasTeams): ?>
 <section class="card" id="risultato">
   <h2>Risultato e marcatori</h2>
   <form method="post" class="form" id="result-form">
@@ -624,7 +635,7 @@ if (!empty($_SESSION['vote_done'])):
 </section>
 <?php endif; ?>
 
-<?php if (can_manage_matches() && $hasTeams): ?>
+<?php if ($canManage && $hasTeams): ?>
 <section class="card" id="assist">
   <h2><i class="ti ti-heart-handshake"></i> Chi ha fatto assist a chi <span class="muted small">(facoltativo)</span></h2>
   <p class="muted small">Serve a misurare l'<strong>intesa</strong>: quando uno serve spesso l'altro (o si servono a vicenda) rendono meglio insieme e le squadre bilanciate ne tengono conto.
@@ -733,7 +744,7 @@ if (!empty($_SESSION['vote_done'])):
     </table></div>
   <?php endif; ?>
 
-  <?php if ($votingOpen && can_manage_matches()): ?>
+  <?php if ($votingOpen && $canManage): ?>
     <form method="post" class="deadline-form"><?= csrf_field() ?><input type="hidden" name="do" value="set_voting_end">
       <label class="field"><span>Fine votazioni</span>
         <input type="datetime-local" name="ends" value="<?= $match['voting_ends_at'] ? h(date('Y-m-d\TH:i', strtotime($match['voting_ends_at']))) : '' ?>"></label>
@@ -742,7 +753,7 @@ if (!empty($_SESSION['vote_done'])):
     </form>
   <?php endif; ?>
 
-  <?php if (can_manage_matches()): ?>
+  <?php if ($canManage): ?>
     <div class="btn-row">
       <form method="post" class="inline"><?= csrf_field() ?>
         <?php if ($votingOpen): ?>
@@ -756,7 +767,7 @@ if (!empty($_SESSION['vote_done'])):
 </section>
 <?php endif; ?>
 
-<?php if (is_admin() && (float) $match['fee'] > 0 && $participants): ?>
+<?php if ($canAdmin && (float) $match['fee'] > 0 && $participants): ?>
 <section class="card" id="pagamenti">
   <?php $paidN = count(array_filter($participants, fn($r) => $r['paid'])); ?>
   <div class="card-head"><h2>Pagamenti</h2>
@@ -770,7 +781,7 @@ if (!empty($_SESSION['vote_done'])):
 </section>
 <?php endif; ?>
 
-<?php if (can_manage_matches()): ?>
+<?php if ($canManage): ?>
 <details class="card collapsible">
   <summary><strong><i class="ti ti-settings"></i> Gestione partita</strong></summary>
   <form method="post" class="form form-grid">
@@ -790,7 +801,7 @@ if (!empty($_SESSION['vote_done'])):
       <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="reopen">
         <button class="btn btn-ghost" data-confirm="Riportare la partita a 'programmata'? Voti e MVP restano salvati ma non contano finché non la richiudi.">↩️ Riporta a programmata</button></form>
     <?php endif; ?>
-    <?php if (is_admin()): ?>
+    <?php if ($canAdmin): ?>
     <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="delete">
       <button class="btn btn-danger" data-confirm="Eliminare definitivamente la partita con presenze, gol e voti?"><i class="ti ti-trash"></i> Elimina partita</button></form>
     <?php endif; ?>

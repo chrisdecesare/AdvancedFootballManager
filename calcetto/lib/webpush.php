@@ -687,20 +687,49 @@ function push_admin_users(): array
  * Qualcuno si è iscritto e chiede di entrare nella lega: avvisa gli admin (chi ha le notifiche attive), che poi approvano o rifiutano da Admin.
  * $matchName = nome del giocatore già in rosa a cui l'iscrizione è stata abbinata, se c'è.
  */
-function push_notify_registration(int $newUserId, string $name, string $username, ?string $matchName = null): void
+function push_notify_registration(int $newUserId, string $name, string $username, ?string $matchName = null, ?int $groupId = null): void
 {
-    push_defer(function () use ($newUserId, $name, $username, $matchName) {
-        $admins = push_admin_users();
+    push_defer(function () use ($newUserId, $name, $username, $matchName, $groupId) {
+        // iscrizione dal link di una lega creata da un utente: la approvano gli admin di quella lega, non l'admin del sito
+        $league = $groupId ? league_get($groupId) : null;
+        $userLeague = $league && $league['owner_user_id'] !== null;
+        $admins = $userLeague ? push_league_admin_users($groupId) : push_admin_users();
         if (!$admins) {
             return;
         }
-        $pending = pending_count();
+        $pending = $userLeague ? league_pending_count($groupId) : pending_count();
         push_notify_users($admins, [
             'title' => 'Nuova richiesta di iscrizione',
-            'body' => mb_substr($name, 0, 80) . ' (@' . mb_substr($username, 0, 50) . ') vuole entrare nella lega'
+            'body' => mb_substr($name, 0, 80) . ' (@' . mb_substr($username, 0, 50) . ') vuole entrare in '
+                . ($league ? mb_substr($league['name'], 0, 40) : 'lega')
                 . ($matchName ? ': è già in rosa come ' . mb_substr($matchName, 0, 80) : '') . '.'
-                . ($pending > 1 ? ' Richieste da approvare: ' . $pending . '.' : ' Approvala o rifiutala da Admin.'),
-            'url' => 'admin.php', 'tag' => 'reg-' . $newUserId,
+                . ($pending > 1 ? ' Richieste da approvare: ' . $pending . '.' : ' Approvala o rifiutala.'),
+            'url' => $userLeague ? 'league.php?id=' . (int) $groupId : 'admin.php', 'tag' => 'reg-' . $newUserId,
+        ], 'high', 'iscrizione');
+    });
+}
+
+/** Account di proprietario e admin di una lega (approvano le richieste di quella lega). */
+function push_league_admin_users(int $groupId): array
+{
+    return array_map('intval', q("SELECT gr.user_id FROM group_roles gr JOIN users u ON u.id = gr.user_id
+                                  WHERE gr.group_id = ? AND gr.role IN ('owner', 'admin') AND u.status = 'attivo'", [$groupId])->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** Un account esistente chiede di entrare in una lega: lo sanno i suoi admin. */
+function push_notify_league_request(int $groupId, int $userId): void
+{
+    push_defer(function () use ($groupId, $userId) {
+        $league = league_get($groupId);
+        $admins = $league ? ($league['owner_user_id'] !== null ? push_league_admin_users($groupId) : push_admin_users()) : [];
+        if (!$admins) {
+            return;
+        }
+        $who = q('SELECT COALESCE(p.name, u.username) FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.id = ?', [$userId])->fetchColumn();
+        push_notify_users($admins, [
+            'title' => 'Richiesta per ' . mb_substr($league['name'], 0, 40),
+            'body' => mb_substr((string) $who, 0, 80) . ' chiede di entrare nella lega. Accettala o rifiutala.',
+            'url' => 'league.php?id=' . $groupId, 'tag' => 'join-' . $groupId . '-' . $userId,
         ], 'high', 'iscrizione');
     });
 }

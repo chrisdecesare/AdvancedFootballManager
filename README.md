@@ -254,13 +254,61 @@ recente, filtrabili per gruppo come il resto del sito) e, sotto le informazioni 
 e **una nuova ogni 15 secondi** (dissolvenza e barretta che mostra il tempo che manca; si fermano se la pagina non è in primo piano), fino a 40 in ordine casuale a ogni visita
 (`HOME_FACTS` e `FACT_SECONDS` in `lib/curiosities.php`). Come per il resto, ognuno vede solo le curiosità dei giocatori dei suoi gruppi.
 
+## Leghe create dagli utenti (self-service)
+
+Chiunque può **creare la propria lega** da `create_league.php` (link «Crea la tua lega» nella pagina di accesso e d'iscrizione), senza passare
+dall'admin del sito: chi non ha un account lo crea nello stesso modulo, chi ce l'ha scrive solo il nome. Chi crea la lega ne è il **proprietario**,
+ci entra come giocatore e la gestisce da **«La mia lega»** (`league.php`, nel menu):
+- **Link d'invito** (`join.php?c=CODICE`) da mandare alla squadra, con i pulsanti Copia e WhatsApp. Chi lo apre crea l'account
+  (`register.php?c=...`) o entra con quello che ha. **Modo di ingresso**: con approvazione (predefinito: la richiesta aspetta un admin della lega)
+  oppure libero (si entra subito). «Nuovo link» invalida quello vecchio.
+- **Richieste** da approvare o rifiutare, abbinando l'iscrizione a un giocatore già in rosa nella lega (stesso nome) come per le iscrizioni normali.
+- **Membri e ruoli** dentro la lega: *Proprietario* (tutto, anche cedere o eliminare la lega), *Admin* (come il proprietario, ma non nomina
+  altri admin e non cede/elimina), *Manager* (gestisce solo le partite). Si possono togliere membri (lo storico resta) e aggiungere giocatori
+  senza account.
+- **Impostazioni**: rinomina, cedi la lega a un altro membro, elimina (solo finché non ha partite).
+- **Ultime operazioni** della lega.
+
+Chi amministra una lega ha anche Pagamenti (solo per le sue partite), la gestione delle partite e le schede dei suoi giocatori (rating, attivo,
+correzioni, leghe), ma **nessun potere sugli account** (username, password, email, ruoli del sito): quelli restano all'admin del sito.
+Le notifiche e le email per le nuove richieste arrivano agli admin della lega, non all'admin del sito.
+
+I membri di una lega vedono solo le proprie leghe, come per i gruppi. L'**admin del sito**, nelle pagine normali e in *Admin*, vede solo le
+leghe «di casa» (quelle storiche, create da *Admin → Gruppi*, e quelle di cui fa parte), così le statistiche e gli account di sconosciuti non si
+mescolano con i suoi; tutte le altre sono in *Piattaforma*.
+
+Limiti anti-abuso (in `lib/leagues.php`): al massimo 3 leghe per account (`LEAGUE_MAX_PER_USER`), 5 al giorno per connessione
+(`LEAGUE_MAX_PER_IP_DAY`), 200 richieste in attesa per lega; più i limiti dell'iscrizione normale (campo trappola, iscrizioni per IP).
+Con `LEAGUE_CREATION = false` in `config.php` la creazione di nuove leghe si chiude.
+
+## Piattaforma (solo admin del sito)
+
+`platform.php` è la pagina personale dell'admin del sito, diversa da *Admin*:
+- **Panoramica**: leghe, account, attivi negli ultimi 7 giorni, partite, scommesse, operazioni del giorno; quali operazioni fanno di più e le
+  leghe più attive negli ultimi 30 giorni; le ultime leghe create.
+- **Leghe**: tutte, con proprietario, data di creazione, giocatori, account, partite, operazioni e ultima attività. Il dettaglio di ognuna mostra
+  le persone collegate (account, email, ruolo, iscrizione, ultimo accesso, operazioni) e le sue operazioni; da lì si apre «Gestisci»
+  (`league.php`) con gli stessi poteri del proprietario, o si guarda la lega come un membro.
+- **Account**: tutti, con leghe, email, creazione e ultimo accesso; dal dettaglio si reimposta la password o si elimina l'account.
+- **Registro**: tutte le operazioni, filtrabili per lega, tipo e persona.
+
+Il **registro delle operazioni** (tabella `activity_log`, funzione `log_activity()`) tiene un anno: accessi e uscite, iscrizioni e approvazioni,
+creazione e gestione delle leghe (inviti, ruoli, membri), partite (creazione e ogni azione di gestione), presenze, voti, scommesse e multiple,
+acquisti nel negozio, schede dei giocatori, pagamenti, modifiche di email/password e le azioni in *Admin*. L'ultimo accesso di ogni account è in
+`users.last_seen_at` (aggiornato al massimo ogni 5 minuti).
+
+**Statistiche in cache:** `compute_stats()` salva il risultato in `stats_cache` e lo riusa finché i dati non cambiano: ogni scrittura su partite,
+presenze, voti, giocatori o leghe (intercettata in `q()`, `lib/db.php`) alza la versione in `meta.stats_ver` a fine richiesta. Così le pagine
+non ricalcolano tutto lo storico a ogni visita, anche con anni di partite e tante leghe.
+
 ## Ruoli: admin, manager e giocatore
 
 Il **manager** è un giocatore con qualche potere in più: da *Admin → Account* (o da *Modifica profilo → Ruolo*) l'admin può promuovere un account a manager.
 Può **creare e gestire le partite dei suoi gruppi** (creazione, presenze di tutti, squadre, risultato, assist, apertura e chiusura
 delle votazioni, modifica dei dati della partita), ma non può fare il resto dell'admin: niente pagina Admin, account e ruoli,
 gruppi, nuovi giocatori o rating base, pagamenti, eliminazione di partite, e non vede i voti degli altri finché le votazioni sono aperte.
-La regola sta in `can_manage_matches()` in `lib/auth.php`.
+La regola sta in `can_manage_group()` in `lib/leagues.php` (partita per partita, con la sua lega). Gli stessi poteri li hanno i manager
+nominati dentro una lega (vedi «Leghe create dagli utenti»).
 
 ## Come si usa
 

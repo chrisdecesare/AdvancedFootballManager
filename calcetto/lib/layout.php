@@ -15,10 +15,26 @@ function layout_start(string $title, string $active = ''): void
     if ($guest) {
         $nav = ['match' => ['match.php?id=' . (int) guest_match_id(), 'La partita', 'calendar-event']];   // vede solo la sua partita
     }
+    $pendingLeague = 0;
+    if ($u && !$guest) {
+        $owned = my_owned_leagues();
+        if ($owned && !is_admin()) {
+            // chi ha creato una lega (o la amministra) la gestisce da qui, senza essere admin del sito
+            $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
+            $nav['league'] = ['league.php', count($owned) > 1 ? 'Le mie leghe' : 'La mia lega', 'users-group'];
+        }
+        foreach ($owned as $ogid => $_) {
+            $pendingLeague += league_pending_count($ogid);
+        }
+    }
     if (is_admin()) {
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
-        $pending = pending_count();
+        $nav['platform'] = ['platform.php', 'Piattaforma', 'world'];
+        $pending = max(0, pending_for_me() - $pendingLeague);   // iscrizioni delle leghe storiche (quelle delle sue leghe sono sotto)
+        if ($owned ?? []) {
+            $nav['league'] = ['league.php', count($owned) > 1 ? 'Le mie leghe' : 'La mia lega', 'users-group'];
+        }
     }
     // pulsante con la campanella: attiva/disattiva le notifiche (o porta alla scheda che le spiega)
     $notifHref = ($u && !$guest && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
@@ -75,7 +91,7 @@ function layout_start(string $title, string $active = ''): void
     <?php if ($u || PUBLIC_READ): ?>
     <nav class="nav" id="site-nav">
       <?php foreach ($nav as $key => [$href, $label, $icon]): ?>
-        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php endif; ?></a>
+        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?></a>
       <?php endforeach; ?>
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
@@ -93,7 +109,8 @@ function layout_start(string $title, string $active = ''): void
           <?php if ($u['role'] !== 'player'): ?><span class="tag tag-admin"><?= h(strtolower(role_label($u['role']))) ?></span><?php endif; ?>
         </a>
         <?php if ($coins !== null): ?><a href="shop.php" class="coin-pill" title="I tuoi gettoni: si spendono nel Negozio"><i class="ti ti-coin"></i> <?= $coins ?></a><?php endif; ?>
-        <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a><?php endif; ?>
+        <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a>
+        <?php elseif ($pendingLeague): ?><a href="league.php" class="nav-badge pending-dot" title="Richieste da approvare nella tua lega" aria-label="<?= (int) $pendingLeague ?> richieste da approvare"><?= (int) $pendingLeague ?></a><?php endif; ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="btn btn-ghost btn-sm" data-push-bell title="Notifiche" aria-label="Notifiche"><i class="ti ti-bell"></i></a><?php endif; ?>
         <?php if (!$guest): ?><a href="index.php?tour=1" class="btn btn-ghost btn-sm" title="Rivedi il tutorial" aria-label="Rivedi il tutorial"><i class="ti ti-help"></i></a><?php endif; ?>
         <a href="logout.php" class="btn btn-ghost btn-sm" title="Esci"><i class="ti ti-logout"></i></a>
@@ -109,7 +126,7 @@ function layout_start(string $title, string $active = ''): void
     <?php if ($schemaErr = meta_get('schema_error')): ?><br><small>Errore: <code><?= h($schemaErr) ?></code></small><?php endif; ?></div>
 <?php endif; ?>
 <?php if ($u && !$guest && !is_admin() && !allowed_group_ids()): ?>
-  <div class="flash flash-err"><i class="ti ti-users-group"></i> Non fai ancora parte di nessun gruppo: chiedi all'admin di assegnarti al tuo, poi vedrai giocatori e partite.</div>
+  <div class="flash flash-err"><i class="ti ti-users-group"></i> Non fai ancora parte di nessuna lega: apri il link d'invito che ti ha mandato chi la organizza<?= LEAGUE_CREATION ? ', oppure <a class="link" href="create_league.php">crea la tua lega</a>' : ' o chiedi all\'admin' ?>.</div>
 <?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
   <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>

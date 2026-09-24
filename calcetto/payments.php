@@ -1,15 +1,26 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
-require_admin();
+require_login();
+// le quote le gestisce l'admin del sito e, per la propria lega, chi la amministra
+$adminIds = is_admin() ? null : array_keys(admin_groups());
+if ($adminIds === []) {
+    require_admin();   // mostra "accesso negato"
+}
+$limitSql = $adminIds === null ? '' : ' AND m.group_id IN (' . implode(',', array_map('intval', $adminIds)) . ')';
 
 if (is_post()) {
     $pid = (int) ($_POST['player_id'] ?? 0);
     if (($_POST['do'] ?? '') === 'pay_all') {
         q("UPDATE match_players mp JOIN matches m ON m.id = mp.match_id
-           SET mp.paid = 1 WHERE mp.player_id = ? AND mp.team IS NOT NULL AND m.fee > 0", [$pid]);
+           SET mp.paid = 1 WHERE mp.player_id = ? AND mp.team IS NOT NULL AND m.fee > 0 AND " . scope_sql('m.group_id') . $limitSql, [$pid]);
+        log_activity('pagamenti', 'tutto pagato · giocatore #' . $pid);
         flash('ok', 'Tutte le quote del giocatore segnate come pagate.');
     } elseif (($_POST['do'] ?? '') === 'toggle') {
-        q('UPDATE match_players SET paid = 1 - paid WHERE match_id = ? AND player_id = ?', [(int) $_POST['match_id'], $pid]);
+        $m = get_match((int) ($_POST['match_id'] ?? 0));
+        if ($m && can_admin_group((int) $m['group_id'])) {
+            q('UPDATE match_players SET paid = 1 - paid WHERE match_id = ? AND player_id = ?', [(int) $m['id'], $pid]);
+            log_activity('pagamenti', 'quota · ' . fmt_date_short($m['match_date']) . ' · giocatore #' . $pid, (int) $m['group_id']);
+        }
     }
     redirect('payments.php' . ($pid ? '#p' . $pid : ''));
 }
@@ -19,7 +30,7 @@ $rows = q("SELECT p.id, p.name, p.photo, p.is_guest, m.id AS match_id, m.match_d
            FROM match_players mp
            JOIN matches m ON m.id = mp.match_id
            JOIN players p ON p.id = mp.player_id
-           WHERE mp.team IS NOT NULL AND m.fee > 0 AND " . scope_sql('m.group_id') . "
+           WHERE mp.team IS NOT NULL AND m.fee > 0 AND " . scope_sql('m.group_id') . $limitSql . "
            ORDER BY p.name, m.match_date DESC")->fetchAll();
 $byPlayer = [];
 $totDue = $totPaid = 0.0;

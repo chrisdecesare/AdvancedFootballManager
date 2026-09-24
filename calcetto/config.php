@@ -35,6 +35,10 @@ define('PUBLIC_READ', false);
 // (non vede nulla) finché un admin non lo approva. false = gli account li crea solo l'admin.
 define('REGISTRATION', true);
 
+// true = chiunque può creare la propria lega (create_league.php) e gestirla da solo, invitando i suoi giocatori con un link.
+// Le leghe create così le vede solo chi ne fa parte; l'admin del sito le vede tutte da «Piattaforma» (platform.php).
+defined('LEAGUE_CREATION') || define('LEAGUE_CREATION', true);
+
 define('TEAM_A_NAME', 'Blu');
 define('TEAM_B_NAME', 'Arancio');
 

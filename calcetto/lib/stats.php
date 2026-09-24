@@ -222,9 +222,22 @@ function compute_stats($scope = 'current'): array
 {
     static $cache = [];
     $sc = $scope === 'current' ? scope_ids() : $scope;
-    $ck = scope_key($sc);
+    $ver = stats_version();
+    $ck = scope_key($sc) . '@' . $ver;
     if (isset($cache[$ck])) {
         return $cache[$ck];
+    }
+    // statistiche già calcolate per questo ambito e questa versione dei dati (vedi q() in db.php): il calcolo completo
+    // rilegge tutte le partite e le presenze, e con gli anni e le leghe diventerebbe la parte più lenta di ogni pagina
+    $dbKey = substr(scope_key($sc), 0, 191);
+    if ($ver > 0) {
+        try {
+            $row = q('SELECT data FROM stats_cache WHERE scope_key = ? AND ver = ?', [$dbKey, $ver])->fetchColumn();
+            if ($row !== false && is_array($hit = @unserialize((string) $row, ['allowed_classes' => false]))) {
+                return $cache[$ck] = $hit;
+            }
+        } catch (PDOException $e) {
+        }
     }
     $players = all_players(false, $sc);
     $played = played_matches($sc);
@@ -335,6 +348,15 @@ function compute_stats($scope = 'current'): array
         $stats[$pid] = $out;
     }
     $cache[$ck] = $stats;
+    if ($ver > 0) {
+        try {
+            q('REPLACE INTO stats_cache (scope_key, ver, data) VALUES (?, ?, ?)', [$dbKey, $ver, serialize($stats)]);
+            if (random_int(1, 50) === 1) {
+                q('DELETE FROM stats_cache WHERE ver < ?', [$ver]);   // ogni tanto via le versioni vecchie
+            }
+        } catch (PDOException $e) {
+        }
+    }
     return $stats;
 }
 

@@ -11,8 +11,8 @@ if (!is_post()) {
 if (($_POST['do'] ?? '') === 'availability') {
     $match = get_match((int) ($_POST['match_id'] ?? 0));
     $status = $_POST['status'] ?? '';
-    // admin e manager possono cambiare la disponibilità di chiunque, un giocatore solo la propria
-    $pid = can_manage_matches() && !empty($_POST['player_id']) ? (int) $_POST['player_id'] : my_player_id();
+    // chi gestisce le partite della lega può cambiare la disponibilità di chiunque, un giocatore solo la propria
+    $pid = $match && can_manage_group((int) $match['group_id']) && !empty($_POST['player_id']) ? (int) $_POST['player_id'] : my_player_id();
 
     if (!$match || $match['status'] !== 'programmata') {
         flash('err', 'La partita non accetta più conferme.');
@@ -32,6 +32,7 @@ if (($_POST['do'] ?? '') === 'availability') {
              team = IF(VALUES(availability) = \'confermato\', team, NULL)',
             [$match['id'], $pid, $status]);
         assign_formation((int) $match['id']); // chi si ritira esce anche dal campo
+        log_activity('presenza', $status . ' · ' . fmt_date_short($match['match_date']) . ($pid !== my_player_id() ? ' · giocatore #' . $pid : ''), (int) $match['group_id']);
         $msg = ['confermato' => 'Presenza confermata', 'assente' => 'Segnato come assente', 'in_attesa' => 'Risposta annullata'];
         flash('ok', $msg[$status]);
     }

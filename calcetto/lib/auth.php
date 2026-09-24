@@ -35,10 +35,13 @@ function is_manager(): bool
     return $u !== null && $u['role'] === 'manager';
 }
 
-/** Può creare e gestire le partite (presenze, squadre, risultato, votazioni): admin e manager. */
+/**
+ * Gestisce le partite di almeno una lega (admin e manager del sito, owner/admin/manager di una lega): serve a mostrare
+ * i comandi generali. Su una partita precisa conta can_manage_group() con la sua lega (lib/leagues.php).
+ */
 function can_manage_matches(): bool
 {
-    return is_admin() || is_manager();
+    return is_admin() || is_manager() || (bool) my_league_roles();
 }
 
 /** Ruolo valido da un valore ricevuto dal browser ('player' se non riconosciuto). */
@@ -304,6 +307,7 @@ function attempt_login(string $username, string $password): string
         $_SESSION['uid'] = (int) $u['id'];
         $_SESSION['sv'] = (int) $u['session_version'];
         remember_issue((int) $u['id']);
+        log_activity('accesso', '', null, (int) $u['id']);
         return 'ok';
     }
     q('INSERT INTO login_attempts (ip, username) VALUES (?, ?)', [client_ip(), $username]);

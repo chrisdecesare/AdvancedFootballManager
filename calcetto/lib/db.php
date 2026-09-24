@@ -27,7 +27,53 @@ function q(string $sql, array $params = []): PDOStatement
 {
     $st = db()->prepare($sql);
     $st->execute($params);
+    // le statistiche salvate (compute_stats) dipendono da queste tabelle: ogni scrittura che cambia davvero qualcosa le fa ricalcolare.
+    // Farlo qui, in un punto solo, evita di dover ricordare l'invalidazione in ognuna delle decine di pagine che modificano i dati.
+    if (preg_match('/^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i', $sql)
+        && preg_match('/\b(matches|match_players|ratings|mvp_votes|players|player_groups|squad_groups)\b/i', $sql)
+        && $st->rowCount() > 0) {
+        stats_invalidate();
+    }
     return $st;
+}
+
+/**
+ * Versione dei dati delle statistiche: cambia a ogni scrittura su partite, presenze, voti, giocatori o leghe.
+ * 0 = niente cache (database non ancora aggiornato, oppure dati appena cambiati in questa richiesta).
+ */
+function stats_version(): int
+{
+    static $v = null;
+    if (!empty($GLOBALS['__stats_dirty'])) {
+        return 0;
+    }
+    if ($v === null) {
+        try {
+            $v = (int) db()->query("SELECT v FROM meta WHERE k = 'stats_ver'")->fetchColumn();
+        } catch (PDOException $e) {
+            $v = 0;
+        }
+    }
+    return $v;
+}
+
+/**
+ * I dati delle statistiche sono cambiati. La versione si alza a fine richiesta e non subito: una query eseguita qui,
+ * tra un INSERT e il suo lastInsertId(), farebbe perdere l'id appena creato (MySQL lo tiene solo per l'ultima istruzione).
+ */
+function stats_invalidate(): void
+{
+    static $registered = false;
+    $GLOBALS['__stats_dirty'] = true;
+    if (!$registered) {
+        $registered = true;
+        register_shutdown_function(function () {
+            try {
+                db()->exec("UPDATE meta SET v = v + 1 WHERE k = 'stats_ver'");
+            } catch (Throwable $e) {
+            }
+        });
+    }
 }
 
 function tables_exist(): bool
@@ -35,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 21;
+const SCHEMA_VERSION = 22;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -341,6 +387,75 @@ function ensure_schema(): void
         $add('players', 'guest_email', 'VARCHAR(190) NULL');
         $add('players', 'guest_match_id', 'INT NULL');
         db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('guests_cleanup', '0')");
+    }
+    if ($v < 22) {
+        // leghe create dagli utenti (lib/leagues.php): proprietario, codice d'invito e modo di ingresso. Il nome non è più
+        // unico in tutto il sito (due sconosciuti possono chiamare la lega "Calcetto del giovedì"): i doppioni li evita admin.php
+        // tra le leghe storiche. Le leghe esistenti restano "storiche" (owner_user_id NULL), gestite dall'admin del sito.
+        $add('squad_groups', 'owner_user_id', 'INT NULL');
+        $add('squad_groups', 'invite_code', 'VARCHAR(16) NULL');
+        $add('squad_groups', 'join_mode', "ENUM('approvazione','libero') NOT NULL DEFAULT 'approvazione'");
+        if (q("SHOW INDEX FROM squad_groups WHERE Key_name = 'name'")->fetch()) {
+            db()->exec('ALTER TABLE squad_groups DROP INDEX name');
+        }
+        if (!q("SHOW INDEX FROM squad_groups WHERE Key_name = 'uq_invite'")->fetch()) {
+            db()->exec('ALTER TABLE squad_groups ADD UNIQUE KEY uq_invite (invite_code)');
+        }
+        if (!q("SHOW INDEX FROM squad_groups WHERE Key_name = 'owner_user_id'")->fetch()) {
+            db()->exec('ALTER TABLE squad_groups ADD INDEX (owner_user_id)');
+        }
+        // ruoli dentro una lega: owner (chi l'ha creata), admin, manager (gestisce le partite)
+        db()->exec("CREATE TABLE IF NOT EXISTS group_roles (
+            group_id INT NOT NULL,
+            user_id INT NOT NULL,
+            role ENUM('owner','admin','manager') NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (group_id, user_id),
+            INDEX (user_id),
+            FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        // richieste di entrare in una lega da parte di chi ha già un account
+        db()->exec('CREATE TABLE IF NOT EXISTS group_requests (
+            group_id INT NOT NULL,
+            user_id INT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (group_id, user_id),
+            INDEX (user_id),
+            FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        // iscrizione arrivata dal link d'invito di una lega: la approva un admin di quella lega (NULL = leghe storiche, l'admin del sito)
+        $add('users', 'reg_group_id', 'INT NULL');
+        $add('users', 'last_seen_at', 'DATETIME NULL');
+        // registro delle operazioni (platform.php e «La mia lega»)
+        db()->exec('CREATE TABLE IF NOT EXISTS activity_log (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            user_id INT NULL,
+            group_id INT NULL,
+            action VARCHAR(40) NOT NULL,
+            detail VARCHAR(255) NOT NULL DEFAULT \'\',
+            ip VARCHAR(45) NOT NULL DEFAULT \'\',
+            INDEX (created_at),
+            INDEX (group_id, id),
+            INDEX (user_id, id),
+            INDEX (action, id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        // statistiche già calcolate (compute_stats): si ricalcolano solo quando cambiano i dati da cui dipendono
+        db()->exec('CREATE TABLE IF NOT EXISTS stats_cache (
+            scope_key VARCHAR(191) NOT NULL PRIMARY KEY,
+            ver INT NOT NULL,
+            data MEDIUMBLOB NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('stats_ver', '1')");
+        if (!q("SHOW INDEX FROM matches WHERE Key_name = 'idx_group_date'")->fetch()) {
+            db()->exec('ALTER TABLE matches ADD INDEX idx_group_date (group_id, match_date)');
+        }
+        if (!q("SHOW INDEX FROM bets WHERE Key_name = 'idx_match_market'")->fetch()) {
+            db()->exec('ALTER TABLE bets ADD INDEX idx_match_market (match_id, market, status)');
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

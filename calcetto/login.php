@@ -20,7 +20,7 @@ if (is_post()) {
     if ($res === 'blocked') {
         $error = 'Troppi tentativi falliti: riprova tra ' . LOGIN_WINDOW_MIN . ' minuti.';
     } elseif ($res === 'pending') {
-        $error = 'La tua iscrizione è in attesa: l\'admin deve ancora approvarla.';
+        $error = 'La tua iscrizione è in attesa: l\'admin della lega deve ancora approvarla.';
     } else {
         $error = 'Username o password errati.';
     }
@@ -46,6 +46,9 @@ layout_start('Accedi');
     <p class="login-alt"><a class="link" href="forgot.php">Password dimenticata?</a></p>
     <?php if (REGISTRATION): ?>
       <p class="login-alt">Non hai un account? <a class="link" href="register.php">Iscriviti</a></p>
+    <?php endif; ?>
+    <?php if (LEAGUE_CREATION): ?>
+      <p class="login-alt">Organizzi un calcetto? <a class="link" href="create_league.php">Crea la tua lega</a></p>
     <?php endif; ?>
   </div>
 </div>

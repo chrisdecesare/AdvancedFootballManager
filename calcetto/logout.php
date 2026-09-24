@@ -3,6 +3,9 @@ define('NO_REMEMBER', true);   // in uscita non si crea un nuovo "resta collegat
 require __DIR__ . '/lib/bootstrap.php';
 
 if (tables_exist()) {
+    if (!empty($_SESSION['uid'])) {
+        log_activity('uscita', '', null, (int) $_SESSION['uid']);
+    }
     remember_forget();
 }
 $_SESSION = [];

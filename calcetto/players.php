@@ -3,7 +3,8 @@ require __DIR__ . '/lib/bootstrap.php';
 require_view();
 
 $stats = compute_stats();
-$showInactive = is_admin() && !empty($_GET['tutti']);
+$staff = is_admin() || (bool) admin_groups();   // admin del sito o di una lega: vede anche i non attivi e aggiunge giocatori
+$showInactive = $staff && !empty($_GET['tutti']);
 $players = array_filter(all_players(), fn($p) => $showInactive || $p['active']);
 $sort = $_GET['ordina'] ?? 'nome';
 uasort($players, function ($a, $b) use ($sort, $stats) {
@@ -23,7 +24,7 @@ layout_start('Rosa', 'players');
 <div class="page-head">
   <h1>Rosa <span class="muted small"><?= count($players) ?> giocatori</span></h1>
   <div class="btn-row">
-    <?php if (is_admin()): ?>
+    <?php if ($staff): ?>
       <a class="btn btn-ghost btn-sm" href="?tutti=<?= $showInactive ? 0 : 1 ?>"><?= $showInactive ? 'Nascondi non attivi' : 'Mostra anche non attivi' ?></a>
       <a class="btn btn-primary btn-sm" href="player_edit.php">+ Nuovo giocatore</a>
     <?php endif; ?>
@@ -59,6 +60,6 @@ layout_start('Rosa', 'players');
   </a>
 <?php endforeach; ?>
 </div>
-<?php if (!$players): ?><p class="empty card">Nessun giocatore. <?= is_admin() ? 'Aggiungine uno con "+ Nuovo giocatore".' : '' ?></p><?php endif; ?>
+<?php if (!$players): ?><p class="empty card">Nessun giocatore. <?= $staff ? 'Aggiungine uno con "+ Nuovo giocatore".' : '' ?></p><?php endif; ?>
 <?php
 layout_end();

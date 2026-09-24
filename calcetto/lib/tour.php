@@ -108,7 +108,33 @@ function tour_steps(array $u): array
             ],
         ];
     }
+    $leagueRoles = my_league_roles();
+    if (($u['role'] ?? '') !== 'admin' && my_owned_leagues()) {
+        $steps[] = [
+            'sel' => '.nav a[href="league.php"]', 'icon' => 'users-group',
+            'title' => 'La tua lega',
+            'text' => 'Qui gestisci la lega che hai creato (o che amministri), senza chiedere a nessuno.',
+            'bullets' => [
+                'Copi il link d\'invito e lo mandi alla squadra: chi lo apre si iscrive e chiede di entrare (o entra subito, se lo scegli tu).',
+                'Approvi le richieste, togli chi non gioca più e nomini admin o manager che ti aiutano.',
+                'Crei le partite dalla scheda «Partite» e segui le quote da «Pagamenti».',
+            ],
+        ];
+    } elseif (in_array('manager', $leagueRoles, true) && ($u['role'] ?? '') === 'player') {
+        $steps[] = [
+            'sel' => '.nav a[href="matches.php"]', 'icon' => 'clipboard-list',
+            'title' => 'Manager della lega',
+            'text' => 'Nella tua lega sei manager: crei e gestisci le partite.',
+            'bullets' => ['Presenze, squadre, risultato e votazioni sono nelle mani tue e degli admin della lega.'],
+        ];
+    }
     if (($u['role'] ?? '') === 'admin') {
+        $steps[] = [
+            'sel' => '.nav a[href="platform.php"]', 'icon' => 'world',
+            'title' => 'Piattaforma (solo admin del sito)',
+            'text' => 'Tutte le leghe del sito, anche quelle create da altri utenti.',
+            'bullets' => ['Chi le ha create, chi ne fa parte, quando si collegano e cosa fanno (registro delle operazioni).'],
+        ];
         $steps[] = [
             'sel' => '.nav a[href="payments.php"]', 'icon' => 'cash',
             'title' => 'Pagamenti (solo admin)',
