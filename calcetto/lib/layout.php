@@ -58,7 +58,7 @@ function layout_start(string $title, string $active = ''): void
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Google Fonts: Lilita One (titoli, stile fumetto) + Nunito (testo) -->
-<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
 <!-- Tabler Icons: icone disegnate a tratto (tabler.io/icons) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="<?= h($css) ?>">
