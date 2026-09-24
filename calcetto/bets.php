@@ -195,7 +195,7 @@ layout_start('Scommesse', 'bets');
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3) e sull'over/under dei gol totali della partita (sopra o sotto la soglia proposta).
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
     I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
@@ -230,12 +230,7 @@ layout_start('Scommesse', 'bets');
       if ($mk === 'esito') {
           $opts = ['A' => team_name('A', $m), 'X' => 'Pareggio', 'B' => team_name('B', $m)];
       } elseif ($mk === 'overunder') {
-          foreach (array_keys($quotes[$mk] ?? []) as $ou) {
-              $opts[$ou] = bet_pick_label($m, $mk, $ou);
-          }
-          foreach ($mine[$mid][$mk] ?? [] as $b) {   // le mie puntate su una soglia che nel frattempo è cambiata
-              $opts[$b['pick']] ??= bet_pick_label($m, $mk, $b['pick']);
-          }
+          // la soglia la sceglie chi punta: niente elenco di pulsanti, c'è il selettore qui sotto (quote per ogni soglia)
       } else {
           foreach ($cands as $c) {
               $opts[(string) $c['player_id']] = $c['name'];
@@ -247,7 +242,33 @@ layout_start('Scommesse', 'bets');
     <div class="bet-market">
       <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
       <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? bet_pick_label($m, $mk, (string) $b['pick'])) ?><?php endforeach; ?></p><?php endif; ?>
-      <?php if ($canBet && $opts): ?>
+      <?php if ($canBet && $mk === 'overunder' && $q):
+          $ouTable = [];
+          foreach ($q as $pk => $qv) {
+              if ($ou = bet_ou_parse((string) $pk)) {
+                  $ouTable[number_format($ou[1], 1, '.', '')][$ou[0] === 'O' ? 0 : 1] = (float) $qv;
+              }
+          }
+          // soglia di partenza: quella dove over e under sono più alla pari
+          uasort($ouTable, fn($x, $y) => abs($x[0] - $x[1]) <=> abs($y[0] - $y[1]));
+          $ouStart = (float) array_key_first($ouTable);
+          ksort($ouTable, SORT_NUMERIC);
+          $ouMax = (float) array_key_last($ouTable);
+          $ouBtn = fn(string $side) => '<button type="button" class="quota-btn" data-slip-add data-ou-side="' . $side . '" data-match="' . $mid . '" data-market="overunder"'
+              . ' data-pick="' . h(bet_ou_pick($side, $ouStart)) . '" data-label="' . h(bet_pick_label($m, 'overunder', bet_ou_pick($side, $ouStart))) . '"'
+              . ' data-odds="' . h((string) $ouTable[number_format($ouStart, 1, '.', '')][$side === 'O' ? 0 : 1]) . '"'
+              . ' data-match-label="' . h(fmt_date_short($m['match_date'])) . ' · ' . h($info['label']) . '" title="Aggiungi alla schedina">'
+              . ($side === 'O' ? 'Over' : 'Under') . ' <b>×' . fmt_num($ouTable[number_format($ouStart, 1, '.', '')][$side === 'O' ? 0 : 1], 2) . '</b></button>'; ?>
+        <p class="muted small" style="margin:0">Scegli quanti gol devono essere superati (o no), poi tocca Over o Under: la quota cambia con la soglia.</p>
+        <div class="ou-picker" data-ou="<?= h(json_encode($ouTable)) ?>" data-mine="<?= h(json_encode(array_values($myPicks))) ?>">
+          <span class="ou-label small">Gol totali</span>
+          <button type="button" class="ou-step" data-ou-step="-1" aria-label="Soglia più bassa">−</button>
+          <input type="number" class="ou-line" min="0.5" max="<?= $ouMax ?>" step="1" value="<?= $ouStart ?>" inputmode="decimal" aria-label="Soglia dei gol totali">
+          <button type="button" class="ou-step" data-ou-step="1" aria-label="Soglia più alta">+</button>
+          <?= $ouBtn('O') ?><?= $ouBtn('U') ?>
+          <span class="ou-help muted small">Over: <b class="ou-over-txt"><?= (int) ceil($ouStart) ?> o più gol</b> · Under: <b class="ou-under-txt"><?= (int) floor($ouStart) ?> o meno</b></span>
+        </div>
+      <?php elseif ($canBet && $opts): ?>
         <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= in_array($mk, BET_PLAYER_MARKETS, true) ? ' (anche più di una: es. due marcatori diversi)' : '' ?>:</p>
         <div class="quota-picks">
           <?php foreach ($opts as $val => $label): if (!isset($q[$val])) { continue; } $qv = $q[$val];
@@ -264,7 +285,7 @@ layout_start('Scommesse', 'bets');
         <?php foreach ($myList as $my): ?>
           <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>">
             <input type="hidden" name="market" value="<?= $mk ?>"><input type="hidden" name="pick" value="<?= h((string) $my['pick']) ?>">
-            <span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? '?') ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span>
+            <span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? bet_pick_label($m, $mk, (string) $my['pick'])) ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span>
             <?php if ($canBet): ?><button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button><?php endif; ?></form>
         <?php endforeach; ?>
         </div>
@@ -511,11 +532,47 @@ layout_start('Scommesse', 'bets');
     slip.hidden = cart.length === 0;
     updateTotals();
 
-    // aggiorna anche i pulsanti-quota già scelti (evidenziati) e le quote in tutte le partite, in caso una scelta sia sparita
+    refreshPicked();
+  };
+
+  // evidenzia i pulsanti-quota già nella schedina (e, per l'over/under, quelli su cui ho già puntato alla soglia mostrata)
+  const refreshPicked = () => {
     document.querySelectorAll('[data-slip-add]').forEach(btn => {
       btn.classList.toggle('is-picked', cart.some(l => l.matchId === btn.dataset.match && l.market === btn.dataset.market && l.pick === btn.dataset.pick));
     });
+    document.querySelectorAll('.ou-picker').forEach(box => {
+      const mine = JSON.parse(box.dataset.mine || '[]');
+      box.querySelectorAll('[data-ou-side]').forEach(b => b.classList.toggle('is-mine', mine.includes(b.dataset.pick)));
+    });
   };
+
+  // over/under: chi punta sceglie la soglia (0,5 / 1,5 / ...; se scrive un intero N vale "più di N gol", cioè N,5);
+  // la quota di ogni soglia l'ha già calcolata il server, qui si mostra quella giusta e si aggiornano i pulsanti Over/Under
+  document.querySelectorAll('.ou-picker').forEach(box => {
+    const table = JSON.parse(box.dataset.ou);
+    const lines = Object.keys(table).map(Number).sort((a, b) => a - b);
+    const input = box.querySelector('.ou-line');
+    const fmt = n => n.toFixed(2).replace('.', ',');
+    const set = v => {
+      let line = Math.floor(Number.isFinite(v) ? v : lines[0]) + 0.5;
+      line = Math.min(lines[lines.length - 1], Math.max(lines[0], line));
+      input.value = line;
+      const odds = table[line.toFixed(1)];
+      box.querySelectorAll('[data-ou-side]').forEach(b => {
+        const over = b.dataset.ouSide === 'O';
+        const o = odds[over ? 0 : 1];
+        b.dataset.pick = b.dataset.ouSide + line.toFixed(1);
+        b.dataset.label = (over ? 'Over ' : 'Under ') + String(line).replace('.', ',') + ' gol';
+        b.dataset.odds = o;
+        b.innerHTML = (over ? 'Over' : 'Under') + ' <b>×' + fmt(o) + '</b>';
+      });
+      box.querySelector('.ou-over-txt').textContent = Math.ceil(line) + ' o più gol';
+      box.querySelector('.ou-under-txt').textContent = Math.floor(line) + ' o meno';
+      refreshPicked();
+    };
+    box.querySelectorAll('[data-ou-step]').forEach(b => b.addEventListener('click', () => set(parseFloat(input.value) + parseInt(b.dataset.ouStep, 10))));
+    input.addEventListener('change', () => set(parseFloat(String(input.value).replace(',', '.'))));
+  });
 
   document.querySelectorAll('[data-slip-add]').forEach(btn => btn.addEventListener('click', () => {
     // si può puntare su più scelte dello stesso mercato (es. due marcatori diversi): si toglie solo ri-toccando la STESSA quota.

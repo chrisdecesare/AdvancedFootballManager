@@ -19,9 +19,8 @@
  *  - esito: chi vince (squadra 1, pareggio, squadra 2), si paga a fine partita;
  *  - gol: un giocatore segna almeno un gol, si paga a fine partita;
  *  - doppietta / tripletta: un giocatore segna almeno 2 / almeno 3 gol, si paga a fine partita;
- *  - overunder: i gol totali della partita stanno sopra o sotto una soglia (es. 8,5), si paga a fine partita. La soglia la
- *    decide il sito dai gol attesi e viene salvata dentro la scelta ("O8.5" / "U8.5"): se poi la soglia proposta cambia,
- *    chi ha già puntato tiene la sua;
+ *  - overunder: i gol totali della partita stanno sopra o sotto una soglia scelta da chi punta (es. 8,5), si paga a fine partita.
+ *    Il sito dà una quota per ogni soglia possibile e la soglia viene salvata dentro la scelta ("O8.5" / "U8.5");
  *  - mvp: chi sarà l'MVP, si paga alla chiusura delle votazioni.
  */
 
@@ -54,6 +53,10 @@ function bet_markets(): array
 const BET_PLAYER_MARKETS = ['gol', 'doppietta', 'tripletta', 'mvp'];
 /** Mercati sui gol di un giocatore: stesso giocatore in due di questi nella stessa multipla non si può (uno implica l'altro). */
 const BET_SCORER_MARKETS = ['gol', 'doppietta', 'tripletta'];
+const BET_OU_MIN_LINES = 25;   // over/under: soglie proposte almeno da 0,5 a 25,5 gol (di più se la partita promette tanti gol)
+const BET_OU_PLAYERS_W = 0.7;  // quanto pesa "chi gioca" sui gol attesi totali (0 = solo media del gruppo, 1 = pieno)
+const BET_OU_FULL_ROSTER = 10; // con almeno tanti giocatori in lista quel peso vale in pieno, con meno scala (la lista è ancora incompleta)
+
 /** Mercati che si pagano col risultato (gli altri, cioè l'MVP, alla chiusura dei voti). */
 const BET_RESULT_MARKETS = ['esito', 'gol', 'doppietta', 'tripletta', 'overunder'];
 
@@ -206,8 +209,11 @@ function bet_poisson_1x2(float $la, float $lb): array
  *    a partita (stagione + ultime 5 partite + stato di forma); probabilità = 1 - e^(-gol attesi del giocatore). Chi segna spesso ed è
  *    in forma ha quota bassa, chi non segna mai quota alta;
  *  - doppietta / tripletta: con gli stessi gol attesi, probabilità di Poisson di segnarne almeno 2 / almeno 3;
- *  - overunder: la somma di due Poisson è una Poisson, con media i gol attesi totali: la soglia è il numero ",5" più vicino alla media
- *    (così over e under sono circa alla pari) e le probabilità vengono da lì;
+ *  - overunder: gol attesi totali = gol attesi delle due squadre (media gol del gruppo + rating) x un fattore "chi gioca": quanto i
+ *    giocatori in lista segnano più (o meno) della media del gruppo, da stagione, ultime 5 partite e forma. Chi ha giocato poco vale
+ *    come la media; il fattore pesa di più man mano che la lista si riempie.
+ *    La somma di due Poisson è una Poisson: per ogni soglia ",5" la probabilità dell'over viene da lì. All'inizio, con pochi dati,
+ *    le quote sono approssimative (pesano i valori di partenza), poi si affinano partita dopo partita;
  *  - mvp: chi vince un premio tra tanti: pesa lo storico MVP, la media voto (stagione e ultime partite), la forma, i gol attesi e la probabilità che la sua squadra vinca;
  *    le probabilità si normalizzano a 100% prima del margine.
  * Chi non ha ancora confermato vale meno: potrebbe non esserci.
@@ -241,13 +247,6 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         'B' => bet_odds($pl, 'esito', 1.05, 30),
     ], 'gol' => [], 'doppietta' => [], 'tripletta' => [], 'overunder' => [], 'mvp' => []];
 
-    $lamTot = $lam['A'] + $lam['B'];
-    $line = floor($lamTot) + 0.5;
-    $pOver = bet_poisson_at_least($lamTot, (int) ceil($line));
-    $out['overunder'] = [
-        bet_ou_pick('O', $line) => bet_odds($pOver, 'overunder', 1.05, 30),
-        bet_ou_pick('U', $line) => bet_odds(1 - $pOver, 'overunder', 1.05, 30),
-    ];
 
     // gol e MVP
     $rows = [];
@@ -265,6 +264,39 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $rows[$pid] = ['s' => $s, 'here' => $here, 'w' => $w, 'team' => in_array($r['team'], ['A', 'B'], true) ? $r['team'] : null];
         $den += $here * $w;
     }
+    // over/under: gol attesi totali, poi una quota over e una under per ogni soglia
+    $apps = $goals = 0;
+    foreach ($stats as $st) {
+        $apps += (int) ($st['apps'] ?? 0);
+        $goals += (int) ($st['goals'] ?? 0);
+    }
+    $factor = 1.0;
+    if ($apps > 0 && $goals > 0) {
+        $g = $goals / $apps;   // gol a partita del giocatore medio del gruppo
+        $num = $cnt = 0.0;
+        foreach ($roster as $r) {
+            $here = $r['availability'] === 'confermato' ? 1.0 : 0.7;
+            $rate = $g;   // ospiti e chi non ha mai giocato: come la media
+            if (!$r['is_guest'] && ($st = $stats[(int) $r['player_id']] ?? null)) {
+                $season = ($st['goals'] + $g * 3) / ($st['apps'] + 3);
+                $recent = ($st['goals_last5'] + $season * 2) / (count($st['last5']) + 2);
+                $rate = (0.65 * $season + 0.35 * $recent) * BET_FORM[$st['form'] ?? 'none'];
+            }
+            $num += $here * $rate;
+            $cnt += $here;
+        }
+        if ($cnt > 0) {
+            $factor = max(0.6, min(1.6, $num / ($cnt * $g)));
+        }
+    }
+    $lamTot = max(0.5, ($lam['A'] + $lam['B']) * $factor ** (BET_OU_PLAYERS_W * min(1.0, count($roster) / BET_OU_FULL_ROSTER)));
+    $maxLine = min(60, max(BET_OU_MIN_LINES, (int) ceil(2.5 * $lamTot)));
+    for ($k = 0; $k <= $maxLine; $k++) {
+        $pOver = bet_poisson_at_least($lamTot, $k + 1);
+        $out['overunder'][bet_ou_pick('O', $k + 0.5)] = bet_odds($pOver, 'overunder', 1.02, 50);
+        $out['overunder'][bet_ou_pick('U', $k + 0.5)] = bet_odds(1 - $pOver, 'overunder', 1.02, 50);
+    }
+
     $mvpW = [];
     foreach ($rows as $pid => $x) {
         // gol attesi del giocatore: quota dei 2*mu gol della partita, aggiustata dalla forza della sua squadra

@@ -867,6 +867,12 @@ a.fact-who:hover { color: var(--grass-d); }
 .quota-btn.is-picked b { color: var(--yellow); }
 .quota-btn.is-mine { border-color: var(--grass-d); border-width: 2px; }
 .bet-mine-list { display: grid; gap: 6px; }
+.ou-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ou-label { font-weight: 800; }
+.ou-step { width: 30px; height: 30px; border: var(--b2); border-radius: 50%; background: var(--paper-2); font: 900 1.05rem/1 var(--font); cursor: pointer; }
+.ou-step:hover { box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px, -1px); }
+.ou-line { width: 84px; text-align: center; font-weight: 800; }
+.ou-help { flex-basis: 100%; }
 .bet-mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 @media (max-width: 640px) { .bet-col-title { display: none; } }
 
