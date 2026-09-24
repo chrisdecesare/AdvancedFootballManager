@@ -235,6 +235,22 @@ Si calcola come prima (rating base deciso dall'admin, media voto e percentuale d
 **Campo:** il nome del campo (in Home e nella partita) è un link: apre l'itinerario di Google Maps fino al campo partendo dalla posizione attuale di chi clicca.
 Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Rossi, Via Roma 1, Milano»).
 
+
+**Regole aggiunte:**
+- **Niente scommesse su se stessi** nei mercati sui giocatori (chi segna, doppietta, tripletta, MVP): i pulsanti non compaiono e il server
+  le rifiuta, anche dentro una multipla.
+- **Quote dal vivo nella schedina**: mentre la pagina è aperta la schedina chiede al server le quote ogni 20 secondi (`bets.php?quote=1`) e
+  aggiorna pulsanti, selettore dell'over/under e selezioni già messe, con una freccia ▲/▼ quando una quota cambia; le partite ormai chiuse escono
+  dalla schedina. Se al momento di puntare la quota è diversa da quella vista, il messaggio lo dice. Le quote mostrate sono quelle con cui si
+  punta davvero (senza contare le proprie puntate nella domanda).
+- **Ruolo meno pesante**: i gol attesi di partenza per ruolo sono vicini tra loro (portieri volanti: chi è in porta prima o poi tira), i gol
+  attesi dei giocatori si avvicinano del 30% alla media della partita (`BET_FLATTEN`) e i tetti delle quote sono più bassi (gol ×15,
+  doppietta ×35, tripletta ×75, MVP ×40).
+- **Premi per gol e assist**: 25 gettoni per ogni gol e 10 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`) a chi li ha fatti, appena
+  il risultato viene salvato; se viene corretto il premio si aggiorna, se la partita torna «programmata» o viene eliminata sparisce. Una mossa
+  del portafoglio per giocatore e partita (`kind = 'premio'`). Il totale si vede nella scheda «Scommesse».
+- Al passaggio al nuovo modello (migrazione v26) le puntate ancora aperte sono state riprezzate, quelle su se stessi annullate e rimborsate, e i
+  premi assegnati anche per le partite già giocate.
 ## Notifiche push
 
 I giocatori possono ricevere notifiche sul telefono (o sul computer) anche a sito chiuso, con il logo del sito
