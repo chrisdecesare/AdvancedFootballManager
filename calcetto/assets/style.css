@@ -1222,3 +1222,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .recovery-codes { columns: 2; margin: 6px 0 0; padding-left: 22px; font-size: 1.05rem; }
 .bar-fill.bar-warn { background: var(--orange); }
 .totp-setup > div:last-child { flex: 1 1 220px; min-width: 0; }
+.bge-q { display: block; font-weight: 800; }
+.bge-q.q-top, .bge-q.q-ok { color: var(--grass-d); }
+.bge-q.q-mid { color: #b86e00; }
+.bge-q.q-low { color: var(--red); }
