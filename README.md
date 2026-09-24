@@ -50,6 +50,28 @@ Senza login non si vede nulla (`PUBLIC_READ = false`).
 Contro gli abusi: campo trappola per i bot, massimo 10 iscrizioni all'ora per indirizzo IP e
 massimo 100 iscrizioni in attesa.
 
+**Livelli di sicurezza in più** (`lib/security.php`, riassunti anche in *Piattaforma → Sicurezza*):
+- **Verifica in due passaggi** (da *Modifica profilo → Sicurezza*, `account.php`): oltre alla password serve il codice a 6 cifre di un'app
+  di autenticazione (Google/Microsoft Authenticator, Authy...), con QR code e 8 **codici di recupero** usa e getta. Un codice già usato non vale una
+  seconda volta. Chi gestisce il sito o una lega vede in cima alle pagine un avviso finché non la attiva. Se qualcuno perde il telefono e i codici,
+  l'admin del sito gliela toglie da *Piattaforma → Account*.
+- **Conferma della password** (`confirm.php`): *Admin* e *Piattaforma* la chiedono dopo 30 minuti di inattività (anche a chi resta collegato
+  con il "resta collegato"), e le azioni distruttive (cedere o eliminare una lega, reimpostare password o eliminare account altrui) se è più vecchia
+  di 10 minuti.
+- **Avviso email per un accesso da un dispositivo nuovo** (browser + sistema), e per attivazione/disattivazione della verifica in due passaggi.
+  I dispositivi visti si vedono in *Sicurezza*.
+- **Blocco per username**: oltre ai limiti per connessione, 15 tentativi falliti sullo stesso username da connessioni diverse lo bloccano per
+  15 minuti (attacchi distribuiti) e il proprietario riceve un'email.
+- **Sessione legata al browser** che l'ha aperta: un cookie di sessione rubato e usato da un altro browser non vale.
+- **Trappola a tempo** sui moduli pubblici (iscrizione, crea lega, password dimenticata): un modulo firmato inviato in meno di pochi secondi
+  (o vecchio di ore) è di un bot. **Codici d'invito**: dopo 20 sbagliati in un'ora da una connessione, nessun link funziona più per un'ora.
+  **Richieste di ingresso**: al massimo 10 al giorno per account.
+- **Header** in più: `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `X-Permitted-Cross-Domain-Policies`, Permissions-Policy estesa.
+- **Eventi di sicurezza nel registro** (login falliti e bloccati, username sotto attacco, codici sbagliati, codici di recupero usati, nuovi
+  dispositivi, sessioni da altri browser, richieste CSRF, accessi negati, bot, inviti tentati a caso) e scheda *Piattaforma → Sicurezza* con
+  gli eventi della settimana, le connessioni sospette e chi ha poteri senza la verifica in due passaggi.
+- La libreria del QR code è ospitata nel sito (`assets/vendor/qrcode.js`, licenza MIT): nessuno script esterno sulla pagina dei codici.
+
 Sicurezza: password di almeno 8 caratteri, blocco di 15 minuti dopo troppi tentativi falliti,
 CSRF su ogni modulo, query preparate, cookie di sessione `Secure`/`HttpOnly`/`SameSite`,
 HTTPS obbligatorio, cartella `uploads/` che serve solo immagini.

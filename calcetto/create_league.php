@@ -31,11 +31,15 @@ $v = ['league' => '', 'join_mode' => 'approvazione', 'name' => '', 'username' =>
 
 if (is_post()) {
     if (($_POST['website'] ?? '') !== '') {   // campo trappola per i bot
+        security_log('bot', 'create_league.php · campo trappola');
         usleep(700000);
         redirect('login.php');
     }
     $v = array_merge($v, array_map(fn($x) => is_string($x) ? trim($x) : '', array_intersect_key($_POST, $v)));
     $v['join_mode'] = $v['join_mode'] === 'libero' ? 'libero' : 'approvazione';
+    if (!$u && !form_trap_ok(4)) {   // modulo lungo compilato in un lampo: un bot
+        $errors[] = 'Qualcosa non va con il modulo: ricontrolla i dati e premi di nuovo il pulsante.';
+    }
     if ($err = league_name_error($v['league'])) {
         $errors[] = $err;
     }
@@ -120,7 +124,7 @@ layout_start('Crea la tua lega');
       La lega è tua: inviti i giocatori con un link, approvi chi entra e scegli chi ti aiuta a gestirla. Gli altri utenti del sito non la vedono.</p>
     <?php foreach ($errors as $e): ?><div class="flash flash-err"><?= h($e) ?></div><?php endforeach; ?>
     <form method="post" class="form">
-      <?= csrf_field() ?>
+      <?= csrf_field() ?><?= form_trap_field() ?>
       <label class="field"><span>Nome della lega</span><input name="league" required maxlength="40" value="<?= h($v['league']) ?>" placeholder="es. Calcetto del giovedì" autocomplete="off"></label>
       <fieldset class="group-box"><legend>Chi può entrare</legend>
         <label class="radio-opt"><input type="radio" name="join_mode" value="approvazione" <?= $v['join_mode'] !== 'libero' ? 'checked' : '' ?>> <span>Chi ha il link chiede di entrare e <strong>tu approvi</strong> (consigliato)</span></label>

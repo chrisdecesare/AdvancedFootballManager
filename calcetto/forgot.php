@@ -15,6 +15,8 @@ if (is_post()) {
     $who = mb_strtolower(trim(is_string($_POST['who'] ?? null) ? mb_substr($_POST['who'], 0, 190) : ''));
     if ($who === '') {
         $error = 'Scrivi il tuo username o la tua email.';
+    } elseif (!form_trap_ok(2)) {
+        $error = 'Qualcosa non va con il modulo: premi di nuovo il pulsante.';
     } elseif (!rate_hit('__mail_ip__', 8, 3600)) {
         $error = 'Troppe richieste da questa connessione: riprova tra un\'ora.';
     } else {
@@ -41,7 +43,7 @@ layout_start('Password dimenticata');
       <p class="muted">Scrivi il tuo username o l'email del tuo account: ti mandiamo un link per scegliere una nuova password.</p>
       <?php if ($error): ?><div class="flash flash-err"><?= h($error) ?></div><?php endif; ?>
       <form method="post" class="form">
-        <?= csrf_field() ?>
+        <?= csrf_field() ?><?= form_trap_field() ?>
         <label class="field"><span>Username o email</span>
           <input name="who" required autofocus maxlength="190" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
         <button class="btn btn-primary btn-block">Mandami il link</button>

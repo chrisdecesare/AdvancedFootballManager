@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 22;
+const SCHEMA_VERSION = 23;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -455,6 +455,25 @@ function ensure_schema(): void
         }
         if (!q("SHOW INDEX FROM bets WHERE Key_name = 'idx_match_market'")->fetch()) {
             db()->exec('ALTER TABLE bets ADD INDEX idx_match_market (match_id, market, status)');
+        }
+    }
+    if ($v < 23) {
+        // sicurezza (lib/security.php): verifica in due passaggi (TOTP) con codici di recupero, e dispositivi già visti
+        // per avvisare di un accesso da un dispositivo nuovo
+        $add('users', 'totp_secret', 'VARCHAR(64) NULL');
+        $add('users', 'totp_recovery', 'TEXT NULL');
+        $add('users', 'totp_last_step', 'BIGINT NOT NULL DEFAULT 0');
+        db()->exec('CREATE TABLE IF NOT EXISTS known_devices (
+            user_id INT NOT NULL,
+            device VARCHAR(64) NOT NULL,
+            first_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_ip VARCHAR(45) NOT NULL DEFAULT \'\',
+            PRIMARY KEY (user_id, device),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        if (!q("SHOW INDEX FROM login_attempts WHERE Key_name = 'idx_user_time'")->fetch()) {
+            db()->exec('ALTER TABLE login_attempts ADD INDEX idx_user_time (username, created_at)');
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

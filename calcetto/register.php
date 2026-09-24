@@ -10,8 +10,13 @@ if (!tables_exist()) {
     redirect('install.php');
 }
 $code = is_string($_GET['c'] ?? $_POST['c'] ?? null) ? (string) ($_GET['c'] ?? $_POST['c']) : '';
+if ($code !== '' && invite_blocked()) {   // chi prova codici a caso per entrare nelle leghe
+    flash('err', 'Troppi link d\'invito sbagliati da questa connessione: riprova tra un\'ora.');
+    redirect('login.php');
+}
 $league = $code !== '' ? league_by_code($code) : null;
 if ($code !== '' && !$league) {
+    invite_bad_attempt($code);
     flash('err', 'Il link d\'invito non è valido (forse è stato cambiato): chiedine uno nuovo a chi gestisce la lega.');
     redirect('login.php');
 }
@@ -34,6 +39,7 @@ $v = ['name' => '', 'username' => '', 'email' => '', 'shirt_number' => '', 'posi
 if (is_post()) {
     // campo trappola per i bot: le persone non lo vedono
     if (($_POST['website'] ?? '') !== '') {
+        security_log('bot', 'register.php · campo trappola');
         usleep(700000);
         redirect('login.php');
     }
@@ -41,7 +47,9 @@ if (is_post()) {
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     $password2 = is_string($_POST['password2'] ?? null) ? $_POST['password2'] : '';
 
-    if (registration_blocked()) {
+    if (!form_trap_ok(3)) {   // compilato in meno di 3 secondi (o modulo vecchio di ore): un bot, o una pagina rimasta aperta troppo
+        $errors[] = 'Qualcosa non va con il modulo: ricontrolla i dati e premi di nuovo il pulsante.';
+    } elseif (registration_blocked()) {
         $errors[] = 'Troppe iscrizioni da questa connessione: riprova tra un po\'.';
     } elseif ($league ? (!$open && league_pending_count((int) $league['id']) >= LEAGUE_MAX_PENDING) : pending_count() >= REGISTER_MAX_PENDING) {
         $errors[] = 'Ci sono troppe iscrizioni in attesa: chiedi all\'admin di approvarle e riprova.';
@@ -139,7 +147,7 @@ layout_start('Iscriviti');
       <?php endif; ?>
       <?php foreach ($errors as $e): ?><div class="flash flash-err"><?= h($e) ?></div><?php endforeach; ?>
       <form method="post" class="form">
-        <?= csrf_field() ?><?php if ($league): ?><input type="hidden" name="c" value="<?= h($league['invite_code']) ?>"><?php endif; ?>
+        <?= csrf_field() ?><?= form_trap_field() ?><?php if ($league): ?><input type="hidden" name="c" value="<?= h($league['invite_code']) ?>"><?php endif; ?>
         <label class="field"><span>Nome e cognome</span><input name="name" required maxlength="80" value="<?= h($v['name']) ?>" autocomplete="name"></label>
         <label class="field"><span>Username</span><input name="username" required maxlength="50" value="<?= h($v['username']) ?>" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false"></label>
         <label class="field"><span>Email (facoltativa, ma serve per recuperare la password)</span><input type="email" name="email" maxlength="190" value="<?= h($v['email']) ?>" autocomplete="email" placeholder="nome@esempio.it"></label>

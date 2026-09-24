@@ -267,6 +267,9 @@ function league_join(int $uid, array $league): string
     if (q('SELECT 1 FROM group_requests WHERE group_id = ? AND user_id = ?', [$gid, $uid])->fetch()) {
         return 'pending';
     }
+    if (!rate_hit('__join_' . $uid, 10, 86400)) {   // non più di 10 richieste al giorno per account (spam verso gli admin delle leghe)
+        return 'limit';
+    }
     q('INSERT INTO group_requests (group_id, user_id) VALUES (?, ?)', [$gid, $uid]);
     log_activity('lega_richiesta', 'chiede di entrare', $gid, $uid);
     push_notify_league_request($gid, $uid);
@@ -405,6 +408,14 @@ function activity_labels(): array
         'puntata' => 'Scommessa', 'multipla' => 'Multipla', 'puntata_ritirata' => 'Scommessa ritirata',
         'negozio' => 'Negozio', 'giocatore' => 'Scheda giocatore', 'pagamenti' => 'Pagamenti',
         'account' => 'Account', 'admin' => 'Admin del sito',
+        // eventi di sicurezza (lib/security.php)
+        'sicurezza_login_fallito' => 'Login fallito', 'sicurezza_login_bloccato' => 'Login bloccato',
+        'sicurezza_username_bloccato' => 'Username sotto attacco', 'sicurezza_2fa_fallito' => 'Codice 2 passaggi sbagliato',
+        'sicurezza_2fa_codice_recupero' => 'Usato codice di recupero', 'sicurezza_2fa_attivata' => '2 passaggi attivata',
+        'sicurezza_2fa_disattivata' => '2 passaggi disattivata', 'sicurezza_2fa_nuovi_codici' => 'Nuovi codici di recupero',
+        'sicurezza_nuovo_dispositivo' => 'Accesso da nuovo dispositivo', 'sicurezza_sessione_altro_browser' => 'Sessione da altro browser',
+        'sicurezza_conferma_fallita' => 'Conferma password fallita', 'sicurezza_csrf' => 'Richiesta falsificata (CSRF)',
+        'sicurezza_accesso_negato' => 'Accesso negato', 'sicurezza_bot' => 'Bot bloccato', 'sicurezza_invito' => 'Codice d\'invito sbagliato',
     ];
 }
 

@@ -9,9 +9,11 @@
  */
 require __DIR__ . '/lib/bootstrap.php';
 require_admin();
+require_recent_auth();   // password riconfermata se l'area admin non si usa da un po' (lib/security.php)
 
 // azioni sugli account delle leghe degli altri (quelli delle leghe storiche si gestiscono anche da admin.php)
 if (is_post()) {
+    require_recent_auth(RECENT_AUTH_DANGER, false);   // azioni sugli account degli altri: password confermata negli ultimi minuti
     $do = $_POST['do'] ?? '';
     $uid = (int) ($_POST['user_id'] ?? 0);
     $target = q('SELECT id, username, role FROM users WHERE id = ?', [$uid])->fetch();
@@ -26,6 +28,12 @@ if (is_post()) {
             log_activity('admin', 'password reimpostata · @' . $target['username']);
             flash('ok', 'Password di @' . $target['username'] . ' aggiornata.');
         }
+    } elseif ($target && $do === 'totp_reset') {
+        // telefono perso e codici di recupero finiti: l'admin toglie la verifica in due passaggi (dopo aver verificato chi è)
+        q('UPDATE users SET totp_secret = NULL, totp_recovery = NULL, totp_last_step = 0 WHERE id = ?', [$uid]);
+        security_log('2fa_disattivata', 'dall\'admin del sito · @' . $target['username']);
+        log_activity('admin', 'verifica in due passaggi tolta · @' . $target['username']);
+        flash('ok', 'Verifica in due passaggi tolta a @' . $target['username'] . ': ora entra con la sola password (consigliagli di riattivarla).');
     } elseif ($target && $do === 'delete_account') {
         if ($uid === (int) current_user()['id']) {
             flash('err', 'Non puoi eliminare il tuo account.');
@@ -41,7 +49,7 @@ if (is_post()) {
     redirect('platform.php?t=account&account=' . $uid);
 }
 
-$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro'], true) ? $_GET['t'] : 'panoramica';
+$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro', 'sicurezza'], true) ? $_GET['t'] : 'panoramica';
 $leagueId = int_get('lega');
 $accountId = int_get('account');
 $labels = activity_labels();
@@ -87,6 +95,7 @@ layout_start('Piattaforma', 'platform');
   <a href="platform.php?t=leghe" class="<?= $tab === 'leghe' ? 'active' : '' ?>"><i class="ti ti-users-group"></i> Leghe</a>
   <a href="platform.php?t=account" class="<?= $tab === 'account' ? 'active' : '' ?>"><i class="ti ti-user-circle"></i> Account</a>
   <a href="platform.php?t=registro" class="<?= $tab === 'registro' ? 'active' : '' ?>"><i class="ti ti-list-details"></i> Registro</a>
+  <a href="platform.php?t=sicurezza" class="<?= $tab === 'sicurezza' ? 'active' : '' ?>"><i class="ti ti-shield-lock"></i> Sicurezza</a>
 </nav>
 
 <?php if ($tab === 'panoramica'):
@@ -275,6 +284,7 @@ layout_start('Piattaforma', 'platform');
 <section class="card">
   <h2><?= h($a['player_name'] ?: $a['username']) ?> <span class="muted small">@<?= h($a['username']) ?></span> <?= $a['role'] !== 'player' ? '<span class="tag tag-admin">' . h(role_label($a['role'])) . '</span>' : '' ?> <?= $a['status'] !== 'attivo' ? '<span class="tag">in attesa</span>' : '' ?></h2>
   <p class="small">
+    <?= $a['totp_secret'] ? '<span class="tag tag-ok"><i class="ti ti-shield-check"></i> verifica in due passaggi</span> ' : '<span class="tag">senza verifica in due passaggi</span> ' ?>
     <?= $a['email'] ? '<i class="ti ti-mail-check"></i> ' . h($a['email']) : ($a['pending_email'] ? '<i class="ti ti-mail-question"></i> ' . h($a['pending_email']) . ' (da confermare)' : '<span class="muted"><i class="ti ti-mail-off"></i> nessuna email</span>') ?><br>
     Creato il <?= fmt_date_short($a['created_at']) ?> · ultimo accesso: <?= $a['last_seen_at'] ? fmt_date_short($a['last_seen_at']) . ' ' . fmt_time($a['last_seen_at']) : '—' ?>
     · accessi registrati: <?= (int) $stats['logins'] ?> · operazioni negli ultimi 30 giorni: <?= (int) $stats['ops30'] ?> · dispositivi con notifiche: <?= (int) $stats['devices'] ?>
@@ -290,6 +300,10 @@ layout_start('Piattaforma', 'platform');
     <form method="post" class="inline pw-form"><?= csrf_field() ?><input type="hidden" name="do" value="reset"><input type="hidden" name="user_id" value="<?= $accountId ?>">
       <input type="text" name="password" placeholder="nuova password" minlength="8" maxlength="72" required class="mini-input" autocomplete="off" aria-label="Nuova password">
       <button class="btn btn-ghost btn-sm">Reimposta password</button></form>
+    <?php if ($a['totp_secret']): ?>
+      <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="totp_reset"><input type="hidden" name="user_id" value="<?= $accountId ?>">
+        <button class="btn btn-ghost btn-sm" data-confirm="Togliere la verifica in due passaggi a @<?= h($a['username']) ?>? Fallo solo se hai verificato che è davvero lui (ha perso il telefono)."><i class="ti ti-shield-off"></i> Togli verifica in due passaggi</button></form>
+    <?php endif; ?>
     <?php if ($accountId !== (int) current_user()['id']): ?>
       <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="delete_account"><input type="hidden" name="user_id" value="<?= $accountId ?>">
         <button class="btn btn-danger btn-sm" data-confirm="Eliminare l'account @<?= h($a['username']) ?>? Il giocatore e le sue statistiche restano."><i class="ti ti-trash"></i> Elimina account</button></form>
@@ -343,6 +357,77 @@ layout_start('Piattaforma', 'platform');
   <?php if ($page > 1): ?><a class="btn btn-ghost btn-sm" href="<?= h($self(['t' => 'account', 'q' => $qs, 'p' => $page - 1])) ?>">← Precedenti</a><?php endif; ?>
   <?php if ($page * $per < $total): ?><a class="btn btn-ghost btn-sm" href="<?= h($self(['t' => 'account', 'q' => $qs, 'p' => $page + 1])) ?>">Successivi →</a><?php endif; ?>
 </div><?php endif; ?>
+
+<?php elseif ($tab === 'sicurezza'):
+    $since = date('Y-m-d H:i:s', time() - 7 * 86400);
+    $counts = q("SELECT action, COUNT(*) AS n FROM activity_log WHERE action LIKE 'sicurezza\\_%' AND created_at > ? GROUP BY action ORDER BY n DESC", [$since])->fetchAll();
+    $maxC = $counts ? max(array_column($counts, 'n')) : 1;
+    $ips = q("SELECT ip, COUNT(*) AS n, MAX(created_at) AS last, COUNT(DISTINCT detail) AS names FROM activity_log
+              WHERE action IN ('sicurezza_login_fallito', 'sicurezza_2fa_fallito', 'sicurezza_invito', 'sicurezza_bot', 'sicurezza_login_bloccato') AND created_at > ?
+              GROUP BY ip ORDER BY n DESC LIMIT 15", [$since])->fetchAll();
+    // chi ha poteri (admin del sito, proprietari e admin delle leghe) e se ha protetto l'account
+    $staff = q("SELECT u.id, u.username, u.role, u.email, u.totp_secret IS NOT NULL AS totp, u.last_seen_at, p.name,
+                  (SELECT GROUP_CONCAT(CONCAT(g.name, ' (', gr.role, ')') SEPARATOR ', ') FROM group_roles gr JOIN squad_groups g ON g.id = gr.group_id
+                   WHERE gr.user_id = u.id AND gr.role IN ('owner', 'admin')) AS leagues
+                FROM users u LEFT JOIN players p ON p.id = u.player_id
+                WHERE u.status = 'attivo' AND (u.role = 'admin' OR EXISTS (SELECT 1 FROM group_roles x WHERE x.user_id = u.id AND x.role IN ('owner', 'admin')))
+                ORDER BY u.role = 'admin' DESC, totp, u.username")->fetchAll();
+    $totpAll = q("SELECT SUM(totp_secret IS NOT NULL) AS on_, COUNT(*) AS n FROM users WHERE status = 'attivo' AND role <> 'ospite'")->fetch();
+    $events = q($logSelect . " WHERE a.action LIKE 'sicurezza\\_%' ORDER BY a.id DESC LIMIT 100")->fetchAll(); ?>
+<div class="platform-cols">
+  <section class="card">
+    <h2><i class="ti ti-alert-triangle"></i> Eventi <span class="muted small">ultimi 7 giorni</span></h2>
+    <?php if (!$counts): ?><p class="empty">Nessun evento di sicurezza: tutto tranquillo.</p><?php endif; ?>
+    <div class="bars">
+      <?php foreach ($counts as $r): ?>
+        <a class="bar-row" href="platform.php?t=registro&amp;azione=<?= h(urlencode($r['action'])) ?>">
+          <span class="bar-lbl small"><?= h($labels[$r['action']] ?? $r['action']) ?></span>
+          <span class="bar-track"><span class="bar-fill bar-warn" style="width:<?= max(2, round($r['n'] / $maxC * 100)) ?>%"></span></span>
+          <span class="bar-n small"><?= (int) $r['n'] ?></span></a>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <section class="card">
+    <h2><i class="ti ti-world-www"></i> Connessioni sospette <span class="muted small">7 giorni</span></h2>
+    <p class="muted small">Indirizzi IP con più tentativi falliti (login, codici, inviti, bot). Il sito li blocca da solo per un po'; se uno insiste per giorni, si può bloccare dal pannello dell'hosting.</p>
+    <?php if (!$ips): ?><p class="empty">Nessuna.</p><?php else: ?>
+    <div class="table-wrap"><table class="table"><thead><tr><th>IP</th><th>Tentativi</th><th>Bersagli diversi</th><th>Ultimo</th></tr></thead><tbody>
+      <?php foreach ($ips as $r): ?><tr><td class="small"><code><?= h($r['ip']) ?></code></td><td><?= (int) $r['n'] ?></td><td><?= (int) $r['names'] ?></td>
+        <td class="small muted"><?= fmt_date_short($r['last']) ?> <?= fmt_time($r['last']) ?></td></tr><?php endforeach; ?>
+    </tbody></table></div>
+    <?php endif; ?>
+  </section>
+</div>
+<section class="card">
+  <h2><i class="ti ti-shield-check"></i> Chi ha poteri e come è protetto</h2>
+  <p class="muted small">Verifica in due passaggi attiva su <strong><?= (int) $totpAll['on_'] ?></strong> account su <?= (int) $totpAll['n'] ?>. Per chi gestisce il sito o una lega è fortemente consigliata: in cima alle pagine gli compare un avviso finché non la attiva.</p>
+  <div class="table-wrap"><table class="table"><thead><tr><th>Account</th><th>Poteri</th><th>Email</th><th>2 passaggi</th><th>Ultimo accesso</th></tr></thead><tbody>
+    <?php foreach ($staff as $r): ?>
+      <tr><td><a class="link" href="platform.php?t=account&amp;account=<?= (int) $r['id'] ?>"><?= h($r['name'] ?: $r['username']) ?></a> <span class="muted small">@<?= h($r['username']) ?></span></td>
+        <td class="small"><?= $r['role'] === 'admin' ? '<strong>Admin del sito</strong>' . ($r['leagues'] ? '<br>' : '') : '' ?><?= h((string) $r['leagues']) ?></td>
+        <td class="small"><?= $r['email'] ? '<i class="ti ti-mail-check"></i>' : '<span class="muted"><i class="ti ti-mail-off"></i> nessuna</span>' ?></td>
+        <td><?= $r['totp'] ? '<span class="tag tag-ok"><i class="ti ti-shield-check"></i> attiva</span>' : '<span class="tag tag-live">non attiva</span>' ?></td>
+        <td class="small muted"><?= $r['last_seen_at'] ? fmt_date_short($r['last_seen_at']) . ' ' . fmt_time($r['last_seen_at']) : '—' ?></td></tr>
+    <?php endforeach; ?>
+  </tbody></table></div>
+</section>
+<section class="card">
+  <h2><i class="ti ti-list-details"></i> Ultimi eventi di sicurezza</h2>
+  <?= activity_table($events, $labels) ?>
+</section>
+<section class="card">
+  <h2><i class="ti ti-lock"></i> Protezioni attive</h2>
+  <ul class="howto small">
+    <li><strong>Password</strong> cifrate (bcrypt), minimo <?= PASSWORD_MIN ?> caratteri, niente password comuni.</li>
+    <li><strong>Verifica in due passaggi</strong> con app di autenticazione e codici di recupero; un codice già usato non vale due volte.</li>
+    <li><strong>Blocco dei tentativi</strong>: <?= LOGIN_MAX_PER_USER ?> errori per connessione e username, <?= LOGIN_MAX_PER_IP ?> per connessione, <?= LOGIN_MAX_PER_NAME ?> su uno stesso username da connessioni diverse (e il proprietario viene avvisato), per <?= LOGIN_WINDOW_MIN ?> minuti.</li>
+    <li><strong>Conferma della password</strong> per Admin e Piattaforma dopo <?= RECENT_AUTH_ADMIN / 60 ?> minuti di inattività, e sempre (se più vecchia di <?= RECENT_AUTH_DANGER / 60 ?> minuti) per le azioni distruttive.</li>
+    <li><strong>Avviso email</strong> per ogni accesso da un dispositivo nuovo, per cambi di password, email e verifica in due passaggi.</li>
+    <li><strong>Sessione</strong> legata al browser che l'ha aperta, cookie Secure/HttpOnly/SameSite, "resta collegato" revocabile da Sicurezza.</li>
+    <li><strong>Moduli</strong>: token anti-CSRF ovunque, campo trappola e trappola a tempo contro i bot, limiti su iscrizioni, leghe, richieste e codici d'invito.</li>
+    <li><strong>Server</strong>: HTTPS obbligatorio con HSTS, header anti-clickjacking e isolamento tra siti, cartelle <code>lib/</code> e file di servizio non scaricabili, cartella foto che serve solo immagini.</li>
+  </ul>
+</section>
 
 <?php else:   // registro
     $fLeague = int_get('lega');

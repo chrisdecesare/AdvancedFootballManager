@@ -19,7 +19,10 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'");
-header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()');
+header('Cross-Origin-Opener-Policy: same-origin');        // un'altra finestra aperta da un sito esterno non può toccare questa
+header('Cross-Origin-Resource-Policy: same-origin');      // le risposte del sito non si incorporano da altri siti
+header('X-Permitted-Cross-Domain-Policies: none');
 header('Cache-Control: private, no-store');
 if ($isHttps) {
     header('Strict-Transport-Security: max-age=15552000');
@@ -49,6 +52,7 @@ if (defined('NO_SESSION')) {
 require __DIR__ . '/db.php';
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/auth.php';
+require __DIR__ . '/security.php';
 require __DIR__ . '/groups.php';
 require __DIR__ . '/leagues.php';
 require __DIR__ . '/stats.php';
@@ -69,6 +73,7 @@ if (!defined('NO_CSRF')) {   // push.php la salta solo per il rinnovo dell'abbon
 }
 if (tables_exist()) {
     ensure_schema();
+    session_guard();    // una sessione usata da un browser diverso da quello che l'ha aperta non vale (lib/security.php)
     remember_check();   // sessione scaduta ma dispositivo "collegato": rientra da solo
     if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         remember_base_url();   // un admin fissa l'indirizzo affidabile del sito per i link delle email

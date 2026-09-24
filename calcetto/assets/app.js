@@ -228,11 +228,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const bar = document.querySelector('.topbar');
   const navEl = bar && bar.querySelector('.nav');
   if (navEl) {
+    // Il menu deve stare tutto, senza sovrapporsi al titolo: 1) nomi completi su una riga; 2) se non ci stanno, solo icone
+    // (il nome resta sulla scheda attiva e nel tooltip); 3) solo se neanche così, il menu va su una riga sua sotto il titolo,
+    // di nuovo prima con i nomi e poi con le sole icone. Con tante schede (admin) si arriva spesso al punto 2 o 3.
+    const overflowing = () => navEl.scrollWidth > navEl.clientWidth + 1;
     const fit = () => {
-      bar.classList.remove('topbar-wrap');
+      bar.classList.remove('topbar-wrap', 'nav-compact');
       const burger = bar.querySelector('.nav-toggle');
       if (burger && getComputedStyle(burger).display !== 'none') return;   // menu a panino: niente da controllare
-      if (navEl.scrollWidth > navEl.clientWidth + 1) bar.classList.add('topbar-wrap');
+      if (!overflowing()) return;
+      bar.classList.add('nav-compact');
+      if (!overflowing()) return;
+      bar.classList.remove('nav-compact');
+      bar.classList.add('topbar-wrap');
+      if (overflowing()) bar.classList.add('nav-compact');
     };
     fit();
     window.addEventListener('resize', fit);

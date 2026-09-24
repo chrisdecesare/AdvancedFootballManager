@@ -19,6 +19,7 @@ if (!$gid) {
 }
 $league = $gid ? league_get($gid) : null;
 if ($gid && (!$league || !can_admin_group($gid))) {
+    security_log('accesso_negato', (string) ($_SERVER['REQUEST_URI'] ?? ''));
     http_response_code(403);
     layout_start('Accesso negato');
     echo '<div class="card"><h2>Accesso negato</h2><p>Questa pagina è riservata a chi gestisce la lega.</p></div>';
@@ -141,6 +142,7 @@ if (is_post()) {
             break;
 
         case 'transfer':
+            require_recent_auth(RECENT_AUTH_DANGER, false);   // cedere la lega: password confermata negli ultimi minuti
             $m = league_member_account($gid, $uid);
             if (!$isOwner) {
                 flash('err', 'Solo il proprietario può cedere la lega.');
@@ -193,6 +195,7 @@ if (is_post()) {
             break;
 
         case 'delete_league':
+            require_recent_auth(RECENT_AUTH_DANGER, false);
             if (!$isOwner) {
                 flash('err', 'Solo il proprietario può eliminare la lega.');
             } elseif (mb_strtolower(trim((string) ($_POST['confirm'] ?? ''))) !== mb_strtolower($league['name'])) {

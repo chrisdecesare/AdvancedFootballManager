@@ -73,6 +73,7 @@ function require_admin(): void
 {
     require_login();
     if (!is_admin()) {
+        security_log('accesso_negato', (string) ($_SERVER['REQUEST_URI'] ?? ''));
         http_response_code(403);
         layout_start('Accesso negato');
         echo '<div class="card"><h2>Accesso negato</h2><p>Questa pagina è riservata agli admin.</p></div>';
@@ -86,6 +87,7 @@ function require_match_manager(): void
 {
     require_login();
     if (!can_manage_matches()) {
+        security_log('accesso_negato', (string) ($_SERVER['REQUEST_URI'] ?? ''));
         http_response_code(403);
         layout_start('Accesso negato');
         echo '<div class="card"><h2>Accesso negato</h2><p>Questa pagina è riservata a chi gestisce le partite.</p></div>';
@@ -136,9 +138,16 @@ function client_ip(): string
     return substr($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0', 0, 45);
 }
 
-/** true se questo IP (o questo IP con questo username) ha fatto troppi tentativi falliti. */
+/**
+ * true se questo IP (o questo IP con questo username) ha fatto troppi tentativi falliti, oppure se lo username
+ * è sotto attacco da tante connessioni diverse (lib/security.php).
+ */
 function login_blocked(string $username): bool
 {
+    if ($username !== '' && login_name_blocked($username)) {
+        notify_login_attack($username);
+        return true;
+    }
     $since = date('Y-m-d H:i:s', time() - LOGIN_WINDOW_MIN * 60);
     $ip = client_ip();
     $perIp = (int) q('SELECT COUNT(*) FROM login_attempts WHERE ip = ? AND created_at > ?', [$ip, $since])->fetchColumn();
@@ -276,6 +285,7 @@ function remember_check(): void
     $_SESSION['uid'] = (int) $t['user_id'];
     $_SESSION['sv'] = (int) $t['session_version'];
     $_SESSION['remember_tried'] = 1;
+    session_bind_browser();   // niente mark_authenticated(): un dispositivo "ricordato" non vale come password appena confermata
     // la scadenza si sposta in avanti (al massimo una volta al giorno) finché lo si usa
     $exp = time() + REMEMBER_DAYS * 86400;
     if ($exp - strtotime($t['expires_at']) > 86400) {
@@ -289,9 +299,10 @@ function attempt_login(string $username, string $password): string
 {
     $username = mb_strtolower(mb_substr(trim($username), 0, 50));
     if (login_blocked($username)) {
+        security_log('login_bloccato', $username);
         return 'blocked';
     }
-    $u = q('SELECT id, password_hash, status, session_version FROM users WHERE LOWER(username) = ?', [$username])->fetch();
+    $u = q('SELECT id, password_hash, status, session_version, totp_secret FROM users WHERE LOWER(username) = ?', [$username])->fetch();
     // se l'utente non esiste verifica comunque un hash bcrypt valido (di una password qualsiasi): tempi simili, così non si scoprono gli username
     $hash = $u['password_hash'] ?? '$2y$10$.vGA1O9wmRjrwAVXD98HNOgsNpDczlqm3Jq7KnEd1rVAGv3Fykk1a';
     $valid = password_verify($password, $hash);
@@ -299,17 +310,19 @@ function attempt_login(string $username, string $password): string
         return 'pending';   // password giusta ma l'admin non ha ancora approvato l'iscrizione
     }
     if ($u && $valid) {
-        q('DELETE FROM login_attempts WHERE ip = ? AND username = ?', [client_ip(), $username]);
         if (password_needs_rehash($hash, PASSWORD_DEFAULT)) {
             q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $u['id']]);
         }
-        session_regenerate_id(true);
-        $_SESSION['uid'] = (int) $u['id'];
-        $_SESSION['sv'] = (int) $u['session_version'];
-        remember_issue((int) $u['id']);
-        log_activity('accesso', '', null, (int) $u['id']);
+        if (!empty($u['totp_secret'])) {
+            // password giusta ma serve anche il codice dell'app: l'accesso non è ancora fatto (login.php chiede il codice)
+            session_regenerate_id(true);
+            $_SESSION['pending_2fa'] = ['uid' => (int) $u['id'], 'username' => $username, 'at' => time(), 'tries' => 0];
+            return '2fa';
+        }
+        complete_login((int) $u['id'], $username);   // lib/security.php: sessione, "resta collegato", registro, dispositivo nuovo
         return 'ok';
     }
+    security_log('login_fallito', $username, $u ? (int) $u['id'] : null);
     q('INSERT INTO login_attempts (ip, username) VALUES (?, ?)', [client_ip(), $username]);
     q('DELETE FROM login_attempts WHERE created_at < ?', [date('Y-m-d H:i:s', time() - 86400)]);
     usleep(500000);
@@ -332,6 +345,9 @@ function csrf_field(): string
 function verify_csrf(): void
 {
     if (is_post() && !hash_equals(csrf_token(), (string) ($_POST['csrf'] ?? ''))) {
+        if (!empty($_SESSION['uid'])) {   // con la sessione scaduta capita anche a chi è in buona fede: si registra solo chi è collegato
+            security_log('csrf', (string) ($_SERVER['REQUEST_URI'] ?? ''), (int) $_SESSION['uid']);
+        }
         http_response_code(400);
         die('Sessione scaduta: torna indietro e ricarica la pagina.');
     }
