@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 27;
+const SCHEMA_VERSION = 28;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -548,6 +548,14 @@ function ensure_schema(): void
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
             FOREIGN KEY (assist_id) REFERENCES players(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 28) {
+        // quote più alte per le prime partite (bet_boost in lib/bets.php): valgono per tutte le partite già in programma
+        // e si ricalcolano tutte le puntate ancora aperte, singole e multiple, con le quote di adesso
+        $until = (int) q("SELECT COALESCE(MAX(id), 0) FROM matches WHERE status = 'programmata'")->fetchColumn();
+        q("INSERT INTO meta (k, v) VALUES ('bet_boost_until', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [(string) $until]);
+        [$s1, $s2, $s3] = bets_requote_open();
+        meta_set('requote_v28', "singole $s1, multiple $s2, annullate $s3");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
