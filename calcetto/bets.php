@@ -4,7 +4,7 @@ require __DIR__ . '/lib/bootstrap.php';
 require_view();
 
 $me = my_player_id();
-$tab = in_array($_GET['t'] ?? '', ['multiple', 'classifica'], true) ? $_GET['t'] : 'partite';
+$tab = match ($_GET['t'] ?? '') { 'mie', 'multiple' => 'mie', 'classifica' => 'classifica', default => 'partite' };   // 'multiple': vecchi link
 
 /* ---------------------------------------------------------------- azioni */
 if (is_post()) {
@@ -69,17 +69,17 @@ if (is_post()) {
                     . ': se le indovini tutte vinci ' . bet_payout($stake, $odds) . '. Chi non risica...');
             }
         }
-        redirect('bets.php?t=multiple');
+        redirect('bets.php?t=mie');
     }
     if ($do === 'combo_cancel') {
         $err = $me ? combo_cancel((int) ($_POST['combo_id'] ?? 0), $me) : 'Il tuo account non è collegato a un giocatore.';
         flash($err ? 'err' : 'ok', $err ?: 'Multipla ritirata: i gettoni sono tornati nel portafoglio. Vigliacco.');
-        redirect('bets.php?t=multiple');
+        redirect('bets.php?t=mie');
     }
 
     $match = get_match((int) ($_POST['match_id'] ?? 0));
     $market = (string) ($_POST['market'] ?? '');
-    $back = 'bets.php' . ($match ? '#m' . (int) $match['id'] : '');
+    $back = ($_POST['from'] ?? '') === 'mie' ? 'bets.php?t=mie' : 'bets.php' . ($match ? '#m' . (int) $match['id'] : '');
     if (!$me) {
         flash('err', 'Il tuo account non è collegato a un giocatore: chiedi all\'admin, altrimenti niente scommesse.');
     } elseif (!$match || !match_access($match)) {
@@ -120,11 +120,11 @@ if ($me) {
         $mine[(int) $b['match_id']][$b['market']][] = $b;
     }
 }
-// scommesse fatte su partite già giocate ma non ancora pagate (aspettano l'MVP) e ultime decise
-$waiting = $me ? q("SELECT b.*, m.match_date, m.team_a_name, m.team_b_name, m.score_a, m.score_b FROM bets b JOIN matches m ON m.id = b.match_id
-                    WHERE b.player_id = ? AND b.status = 'aperta' AND m.status = 'giocata' AND " . scope_sql('m.group_id') . ' ORDER BY m.match_date DESC', [$me])->fetchAll() : [];
+// scheda «Scommesse»: tutte le mie singole, quelle ancora in gioco (partita da giocare o in attesa del verdetto) e quelle decise
+$openSingles = $me ? q("SELECT b.*, m.match_date, m.team_a_name, m.team_b_name, m.status AS match_status, m.voting_open FROM bets b JOIN matches m ON m.id = b.match_id
+                    WHERE b.player_id = ? AND b.status = 'aperta' AND " . scope_sql('m.group_id') . ' ORDER BY m.match_date ASC, b.id', [$me])->fetchAll() : [];
 $history = $me ? q("SELECT b.*, m.match_date, m.team_a_name, m.team_b_name FROM bets b JOIN matches m ON m.id = b.match_id
-                    WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id') . ' ORDER BY b.settled_at DESC, b.id DESC LIMIT 12', [$me])->fetchAll() : [];
+                    WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id') . ' ORDER BY b.settled_at DESC, b.id DESC', [$me])->fetchAll() : [];
 $net = 0;
 foreach ($history as $b) {
     $net += (int) $b['payout'] - (int) $b['stake'];
@@ -132,7 +132,7 @@ foreach ($history as $b) {
 $markets = bet_markets();
 
 $comboOpen = $me ? combo_open($me) : [];
-$comboHist = $me ? combo_history($me) : [];
+$comboHist = $me ? combo_history($me, 1000) : [];
 $comboNet = 0;
 foreach ($comboHist as $c) {
     $comboNet += (int) $c['payout'] - (int) $c['stake'];
@@ -142,6 +142,8 @@ foreach ($comboHist as $c) {
 function combo_sheet(array $c, array $markets, bool $open): string
 {
     $marks = ['vinta' => ['ok', 'check'], 'persa' => ['ko', 'x'], 'rimborsata' => ['void', 'arrow-back-up']];
+    // si ritira solo finché nessuna delle sue partite è iniziata (stessa regola di combo_cancel)
+    $canCancel = $open && !array_filter($c['legs'], fn($l) => strtotime($l['match_date']) <= time());
     ob_start(); ?>
     <article class="notepad">
       <div class="notepad-rings" aria-hidden="true"></div>
@@ -150,7 +152,7 @@ function combo_sheet(array $c, array $markets, bool $open): string
         <ol class="notepad-legs">
           <?php foreach ($c['legs'] as $l): $mk = $marks[$l['status']] ?? null; ?>
             <li class="<?= $mk ? 'leg-' . $mk[0] : '' ?>">
-              <span class="np-what"><span class="np-ctx"><?= date('d/m', strtotime($l['match_date'])) ?> · <?= h($markets[$l['market']]['label'] ?? $l['market']) ?>:</span> <b><?= h($l['label']) ?></b></span>
+              <span class="np-what"><span class="np-ctx"><?= date('d/m', strtotime($l['match_date'])) ?> · <?= h(rtrim($markets[$l['market']]['label'] ?? $l['market'], '?')) ?>:</span> <b><?= h($l['label']) ?></b></span>
               <span class="np-dots" aria-hidden="true"></span>
               <span class="np-odds"><?= fmt_num($l['odds'], 2) ?></span>
               <?php if ($mk): ?><i class="ti ti-<?= $mk[1] ?> np-mark" title="<?= h($l['status']) ?>"></i><?php endif; ?>
@@ -172,7 +174,7 @@ function combo_sheet(array $c, array $markets, bool $open): string
         <?php if ($open): ?>
           <form method="post" class="notepad-foot"><?= csrf_field() ?><input type="hidden" name="do" value="combo_cancel"><input type="hidden" name="combo_id" value="<?= (int) $c['id'] ?>">
             <span class="muted small">solo se sono giuste tutte le <?= count($c['legs']) ?> scelte</span>
-            <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la multipla? Vigliacco.">Ritira</button></form>
+            <?php if ($canCancel): ?><button class="btn btn-ghost btn-sm" data-confirm="Ritirare la multipla? Vigliacco.">Ritira</button><?php endif; ?></form>
         <?php endif; ?>
       </div>
     </article>
@@ -201,7 +203,7 @@ layout_start('Scommesse', 'bets');
 
 <nav class="shop-tabs">
   <a href="bets.php" class="<?= $tab === 'partite' ? 'active' : '' ?>"><i class="ti ti-calendar-event"></i> Partite</a>
-  <a href="bets.php?t=multiple" class="<?= $tab === 'multiple' ? 'active' : '' ?>"><i class="ti ti-stack-2"></i> Multiple<?php if ($comboOpen): ?> <span class="count"><?= count($comboOpen) ?></span><?php endif; ?></a>
+  <a href="bets.php?t=mie" class="<?= $tab === 'mie' ? 'active' : '' ?>"><i class="ti ti-receipt"></i> Scommesse<?php if ($openSingles || $comboOpen): ?> <span class="count"><?= count($openSingles) + count($comboOpen) ?></span><?php endif; ?></a>
   <a href="bets.php?t=classifica" class="<?= $tab === 'classifica' ? 'active' : '' ?>"><i class="ti ti-trophy"></i> Classifica</a>
 </nav>
 
@@ -273,20 +275,42 @@ layout_start('Scommesse', 'bets');
 </section>
 <?php endforeach; ?>
 
-<?php if ($waiting): ?>
-<h2 class="section-title">Aspettando il verdetto</h2>
+<?php elseif ($tab === 'mie'): ?>
+
+<?php if (!$me): ?><p class="empty card">Il tuo account non è collegato a un giocatore: niente scommesse da mostrare.</p>
+<?php elseif (!$openSingles && !$comboOpen && !$history && !$comboHist): ?>
+<p class="empty card">Non hai ancora fatto nessuna scommessa: vai su <a class="link" href="bets.php">Partite</a> e tocca una quota.</p>
+<?php else: ?>
+<p class="muted small">Tutte le tue scommesse, singole e multiple: in gioco <b><?= $inPlay ?></b> gettoni · saldo delle scommesse decise <b><?= fmt_signed($net + $comboNet, 0) ?></b>.</p>
+
+<h2 class="section-title">Singole in corso</h2>
+<?php if (!$openSingles): ?><p class="empty card">Nessuna singola in corso.</p><?php else: ?>
 <div class="card table-card"><div class="table-wrap"><table class="table">
-  <thead><tr><th>Partita</th><th>Mercato</th><th>La tua scelta</th><th>Puntati</th><th>Quota</th></tr></thead><tbody>
-  <?php foreach ($waiting as $b): ?>
+  <thead><tr><th>Partita</th><th>Mercato</th><th>La tua scelta</th><th>Puntati</th><th>Quota</th><th>Vinci</th><th></th></tr></thead><tbody>
+  <?php foreach ($openSingles as $b):
+      $betOpen = bets_open_for(['status' => $b['match_status'], 'match_date' => $b['match_date']]); ?>
     <tr><td><a href="match.php?id=<?= (int) $b['match_id'] ?>"><?= fmt_date_short($b['match_date']) ?></a></td>
       <td><?= h($markets[$b['market']]['label'] ?? $b['market']) ?></td>
-      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td><td>×<?= fmt_num($b['odds'], 2) ?></td></tr>
-  <?php endforeach; ?></tbody></table></div>
-  <p class="muted small">Si pagano appena le votazioni si chiudono.</p></div>
+      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td><td>×<?= fmt_num($b['odds'], 2) ?></td>
+      <td><?= bet_payout((int) $b['stake'], $b['odds']) ?></td>
+      <td><?php if ($betOpen): ?>
+          <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="from" value="mie">
+            <input type="hidden" name="match_id" value="<?= (int) $b['match_id'] ?>"><input type="hidden" name="market" value="<?= h($b['market']) ?>"><input type="hidden" name="pick" value="<?= h((string) $b['pick']) ?>">
+            <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button></form>
+        <?php elseif ($b['match_status'] === 'giocata'): ?><span class="tag"><?= $b['market'] === 'mvp' && $b['voting_open'] ? 'aspetta l\'MVP' : 'in attesa del verdetto' ?></span>
+        <?php else: ?><span class="tag tag-live">si gioca</span><?php endif; ?></td></tr>
+  <?php endforeach; ?></tbody></table></div></div>
+<?php endif; ?>
+
+<h2 class="section-title">Multiple in corso</h2>
+<?php if (!$comboOpen): ?><p class="empty card">Nessuna multipla in corso: tocca almeno due quote nella scheda <a class="link" href="bets.php">Partite</a> e combinale nella scheda «Multipla» della schedina.</p><?php else: ?>
+<div class="notepad-list">
+  <?php foreach ($comboOpen as $c): ?><?= combo_sheet($c, $markets, true) ?><?php endforeach; ?>
+</div>
 <?php endif; ?>
 
 <?php if ($history): ?>
-<h2 class="section-title">Le tue ultime scommesse singole <span class="muted small">saldo <?= fmt_signed($net, 0) ?></span></h2>
+<h2 class="section-title">Singole decise <span class="muted small">saldo <?= fmt_signed($net, 0) ?></span></h2>
 <div class="card table-card"><div class="table-wrap"><table class="table">
   <thead><tr><th>Partita</th><th>Mercato</th><th>Scelta</th><th>Puntati</th><th>Quota</th><th>Esito</th></tr></thead><tbody>
   <?php foreach ($history as $b): ?>
@@ -299,21 +323,12 @@ layout_start('Scommesse', 'bets');
   <?php endforeach; ?></tbody></table></div></div>
 <?php endif; ?>
 
-<?php elseif ($tab === 'multiple'): ?>
-
-<h2 class="section-title">Le tue multiple aperte</h2>
-<p class="muted small">Costruiscile dalla scheda <a class="link" href="bets.php">Partite</a>: tocca una quota per aggiungerla alla schedina in basso, poi nella scheda «Multipla» della schedina combinane almeno due in un'unica giocata.</p>
-<?php if (!$comboOpen): ?><p class="empty card">Nessuna multipla in corso.</p><?php else: ?>
-<div class="notepad-list">
-  <?php foreach ($comboOpen as $c): ?><?= combo_sheet($c, $markets, true) ?><?php endforeach; ?>
-</div>
-<?php endif; ?>
-
 <?php if ($comboHist): ?>
-<h2 class="section-title">Storico multiple <span class="muted small">saldo <?= fmt_signed($comboNet, 0) ?></span></h2>
+<h2 class="section-title">Multiple decise <span class="muted small">saldo <?= fmt_signed($comboNet, 0) ?></span></h2>
 <div class="notepad-list">
   <?php foreach ($comboHist as $c): ?><?= combo_sheet($c, $markets, false) ?><?php endforeach; ?>
 </div>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php else: ?>
