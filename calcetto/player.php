@@ -100,7 +100,8 @@ layout_start($p['name'], 'players');
 ?>
 <a class="back" href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a>
 
-<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= !empty($p['bg_image']) && empty($p['bg_preset']) ? ' has-bg-image' : '' ?><?= bg_preset_class($p) ?><?= border_class($p) ?>"<?= ($bgStyle = profile_bg_style($p)) !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
+<?php $bgStyle = profile_bg_style($p); ?>
+<section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= str_contains($bgStyle, '--bg-h') ? ' has-bg-image' : '' ?><?= bg_preset_class($p) ?><?= border_class($p) ?>"<?= $bgStyle !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
   <?= hat_html($p) ?>
   <div class="profile-photo"><?= avatar($p, 'xxl') ?>
     <?php if ($p['shirt_number'] !== null): ?><span class="profile-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?></div>

@@ -37,7 +37,9 @@ if (is_post()) {
 
     if ($do === 'delete' && $admin && !$isNew) {
         delete_photo_file($p['photo']);
-        delete_photo_file($p['bg_image'] ?? null);
+        foreach (bg_files($p) as $f) {
+            delete_photo_file($f);
+        }
         q('DELETE FROM players WHERE id = ?', [$id]);
         flash('ok', 'Giocatore eliminato.');
         redirect('players.php');
@@ -151,25 +153,41 @@ if (is_post()) {
             flash('err', $photoErr);
         }
 
-        // sfondo del profilo
-        $oldBg = $p['bg_image'] ?? null;
+        // sfondo del profilo: una foto e due ritagli (orizzontale per il profilo, verticale per la card della Rosa)
+        $oldFiles = $isNew ? [] : bg_files($p);
+        $clearBg = function () use ($id, $oldFiles) {
+            foreach ($oldFiles as $f) {
+                delete_photo_file($f);
+            }
+            q('UPDATE players SET bg_image = NULL, bg_image_v = NULL, bg_src = NULL, bg_crop = NULL WHERE id = ?', [$id]);
+        };
         if ($bgMode === 'image') {
             $bgErr = null;
-            $newBg = save_profile_bg($_FILES['bg_image'] ?? [], $id, $bgErr);
-            if ($newBg) {
-                delete_photo_file($oldBg);
-                q('UPDATE players SET bg_image = ?, bg_color = NULL, bg_preset = NULL WHERE id = ?', [$newBg, $id]);
-            } elseif ($bgErr) {
-                flash('err', $bgErr);
-            } elseif (!$oldBg) {
+            $newFile = ($_FILES['bg_image']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+            $recrop = !empty($_POST['bg_recrop']) && !$isNew;   // stessa foto, riquadri cambiati
+            if ($newFile || $recrop) {
+                // i vecchi sfondi non hanno l'originale: si ritaglia da quello che c'è
+                $set = save_profile_bg_set($_FILES['bg_image'] ?? [], $newFile ? null : (($p['bg_src'] ?? null) ?: ($p['bg_image'] ?? null)),
+                    is_string($_POST['bg_crop_h'] ?? null) ? $_POST['bg_crop_h'] : null,
+                    is_string($_POST['bg_crop_v'] ?? null) ? $_POST['bg_crop_v'] : null, $id, $bgErr);
+                if ($set) {
+                    q('UPDATE players SET bg_image = ?, bg_image_v = ?, bg_src = ?, bg_crop = ?, bg_color = NULL, bg_preset = NULL WHERE id = ?',
+                        [$set['h'], $set['v'], $set['src'], $set['crop'], $id]);
+                    foreach (array_diff($oldFiles, [$set['h'], $set['v'], $set['src']]) as $f) {
+                        delete_photo_file($f);
+                    }
+                } elseif ($bgErr) {
+                    flash('err', $bgErr);
+                }
+            } elseif (empty($p['bg_image'])) {
                 flash('err', "Sfondo non cambiato: scegli un'immagine.");
             }
         } elseif ($bgMode === 'color') {
-            delete_photo_file($oldBg);
-            q('UPDATE players SET bg_color = ?, bg_image = NULL, bg_preset = NULL WHERE id = ?', [$bgColor, $id]);
+            $clearBg();
+            q('UPDATE players SET bg_color = ?, bg_preset = NULL WHERE id = ?', [$bgColor, $id]);
         } else {
-            delete_photo_file($oldBg);
-            q('UPDATE players SET bg_color = NULL, bg_image = NULL WHERE id = ?', [$id]);
+            $clearBg();
+            q('UPDATE players SET bg_color = NULL WHERE id = ?', [$id]);
         }
         flash('ok', $isNew ? 'Giocatore creato.' : 'Profilo salvato.');
         redirect('player.php?id=' . $id);
@@ -201,16 +219,22 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     <?php
       $bgMode = $_POST['bg_mode'] ?? (!empty($p['bg_image']) ? 'image' : (!empty($p['bg_color']) ? 'color' : 'auto'));
       $bgColorVal = clean_hex_color($_POST['bg_color'] ?? '') ?: (clean_hex_color($p['bg_color'] ?? '') ?: '#53c8f5');
-      $bgImgUrl = '';
-      if (!empty($p['bg_image']) && is_file(__DIR__ . '/' . $p['bg_image'])) {
-          $bgImgUrl = $p['bg_image'] . '?v=' . filemtime(__DIR__ . '/' . $p['bg_image']);
-      }
+      // immagini attuali (per le anteprime) e foto originale con i riquadri scelti (per poterli cambiare senza ricaricarla)
+      $fileUrl = fn(?string $f) => $f && is_file(__DIR__ . '/' . $f) ? $f . '?v=' . filemtime(__DIR__ . '/' . $f) : '';
+      $bgImgUrl = $fileUrl($p['bg_image'] ?? null);
+      $bgImgVUrl = $fileUrl($p['bg_image_v'] ?? null) ?: $bgImgUrl;
+      $bgSrcUrl = $fileUrl(($p['bg_src'] ?? null) ?: ($p['bg_image'] ?? null));
+      $bgCrop = json_decode($p['bg_crop'] ?? '', true) ?: [];
+      $cropStr = fn(string $k) => isset($bgCrop[$k]) && count($bgCrop[$k]) === 3 ? implode(',', array_map('floatval', $bgCrop[$k])) : '';
     ?>
-    <fieldset class="group-box bg-box" data-bg data-image="<?= h($bgImgUrl) ?>">
+    <fieldset class="group-box bg-box" data-bg data-image="<?= h($bgImgUrl) ?>" data-image-v="<?= h($bgImgVUrl) ?>" data-src="<?= h($bgSrcUrl) ?>">
       <legend>Sfondo del profilo</legend>
       <?php if ($id && my_player_id() === $id): ?><p class="muted small">Sfondi speciali, nickname e copricapi si comprano nel <a class="link" href="shop.php">Negozio</a> con i gettoni delle scommesse<?= !empty($p['bg_preset']) ? '. Ora hai uno sfondo speciale: scegliendo qui un colore o un\'immagine lo sostituisci, per toglierlo usa il Negozio' : '' ?>.</p><?php endif; ?>
       <div class="bg-layout">
-        <div id="bg-preview" class="bg-preview role-<?= strtolower(position_abbr($p['position'])) ?>" aria-hidden="true"></div>
+        <div class="bg-previews">
+          <figure><div id="bg-preview" class="bg-preview role-<?= strtolower(position_abbr($p['position'])) ?>" aria-hidden="true"></div><figcaption>Profilo</figcaption></figure>
+          <figure><div id="bg-preview-v" class="bg-preview bg-preview-v role-<?= strtolower(position_abbr($p['position'])) ?>" aria-hidden="true"></div><figcaption>Card nella Rosa</figcaption></figure>
+        </div>
         <div class="bg-controls">
           <div class="group-checks">
             <label><input type="radio" name="bg_mode" value="auto" <?= $bgMode === 'auto' ? 'checked' : '' ?>> Automatico (colore del ruolo)</label>
@@ -226,9 +250,13 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
             </div>
           </div>
           <div class="bg-panel" data-bg-panel="image">
-            <label class="btn btn-ghost btn-sm file-btn"><i class="ti ti-photo"></i> Scegli immagine<input type="file" name="bg_image" accept="image/*"
-              data-crop-w="1000" data-crop-h="400" data-crop-title="Ritaglia lo sfondo" data-preview="bg-preview" data-preview-type="bg"></label>
-            <p class="muted small">Dopo averla scelta trascini e ingrandisci per decidere quale parte tenere. Sul telefono si vede la parte centrale.</p>
+            <div class="btn-row">
+              <label class="btn btn-ghost btn-sm file-btn"><i class="ti ti-photo"></i> <?= $bgSrcUrl ? 'Cambia immagine' : 'Scegli immagine' ?><input type="file" name="bg_image" accept="image/*" data-bg-editor></label>
+              <button type="button" class="btn btn-ghost btn-sm bg-recrop" data-bg-recrop <?= $bgSrcUrl ? '' : 'hidden' ?>><i class="ti ti-crop"></i> Cambia ritaglio</button>
+            </div>
+            <input type="hidden" name="bg_crop_h" value="<?= h($cropStr('h')) ?>"><input type="hidden" name="bg_crop_v" value="<?= h($cropStr('v')) ?>">
+            <input type="hidden" name="bg_recrop" value="0">
+            <p class="muted small">Dalla stessa foto scegli due parti: quella <strong>orizzontale</strong> per il tuo profilo e quella <strong>verticale</strong> per la tua card nella Rosa (e per il profilo sul telefono). Sposti ogni riquadro per scegliere la zona e lo allarghi o stringi per lo zoom.</p>
           </div>
         </div>
       </div>

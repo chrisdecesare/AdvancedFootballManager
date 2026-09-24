@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 24;
+const SCHEMA_VERSION = 25;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -475,6 +475,13 @@ function ensure_schema(): void
         if (!q("SHOW INDEX FROM login_attempts WHERE Key_name = 'idx_user_time'")->fetch()) {
             db()->exec('ALTER TABLE login_attempts ADD INDEX idx_user_time (username, created_at)');
         }
+    }
+    if ($v < 25) {
+        // sfondo del profilo da una sola foto: l'originale (bg_src), il ritaglio orizzontale (bg_image, profilo) e quello
+        // verticale (bg_image_v, card della Rosa e profilo sul telefono), con i due riquadri scelti (bg_crop) per poterli rifare
+        $add('players', 'bg_image_v', 'VARCHAR(255) NULL');
+        $add('players', 'bg_src', 'VARCHAR(255) NULL');
+        $add('players', 'bg_crop', 'VARCHAR(255) NULL');
     }
     if ($v < 24) {
         // quota minima ×1,01 (BET_MIN_ODDS in lib/bets.php): prima una quota molto puntata poteva scendere sotto ×1.

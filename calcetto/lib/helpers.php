@@ -453,10 +453,141 @@ function save_player_photo(array $file, int $player_id, ?string &$error): ?strin
     return save_player_image($file, $player_id, $error, 'p', 400, 400, 0.0, 'foto');
 }
 
-/** Immagine di sfondo del profilo: 1000x400 (proporzione 5:2). */
-function save_profile_bg(array $file, int $player_id, ?string &$error): ?string
+/*
+ * Sfondo del profilo: da UNA foto si ricavano due ritagli scelti dalla persona nell'editor (assets/app.js, openBgEditor):
+ *  - orizzontale 4:1 (BG_H_*): l'intestazione del profilo sui computer;
+ *  - verticale 3:4 (BG_V_*): la card nella Rosa e il profilo sui telefoni, dove l'intestazione va a capo.
+ * L'originale resta sul server (ridotto a BG_SRC_MAX), così i riquadri si possono cambiare in seguito senza ricaricarla.
+ * Un riquadro è "x,y,w": angolo in alto a sinistra e larghezza, in frazioni della foto (0-1); l'altezza viene dalla proporzione.
+ */
+const BG_H_W = 1200, BG_H_H = 300;   // 4:1
+const BG_V_W = 600, BG_V_H = 800;    // 3:4
+const BG_SRC_MAX = 1800;
+
+/** Riquadro "x,y,w" ripulito e tenuto dentro la foto: [x, y, w, h] in frazioni. $ar = larghezza/altezza del ritaglio. */
+function bg_rect(?string $raw, int $iw, int $ih, float $ar): array
 {
-    return save_player_image($file, $player_id, $error, 'b', 1000, 400, 0.5, 'sfondo');
+    $imgAr = $iw / $ih;
+    $maxW = min(1.0, $ar / $imgAr);                 // il riquadro più grande che sta nella foto con quella proporzione
+    $parts = array_map('floatval', explode(',', (string) $raw));
+    if (count($parts) !== 3 || $parts[2] <= 0) {
+        $w = $maxW;                                  // nessuna scelta: il riquadro più grande possibile, al centro
+        $h = $w * $imgAr / $ar;
+        return [(1 - $w) / 2, (1 - $h) / 2, $w, $h];
+    }
+    $w = max(0.03, min($maxW, $parts[2]));
+    $h = $w * $imgAr / $ar;
+    $x = max(0.0, min(1 - $w, $parts[0]));
+    $y = max(0.0, min(1 - $h, $parts[1]));
+    return [$x, $y, $w, $h];
+}
+
+/** Carica un'immagine (caricata ora o già salvata) come risorsa GD, raddrizzata secondo l'EXIF. */
+function bg_load(string $path, ?string &$error): ?GdImage
+{
+    $info = @getimagesize($path);
+    $loaders = [IMAGETYPE_JPEG => 'imagecreatefromjpeg', IMAGETYPE_PNG => 'imagecreatefrompng',
+        IMAGETYPE_WEBP => 'imagecreatefromwebp', IMAGETYPE_GIF => 'imagecreatefromgif'];
+    if (!$info || !isset($loaders[$info[2]]) || !function_exists($loaders[$info[2]])) {
+        $error = 'Formato non valido (sfondo): usa JPG, PNG, WEBP o GIF.';
+        return null;
+    }
+    $img = @$loaders[$info[2]]($path);
+    if (!$img) {
+        $error = 'Immagine non leggibile (sfondo): prova con un altro file.';
+        return null;
+    }
+    if ($info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
+        $rot = [3 => 180, 6 => -90, 8 => 90][(@exif_read_data($path) ?: [])['Orientation'] ?? 1] ?? 0;
+        if ($rot) {
+            $img = imagerotate($img, $rot, 0);
+        }
+    }
+    return $img;
+}
+
+/** Ritaglia $rect ([x, y, w, h] in frazioni) da $src e lo salva come JPEG $w x $h. Ritorna il percorso. */
+function bg_cut(GdImage $src, array $rect, int $w, int $h, string $name): string
+{
+    [$x, $y, $rw, $rh] = $rect;
+    $sw = imagesx($src);
+    $sh = imagesy($src);
+    $dst = imagecreatetruecolor($w, $h);
+    imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
+    imagecopyresampled($dst, $src, 0, 0, (int) round($x * $sw), (int) round($y * $sh), $w, $h, max(1, (int) round($rw * $sw)), max(1, (int) round($rh * $sh)));
+    $path = 'uploads/players/' . $name . '.jpg';
+    imagejpeg($dst, __DIR__ . '/../' . $path, 86);
+    imagedestroy($dst);
+    return $path;
+}
+
+/**
+ * Salva lo sfondo: dalla foto caricata ora ($file) oppure da quella già sul server ($srcPath, per cambiare solo i riquadri),
+ * con i riquadri scelti. Ritorna ['src', 'h', 'v', 'crop'] (percorsi e riquadri da salvare) oppure null ($error se c'è un problema).
+ */
+function save_profile_bg_set(array $file, ?string $srcPath, ?string $rawH, ?string $rawV, int $player_id, ?string &$error): ?array
+{
+    $error = null;
+    if (!function_exists('imagecreatetruecolor')) {
+        $error = 'Il server non può elaborare immagini (manca l\'estensione GD di PHP).';
+        return null;
+    }
+    $dir = __DIR__ . '/../uploads/players';
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+    $tag = $player_id . '_' . bin2hex(random_bytes(4));
+    $uploaded = ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+    if ($uploaded) {
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $error = "Caricamento dell'immagine non riuscito (sfondo).";
+            return null;
+        }
+        if ($file['size'] > 12 * 1024 * 1024) {
+            $error = "L'immagine supera 12 MB (sfondo).";
+            return null;
+        }
+        if (!($src = bg_load($file['tmp_name'], $error))) {
+            return null;
+        }
+        // l'originale si tiene ridotto: basta per ritagliare di nuovo, senza occupare spazio inutile
+        $sw = imagesx($src);
+        $sh = imagesy($src);
+        $k = min(1.0, BG_SRC_MAX / max($sw, $sh));
+        if ($k < 1) {
+            $small = imagecreatetruecolor((int) round($sw * $k), (int) round($sh * $k));
+            imagecopyresampled($small, $src, 0, 0, 0, 0, imagesx($small), imagesy($small), $sw, $sh);
+            imagedestroy($src);
+            $src = $small;
+        }
+        $srcPath = 'uploads/players/s' . $tag . '.jpg';
+        imagejpeg($src, __DIR__ . '/../' . $srcPath, 88);
+    } else {
+        if (!$srcPath || !preg_match('#^uploads/players/[A-Za-z0-9_.-]+$#', $srcPath) || !is_file(__DIR__ . '/../' . $srcPath)) {
+            return null;   // niente foto nuova e niente originale: non c'è niente da ritagliare
+        }
+        if (!($src = bg_load(__DIR__ . '/../' . $srcPath, $error))) {
+            return null;
+        }
+    }
+    $iw = imagesx($src);
+    $ih = imagesy($src);
+    $rh = bg_rect($rawH, $iw, $ih, BG_H_W / BG_H_H);
+    $rv = bg_rect($rawV, $iw, $ih, BG_V_W / BG_V_H);
+    $out = [
+        'src' => $srcPath,
+        'h' => bg_cut($src, $rh, BG_H_W, BG_H_H, 'b' . $tag),
+        'v' => bg_cut($src, $rv, BG_V_W, BG_V_H, 'v' . $tag),
+        'crop' => json_encode(['h' => array_map(fn($n) => round($n, 4), array_slice($rh, 0, 3)), 'v' => array_map(fn($n) => round($n, 4), array_slice($rv, 0, 3))]),
+    ];
+    imagedestroy($src);
+    return $out;
+}
+
+/** File dello sfondo di un giocatore (per cancellare quelli che non servono più). */
+function bg_files(array $p): array
+{
+    return array_values(array_filter([$p['bg_image'] ?? null, $p['bg_image_v'] ?? null, $p['bg_src'] ?? null]));
 }
 
 /** Colore #rrggbb valido (minuscolo) oppure null. */
@@ -475,16 +606,24 @@ function lighten_hex(string $hex, float $amount = 0.3): string
 }
 
 /** Attributo style dello sfondo scelto per il profilo e per la sua carta nella Rosa ('' = colori del ruolo). */
-function profile_bg_style(array $p, bool $halo = false): string
+function profile_bg_style(array $p): string
 {
     if (!empty($p['bg_preset'])) {
         return '';   // sfondo speciale del negozio: lo disegna la classe bgp-... (bg_preset_class in lib/shop.php)
     }
-    $img = $p['bg_image'] ?? null;
-    if ($img && preg_match('#^uploads/players/[A-Za-z0-9_.-]+$#', $img) && is_file(__DIR__ . '/../' . $img)) {
-        // $halo: nelle carte della Rosa resta il cerchio chiaro dietro la foto
-        return 'background: ' . ($halo ? 'radial-gradient(circle at 50% 38%, rgba(255, 255, 255, .55) 0 58px, transparent 59px), ' : '')
-            . "url('" . h($img) . '?v=' . filemtime(__DIR__ . '/../' . $img) . "') center / cover no-repeat, var(--pc);";
+    // percorso assoluto dal dominio (es. /wp-content/calcetto/uploads/...): un url() relativo dentro una variabile CSS
+    // verrebbe risolto rispetto a assets/style.css, dove la variabile si usa, e non rispetto alla pagina
+    $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/') . '/';
+    $url = function (?string $f) use ($base): ?string {
+        return $f && preg_match('#^uploads/players/[A-Za-z0-9_.-]+$#', $f) && is_file(__DIR__ . '/../' . $f)
+            ? "url('" . h($base . $f) . '?v=' . filemtime(__DIR__ . '/../' . $f) . "')" : null;
+    };
+    $hImg = $url($p['bg_image'] ?? null);
+    if ($hImg) {
+        // orizzontale per l'intestazione del profilo, verticale per la card della Rosa e per il profilo sui telefoni
+        // (i vecchi sfondi hanno solo quella orizzontale: si usa per entrambe, come prima). Le regole sono in style.css.
+        $vImg = $url($p['bg_image_v'] ?? null) ?? $hImg;
+        return '--bg-h: ' . $hImg . '; --bg-v: ' . $vImg . ';';
     }
     if ($c = clean_hex_color($p['bg_color'] ?? '')) {
         return '--pc: ' . $c . '; --pc2: ' . lighten_hex($c) . ';';
