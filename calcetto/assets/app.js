@@ -164,12 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     };
-    const edit = async (url, ar) => {
-      const res = await openBgEditor(url, ar, { h: parseRect(hid('bg_crop_h').value), v: parseRect(hid('bg_crop_v').value) });
+    const edit = async (url, ar, pxW) => {
+      const res = await openBgEditor(url, ar, { h: parseRect(hid('bg_crop_h').value), v: parseRect(hid('bg_crop_v').value) }, pxW);
       if (!res) return false;
       hid('bg_crop_h').value = res.h.slice(0, 3).map(n => n.toFixed(4)).join(',');
       hid('bg_crop_v').value = res.v.slice(0, 3).map(n => n.toFixed(4)).join(',');
-      live.url = url; live.ar = ar;
+      live.url = url; live.ar = ar; live.w = pxW;
       const image = box.querySelector('input[name=bg_mode][value=image]');
       if (image) image.checked = true;
       apply();
@@ -178,25 +178,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fileIn) fileIn.addEventListener('change', async () => {
       const f = fileIn.files[0];
       if (!f) return;
-      const small = await shrinkImage(f, 1800);            // si carica una copia ridotta e già raddrizzata: più veloce, e i riquadri coincidono col server
+      // una copia ridotta solo se serve (foto enormi, non JPG, o più pesanti di quanto accetta il server): i riquadri coincidono col server
+      const small = await shrinkImage(f, 3200, parseInt(fileIn.dataset.maxBytes, 10) || 2 * 1024 * 1024);
       if (!small) { fileIn.value = ''; return; }
       hid('bg_crop_h').value = ''; hid('bg_crop_v').value = '';   // foto nuova: riquadri di partenza al centro
-      const ok = await edit(small.url, small.ar);
+      const ok = await edit(small.url, small.ar, small.w);
       if (!ok) { fileIn.value = ''; return; }
-      try {
-        const dt = new DataTransfer();
-        dt.items.add(new File([small.blob], 'sfondo.jpg', { type: 'image/jpeg' }));
-        fileIn.files = dt.files;
-      } catch (e) { /* il browser non lascia sostituire il file: parte l'originale, il server lo riduce da sé */ }
+      if (small.blob) {                                      // copia ridotta: parte quella (altrimenti il file originale, intatto)
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(new File([small.blob], 'sfondo.jpg', { type: 'image/jpeg' }));
+          fileIn.files = dt.files;
+        } catch (e) { /* il browser non lascia sostituire il file: parte l'originale, il server lo riduce da sé */ }
+      }
       hid('bg_recrop').value = '0';
     });
     if (recropBtn) recropBtn.addEventListener('click', async () => {
-      if (live.url) { await edit(live.url, live.ar); return; }   // foto appena scelta in questa pagina
+      if (live.url) { await edit(live.url, live.ar, live.w); return; }   // foto appena scelta in questa pagina
       const url = box.dataset.src;
       if (!url) return;
       const img = await loadImg(url);
       if (!img) return;
-      if (await edit(url, img.naturalWidth / img.naturalHeight)) hid('bg_recrop').value = '1';
+      if (await edit(url, img.naturalWidth / img.naturalHeight, img.naturalWidth)) hid('bg_recrop').value = '1';
     });
     box.querySelectorAll('input[name=bg_mode]').forEach(r => r.addEventListener('change', apply));
     picker.addEventListener('input', () => {
@@ -647,30 +650,58 @@ function loadImg(url) {
   return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = url; });
 }
 
-/** Copia JPEG della foto, raddrizzata e con il lato lungo al massimo di max px. Ritorna { blob, url, ar } o null. */
-async function shrinkImage(file, max) {
+/**
+ * La foto da usare: se è un JPG non più grande di max px si tiene il file intatto (nessuna perdita di qualità; il server lo
+ * raddrizza come il browser), altrimenti una copia JPEG di alta qualità con il lato lungo di max px.
+ * Ritorna { blob (null = file originale), url, ar, w (pixel di larghezza) } o null.
+ */
+async function shrinkImage(file, max, maxBytes) {
   const src = URL.createObjectURL(file);
   const img = await loadImg(src);
+  if (!img) { URL.revokeObjectURL(src); alert('Questa immagine non si riesce ad aprire: prova con un JPG o un PNG.'); return null; }
+  if (/^image\/jpe?g$/i.test(file.type) && Math.max(img.naturalWidth, img.naturalHeight) <= max && file.size <= maxBytes) {
+    return { blob: null, url: src, ar: img.naturalWidth / img.naturalHeight, w: img.naturalWidth };
+  }
   URL.revokeObjectURL(src);
-  if (!img) { alert('Questa immagine non si riesce ad aprire: prova con un JPG o un PNG.'); return null; }
-  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-  const c = document.createElement('canvas');
-  c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, 0, 0, c.width, c.height);
-  try {
-    const bin = atob(c.toDataURL('image/jpeg', 0.9).split(',')[1]);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    const blob = new Blob([bytes], { type: 'image/jpeg' });
-    return { blob, url: URL.createObjectURL(blob), ar: c.width / c.height };
-  } catch (e) { return null; }
+  // copia JPEG: si parte da alta qualità e dimensione piena, e si scende solo quanto basta per stare nel limite del server
+  let side = Math.min(max, Math.max(img.naturalWidth, img.naturalHeight));
+  for (let tries = 0; tries < 12; tries++) {
+    const k = side / Math.max(img.naturalWidth, img.naturalHeight);
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    for (const q of [0.93, 0.88, 0.84]) {
+      let bytes;
+      try {
+        const bin = atob(c.toDataURL('image/jpeg', q).split(',')[1]);
+        bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      } catch (e) { return null; }
+      if (bytes.length <= maxBytes) {
+        const blob = new Blob([bytes], { type: 'image/jpeg' });
+        return { blob, url: URL.createObjectURL(blob), ar: c.width / c.height, w: c.width };
+      }
+    }
+    side = Math.round(side * 0.85);                        // ancora troppo pesante: un po' più piccola
+  }
+  return null;
 }
 
-/** Apre l'editor. Ritorna una Promise: { h: [x,y,w,h], v: [x,y,w,h] } oppure null (annullato). */
-function openBgEditor(url, imgAr, start) {
+/*
+ * Qualità di un riquadro dai pixel veri che contiene (larghezza), rispetto a quanti ne servono sugli schermi ad alta densità:
+ * l'intestazione del profilo è larga fino a ~1150 px, la card della Rosa ~220 px.
+ */
+const BGE_QUALITY = { h: [2000, 1100, 700], v: [650, 440, 300] };
+function bgQuality(k, px) {
+  const t = BGE_QUALITY[k];
+  return px >= t[0] ? ['ottima', 'q-top'] : px >= t[1] ? ['buona', 'q-ok'] : px >= t[2] ? ['discreta', 'q-mid'] : ['bassa: allarga il riquadro o usa una foto più grande', 'q-low'];
+}
+
+/** Apre l'editor. Ritorna una Promise: { h: [x,y,w,h], v: [x,y,w,h] } oppure null (annullato). pxW = larghezza vera della foto. */
+function openBgEditor(url, imgAr, start, pxW) {
   return new Promise(resolve => {
     const rects = { h: fitRect(start && start.h, imgAr, BGE_AR.h), v: fitRect(start && start.v, imgAr, BGE_AR.v) };
     let cur = 'h';
@@ -692,8 +723,8 @@ function openBgEditor(url, imgAr, start) {
       '<p class="muted small">Trascina il riquadro per scegliere la parte della foto, allargalo o stringilo dall\'angolo giallo (o con lo zoom).' +
       ' Poi passa all\'altro formato: la foto è la stessa, le parti le scegli tu.</p>' +
       '<div class="bge-previews">' +
-      '<figure><div class="bge-prev bge-prev-h is-on" data-k="h"></div><figcaption>Così nel profilo</figcaption></figure>' +
-      '<figure><div class="bge-prev bge-prev-v" data-k="v"></div><figcaption>Così nella Rosa</figcaption></figure></div>' +
+      '<figure><div class="bge-prev bge-prev-h is-on" data-k="h"></div><figcaption>Così nel profilo <span class="bge-q" data-q="h"></span></figcaption></figure>' +
+      '<figure><div class="bge-prev bge-prev-v" data-k="v"></div><figcaption>Così nella Rosa <span class="bge-q" data-q="v"></span></figcaption></figure></div>' +
       '<div class="btn-row"><button type="button" class="btn btn-ghost" data-bge-cancel>Annulla</button>' +
       '<button type="button" class="btn btn-primary" data-bge-ok>Usa queste parti</button></div></div>';
     document.body.appendChild(overlay);
@@ -729,6 +760,13 @@ function openBgEditor(url, imgAr, start) {
         p.style.background = bgCropCss(url, rects[p.dataset.k], imgAr, BGE_AR[p.dataset.k]);
         p.classList.toggle('is-on', p.dataset.k === cur);
       });
+      if (pxW) {                                             // quanto verrà nitido, dai pixel veri dentro il riquadro
+        overlay.querySelectorAll('[data-q]').forEach(q => {
+          const [label, cls] = bgQuality(q.dataset.q, Math.round(rects[q.dataset.q][2] * pxW));
+          q.textContent = '· qualità ' + label;
+          q.className = 'bge-q ' + cls;
+        });
+      }
       tabs.forEach(t => { t.classList.toggle('active', t.dataset.k === cur); t.setAttribute('aria-selected', t.dataset.k === cur); });
     };
     const setRect = (k, x, y, w) => { rects[k] = fitRect([x, y, w], imgAr, BGE_AR[k]); draw(); };

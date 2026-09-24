@@ -170,8 +170,11 @@ Lo sfondo della scheda del profilo (e della carta nella Rosa) può essere automa
 Per l'immagine si apre un editor con la **foto intera** e **due riquadri** da scegliere sulla stessa foto: quello **orizzontale** (4:1, l'intestazione
 del profilo sui computer) e quello **verticale** (3:4, la card nella Rosa e il profilo sui telefoni, dove l'intestazione va a capo). Ogni riquadro si
 sposta trascinandolo e si allarga o stringe dall'angolo giallo, con il cursore dello zoom, la rotella o due dita; sotto ci sono le due anteprime vere
-(«Così nel profilo», «Così nella Rosa»), anche nel modulo. Il server tiene l'originale ridotto (`bg_src`, max 1800 px) e ne ricava i due ritagli
-(`bg_image` 1200x300 e `bg_image_v` 600x800, riquadri in `bg_crop`): con «Cambia ritaglio» si scelgono parti diverse senza ricaricare la foto.
+(«Così nel profilo», «Così nella Rosa»), anche nel modulo, ciascuna con la **qualità** che avrà (ottima, buona, discreta, bassa: dipende dai
+pixel veri dentro il riquadro, quindi dallo zoom e dalla foto). Il server tiene l'originale (`bg_src`, fino a 3200 px; un JPG già di quella misura
+resta intatto, senza ricomprimerlo) e ne ricava i due ritagli (`bg_image` fino a 2400x600 e `bg_image_v` fino a 900x1200, pensati per gli schermi
+ad alta densità e mai ingranditi oltre i pixel veri; riquadri in `bg_crop`): con «Cambia ritaglio» si scelgono parti diverse senza ricaricare la foto.
+Il browser manda la foto intatta se sta nel limite di caricamento del server (`upload_max_filesize`), altrimenti una copia di alta qualità che ci sta.
 Gli sfondi caricati prima hanno solo la versione orizzontale: si vedono come prima e con «Cambia ritaglio» si rifanno da quella.
 
 **Google Calendar:** nella scheda di una partita in programma (e nella prossima partita della Home) il

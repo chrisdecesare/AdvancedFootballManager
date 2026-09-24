@@ -251,7 +251,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
           </div>
           <div class="bg-panel" data-bg-panel="image">
             <div class="btn-row">
-              <label class="btn btn-ghost btn-sm file-btn"><i class="ti ti-photo"></i> <?= $bgSrcUrl ? 'Cambia immagine' : 'Scegli immagine' ?><input type="file" name="bg_image" accept="image/*" data-bg-editor></label>
+              <label class="btn btn-ghost btn-sm file-btn"><i class="ti ti-photo"></i> <?= $bgSrcUrl ? 'Cambia immagine' : 'Scegli immagine' ?><input type="file" name="bg_image" accept="image/*" data-bg-editor data-max-bytes="<?= upload_max_bytes() ?>"></label>
               <button type="button" class="btn btn-ghost btn-sm bg-recrop" data-bg-recrop <?= $bgSrcUrl ? '' : 'hidden' ?>><i class="ti ti-crop"></i> Cambia ritaglio</button>
             </div>
             <input type="hidden" name="bg_crop_h" value="<?= h($cropStr('h')) ?>"><input type="hidden" name="bg_crop_v" value="<?= h($cropStr('v')) ?>">

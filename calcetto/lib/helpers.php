@@ -460,9 +460,25 @@ function save_player_photo(array $file, int $player_id, ?string &$error): ?strin
  * L'originale resta sul server (ridotto a BG_SRC_MAX), così i riquadri si possono cambiare in seguito senza ricaricarla.
  * Un riquadro è "x,y,w": angolo in alto a sinistra e larghezza, in frazioni della foto (0-1); l'altezza viene dalla proporzione.
  */
-const BG_H_W = 1200, BG_H_H = 300;   // 4:1
-const BG_V_W = 600, BG_V_H = 800;    // 3:4
-const BG_SRC_MAX = 1800;
+// dimensioni massime dei ritagli, pensate per gli schermi ad alta densità (telefoni, Mac retina): l'intestazione del profilo
+// è larga fino a ~1150 px sullo schermo, cioè ~2300 pixel veri; la card della Rosa ~220 px (fino a ~660 pixel veri).
+// Se il riquadro scelto ha meno pixel veri di così, il ritaglio resta alla sua misura: ingrandirlo non aggiungerebbe dettaglio.
+const BG_H_W = 2400, BG_H_H = 600;   // 4:1
+const BG_V_W = 900, BG_V_H = 1200;   // 3:4
+const BG_SRC_MAX = 3200;             // l'originale che si conserva (lato lungo): abbastanza per zoomare senza sgranare
+const BG_JPEG_Q = 90;
+
+/** Byte massimi che il server accetta in un caricamento (il più stretto tra upload_max_filesize e post_max_size, con margine). */
+function upload_max_bytes(): int
+{
+    $toBytes = function ($v): int {
+        $v = trim((string) $v);
+        $n = (float) $v;
+        return (int) match (strtolower(substr($v, -1))) { 'g' => $n * 1073741824, 'm' => $n * 1048576, 'k' => $n * 1024, default => $n };
+    };
+    $limits = array_filter([$toBytes(ini_get('upload_max_filesize')), $toBytes(ini_get('post_max_size'))]);
+    return (int) (($limits ? min($limits) : 2097152) * 0.9);   // margine per gli altri campi del modulo
+}
 
 /** Riquadro "x,y,w" ripulito e tenuto dentro la foto: [x, y, w, h] in frazioni. $ar = larghezza/altezza del ritaglio. */
 function bg_rect(?string $raw, int $iw, int $ih, float $ar): array
@@ -506,17 +522,28 @@ function bg_load(string $path, ?string &$error): ?GdImage
     return $img;
 }
 
-/** Ritaglia $rect ([x, y, w, h] in frazioni) da $src e lo salva come JPEG $w x $h. Ritorna il percorso. */
+/**
+ * Ritaglia $rect ([x, y, w, h] in frazioni) da $src e lo salva come JPEG: al massimo $w x $h, ma mai più grande dei pixel veri
+ * del riquadro (niente ingrandimenti, che sgranano soltanto). Ritorna il percorso.
+ */
 function bg_cut(GdImage $src, array $rect, int $w, int $h, string $name): string
 {
     [$x, $y, $rw, $rh] = $rect;
     $sw = imagesx($src);
     $sh = imagesy($src);
-    $dst = imagecreatetruecolor($w, $h);
+    $cw = max(1, (int) round($rw * $sw));
+    $ch = max(1, (int) round($rh * $sh));
+    $k = min(1.0, $cw / $w);
+    $ow = max(1, (int) round($w * $k));
+    $oh = max(1, (int) round($h * $k));
+    $dst = imagecreatetruecolor($ow, $oh);
     imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
-    imagecopyresampled($dst, $src, 0, 0, (int) round($x * $sw), (int) round($y * $sh), $w, $h, max(1, (int) round($rw * $sw)), max(1, (int) round($rh * $sh)));
+    imagecopyresampled($dst, $src, 0, 0, (int) round($x * $sw), (int) round($y * $sh), $ow, $oh, $cw, $ch);
+    if (function_exists('imageinterlace')) {
+        imageinterlace($dst, true);   // JPEG progressivo: si vede subito, poi si definisce
+    }
     $path = 'uploads/players/' . $name . '.jpg';
-    imagejpeg($dst, __DIR__ . '/../' . $path, 86);
+    imagejpeg($dst, __DIR__ . '/../' . $path, BG_JPEG_Q);
     imagedestroy($dst);
     return $path;
 }
@@ -539,29 +566,43 @@ function save_profile_bg_set(array $file, ?string $srcPath, ?string $rawH, ?stri
     $tag = $player_id . '_' . bin2hex(random_bytes(4));
     $uploaded = ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
     if ($uploaded) {
+        if (in_array($file['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            $error = 'L\'immagine è più grande di quanto accetta il server (' . round(upload_max_bytes() / 1048576, 1) . ' MB): riprova, il browser la ridurrà.';
+            return null;
+        }
         if ($file['error'] !== UPLOAD_ERR_OK) {
             $error = "Caricamento dell'immagine non riuscito (sfondo).";
             return null;
         }
-        if ($file['size'] > 12 * 1024 * 1024) {
-            $error = "L'immagine supera 12 MB (sfondo).";
+        if ($file['size'] > 15 * 1024 * 1024) {
+            $error = "L'immagine supera 15 MB (sfondo).";
             return null;
         }
         if (!($src = bg_load($file['tmp_name'], $error))) {
             return null;
         }
-        // l'originale si tiene ridotto: basta per ritagliare di nuovo, senza occupare spazio inutile
+        $srcPath = 'uploads/players/s' . $tag . '.jpg';
         $sw = imagesx($src);
         $sh = imagesy($src);
-        $k = min(1.0, BG_SRC_MAX / max($sw, $sh));
-        if ($k < 1) {
-            $small = imagecreatetruecolor((int) round($sw * $k), (int) round($sh * $k));
-            imagecopyresampled($small, $src, 0, 0, 0, 0, imagesx($small), imagesy($small), $sw, $sh);
-            imagedestroy($src);
-            $src = $small;
+        $info = @getimagesize($file['tmp_name']);
+        $rot = $info && $info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data') ? ((@exif_read_data($file['tmp_name']) ?: [])['Orientation'] ?? 1) : 1;
+        if ($info && $info[2] === IMAGETYPE_JPEG && max($sw, $sh) <= BG_SRC_MAX && in_array((int) $rot, [0, 1], true)) {
+            // JPEG già della misura giusta e dritto: si tiene il file così com'è, senza ricomprimerlo (ogni passaggio perde qualità)
+            if (!move_uploaded_file($file['tmp_name'], __DIR__ . '/../' . $srcPath) && !copy($file['tmp_name'], __DIR__ . '/../' . $srcPath)) {
+                $error = "Impossibile salvare l'immagine (permessi della cartella uploads?).";
+                return null;
+            }
+        } else {
+            // troppo grande (o da raddrizzare): si riduce una volta sola, con qualità alta
+            $k = min(1.0, BG_SRC_MAX / max($sw, $sh));
+            if ($k < 1) {
+                $small = imagecreatetruecolor((int) round($sw * $k), (int) round($sh * $k));
+                imagecopyresampled($small, $src, 0, 0, 0, 0, imagesx($small), imagesy($small), $sw, $sh);
+                imagedestroy($src);
+                $src = $small;
+            }
+            imagejpeg($src, __DIR__ . '/../' . $srcPath, 93);
         }
-        $srcPath = 'uploads/players/s' . $tag . '.jpg';
-        imagejpeg($src, __DIR__ . '/../' . $srcPath, 88);
     } else {
         if (!$srcPath || !preg_match('#^uploads/players/[A-Za-z0-9_.-]+$#', $srcPath) || !is_file(__DIR__ . '/../' . $srcPath)) {
             return null;   // niente foto nuova e niente originale: non c'è niente da ritagliare
