@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 23;
+const SCHEMA_VERSION = 24;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -474,6 +474,43 @@ function ensure_schema(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
         if (!q("SHOW INDEX FROM login_attempts WHERE Key_name = 'idx_user_time'")->fetch()) {
             db()->exec('ALTER TABLE login_attempts ADD INDEX idx_user_time (username, created_at)');
+        }
+    }
+    if ($v < 24) {
+        // quota minima ×1,01 (BET_MIN_ODDS in lib/bets.php): prima una quota molto puntata poteva scendere sotto ×1.
+        // Si ricalcolano tutte le puntate che l'avevano più bassa: quelle aperte prendono ×1,01, quelle già vinte vengono
+        // ripagate con ×1,01 (si corregge la mossa "vincita" del portafoglio, così il saldo torna giusto), idem le multiple.
+        $min = 1.01;
+        $pay = fn(int $stake, float $odds) => (int) floor($stake * $odds + 1e-9);
+        foreach (q('SELECT id, stake, status FROM bets WHERE odds < ?', [$min])->fetchAll() as $b) {
+            q('UPDATE bets SET odds = ? WHERE id = ?', [$min, $b['id']]);
+            if ($b['status'] === 'vinta') {
+                $p = $pay((int) $b['stake'], $min);
+                q('UPDATE bets SET payout = ? WHERE id = ?', [$p, $b['id']]);
+                q("UPDATE wallet_moves SET delta = ? WHERE bet_id = ? AND kind = 'vincita'", [$p, $b['id']]);
+            }
+        }
+        $combos = q('SELECT DISTINCT combo_id FROM combo_legs WHERE odds < ?', [$min])->fetchAll(PDO::FETCH_COLUMN);
+        q('UPDATE combo_legs SET odds = ? WHERE odds < ?', [$min, $min]);
+        foreach ($combos as $cid) {
+            $c = q('SELECT id, stake, status FROM combo_bets WHERE id = ?', [$cid])->fetch();
+            if (!$c) {
+                continue;
+            }
+            $all = 1.0;
+            $won = 1.0;
+            foreach (q('SELECT odds, status FROM combo_legs WHERE combo_id = ?', [$cid])->fetchAll() as $l) {
+                $all *= (float) $l['odds'];
+                if ($l['status'] === 'vinta') {
+                    $won *= (float) $l['odds'];
+                }
+            }
+            q('UPDATE combo_bets SET odds = ? WHERE id = ?', [round(max($min, $all), 2), $cid]);
+            if ($c['status'] === 'vinta') {
+                $p = $pay((int) $c['stake'], $won);
+                q('UPDATE combo_bets SET payout = ? WHERE id = ?', [$p, $cid]);
+                q("UPDATE wallet_moves SET delta = ? WHERE combo_id = ? AND kind = 'vincita'", [$p, $cid]);
+            }
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
