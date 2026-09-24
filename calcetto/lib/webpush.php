@@ -630,6 +630,145 @@ function push_notify_match_changed(int $matchId, array $old, bool $reset, ?int $
 }
 
 /**
+ * È cambiato chi gioca: un giocatore ha confermato la presenza, oppure chi aveva confermato si è tirato indietro (non c'è, o è tornato
+ * "in attesa"). Lo sanno solo i confermati (tolti lui e chi ha fatto la modifica): sono loro che devono sapere in quanti si gioca.
+ * Le altre risposte (per esempio un "non ci sono" di chi non aveva ancora risposto) non cambiano la partita e non mandano niente.
+ * $old e $new sono la disponibilità prima e dopo.
+ */
+function push_notify_roster_change(int $matchId, int $playerId, string $old, string $new, ?int $exceptUser = null): void
+{
+    if (($old === 'confermato') === ($new === 'confermato')) {
+        return;
+    }
+    push_defer(function () use ($matchId, $playerId, $new, $exceptUser) {
+        $m = get_match($matchId);
+        if (!$m || $m['status'] !== 'programmata' || strtotime($m['match_date']) < time() - 3 * 3600) {
+            return;
+        }
+        $name = (string) (get_player($playerId)['name'] ?? 'Un giocatore');
+        $users = push_match_recipients($matchId, "mp.availability = 'confermato' AND mp.player_id <> " . $playerId, $exceptUser);
+        if (!$users) {
+            return;
+        }
+        $n = (int) q("SELECT COUNT(*) FROM match_players WHERE match_id = ? AND availability = 'confermato'", [$matchId])->fetchColumn();
+        $what = $new === 'confermato' ? $name . ' si è aggiunto' : ($new === 'assente' ? $name . ' non ci sarà' : $name . ' non è più sicuro di esserci');
+        push_notify_users($users, [
+            'title' => $new === 'confermato' ? 'Un giocatore in più' : 'Un giocatore in meno',
+            'body' => $what . ' (' . push_when($m['match_date']) . '). Ora siete in ' . $n . ' confermati.',
+            'url' => 'match.php?id=' . $matchId . '#presenze', 'tag' => 'roster-' . $matchId,
+        ], 'normal', 'formazione');
+    });
+}
+
+/**
+ * Gol durante la partita (cronaca in diretta, lib/live.php): lo sanno i giocatori del gruppo che NON stanno giocando
+ * (chi gioca è in campo e il gol l'ha visto). $scorer = nome, $own = autogol, $team = squadra che ha segnato.
+ */
+function push_notify_goal(int $matchId, string $scorer, ?string $assist, bool $own, string $team, ?int $exceptUser = null): void
+{
+    push_defer(function () use ($matchId, $scorer, $assist, $own, $team, $exceptUser) {
+        $m = get_match($matchId);
+        if (!$m) {
+            return;
+        }
+        $users = push_match_recipients($matchId, "mp.team IS NULL AND mp.availability <> 'confermato'
+            AND NOT EXISTS (SELECT 1 FROM players g WHERE g.id = mp.player_id AND g.is_guest = 1)", $exceptUser);
+        $score = team_name('A', $m) . ' ' . (int) $m['score_a'] . '–' . (int) $m['score_b'] . ' ' . team_name('B', $m);
+        push_notify_users($users, [
+            'title' => ($own ? 'Autogol' : 'Gol') . ' ' . team_name($team, $m) . '!',
+            'body' => ($own ? 'Autogol di ' . $scorer : $scorer . ($assist ? ' (assist di ' . $assist . ')' : '')) . '. ' . $score . '.',
+            'url' => 'match.php?id=' . $matchId . '#diretta', 'tag' => 'live-' . $matchId,
+        ], 'high', 'gol');
+    });
+}
+
+/** Partita appena creata a meno di BET_OPEN_HOURS dall'inizio: le scommesse sono già aperte, l'avviso parte subito. */
+function push_notify_bets_open_now(int $matchId): void
+{
+    push_defer(fn() => push_run_bets($matchId));
+}
+
+/**
+ * Avvisi delle scommesse, a tutti i giocatori del gruppo della partita (sono loro che possono puntare):
+ *  - "Scommesse aperte" quando mancano BET_OPEN_HOURS ore (o subito, se la partita è stata creata a ridosso);
+ *  - "Ultima ora per scommettere" quando manca un'ora al calcio d'inizio (se non hanno appena ricevuto il primo).
+ * Ognuno si manda una volta per giocatore e partita (push_log). Di notte (23-8) l'apertura aspetta il mattino, se c'è tempo.
+ * $onlyMatch = controlla solo quella partita. @return int notifiche mandate
+ */
+function push_run_bets(?int $onlyMatch = null): int
+{
+    if (!push_supported() || !(int) q('SELECT COUNT(*) FROM push_subscriptions')->fetchColumn()) {
+        return 0;
+    }
+    $now = time();
+    $sql = "SELECT * FROM matches WHERE status = 'programmata' AND match_date > ? AND match_date <= ?";
+    $params = [date('Y-m-d H:i:s', $now), date('Y-m-d H:i:s', $now + BET_OPEN_HOURS * 3600)];
+    if ($onlyMatch !== null) {
+        $sql .= ' AND id = ?';
+        $params[] = $onlyMatch;
+    }
+    $hour = (int) date('G', $now);
+    $sent = 0;
+    foreach (q($sql, $params)->fetchAll() as $m) {
+        $mid = (int) $m['id'];
+        $left = (strtotime($m['match_date']) - $now) / 3600;
+        $pids = array_map('intval', q('SELECT p.id FROM players p JOIN player_groups pg ON pg.player_id = p.id
+                                        WHERE pg.group_id = ? AND p.active = 1 AND p.is_guest = 0', [(int) $m['group_id']])->fetchAll(PDO::FETCH_COLUMN));
+        $userOf = push_users_of_players($pids);
+        if (!$userOf) {
+            continue;
+        }
+        $log = [];
+        foreach (q("SELECT kind, player_id, sent_at FROM push_log WHERE match_id = ? AND kind IN ('betsopen', 'bets1h')", [$mid])->fetchAll() as $l) {
+            $log[$l['kind']][(int) $l['player_id']] = strtotime($l['sent_at']);
+        }
+        $open = $close = [];
+        foreach ($userOf as $pid => $uid) {
+            $opened = $log['betsopen'][$pid] ?? null;
+            if ($left <= 1) {
+                if (!isset($log['bets1h'][$pid]) && ($opened === null || $now - $opened > 1800)) {
+                    $close[$pid] = $uid;
+                }
+                if ($opened === null) {
+                    $log['betsopen'][$pid] = $now;   // a un'ora dall'inizio basta l'ultimo avviso
+                    q("INSERT IGNORE INTO push_log (kind, match_id, player_id) VALUES ('betsopen', ?, ?)", [$mid, $pid]);
+                }
+            } elseif ($opened === null && !(($hour >= 23 || $hour < 8) && $left > 10)) {
+                $open[$pid] = $uid;
+            }
+        }
+        $when = push_when($m['match_date']) . ($m['location'] !== '' ? ' · ' . $m['location'] : '');
+        if ($open) {
+            $sent += push_notify_users(array_values($open), [
+                'title' => 'Scommesse aperte',
+                'body' => 'Si gioca ' . $when . '. Quote pronte su risultato, marcatori e MVP: punta entro il calcio d\'inizio!',
+                'url' => 'bets.php#m' . $mid, 'tag' => 'bets-' . $mid,
+            ], 'normal', 'scommesse aperte');
+            foreach ($open as $pid => $_) {
+                q("INSERT IGNORE INTO push_log (kind, match_id, player_id) VALUES ('betsopen', ?, ?)", [$mid, $pid]);
+            }
+        }
+        if ($close) {
+            $sent += push_notify_users(array_values($close), [
+                'title' => 'Ultima ora per scommettere',
+                'body' => 'Alle ' . fmt_time($m['match_date']) . ' si gioca: le scommesse si chiudono al calcio d\'inizio. Ultima chance per la schedina!',
+                'url' => 'bets.php#m' . $mid, 'tag' => 'bets-' . $mid,
+            ], 'high', 'scommesse 1h');
+        }
+        foreach ($close as $pid => $_) {
+            q("INSERT IGNORE INTO push_log (kind, match_id, player_id) VALUES ('bets1h', ?, ?)", [$mid, $pid]);
+        }
+        // chi ha appena ricevuto l'apertura non riceve anche l'ultima ora: si segna come fatto
+        if ($left <= 1) {
+            foreach ($userOf as $pid => $_) {
+                q("INSERT IGNORE INTO push_log (kind, match_id, player_id) VALUES ('bets1h', ?, ?)", [$mid, $pid]);
+            }
+        }
+    }
+    return $sent;
+}
+
+/**
  * Partita in programma eliminata. Va chiamata PRIMA di cancellarla: i destinatari si calcolano subito (dopo la
  * cancellazione l'elenco dei giocatori non esiste più), l'invio parte a pagina già inviata.
  */
@@ -765,10 +904,10 @@ const PUSH_REMINDER_HOURS = [48, 6];
 /**
  * Promemoria a chi non ha ancora confermato o disdetto una partita in programma: uno quando mancano 48 ore, uno a 6 ore
  * (se la partita viene creata a ridosso, ne parte uno solo). Non si manda di notte (23-8), né a chi ha appena ricevuto
- * l'avviso di nuova partita. Parte da solo mentre qualcuno usa il sito (push_maybe_run) o dal cron (cron.php).
+ * l'avviso di nuova partita.
  * @return int notifiche mandate
  */
-function push_run_due(): int
+function push_run_reminders(): int
 {
     if (!push_supported() || !(int) q('SELECT COUNT(*) FROM push_subscriptions')->fetchColumn()) {
         return 0;
@@ -828,6 +967,15 @@ function push_run_due(): int
         }
     }
     return $sent;
+}
+
+/**
+ * Notifiche "a orario": promemoria a chi non ha risposto, apertura delle scommesse e ultima ora per scommettere.
+ * Parte da sola mentre qualcuno usa il sito (push_maybe_run) o dal cron (cron.php). @return int notifiche mandate
+ */
+function push_run_due(): int
+{
+    return push_run_reminders() + push_run_bets();
 }
 
 /** Fa partire push_run_due() al massimo una volta ogni 10 minuti (chi arriva per primo, dopo aver ricevuto la pagina). */

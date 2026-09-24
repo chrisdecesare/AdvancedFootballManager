@@ -26,6 +26,7 @@ if (($_POST['do'] ?? '') === 'availability') {
         flash('err', 'Stato non valido.');
     } else {
         sync_match_players((int) $match['id']);
+        $was = (string) q('SELECT availability FROM match_players WHERE match_id = ? AND player_id = ?', [$match['id'], $pid])->fetchColumn();
         // chi si ritira esce anche dalla squadra già formata
         q('INSERT INTO match_players (match_id, player_id, availability) VALUES (?, ?, ?)
            ON DUPLICATE KEY UPDATE availability = VALUES(availability),
@@ -33,6 +34,7 @@ if (($_POST['do'] ?? '') === 'availability') {
             [$match['id'], $pid, $status]);
         assign_formation((int) $match['id']); // chi si ritira esce anche dal campo
         log_activity('presenza', $status . ' · ' . fmt_date_short($match['match_date']) . ($pid !== my_player_id() ? ' · giocatore #' . $pid : ''), (int) $match['group_id']);
+        push_notify_roster_change((int) $match['id'], $pid, $was, $status, (int) current_user()['id']);   // avvisa gli altri confermati
         $msg = ['confermato' => 'Presenza confermata', 'assente' => 'Segnato come assente', 'in_attesa' => 'Risposta annullata'];
         flash('ok', $msg[$status]);
     }

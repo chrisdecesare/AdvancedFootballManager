@@ -205,11 +205,21 @@ salva con la puntata (`bets.odds`): vincita = puntata × quota, chi sbaglia perd
   le probabilità di tutti i punteggi possibili per avere 1, X e 2 (con una correzione che aumenta i pareggi, come nei modelli tipo Dixon-Coles). Se le squadre non sono ancora fatte la partita è in equilibrio;
 - **Chi segna?** i gol attesi della partita (o della squadra) si ripartiscono tra i giocatori in proporzione ai loro gol a partita, mescolando **stagione** (stabilizzata: con poche partite conta il
   valore tipico del ruolo), **ultime 5 partite** e **stato di forma**; probabilità di segnare = 1 − e^(−gol attesi). Chi segna spesso ed è in forma ha quota bassa, chi non segna mai quota alta
-  (un portiere arriva a ×50);
+  (fino al tetto della quota). Il valore tipico del ruolo dipende da come si gioca, scelto per ogni partita
+  (*Portieri: volanti / fissi* nella creazione e in *Gestione partita*, predefinito «volanti»): con i **portieri volanti** nessuno sta fisso in porta, quindi
+  chi si segna portiere o difensore vale come un difensore/centrocampista, di poco sotto gli attaccanti (POR 0,30 · DIF 0,34 · CEN 0,40 · ATT 0,50 gol a partita);
+  con i **portieri fissi** il portiere non segna quasi mai (POR 0,03 · DIF 0,18 · CEN 0,35 · ATT 0,65). Col passare delle partite contano sempre più i gol veri;
 - **Chi sarà l'MVP?** pesano i premi MVP, la media voto (stagione e ultime partite), la forma, i gol attesi e la probabilità che la sua squadra vinca; le probabilità si normalizzano a 100% prima del margine.
 
 Chi non ha ancora confermato la presenza vale meno (potrebbe non esserci). Le costanti (margini, peso della forma, correzione dei pareggi) sono in cima a `lib/bets.php`.
-Se manca il dato (nessuno ha votato l'MVP) le puntate sono rimborsate. Si punta fino al calcio d'inizio e fino ad allora si può cambiare o ritirare la puntata. Chi resta al verde (meno di 20 gettoni e nulla in gioco)
+Se manca il dato (nessuno ha votato l'MVP) le puntate sono rimborsate. **Le scommesse si aprono 48 ore prima della partita** (`BET_OPEN_HOURS`; se la partita
+viene creata a meno di 48 ore, sono aperte subito) e si chiudono al calcio d'inizio: fino ad allora si può cambiare o ritirare la puntata.
+
+**Ruoli bloccati con le scommesse aperte:** da quando si aprono le scommesse di una partita del suo gruppo fino alla fine della partita (al massimo 12 ore dopo
+l'inizio, anche se nessuno la chiude) un giocatore non può cambiarsi posizione preferita e seconda posizione da *Modifica profilo*: c'era chi si segnava portiere
+per alzare la quota «chi segna», puntava e poi tornava attaccante, falsando le quote e la generazione delle squadre. L'admin può comunque correggere il ruolo di chiunque.
+
+Chi resta al verde (meno di 20 gettoni e nulla in gioco)
 riceve un sussidio di 30 gettoni a settimana. Ci sono titoli goliardici in base ai gettoni e la classifica dei più ricchi.
 
 Il portafoglio non è un numero salvato ma la somma delle mosse (`wallet_moves`), quindi correggere un risultato, riaprire una partita o riaprire le votazioni
@@ -266,6 +276,11 @@ notifiche?»), oppure da *Modifica profilo → Notifiche* (con il pulsante per u
   «Richiesta inviata» offre di attivare le notifiche su quel dispositivo (vale solo per quel browser e solo finché la richiesta è in attesa). Se ha lasciato un'email, all'approvazione riceve anche
   un'**email** con il link per entrare: va all'indirizzo confermato o, se non è ancora confermato, a quello scritto all'iscrizione;
 - **quando le votazioni si aprono** (o si riaprono) e **quando si chiudono** (con il nome dell'MVP), a chi ha giocato la partita.
+- **quando cambia chi gioca**, solo a chi ha confermato la presenza: qualcuno conferma («Un giocatore in più») oppure chi aveva confermato dice che non ci sarà
+  o annulla la conferma («Un giocatore in meno»), con il numero dei confermati. Vale anche quando la modifica la fa l'admin; chi fa la modifica e il giocatore interessato non la ricevono;
+- **quando si aprono le scommesse** (48 ore prima, o subito se la partita è creata a ridosso; di notte aspetta le 8 se c'è tempo) e **quando manca un'ora** alla partita
+  («Ultima ora per scommettere»), a tutti i giocatori del gruppo. Partono dal controllo periodico (vedi il cron più sotto): senza cron arrivano alla prima pagina aperta da qualcuno;
+- **per ogni gol segnato durante la partita** (cronaca in diretta, vedi sotto), solo a chi del gruppo **non** sta giocando, con marcatore, assist e risultato;
 - **quando una partita in programma cambia** (data, ora, campo, quota o note) o **viene annullata**, ai giocatori della partita
   (a chi aveva già risposto «Non ci sono» solo se cambia la data);
 - **se cambia il giorno della partita**, oltre alla notifica («Partita spostata») tutte le risposte «Ci sono / Non ci sono» tornano
@@ -367,6 +382,13 @@ nominati dentro una lega (vedi «Leghe create dagli utenti»).
 Ciclo di una partita (dove si legge «admin» vale anche per il manager, per le sue partite): l'admin crea la partita → i giocatori confermano → l'admin genera le
 squadre bilanciate → a fine partita inserisce il risultato → i giocatori votano → l'admin chiude
 le votazioni e voti/MVP entrano nelle statistiche.
+
+**Diretta (cronaca della partita):** dal calcio d'inizio, nella scheda della partita compare la sezione «Diretta» (`lib/live.php`, tabella `match_events`). Chi gioca
+(fino a 4 ore dall'inizio) e chi gestisce le partite segna i **gol** (con l'assist facoltativo, solo tra compagni) e gli **autogol**: ogni gol aggiorna subito il risultato,
+i gol e gli assist della tabella «Risultato e marcatori» e l'intesa «chi ha servito chi», e manda la notifica a chi non gioca. Si segnano anche gli **infortuni**
+(con una nota facoltativa: «caviglia», «stiramento»...): il giocatore compare con la crocetta rossa nella squadra. Un evento segnato per sbaglio si toglie con la ×
+(chi l'ha segnato o chi gestisce la partita) e i conti tornano indietro. A fine partita il risultato si controlla e si conclude come prima; gli infortuni si possono
+aggiungere anche dopo, da chi gestisce la partita.
 
 **Fine votazioni e conto alla rovescia:** quando la partita viene conclusa (o le votazioni riaperte) si fissa un orario di fine: `VOTING_HOURS` in
 `config.php` (24 ore). Nella scheda «Voti» si vede l'orario con il conto alla rovescia, e chi gestisce la partita lo cambia (o toglie la scadenza) da lì.

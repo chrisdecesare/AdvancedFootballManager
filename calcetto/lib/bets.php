@@ -41,6 +41,7 @@ const BET_FLATTEN = 0.3;         // quanto i gol attesi dei giocatori vengono av
                                  // a calcetto (portieri volanti) tutti prima o poi tirano, le differenze non devono essere estreme
 const BET_REWARD_GOAL = 25;      // gettoni a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
 const BET_REWARD_ASSIST = 10;    // e per ogni assist
+const BET_OPEN_HOURS = 48;       // le scommesse su una partita si aprono 48 ore prima del calcio d'inizio (e da lì i ruoli sono bloccati)
 
 function bet_markets(): array
 {
@@ -161,11 +162,16 @@ function bet_odds(float $p, string $market, float $min, float $max): float
 
 /**
  * Gol a partita attesi da un giocatore che non ha ancora giocato, in base al ruolo (poi pesano i suoi dati).
- * Valori vicini tra loro: a calcetto si gioca a portieri volanti, chi è in porta prima o poi va anche in attacco.
+ * Valori vicini tra loro con i portieri volanti: a calcetto chi è in porta prima o poi va anche in attacco, quindi chi si segna
+ * portiere o difensore gioca di fatto da difensore/centrocampista e segna di poco meno degli attaccanti.
+ * Con i portieri fissi (opzione della partita) il portiere non segna quasi mai e i difensori molto meno degli attaccanti.
  */
-function bet_goal_prior(?string $position): float
+function bet_goal_prior(?string $position, string $keepers = 'volanti'): float
 {
-    return ['POR' => 0.30, 'DIF' => 0.34, 'CEN' => 0.40, 'ATT' => 0.50, 'JOL' => 0.40][position_abbr((string) $position)] ?? 0.40;
+    $prior = $keepers === 'fissi'
+        ? ['POR' => 0.03, 'DIF' => 0.18, 'CEN' => 0.35, 'ATT' => 0.65, 'JOL' => 0.35]
+        : ['POR' => 0.30, 'DIF' => 0.34, 'CEN' => 0.40, 'ATT' => 0.50, 'JOL' => 0.40];
+    return $prior[position_abbr((string) $position)] ?? $prior['JOL'];
 }
 
 /** Gol medi segnati da una squadra in una partita, dalle partite giocate dal gruppo (con un valore di partenza finché sono poche). */
@@ -266,7 +272,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         // gol a partita: media stagionale "stabilizzata" (chi ha giocato poco si avvicina al valore del suo ruolo), mescolata al rendimento
         // delle ultime 5 partite (tirato verso la media stagionale) e corretta dallo stato di forma. Chi segna spesso ed è in forma ha
         // un peso alto (quota bassa), chi non segna mai un peso minimo (quota alta).
-        $season = ($s['goals'] + bet_goal_prior($r['position']) * 3) / ($s['apps'] + 3);
+        $season = ($s['goals'] + bet_goal_prior($r['position'], match_keepers($match)) * 3) / ($s['apps'] + 3);
         $recent = ($s['goals_last5'] + $season * 2) / (count($s['last5']) + 2);
         $w = (0.65 * $season + 0.35 * $recent) * BET_FORM[$s['form'] ?? 'none'];
         $rows[$pid] = ['s' => $s, 'here' => $here, 'w' => $w, 'team' => in_array($r['team'], ['A', 'B'], true) ? $r['team'] : null];
@@ -391,10 +397,28 @@ function bet_payout(int $stake, $odds): int
 
 /* ---------------------------------------------------------------- puntare */
 
-/** Le scommesse per una partita sono aperte fino al fischio d'inizio. */
+/** Quando si aprono le scommesse di una partita (timestamp): BET_OPEN_HOURS prima del calcio d'inizio. */
+function bets_open_at(array $match): int
+{
+    return strtotime($match['match_date']) - BET_OPEN_HOURS * 3600;
+}
+
+/** Le scommesse per una partita sono aperte da BET_OPEN_HOURS prima fino al fischio d'inizio. */
 function bets_open_for(array $match): bool
 {
+    return bets_before_kickoff($match) && time() >= bets_open_at($match);
+}
+
+/** Partita non ancora cominciata: le puntate già fatte si possono ancora ritirare. */
+function bets_before_kickoff(array $match): bool
+{
     return $match['status'] === 'programmata' && strtotime($match['match_date']) > time();
+}
+
+/** Partita in programma tra più di BET_OPEN_HOURS: le scommesse non sono ancora aperte. */
+function bets_not_yet_open(array $match): bool
+{
+    return bets_before_kickoff($match) && time() < bets_open_at($match);
 }
 
 /** Giocatori su cui si può puntare (gol, MVP): chi non ha già detto di non esserci. */
@@ -441,6 +465,9 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     }
     if (q('SELECT is_guest FROM players WHERE id = ?', [$playerId])->fetchColumn()) {
         return 'Gli ospiti non possono scommettere.';
+    }
+    if (bets_not_yet_open($match)) {
+        return 'Le scommesse su questa partita si aprono ' . push_when(date('Y-m-d H:i:s', bets_open_at($match))) . ' (' . BET_OPEN_HOURS . ' ore prima).';
     }
     if (!bets_open_for($match)) {
         return 'Le scommesse su questa partita sono chiuse: il calcio d\'inizio è passato.';
@@ -499,7 +526,7 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
 /** Ritira una puntata (una precisa scelta di un mercato) prima del fischio d'inizio (i gettoni tornano). Ritorna il messaggio d'errore oppure null. */
 function bet_cancel(array $match, int $playerId, string $market, string $pick): ?string
 {
-    if (!bets_open_for($match)) {
+    if (!bets_before_kickoff($match)) {
         return 'Ormai è tardi: le scommesse sono chiuse.';
     }
     q("DELETE FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
@@ -744,6 +771,9 @@ function combo_prepare(array $raw, int $playerId): array
         if (!is_admin() && !player_in_group($playerId, (int) $match['group_id'])) {
             return [null, 'Puoi scommettere solo sulle partite del tuo gruppo.'];
         }
+        if (bets_not_yet_open($match)) {
+            return [null, 'Le scommesse di una delle partite scelte non sono ancora aperte (si aprono ' . BET_OPEN_HOURS . ' ore prima).'];
+        }
         if (!bets_open_for($match)) {
             return [null, 'Una delle partite scelte è già chiusa: rifai la multipla.'];
         }
@@ -856,7 +886,7 @@ function combo_cancel(int $comboId, int $playerId): ?string
     }
     foreach (q('SELECT cl.match_id FROM combo_legs cl WHERE cl.combo_id = ?', [$comboId])->fetchAll(PDO::FETCH_COLUMN) as $mid) {
         $m = get_match((int) $mid);
-        if (!$m || !bets_open_for($m)) {
+        if (!$m || !bets_before_kickoff($m)) {
             return 'Una delle partite della multipla è già chiusa: non si può più ritirare.';
         }
     }

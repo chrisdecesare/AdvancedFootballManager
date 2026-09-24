@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS matches (
   team_b_name VARCHAR(40) NOT NULL DEFAULT '',
   formation_a VARCHAR(20) NOT NULL DEFAULT '',     -- modulo scelto (vuoto = automatico)
   formation_b VARCHAR(20) NOT NULL DEFAULT '',
+  keepers VARCHAR(8) NOT NULL DEFAULT 'volanti',   -- portieri 'volanti' (in porta a turno) o 'fissi': cambia le quote dei marcatori
   fee DECIMAL(6,2) NOT NULL DEFAULT 0,
   status ENUM('programmata','giocata') NOT NULL DEFAULT 'programmata',
   score_a TINYINT UNSIGNED NULL,
@@ -311,6 +312,23 @@ CREATE TABLE IF NOT EXISTS player_items (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (player_id, item_key),
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- cronaca in diretta: gol, autogol e infortuni segnati durante la partita (lib/live.php)
+CREATE TABLE IF NOT EXISTS match_events (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  match_id INT NOT NULL,
+  kind VARCHAR(10) NOT NULL,                       -- gol, autogol oppure infortunio
+  team CHAR(1) NULL,                               -- squadra del giocatore (A o B)
+  player_id INT NOT NULL,
+  assist_id INT NULL,                              -- chi ha servito il gol (facoltativo)
+  note VARCHAR(120) NULL,                          -- infortunio: cosa e' successo (facoltativo)
+  created_by INT NULL,                             -- account che l'ha segnato
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (match_id, created_at),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (assist_id) REFERENCES players(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO meta (k, v) VALUES ('schema', '20');

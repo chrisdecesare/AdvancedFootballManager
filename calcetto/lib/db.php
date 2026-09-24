@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 26;
+const SCHEMA_VERSION = 27;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -529,6 +529,25 @@ function ensure_schema(): void
                 q("UPDATE wallet_moves SET delta = ? WHERE combo_id = ? AND kind = 'vincita'", [$p, $cid]);
             }
         }
+    }
+    if ($v < 27) {
+        // portieri fissi o volanti (cambia le quote dei marcatori) e cronaca in diretta: gol, autogol e infortuni (lib/live.php)
+        $add('matches', 'keepers', "VARCHAR(8) NOT NULL DEFAULT 'volanti' AFTER formation_b");
+        db()->exec('CREATE TABLE IF NOT EXISTS match_events (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            match_id INT NOT NULL,
+            kind VARCHAR(10) NOT NULL,
+            team CHAR(1) NULL,
+            player_id INT NOT NULL,
+            assist_id INT NULL,
+            note VARCHAR(120) NULL,
+            created_by INT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX (match_id, created_at),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (assist_id) REFERENCES players(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

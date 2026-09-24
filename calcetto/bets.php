@@ -263,6 +263,7 @@ layout_start('Scommesse', 'bets');
   <div class="card-head">
     <h2><a href="match.php?id=<?= $mid ?>"><?= h(ucfirst(fmt_date_long($m['match_date']))) ?> · <?= fmt_time($m['match_date']) ?></a> <?= group_tag((int) $m['group_id']) ?></h2>
     <?php if ($open): ?><?= countdown_html($m['match_date'], 'Si chiude tra ', 'Chiuso', 0, true, 'hourglass') ?>
+    <?php elseif (bets_not_yet_open($m)): ?><span class="tag"><i class="ti ti-clock"></i> si aprono <?= h(push_when(date('Y-m-d H:i:s', bets_open_at($m)))) ?></span>
     <?php else: ?><span class="tag tag-live"><i class="ti ti-lock"></i> scommesse chiuse</span><?php endif; ?>
   </div>
   <div class="bet-markets">
@@ -330,7 +331,7 @@ layout_start('Scommesse', 'bets');
           <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>">
             <input type="hidden" name="market" value="<?= $mk ?>"><input type="hidden" name="pick" value="<?= h((string) $my['pick']) ?>">
             <span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? bet_pick_label($m, $mk, (string) $my['pick'])) ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span>
-            <?php if ($canBet): ?><button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button><?php endif; ?></form>
+            <?php if ($me && bets_before_kickoff($m)): ?><button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button><?php endif; ?></form>
         <?php endforeach; ?>
         </div>
       <?php endif; ?>
