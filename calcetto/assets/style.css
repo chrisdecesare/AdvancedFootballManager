@@ -28,6 +28,7 @@
   --r: 18px;
   --font: "Nunito", "Trebuchet MS", system-ui, sans-serif;
   --font-d: "Lilita One", "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+  --font-h: "Caveat", "Segoe Print", "Bradley Hand", cursive;
   color-scheme: light;
 }
 
@@ -870,9 +871,47 @@ a.fact-who:hover { color: var(--grass-d); }
 @media (max-width: 640px) { .bet-col-title { display: none; } }
 
 /* ---------- multiple (combo) e schedina ---------- */
-.combo-card { display: grid; gap: 10px; }
-.combo-legs-view { display: flex; flex-wrap: wrap; gap: 6px; }
-.combo-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; font-weight: 800; }
+
+/* multiple come fogli di bloc-notes a spirale, "scritti a mano": sopra le scelte con le quote, sotto la vincita */
+.notepad-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 22px; margin-bottom: 18px; }
+.notepad { --line: 30px; position: relative; padding-top: 14px; }
+.notepad-rings { position: absolute; top: 0; left: 18px; right: 18px; height: 28px; z-index: 2; pointer-events: none;
+  background: radial-gradient(circle at 50% 70%, var(--ink) 0 3px, transparent 3.5px) 0 0 / 26px 28px repeat-x; }
+.notepad-rings::before { content: ""; position: absolute; inset: 0 0 12px;
+  background: linear-gradient(90deg, transparent 10px, var(--ink-2) 10px 14px, transparent 14px) 0 0 / 26px 100% repeat-x; border-radius: 4px; }
+.notepad-sheet { position: relative; background-color: var(--white); border: var(--b); border-radius: 6px 6px var(--r) var(--r); box-shadow: var(--sh);
+  padding: 22px 18px 14px 50px; font: 500 1.35rem/var(--line) var(--font-h); color: #22306b; overflow: hidden;
+  background-image: linear-gradient(90deg, transparent 38px, rgba(255, 90, 95, .55) 38px 40px, transparent 40px),
+    repeating-linear-gradient(transparent 0 calc(var(--line) - 1px), rgba(83, 200, 245, .45) calc(var(--line) - 1px) var(--line));
+  background-position: 0 0, 0 21px; }
+.notepad-sheet p { margin: 0; }
+.notepad-title { font-weight: 700; font-size: 1.5rem; display: flex; justify-content: space-between; gap: 8px; }
+.notepad-title span { font-size: 1.1rem; opacity: .7; }
+.notepad-legs { list-style: none; margin: 0; padding: 0; }
+.notepad-legs li, .notepad-sum p { display: flex; align-items: baseline; gap: 6px; min-height: var(--line); }
+.np-what { flex: 0 1 auto; min-width: 0; }
+.np-what b { font-weight: 700; }
+.np-ctx { opacity: .7; font-size: .85em; }
+.np-dots { flex: 1 1 12px; border-bottom: 2px dotted currentColor; opacity: .35; transform: translateY(-6px); }
+.np-odds { flex: none; font-weight: 700; }
+.np-odds::before { content: "×"; }
+.np-mark { flex: none; font-size: 1.1rem; }
+.leg-ok .np-mark { color: var(--grass-d); }
+.leg-ko { color: #b3262b; }
+.leg-ko .np-what, .leg-ko .np-odds { text-decoration: line-through 2px; }
+.leg-void { opacity: .55; }
+.notepad-sum { margin-top: var(--line); border-top: 2px solid #22306b; }
+.notepad-sum b { font-weight: 700; flex: none; }
+.np-win { font-size: 1.7rem; }
+.np-win b { color: var(--grass-d); }
+.np-lost b { color: #b3262b; }
+.np-stamp { position: absolute; right: 90px; bottom: 34px; transform: rotate(-12deg); border: 3px solid currentColor; border-radius: 8px;
+  padding: 0 10px; font: 400 1.2rem/1.5 var(--font-d); text-transform: uppercase; letter-spacing: .06em; opacity: .8; pointer-events: none; }
+.np-stamp-vinta { color: var(--grass-d); }
+.np-stamp-persa { color: var(--red); }
+.np-stamp-rimborsata { color: var(--muted); }
+.notepad-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px;
+  font-family: var(--font); line-height: 1.5; }
 
 .betslip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--white); border-top: var(--b);
   box-shadow: 0 -4px 0 rgba(31, 26, 46, .08); padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));

@@ -138,6 +138,47 @@ foreach ($comboHist as $c) {
     $comboNet += (int) $c['payout'] - (int) $c['stake'];
 }
 
+/** Una multipla disegnata come un foglio di bloc-notes scritto a mano: sopra le scelte con le loro quote, sotto la vincita. */
+function combo_sheet(array $c, array $markets, bool $open): string
+{
+    $marks = ['vinta' => ['ok', 'check'], 'persa' => ['ko', 'x'], 'rimborsata' => ['void', 'arrow-back-up']];
+    ob_start(); ?>
+    <article class="notepad">
+      <div class="notepad-rings" aria-hidden="true"></div>
+      <div class="notepad-sheet">
+        <p class="notepad-title">Multipla da <?= count($c['legs']) ?> <span><?= fmt_date_short($c['created_at']) ?></span></p>
+        <ol class="notepad-legs">
+          <?php foreach ($c['legs'] as $l): $mk = $marks[$l['status']] ?? null; ?>
+            <li class="<?= $mk ? 'leg-' . $mk[0] : '' ?>">
+              <span class="np-what"><span class="np-ctx"><?= date('d/m', strtotime($l['match_date'])) ?> · <?= h($markets[$l['market']]['label'] ?? $l['market']) ?>:</span> <b><?= h($l['label']) ?></b></span>
+              <span class="np-dots" aria-hidden="true"></span>
+              <span class="np-odds"><?= fmt_num($l['odds'], 2) ?></span>
+              <?php if ($mk): ?><i class="ti ti-<?= $mk[1] ?> np-mark" title="<?= h($l['status']) ?>"></i><?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ol>
+        <div class="notepad-sum">
+          <p><span>Quota totale</span><span class="np-dots" aria-hidden="true"></span><b>×<?= fmt_num($c['odds'], 2) ?></b></p>
+          <p><span>Puntata</span><span class="np-dots" aria-hidden="true"></span><b><?= (int) $c['stake'] ?></b></p>
+          <?php if ($open): ?>
+            <p class="np-win"><span>Vincita</span><span class="np-dots" aria-hidden="true"></span><b><?= bet_payout((int) $c['stake'], $c['odds']) ?></b></p>
+          <?php elseif ($c['status'] === 'vinta'): ?>
+            <p class="np-win"><span>Vinto</span><span class="np-dots" aria-hidden="true"></span><b>+<?= (int) $c['payout'] - (int) $c['stake'] ?></b></p>
+          <?php elseif ($c['status'] === 'persa'): ?>
+            <p class="np-lost"><span>Vincita</span><span class="np-dots" aria-hidden="true"></span><b><s><?= bet_payout((int) $c['stake'], $c['odds']) ?></s></b></p>
+          <?php endif; ?>
+        </div>
+        <?php if (!$open): ?><span class="np-stamp np-stamp-<?= h($c['status']) ?>"><?= h($c['status']) ?></span><?php endif; ?>
+        <?php if ($open): ?>
+          <form method="post" class="notepad-foot"><?= csrf_field() ?><input type="hidden" name="do" value="combo_cancel"><input type="hidden" name="combo_id" value="<?= (int) $c['id'] ?>">
+            <span class="muted small">solo se sono giuste tutte le <?= count($c['legs']) ?> scelte</span>
+            <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la multipla? Vigliacco.">Ritira</button></form>
+        <?php endif; ?>
+      </div>
+    </article>
+    <?php return ob_get_clean();
+}
+
 layout_start('Scommesse', 'bets');
 ?>
 <div class="page-head"><h1>Scommesse <span class="muted small">a gettoni finti</span></h1></div>
@@ -152,7 +193,8 @@ layout_start('Scommesse', 'bets');
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Su «chi segna» e «MVP» puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3) e sull'over/under dei gol totali della partita (sopra o sotto la soglia proposta).
+    Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
     I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
 </section>
@@ -170,7 +212,7 @@ layout_start('Scommesse', 'bets');
     $mid = (int) $m['id'];
     $open = bets_open_for($m);
     $cands = bet_candidates($mid);
-    $all = match_bets($mid);
+    $all = is_admin() ? match_bets($mid) : [];   // chi ha puntato su cosa lo vede solo l'admin: ai giocatori resta la sorpresa
     $quotes = bet_quotes($m);
     $canBet = $me && $open && (is_admin() || player_in_group($me, (int) $m['group_id'])); ?>
 <section class="card bet-match" id="m<?= $mid ?>">
@@ -185,6 +227,13 @@ layout_start('Scommesse', 'bets');
       $opts = [];
       if ($mk === 'esito') {
           $opts = ['A' => team_name('A', $m), 'X' => 'Pareggio', 'B' => team_name('B', $m)];
+      } elseif ($mk === 'overunder') {
+          foreach (array_keys($quotes[$mk] ?? []) as $ou) {
+              $opts[$ou] = bet_pick_label($m, $mk, $ou);
+          }
+          foreach ($mine[$mid][$mk] ?? [] as $b) {   // le mie puntate su una soglia che nel frattempo è cambiata
+              $opts[$b['pick']] ??= bet_pick_label($m, $mk, $b['pick']);
+          }
       } else {
           foreach ($cands as $c) {
               $opts[(string) $c['player_id']] = $c['name'];
@@ -195,11 +244,11 @@ layout_start('Scommesse', 'bets');
       $myPicks = array_column($myList, 'pick'); ?>
     <div class="bet-market">
       <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
-      <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? '?') ?><?php endforeach; ?></p><?php endif; ?>
+      <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? bet_pick_label($m, $mk, (string) $b['pick'])) ?><?php endforeach; ?></p><?php endif; ?>
       <?php if ($canBet && $opts): ?>
-        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= $mk !== 'esito' ? ' (anche più di una: es. due marcatori diversi)' : '' ?>:</p>
+        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= in_array($mk, BET_PLAYER_MARKETS, true) ? ' (anche più di una: es. due marcatori diversi)' : '' ?>:</p>
         <div class="quota-picks">
-          <?php foreach ($opts as $val => $label): $qv = $q[$val] ?? 0;
+          <?php foreach ($opts as $val => $label): if (!isset($q[$val])) { continue; } $qv = $q[$val];
               $isMine = in_array((string) $val, $myPicks, true); ?>
             <button type="button" class="quota-btn<?= $isMine ? ' is-mine' : '' ?>" data-slip-add
               data-match="<?= $mid ?>" data-market="<?= $mk ?>" data-pick="<?= h((string) $val) ?>" data-label="<?= h($label) ?>" data-odds="<?= h((string) $qv) ?>"
@@ -255,45 +304,15 @@ layout_start('Scommesse', 'bets');
 <h2 class="section-title">Le tue multiple aperte</h2>
 <p class="muted small">Costruiscile dalla scheda <a class="link" href="bets.php">Partite</a>: tocca una quota per aggiungerla alla schedina in basso, poi nella scheda «Multipla» della schedina combinane almeno due in un'unica giocata.</p>
 <?php if (!$comboOpen): ?><p class="empty card">Nessuna multipla in corso.</p><?php else: ?>
-<div class="list">
-  <?php foreach ($comboOpen as $c): ?>
-    <div class="card combo-card">
-      <div class="combo-legs-view">
-        <?php foreach ($c['legs'] as $l): ?>
-          <span class="tag<?= $l['status'] !== 'aperta' ? ' tag-' . ($l['status'] === 'vinta' ? 'ok' : ($l['status'] === 'persa' ? 'live' : '')) : '' ?>">
-            <?= fmt_date_short($l['match_date']) ?> · <?= h($markets[$l['market']]['label'] ?? $l['market']) ?>: <b><?= h($l['label']) ?></b> ×<?= fmt_num($l['odds'], 2) ?></span>
-        <?php endforeach; ?>
-      </div>
-      <div class="combo-card-foot">
-        <span><?= (int) $c['stake'] ?> gettoni a ×<?= fmt_num($c['odds'], 2) ?> = vinci <?= bet_payout((int) $c['stake'], $c['odds']) ?>
-          <span class="muted small">· solo se sono giuste tutte le <?= count($c['legs']) ?> scelte</span></span>
-        <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="combo_cancel"><input type="hidden" name="combo_id" value="<?= (int) $c['id'] ?>">
-          <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la multipla? Vigliacco.">Ritira</button></form>
-      </div>
-    </div>
-  <?php endforeach; ?>
+<div class="notepad-list">
+  <?php foreach ($comboOpen as $c): ?><?= combo_sheet($c, $markets, true) ?><?php endforeach; ?>
 </div>
 <?php endif; ?>
 
 <?php if ($comboHist): ?>
 <h2 class="section-title">Storico multiple <span class="muted small">saldo <?= fmt_signed($comboNet, 0) ?></span></h2>
-<div class="list">
-  <?php foreach ($comboHist as $c): ?>
-    <div class="card combo-card">
-      <div class="combo-legs-view">
-        <?php foreach ($c['legs'] as $l): ?>
-          <span class="tag<?= $l['status'] !== 'aperta' ? ' tag-' . ($l['status'] === 'vinta' ? 'ok' : ($l['status'] === 'persa' ? 'live' : '')) : '' ?>">
-            <?= fmt_date_short($l['match_date']) ?> · <?= h($markets[$l['market']]['label'] ?? $l['market']) ?>: <b><?= h($l['label']) ?></b> ×<?= fmt_num($l['odds'], 2) ?></span>
-        <?php endforeach; ?>
-      </div>
-      <div class="combo-card-foot">
-        <span><?= (int) $c['stake'] ?> gettoni a ×<?= fmt_num($c['odds'], 2) ?></span>
-        <?php if ($c['status'] === 'vinta'): ?><span class="tag tag-ok">vinta +<?= (int) $c['payout'] - (int) $c['stake'] ?></span>
-        <?php elseif ($c['status'] === 'persa'): ?><span class="tag tag-live">persa −<?= (int) $c['stake'] ?></span>
-        <?php else: ?><span class="tag">rimborsata</span><?php endif; ?>
-      </div>
-    </div>
-  <?php endforeach; ?>
+<div class="notepad-list">
+  <?php foreach ($comboHist as $c): ?><?= combo_sheet($c, $markets, false) ?><?php endforeach; ?>
 </div>
 <?php endif; ?>
 
@@ -454,18 +473,21 @@ layout_start('Scommesse', 'bets');
     });
 
     multiOddsOut.textContent = '×' + (cart.length ? multiOdds.toFixed(2) : '0');
-    // «chi vince» e «MVP»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori invece si sommano
+    // «chi vince», «over/under» e «MVP»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori invece
+    // si sommano, ma lo stesso giocatore su «segna», «doppietta» e «tripletta» no (una comprende l'altra). Stesse regole del server.
+    const SCORER = ['gol', 'doppietta', 'tripletta'];
     const seen = {};
-    const clash = cart.some(l => {
-      if (l.market === 'gol') return false;
-      const k = l.matchId + '|' + l.market;
-      if (seen[k]) return true;
+    let clash = null;
+    cart.forEach(l => {
+      const scorer = SCORER.includes(l.market);
+      const k = l.matchId + '|' + (scorer ? 'scorer|' + l.pick : l.market);
+      if (seen[k] && !clash) clash = scorer ? 'scorer' : 'excl';
       seen[k] = true;
-      return false;
     });
     const multiWarn = document.getElementById('slip-multi-warn');
     multiWarn.hidden = !clash;
-    multiWarn.textContent = clash ? 'Due scelte di «chi vince» o «MVP» della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).' : '';
+    multiWarn.textContent = clash === 'excl' ? 'Due scelte di «chi vince», «over/under» o «MVP» della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).'
+      : clash === 'scorer' ? 'Lo stesso giocatore può stare in uno solo tra «segna», «doppietta» e «tripletta» nella multipla (una comprende l\'altra): togline uno (restano valide come singole).' : '';
     document.getElementById('slip-multi-submit').disabled = clash || cart.length < 2;
     singlesSubmit.disabled = cart.length === 0;
     tabMulti.disabled = cart.length < 2;

@@ -18,13 +18,17 @@
  * Mercati (uno per giocatore e partita):
  *  - esito: chi vince (squadra 1, pareggio, squadra 2), si paga a fine partita;
  *  - gol: un giocatore segna almeno un gol, si paga a fine partita;
+ *  - doppietta / tripletta: un giocatore segna almeno 2 / almeno 3 gol, si paga a fine partita;
+ *  - overunder: i gol totali della partita stanno sopra o sotto una soglia (es. 8,5), si paga a fine partita. La soglia la
+ *    decide il sito dai gol attesi e viene salvata dentro la scelta ("O8.5" / "U8.5"): se poi la soglia proposta cambia,
+ *    chi ha già puntato tiene la sua;
  *  - mvp: chi sarà l'MVP, si paga alla chiusura delle votazioni.
  */
 
 const BET_START = 100;       // gettoni di benvenuto
 const BET_DOLE_BELOW = 20;   // chi scende sotto questa cifra (e non ha puntate in corso)...
 const BET_DOLE = 30;         // ...riceve il "sussidio" (una volta a settimana)
-const BET_MARGIN = ['esito' => 0.06, 'gol' => 0.12, 'mvp' => 0.15];   // margine del banco (overround) per mercato, come nei bookmaker veri
+const BET_MARGIN = ['esito' => 0.06, 'gol' => 0.12, 'doppietta' => 0.15, 'tripletta' => 0.18, 'overunder' => 0.06, 'mvp' => 0.15];   // margine del banco (overround) per mercato, come nei bookmaker veri
 const BET_RATING_K = 0.25;       // quanto pesa la differenza di rating tra le squadre sui gol attesi
 const BET_FORM = ['hot' => 1.12, 'ok' => 1.0, 'cold' => 0.88, 'none' => 1.0];   // effetto dello stato di forma (ultime 5 partite) su gol attesi e MVP
 const BET_DRAW_BOOST = 1.15;     // i pareggi sono più frequenti di quanto dica Poisson puro (correzione tipo Dixon-Coles)
@@ -39,8 +43,42 @@ function bet_markets(): array
     return [
         'esito' => ['label' => 'Chi vince?', 'icon' => 'trophy', 'when' => 'a fine partita'],
         'gol' => ['label' => 'Chi segna?', 'icon' => 'ball-football', 'when' => 'segna almeno un gol'],
+        'doppietta' => ['label' => 'Chi fa doppietta?', 'icon' => 'square-number-2', 'when' => 'segna almeno 2 gol'],
+        'tripletta' => ['label' => 'Chi fa tripletta?', 'icon' => 'square-number-3', 'when' => 'segna almeno 3 gol'],
+        'overunder' => ['label' => 'Over/Under', 'icon' => 'arrows-up-down', 'when' => 'gol totali della partita'],
         'mvp' => ['label' => 'Chi sarà l\'MVP?', 'icon' => 'star', 'when' => 'alla chiusura dei voti'],
     ];
+}
+
+/** Mercati in cui si punta su un giocatore (le scelte sono id di giocatori). */
+const BET_PLAYER_MARKETS = ['gol', 'doppietta', 'tripletta', 'mvp'];
+/** Mercati sui gol di un giocatore: stesso giocatore in due di questi nella stessa multipla non si può (uno implica l'altro). */
+const BET_SCORER_MARKETS = ['gol', 'doppietta', 'tripletta'];
+/** Mercati che si pagano col risultato (gli altri, cioè l'MVP, alla chiusura dei voti). */
+const BET_RESULT_MARKETS = ['esito', 'gol', 'doppietta', 'tripletta', 'overunder'];
+
+/** Scelta dell'over/under: "O8.5" / "U8.5" => ['O', 8.5], null se non valida. */
+function bet_ou_parse(string $pick): ?array
+{
+    return preg_match('/^([OU])(\d{1,2}\.5)$/', $pick, $m) ? [$m[1], (float) $m[2]] : null;
+}
+
+/** Scelta dell'over/under dalla direzione e dalla soglia. */
+function bet_ou_pick(string $side, float $line): string
+{
+    return $side . number_format($line, 1, '.', '');
+}
+
+/** Probabilità che una variabile di Poisson di media $lam valga almeno $k. */
+function bet_poisson_at_least(float $lam, int $k): float
+{
+    $term = exp(-$lam);
+    $below = 0.0;
+    for ($i = 0; $i < $k; $i++) {
+        $below += $term;
+        $term *= $lam / ($i + 1);
+    }
+    return max(0.0, 1 - $below);
 }
 
 /* ---------------------------------------------------------------- portafoglio */
@@ -159,13 +197,17 @@ function bet_poisson_1x2(float $la, float $lb): array
 }
 
 /**
- * Quote di una partita: ['esito' => [A, X, B], 'gol' => [id giocatore], 'mvp' => [id giocatore]] => quota decimale.
+ * Quote di una partita: ['esito' => [A, X, B], 'gol' / 'doppietta' / 'tripletta' / 'mvp' => [id giocatore],
+ * 'overunder' => ["O8.5", "U8.5"]] => quota decimale.
  *
  *  - esito: dalla differenza di rating medio delle due squadre (se non sono ancora fatte, partita in equilibrio) si ricavano i gol
  *    attesi di ciascuna, poi il modello di Poisson dà le probabilità di 1, X e 2 (con più pareggi del Poisson puro);
  *  - gol (segna almeno un gol): i gol attesi della partita (o della squadra) si ripartiscono tra i giocatori in proporzione ai loro gol
  *    a partita (stagione + ultime 5 partite + stato di forma); probabilità = 1 - e^(-gol attesi del giocatore). Chi segna spesso ed è
  *    in forma ha quota bassa, chi non segna mai quota alta;
+ *  - doppietta / tripletta: con gli stessi gol attesi, probabilità di Poisson di segnarne almeno 2 / almeno 3;
+ *  - overunder: la somma di due Poisson è una Poisson, con media i gol attesi totali: la soglia è il numero ",5" più vicino alla media
+ *    (così over e under sono circa alla pari) e le probabilità vengono da lì;
  *  - mvp: chi vince un premio tra tanti: pesa lo storico MVP, la media voto (stagione e ultime partite), la forma, i gol attesi e la probabilità che la sua squadra vinca;
  *    le probabilità si normalizzano a 100% prima del margine.
  * Chi non ha ancora confermato vale meno: potrebbe non esserci.
@@ -197,7 +239,15 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         'A' => bet_odds($pw, 'esito', 1.05, 30),
         'X' => bet_odds($pd, 'esito', 1.05, 30),
         'B' => bet_odds($pl, 'esito', 1.05, 30),
-    ], 'gol' => [], 'mvp' => []];
+    ], 'gol' => [], 'doppietta' => [], 'tripletta' => [], 'overunder' => [], 'mvp' => []];
+
+    $lamTot = $lam['A'] + $lam['B'];
+    $line = floor($lamTot) + 0.5;
+    $pOver = bet_poisson_at_least($lamTot, (int) ceil($line));
+    $out['overunder'] = [
+        bet_ou_pick('O', $line) => bet_odds($pOver, 'overunder', 1.05, 30),
+        bet_ou_pick('U', $line) => bet_odds(1 - $pOver, 'overunder', 1.05, 30),
+    ];
 
     // gol e MVP
     $rows = [];
@@ -220,6 +270,8 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         // gol attesi del giocatore: quota dei 2*mu gol della partita, aggiustata dalla forza della sua squadra
         $goals = $den > 0 ? $x['here'] * 2 * $mu * $x['w'] / $den * ($x['team'] ? $lam[$x['team']] / $mu : 1.0) : 0.0;
         $out['gol'][$pid] = bet_odds(1 - exp(-$goals), 'gol', 1.05, 50);
+        $out['doppietta'][$pid] = bet_odds(bet_poisson_at_least($goals, 2), 'doppietta', 1.20, 100);
+        $out['tripletta'][$pid] = bet_odds(bet_poisson_at_least($goals, 3), 'tripletta', 1.50, 200);
         $rate = ($x['s']['mvp'] + 3 / max(2, count($rows))) / ($x['s']['apps'] + 3);
         $v = (float) $x['s']['avg_vote'];
         $v5 = $x['s']['avg_vote_last5'];
@@ -349,6 +401,10 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
         if (!in_array($pick, ['A', 'X', 'B'], true)) {
             return 'Scegli chi vince.';
         }
+    } elseif ($market === 'overunder') {
+        if (!bet_ou_parse($pick)) {
+            return 'Scegli over o under.';
+        }
     } else {
         $ok = array_filter(bet_candidates((int) $match['id']), fn($r) => (string) $r['player_id'] === $pick);
         if (!$ok) {
@@ -419,8 +475,21 @@ function bet_winning_picks(array $match, string $market): array|false|null
         }
         return [(int) $match['score_a'] > (int) $match['score_b'] ? 'A' : ((int) $match['score_a'] < (int) $match['score_b'] ? 'B' : 'X')];
     }
-    if ($market === 'gol') {
-        return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND goals > 0', [$id])->fetchAll(PDO::FETCH_COLUMN));
+    $minGoals = ['gol' => 1, 'doppietta' => 2, 'tripletta' => 3][$market] ?? null;
+    if ($minGoals) {
+        return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND goals >= ?', [$id, $minGoals])->fetchAll(PDO::FETCH_COLUMN));
+    }
+    if ($market === 'overunder') {
+        if ($match['score_a'] === null || $match['score_b'] === null) {
+            return null;
+        }
+        // tutte le scelte vincenti per ogni soglia possibile: la soglia è salvata nella scelta, quindi si confronta così
+        $tot = (int) $match['score_a'] + (int) $match['score_b'];
+        $win = [];
+        for ($k = 0; $k < 100; $k++) {
+            $win[] = bet_ou_pick($k + 0.5 < $tot ? 'O' : 'U', $k + 0.5);
+        }
+        return $win;
     }
     if ($market === 'mvp') {
         if ($match['voting_open']) {
@@ -433,7 +502,7 @@ function bet_winning_picks(array $match, string $market): array|false|null
 }
 
 /** Paga le puntate ancora aperte dei mercati indicati (quelli già decisi restano com'è). Si può richiamare senza danni. */
-function bets_settle(int $matchId, array $markets = ['esito', 'gol', 'mvp']): void
+function bets_settle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'mvp']): void
 {
     $match = get_match($matchId);
     if (!$match) {
@@ -483,7 +552,7 @@ function bets_settle_pending(): void
 }
 
 /** Annulla i pagamenti dei mercati indicati (le puntate tornano aperte): serve se la partita o i voti vengono riaperti. */
-function bets_unsettle(int $matchId, array $markets = ['esito', 'gol', 'mvp']): void
+function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'mvp']): void
 {
     $in = implode(',', array_fill(0, count($markets), '?'));
     bet_atomic(function () use ($matchId, $markets, $in) {
@@ -502,12 +571,12 @@ function bets_unsettle(int $matchId, array $markets = ['esito', 'gol', 'mvp']): 
     });
 }
 
-/** Il risultato è stato salvato o corretto: rifà i pagamenti di "chi vince" e "chi segna". */
+/** Il risultato è stato salvato o corretto: rifà i pagamenti dei mercati legati a risultato e marcatori. */
 function bets_resettle_result(int $matchId): void
 {
     bet_atomic(function () use ($matchId) {
-        bets_unsettle($matchId, ['esito', 'gol']);
-        bets_settle($matchId, ['esito', 'gol']);
+        bets_unsettle($matchId, BET_RESULT_MARKETS);
+        bets_settle($matchId, BET_RESULT_MARKETS);
     });
 }
 
@@ -546,16 +615,28 @@ function combo_prepare(array $raw, int $playerId): array
         $seen[$dup] = true;
         // «chi vince» e «MVP» hanno un solo esito vincente: due scelte della stessa partita in una multipla si escludono
         // a vicenda (sarebbe persa di sicuro), come nei bookmaker veri. I marcatori invece possono segnare in tanti.
-        if ($market !== 'gol') {
+        if (!in_array($market, BET_SCORER_MARKETS, true)) {
             $excl = $matchId . '|' . $market;
             if (isset($seen[$excl])) {
                 return [null, 'Nella multipla puoi mettere una sola scelta di «' . bet_markets()[$market]['label'] . '» per partita: si escludono a vicenda. Due marcatori invece sì.'];
             }
             $seen[$excl] = true;
+        } else {
+            // stesso giocatore su «segna», «doppietta» e «tripletta» nella stessa multipla no: una implica l'altra (la tripletta
+            // basterebbe da sola), moltiplicarne le quote sarebbe pagare due volte lo stesso evento
+            $scorer = $matchId . '|scorer|' . $pick;
+            if (isset($seen[$scorer])) {
+                return [null, 'Nella multipla lo stesso giocatore può stare in uno solo tra «segna», «doppietta» e «tripletta»: una comprende l\'altra.'];
+            }
+            $seen[$scorer] = true;
         }
         if ($market === 'esito') {
             if (!in_array($pick, ['A', 'X', 'B'], true)) {
                 return [null, 'Scelta non valida su «chi vince».'];
+            }
+        } elseif ($market === 'overunder') {
+            if (!bet_ou_parse($pick)) {
+                return [null, 'Scelta non valida su «over/under».'];
             }
         } elseif (!array_filter(bet_candidates($matchId), fn($c) => (string) $c['player_id'] === $pick)) {
             return [null, 'Scegli un giocatore che gioca quella partita.'];
@@ -731,11 +812,15 @@ function combo_maybe_settle(int $comboId): void
 
 /* ---------------------------------------------------------------- parole */
 
-/** "Blu", "Pareggio", "Arancio" o il nome del giocatore, a partire dalla scelta salvata. */
+/** "Blu", "Pareggio", "Arancio", "Over 8,5 gol" o il nome del giocatore, a partire dalla scelta salvata. */
 function bet_pick_label(array $match, string $market, string $pick, array $names = []): string
 {
     if ($market === 'esito') {
         return $pick === 'X' ? 'Pareggio' : team_name($pick, $match);
+    }
+    if ($market === 'overunder') {
+        $ou = bet_ou_parse($pick);
+        return $ou ? ($ou[0] === 'O' ? 'Over ' : 'Under ') . number_format($ou[1], 1, ',', '') . ' gol' : '?';
     }
     return $names[(int) $pick] ?? (get_player((int) $pick)['name'] ?? '?');
 }
