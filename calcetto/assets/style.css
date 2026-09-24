@@ -751,6 +751,30 @@ html.tour-open { overflow: hidden; }
 @media (max-width: 640px) { .bg-layout { grid-template-columns: 1fr; } }
 .bg-preview { --pc: var(--sky); --pc2: #7ad6f8; aspect-ratio: 5 / 2; border: var(--b2); border-radius: 14px; box-shadow: var(--sh-sm);
   background: repeating-linear-gradient(135deg, var(--pc) 0 14px, var(--pc2) 14px 28px); }
+/* anteprime dello sfondo nel modulo: come esce nel profilo (orizzontale) e nella card della Rosa (verticale) */
+.bg-previews { display: grid; grid-template-columns: 1fr 88px; gap: 10px; align-items: end; }
+.bg-previews figure { margin: 0; display: grid; gap: 4px; }
+.bg-previews figcaption { font-size: .72rem; font-weight: 800; color: var(--muted); text-align: center; }
+.bg-previews .bg-preview { aspect-ratio: 4 / 1; }
+.bg-previews .bg-preview-v { aspect-ratio: 3 / 4; border-radius: 12px; }
+.bg-recrop[hidden] { display: none; }
+
+/* editor dello sfondo: una foto, due riquadri (orizzontale e verticale) da spostare e ridimensionare */
+.bge-box { width: min(100%, 760px); }
+.bge-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.bge-stage { position: relative; margin-inline: auto; background: #222; border: var(--b2); border-radius: 12px; overflow: hidden; touch-action: none; user-select: none; }
+.bge-stage img { display: block; width: 100%; height: 100%; pointer-events: none; }
+.bge-rect { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55); cursor: move; touch-action: none; }
+.bge-rect::after { content: ""; position: absolute; inset: 33.33% 0; border-block: 1px dashed rgba(255, 255, 255, .5); pointer-events: none; }
+.bge-ghost { position: absolute; border: 2px dashed rgba(255, 210, 63, .9); pointer-events: none; }
+.bge-handle { position: absolute; width: 24px; height: 24px; right: 2px; bottom: 2px; background: var(--yellow); border: var(--b2); border-radius: 50%; cursor: nwse-resize; touch-action: none; }
+.bge-previews { display: grid; grid-template-columns: 1fr 96px; gap: 12px; align-items: end; }
+.bge-previews figure { margin: 0; display: grid; gap: 4px; }
+.bge-previews figcaption { font-size: .75rem; font-weight: 800; color: var(--muted); text-align: center; }
+.bge-prev { border: var(--b2); border-radius: 12px; background-repeat: no-repeat; background-color: #222; cursor: pointer; }
+.bge-prev.is-on { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.bge-prev-h { aspect-ratio: 4 / 1; }
+.bge-prev-v { aspect-ratio: 3 / 4; }
 .bg-controls { display: grid; gap: 10px; }
 .bg-panel[hidden] { display: none; }
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -759,6 +783,11 @@ html.tour-open { overflow: hidden; }
 .swatch-custom { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); }
 .swatch-custom input { position: absolute; inset: -6px; width: 44px; height: 44px; opacity: 0; cursor: pointer; }
 .profile.has-bg-image { text-shadow: none; }
+/* sfondo a immagine: due ritagli della stessa foto (profile_bg_style in lib/helpers.php mette --bg-h e --bg-v).
+   Orizzontale 4:1 per l'intestazione del profilo, verticale 3:4 per la card della Rosa e per il profilo quando va a capo. */
+.profile.has-bg-image { background: var(--bg-h) center / cover no-repeat, var(--pc); }
+.pcard.has-bg-image { background: radial-gradient(circle at 50% 38%, rgba(255, 255, 255, .55) 0 58px, transparent 59px), var(--bg-v) center / cover no-repeat, var(--pc); }
+@media (max-width: 539px) { .profile.has-bg-image { background: var(--bg-v) center / cover no-repeat, var(--pc); } }
 
 .crop-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgba(31, 26, 46, .72); }
 .crop-box { width: min(100%, 560px); max-height: 100%; overflow: auto; background: var(--paper); border: var(--b); border-radius: 18px; box-shadow: var(--sh); padding: 16px; display: grid; gap: 10px; }

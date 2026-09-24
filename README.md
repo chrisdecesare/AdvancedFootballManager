@@ -166,8 +166,13 @@ chiama «Principale» e si rinomina (es. in YBQ).
 
 **Foto e sfondo del profilo:** in «Modifica profilo» chi sceglie una foto vede subito una finestra di ritaglio: trascina
 e ingrandisce (cursore, rotella o pizzico con due dita) per decidere quale parte tenere, e viene caricata solo quella (400x400).
-Lo sfondo della scheda del profilo (e della carta nella Rosa) può essere automatico (colore del ruolo), un colore a scelta oppure un'immagine, ritagliata
-allo stesso modo (1000x400). Se il browser non riesce a leggere il file, lo ritaglia il server (foto: parte alta, sfondo: centro).
+Lo sfondo della scheda del profilo (e della carta nella Rosa) può essere automatico (colore del ruolo), un colore a scelta oppure un'immagine.
+Per l'immagine si apre un editor con la **foto intera** e **due riquadri** da scegliere sulla stessa foto: quello **orizzontale** (4:1, l'intestazione
+del profilo sui computer) e quello **verticale** (3:4, la card nella Rosa e il profilo sui telefoni, dove l'intestazione va a capo). Ogni riquadro si
+sposta trascinandolo e si allarga o stringe dall'angolo giallo, con il cursore dello zoom, la rotella o due dita; sotto ci sono le due anteprime vere
+(«Così nel profilo», «Così nella Rosa»), anche nel modulo. Il server tiene l'originale ridotto (`bg_src`, max 1800 px) e ne ricava i due ritagli
+(`bg_image` 1200x300 e `bg_image_v` 600x800, riquadri in `bg_crop`): con «Cambia ritaglio» si scelgono parti diverse senza ricaricare la foto.
+Gli sfondi caricati prima hanno solo la versione orizzontale: si vedono come prima e con «Cambia ritaglio» si rifanno da quella.
 
 **Google Calendar:** nella scheda di una partita in programma (e nella prossima partita della Home) il
 pulsante «Aggiungi a Google Calendar» (e, nell'elenco Partite, il tasto con l'icona del calendario a destra di ogni partita in programma) apre Google Calendar con l'evento già compilato (data, ora, campo,
