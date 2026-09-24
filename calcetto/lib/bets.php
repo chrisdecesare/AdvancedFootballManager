@@ -36,6 +36,7 @@ const BET_PRIOR_MATCHES = 3;     // ...pesano come tante partite
 const BET_DEMAND_K = 0.5;        // forza con cui la quota si abbassa in base ai gettoni già puntati sulla stessa scelta
 const BET_DEMAND_REF = 120.0;    // scala di riferimento (gettoni): con questa cifra già puntata la quota scende di circa un terzo
 const BET_DEMAND_FLOOR = 0.55;   // la domanda da sola non può mai abbassare una quota sotto il 55% di quella "di apertura"
+const BET_MIN_ODDS = 1.01;       // nessuna quota scende mai sotto ×1,01: chi indovina deve sempre guadagnare almeno qualcosa
 
 function bet_markets(): array
 {
@@ -151,7 +152,7 @@ function bet_leaderboard(): array
 function bet_odds(float $p, string $market, float $min, float $max): float
 {
     $p = max(0.001, min(0.999, $p));
-    return round(max($min, min($max, 1 / ($p * (1 + BET_MARGIN[$market])))), 2);
+    return round(max(BET_MIN_ODDS, $min, min($max, 1 / ($p * (1 + BET_MARGIN[$market])))), 2);
 }
 
 /** Gol a partita attesi da un giocatore che non ha ancora giocato, in base al ruolo (poi pesano i suoi dati). */
@@ -361,7 +362,8 @@ function bet_demand_shorten(array $odds, array $demand): array
         $staked = $demand[$pick] ?? 0;
         if ($staked > 0) {
             $adj = $o / (1 + BET_DEMAND_K * $staked / BET_DEMAND_REF);
-            $odds[$pick] = round(max($o * BET_DEMAND_FLOOR, $adj), 2);
+            // mai sotto il 55% dell'apertura, e comunque mai sotto ×1,01 (una quota di ×1,05 molto puntata scendeva sotto ×1: si perdeva vincendo)
+            $odds[$pick] = round(max(BET_MIN_ODDS, $o * BET_DEMAND_FLOOR, $adj), 2);
         }
     }
     return $odds;
@@ -693,9 +695,9 @@ function combo_odds(array $legs): float
 {
     $o = 1.0;
     foreach ($legs as $l) {
-        $o *= (float) $l['odds'];
+        $o *= max(BET_MIN_ODDS, (float) $l['odds']);
     }
-    return round($o, 2);
+    return round(max(BET_MIN_ODDS, $o), 2);
 }
 
 /** Fa una multipla. Ritorna il messaggio d'errore oppure null se è andata. */
@@ -834,7 +836,7 @@ function combo_maybe_settle(int $comboId): void
         // le gambe rimborsate escono dal conto (come i mercati saltati dai bookmaker veri): la quota resta quella delle altre
         $odds = 1.0;
         foreach ($won as $l) {
-            $odds *= (float) $l['odds'];
+            $odds *= max(BET_MIN_ODDS, (float) $l['odds']);
         }
         $pay = (int) floor((int) $combo['stake'] * $odds + 1e-9);
         q("UPDATE combo_bets SET status = 'vinta', payout = ?, settled_at = NOW() WHERE id = ?", [$pay, $comboId]);
