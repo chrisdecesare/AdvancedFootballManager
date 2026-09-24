@@ -212,6 +212,12 @@ salva con la puntata (`bets.odds`): vincita = puntata × quota, chi sbaglia perd
 - **Chi sarà l'MVP?** pesano i premi MVP, la media voto (stagione e ultime partite), la forma, i gol attesi e la probabilità che la sua squadra vinca; le probabilità si normalizzano a 100% prima del margine.
 
 Chi non ha ancora confermato la presenza vale meno (potrebbe non esserci). Le costanti (margini, peso della forma, correzione dei pareggi) sono in cima a `lib/bets.php`.
+**Quote alzate nelle prime partite:** con pochi dati l'incertezza è maggiore, quindi finché un gruppo non ha ancora nessuna partita giocata
+(e per tutte le partite già in programma quando è arrivata questa regola) ogni quota diventa `quota × 1,17 + c`, con `c` tra 0,2 e 0,5
+(`BET_BOOST_MULT`, `BET_BOOST_C`, funzione `bet_boost`). La `c` cambia da una scelta all'altra ma resta la stessa per la stessa scelta, quindi
+ricaricare la pagina non la cambia. Con l'aggiornamento del database (versione 28) tutte le puntate ancora aperte, singole e multiple, sono state
+ricalcolate con le quote nuove (il riepilogo è in `meta.requote_v28`).
+
 Se manca il dato (nessuno ha votato l'MVP) le puntate sono rimborsate. **Le scommesse si aprono 48 ore prima della partita** (`BET_OPEN_HOURS`; se la partita
 viene creata a meno di 48 ore, sono aperte subito) e si chiudono al calcio d'inizio: fino ad allora si può cambiare o ritirare la puntata.
 

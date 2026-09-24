@@ -41,6 +41,8 @@ const BET_FLATTEN = 0.3;         // quanto i gol attesi dei giocatori vengono av
                                  // a calcetto (portieri volanti) tutti prima o poi tirano, le differenze non devono essere estreme
 const BET_REWARD_GOAL = 25;      // gettoni a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
 const BET_REWARD_ASSIST = 10;    // e per ogni assist
+const BET_BOOST_MULT = 1.17;     // prime partite (più incertezza): quota finale = quota x 1,17 + c...
+const BET_BOOST_C = [0.2, 0.5];  // ...con c tra 0,2 e 0,5, diverso per ogni scelta (vedi bet_boost)
 const BET_OPEN_HOURS = 48;       // le scommesse su una partita si aprono 48 ore prima del calcio d'inizio (e da lì i ruoli sono bloccati)
 
 function bet_markets(): array
@@ -343,7 +345,40 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
     foreach ($out as $mk => $picks) {
         $out[$mk] = bet_demand_shorten($picks, $demand[$mk] ?? []);
     }
-    return $out;
+    return bet_boost_applies($match) ? bet_boost($out, $id) : $out;
+}
+
+/**
+ * Le quote di questa partita vanno alzate? Sì per le prime partite, quando i dati sono pochi e l'incertezza è di più:
+ * finché il gruppo non ha ancora nessuna partita giocata, e per le partite già in programma quando è stata introdotta la
+ * regola (meta 'bet_boost_until' = id più alto di allora, fissato dalla migrazione 28).
+ */
+function bet_boost_applies(array $match): bool
+{
+    static $played = [];
+    if ((int) $match['id'] <= (int) (meta_get('bet_boost_until') ?? 0)) {
+        return true;
+    }
+    $gid = (int) $match['group_id'];
+    $played[$gid] ??= (bool) q("SELECT 1 FROM matches WHERE group_id = ? AND status = 'giocata' LIMIT 1", [$gid])->fetchColumn();
+    return !$played[$gid];
+}
+
+/**
+ * Quota finale = quota x BET_BOOST_MULT + c, con c tra 0,2 e 0,5. La c "oscilla" tra una scelta e l'altra ma è sempre la stessa
+ * per la stessa scelta della stessa partita (viene da un'impronta di partita, mercato e scelta): così la quota non cambia a ogni
+ * caricamento della pagina e nessuno può ricaricare finché esce la c più alta.
+ */
+function bet_boost(array $quotes, int $matchId): array
+{
+    [$lo, $hi] = BET_BOOST_C;
+    foreach ($quotes as $mk => $picks) {
+        foreach ($picks as $pick => $o) {
+            $c = $lo + ($hi - $lo) * (crc32($matchId . '|' . $mk . '|' . $pick) / 0xFFFFFFFF);
+            $quotes[$mk][$pick] = round((float) $o * BET_BOOST_MULT + $c, 2);
+        }
+    }
+    return $quotes;
 }
 
 /**
@@ -724,14 +759,14 @@ function bets_requote_open(): array
             $singles++;
         }
     }
-    foreach (q("SELECT id FROM combo_bets WHERE status = 'aperta'")->fetchAll(PDO::FETCH_COLUMN) as $cid) {
+    foreach (q("SELECT id, player_id FROM combo_bets WHERE status = 'aperta'")->fetchAll(PDO::FETCH_KEY_PAIR) as $cid => $owner) {
         $changed = false;
         $odds = 1.0;
         foreach (q("SELECT cl.id, cl.match_id, cl.market, cl.pick, cl.odds, cl.status, m.status AS mstatus FROM combo_legs cl JOIN matches m ON m.id = cl.match_id
                     WHERE cl.combo_id = ?", [$cid])->fetchAll() as $l) {
             $o = (float) $l['odds'];
             if ($l['status'] === 'aperta' && $l['mstatus'] === 'programmata') {
-                $new = $quotes((int) $l['match_id'], null)[$l['market']][$l['pick']] ?? null;
+                $new = $quotes((int) $l['match_id'], (int) $owner)[$l['market']][$l['pick']] ?? null;   // come quando l'ha giocata
                 if ($new !== null && abs((float) $new - $o) > 0.001) {
                     q('UPDATE combo_legs SET odds = ? WHERE id = ?', [$new, $l['id']]);
                     $o = (float) $new;
