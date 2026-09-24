@@ -4,6 +4,25 @@ require __DIR__ . '/lib/bootstrap.php';
 require_view();
 
 $me = my_player_id();
+
+/*
+ * Quote aggiornate in JSON per la schedina (assets/bets.js le richiede ogni tanto mentre la pagina è aperta):
+ * {id partita: {mercato: {scelta: quota}}} per le partite indicate (?quote=1&m[]=...), solo se aperte e visibili.
+ */
+if (isset($_GET['quote'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    $out = [];
+    foreach (array_slice(array_unique(array_map('intval', (array) ($_GET['m'] ?? []))), 0, 20) as $mid) {
+        $m = $mid ? get_match($mid) : null;
+        if ($m && match_access($m) && bets_open_for($m)) {
+            $out[$mid] = bet_quotes($m, $me);
+        } elseif ($m) {
+            $out[$mid] = null;   // chiusa (iniziata o finita): dalla schedina va tolta
+        }
+    }
+    echo json_encode($out);
+    exit;
+}
 $tab = match ($_GET['t'] ?? '') { 'mie', 'multiple' => 'mie', 'classifica' => 'classifica', default => 'partite' };   // 'multiple': vecchi link
 
 /* ---------------------------------------------------------------- azioni */
@@ -18,6 +37,8 @@ if (is_post()) {
             wallet_open($me);
             $legsRaw = is_array($_POST['legs'] ?? null) ? $_POST['legs'] : [];
             $stakesRaw = is_array($_POST['stakes'] ?? null) ? $_POST['stakes'] : [];
+            $seenRaw = is_array($_POST['seen'] ?? null) ? $_POST['seen'] : [];   // quote che la persona vedeva nella schedina
+            $moved = [];
             $ok = 0;
             $total = 0;
             $firstErr = null;
@@ -39,11 +60,19 @@ if (is_post()) {
                 } else {
                     $ok++;
                     $total += $stake;
-                    log_activity('puntata', bet_pick_label($m, (string) $market, (string) $pick) . ' · ' . $stake . ' gettoni', (int) $m['group_id']);
+                    $label = bet_pick_label($m, (string) $market, (string) $pick);
+                    log_activity('puntata', $label . ' · ' . $stake . ' gettoni', (int) $m['group_id']);
+                    $placed = (float) q("SELECT odds FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
+                        [$m['id'], $me, $market, $pick])->fetchColumn();
+                    $seen = (float) ($seenRaw[$i] ?? 0);
+                    if ($seen > 0 && abs($seen - $placed) >= 0.01) {
+                        $moved[] = $label . ' ×' . fmt_num($seen, 2) . ' → ×' . fmt_num($placed, 2);
+                    }
                 }
             }
             if ($ok) {
                 flash('ok', $ok . ($ok > 1 ? ' puntate singole piazzate' : ' puntata singola piazzata') . " ({$total} gettoni in tutto)."
+                    . ($moved ? ' Nel frattempo la quota era cambiata: ' . implode(', ', $moved) . '.' : '')
                     . ($firstErr ? ' Una non è andata a buon fine: ' . $firstErr : ''));
             } else {
                 flash('err', $firstErr ?: 'Nessuna puntata piazzata.');
@@ -66,6 +95,10 @@ if (is_post()) {
                 flash('err', $err);
             } else {
                 $odds = combo_odds($legs);
+                $seen = (float) ($_POST['seen_combo'] ?? 0);
+                if ($seen > 0 && abs($seen - $odds) >= 0.01) {
+                    flash('ok', 'Nel frattempo la quota della multipla era cambiata: ×' . fmt_num($seen, 2) . ' → ×' . fmt_num($odds, 2) . '.');
+                }
                 log_activity('multipla', count($legs) . ' scelte · ' . $stake . ' gettoni a ×' . fmt_num($odds, 2), (int) get_match((int) $legs[0]['match_id'])['group_id']);
                 flash('ok', 'Multipla da ' . count($legs) . ' su ' . $stake . ' gettoni a ×' . fmt_num($odds, 2)
                     . ': se le indovini tutte vinci ' . bet_payout($stake, $odds) . '. Chi non risica...');
@@ -206,6 +239,7 @@ layout_start('Scommesse', 'bets');
     (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
+    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> gettoni e ogni assist <?= BET_REWARD_ASSIST ?>, appena viene salvato il risultato. Su te stesso (chi segna, doppietta, tripletta, MVP) non si scommette.
     I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
 </section>
 
@@ -223,7 +257,7 @@ layout_start('Scommesse', 'bets');
     $open = bets_open_for($m);
     $cands = bet_candidates($mid);
     $all = can_admin_group((int) $m['group_id']) ? match_bets($mid) : [];   // chi ha puntato su cosa lo vede solo chi amministra la lega: ai giocatori resta la sorpresa
-    $quotes = bet_quotes($m);
+    $quotes = bet_quotes($m, $me);   // come quando si punta: le proprie puntate non abbassano le proprie quote
     $canBet = $me && $open && (is_admin() || player_in_group($me, (int) $m['group_id'])); ?>
 <section class="card bet-match" id="m<?= $mid ?>">
   <div class="card-head">
@@ -241,7 +275,9 @@ layout_start('Scommesse', 'bets');
           // la soglia la sceglie chi punta: niente elenco di pulsanti, c'è il selettore qui sotto (quote per ogni soglia)
       } else {
           foreach ($cands as $c) {
-              $opts[(string) $c['player_id']] = $c['name'];
+              if ((int) $c['player_id'] !== (int) $me) {   // su se stessi non si scommette
+                  $opts[(string) $c['player_id']] = $c['name'];
+              }
           }
       }
       $q = $quotes[$mk] ?? [];
@@ -277,7 +313,7 @@ layout_start('Scommesse', 'bets');
           <span class="ou-help muted small">Over: <b class="ou-over-txt"><?= (int) ceil($ouStart) ?> o più gol</b> · Under: <b class="ou-under-txt"><?= (int) floor($ouStart) ?> o meno</b></span>
         </div>
       <?php elseif ($canBet && $opts): ?>
-        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= in_array($mk, BET_PLAYER_MARKETS, true) ? ' (anche più di una: es. due marcatori diversi)' : '' ?>:</p>
+        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= in_array($mk, BET_PLAYER_MARKETS, true) ? ' (anche più di una: es. due marcatori diversi; su te stesso non si può)' : '' ?>:</p>
         <div class="quota-picks">
           <?php foreach ($opts as $val => $label): if (!isset($q[$val])) { continue; } $qv = $q[$val];
               $isMine = in_array((string) $val, $myPicks, true); ?>
@@ -310,7 +346,8 @@ layout_start('Scommesse', 'bets');
 <?php elseif (!$openSingles && !$comboOpen && !$history && !$comboHist): ?>
 <p class="empty card">Non hai ancora fatto nessuna scommessa: vai su <a class="link" href="bets.php">Partite</a> e tocca una quota.</p>
 <?php else: ?>
-<p class="muted small">Tutte le tue scommesse, singole e multiple: in gioco <b><?= $inPlay ?></b> gettoni · saldo delle scommesse decise <b><?= fmt_signed($net + $comboNet, 0) ?></b>.</p>
+<p class="muted small">Tutte le tue scommesse, singole e multiple: in gioco <b><?= $inPlay ?></b> gettoni · saldo delle scommesse decise <b><?= fmt_signed($net + $comboNet, 0) ?></b>
+  · premi per gol e assist <b>+<?= player_rewards_total($me) ?></b> (<?= BET_REWARD_GOAL ?> a gol, <?= BET_REWARD_ASSIST ?> ad assist).</p>
 
 <h2 class="section-title">Singole in corso</h2>
 <?php if (!$openSingles): ?><p class="empty card">Nessuna singola in corso.</p><?php else: ?>

@@ -70,13 +70,20 @@
 
       const row = document.createElement('div');
       row.className = 'slip-leg';
-      row.innerHTML = '<span class="slip-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2) + '</span>';
+      // quota aggiornata da poco: freccia su/giù per qualche secondo
+      const moved = leg.moved && Date.now() - (leg.movedAt || 0) < 15000 ? leg.moved : '';
+      row.className = 'slip-leg' + (moved ? ' is-moved-' + moved : '');
+      row.innerHTML = '<span class="slip-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2)
+        + (moved ? ' <span class="slip-move" title="Quota appena cambiata">' + (moved === 'up' ? '▲' : '▼') + '</span>' : '') + '</span>';
 
       // scheda «Singole»: uno stake per selezione, aggiornato in tempo reale. La lista è fuori dal <form> (resta visibile
       // anche nella scheda Multipla), quindi questi campi si legano al form con l'attributo form="..." invece che con il nesting,
       // altrimenti il browser non li invia e "Punta le singole" risulta come se non si fosse puntato nulla.
       const legIn = hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick);
       legIn.setAttribute('form', 'slip-singles-form');
+      const seenIn = hidden('seen[]', leg.odds);           // la quota vista: se nel frattempo cambia, il server lo dice
+      seenIn.setAttribute('form', 'slip-singles-form');
+      row.appendChild(seenIn);
       const stakeIn = document.createElement('input');
       stakeIn.type = 'number'; stakeIn.name = 'stakes[]'; stakeIn.className = 'slip-leg-stake';
       stakeIn.min = 1; stakeIn.max = Math.max(1, balance); stakeIn.inputMode = 'numeric';
@@ -107,6 +114,7 @@
     });
 
     multiOddsOut.textContent = '×' + (cart.length ? multiOdds.toFixed(2) : '0');
+    multiLegsBox.appendChild(hidden('seen_combo', multiOdds.toFixed(2)));
     // «chi vince», «over/under» e «MVP»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori invece
     // si sommano, ma lo stesso giocatore su «segna», «doppietta» e «tripletta» no (una comprende l'altra). Stesse regole del server.
     const SCORER = ['gol', 'doppietta', 'tripletta'];
@@ -168,6 +176,10 @@
       box.querySelector('.ou-under-txt').textContent = Math.floor(line) + ' o meno';
       refreshPicked();
     };
+    box.addEventListener('ou:refresh', () => {
+      Object.assign(table, JSON.parse(box.dataset.ou));
+      set(parseFloat(input.value));
+    });
     box.querySelectorAll('[data-ou-step]').forEach(b => b.addEventListener('click', () => set(parseFloat(input.value) + parseInt(b.dataset.ouStep, 10))));
     input.addEventListener('change', () => set(parseFloat(String(input.value).replace(',', '.'))));
   });
@@ -187,6 +199,64 @@
   document.getElementById('slip-clear-2').addEventListener('click', clearAll);
   panelSingole.addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
   panelMulti.addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
+
+  // Quote dal vivo: cambiano con le puntate degli altri e con presenze e squadre. Mentre la pagina è aperta si chiedono al server
+  // ogni 20 secondi (solo se la pagina si vede) e si aggiornano pulsanti, selettore dell'over/under e schedina. Le selezioni di
+  // partite ormai chiuse escono dalla schedina.
+  const fmt = n => n.toFixed(2).replace('.', ',');
+  const applyQuotes = data => {
+    let dirty = false;
+    document.querySelectorAll('[data-slip-add]:not([data-ou-side])').forEach(btn => {
+      const o = ((data[btn.dataset.match] || {})[btn.dataset.market] || {})[btn.dataset.pick];
+      if (o && parseFloat(btn.dataset.odds) !== o) {
+        btn.dataset.odds = o;
+        const b = btn.querySelector('b');
+        if (b) b.textContent = '×' + fmt(o);
+      }
+    });
+    document.querySelectorAll('.ou-picker').forEach(box => {
+      const btn = box.querySelector('[data-ou-side]');
+      const ou = btn && (data[btn.dataset.match] || {}).overunder;
+      if (!ou) return;
+      const table = {};
+      Object.entries(ou).forEach(([pick, o]) => {
+        const line = parseFloat(pick.slice(1)).toFixed(1);
+        table[line] = table[line] || [0, 0];
+        table[line][pick[0] === 'O' ? 0 : 1] = o;
+      });
+      box.dataset.ou = JSON.stringify(table);
+      box.dispatchEvent(new Event('ou:refresh'));
+    });
+    cart = cart.filter(l => {
+      if (!(l.matchId in data)) return true;              // partita non chiesta: resta com'è
+      const q = data[l.matchId];
+      if (q === null) { dirty = true; return false; }     // partita chiusa: fuori dalla schedina
+      const o = (q[l.market] || {})[l.pick];
+      if (o && Math.abs(o - l.odds) >= 0.005) {
+        l.moved = o > l.odds ? 'up' : 'down';
+        l.movedAt = Date.now();
+        l.odds = o;
+        dirty = true;
+      }
+      return true;
+    });
+    if (dirty) { save(cart); render(); }
+  };
+  const poll = async () => {
+    const ids = new Set(cart.map(l => l.matchId));
+    document.querySelectorAll('[data-slip-add]').forEach(b => ids.add(b.dataset.match));
+    if (!ids.size || document.hidden) return;
+    const qs = [...ids].slice(0, 20).map(id => 'm[]=' + encodeURIComponent(id)).join('&');
+    try {
+      const r = await fetch('bets.php?quote=1&' + qs, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      if (r.ok) applyQuotes(await r.json());
+    } catch (e) { /* rete assente: si riprova al giro dopo */ }
+  };
+  // appena aperta la pagina la schedina (salvata magari minuti fa) prende subito le quote di adesso
+  poll();
+  setInterval(poll, 20000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  setInterval(() => { if (cart.some(l => l.moved && Date.now() - (l.movedAt || 0) >= 15000 && Date.now() - l.movedAt < 17000)) render(); }, 2000);
 
   render();
 })();

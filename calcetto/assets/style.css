@@ -1226,3 +1226,9 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .bge-q.q-top, .bge-q.q-ok { color: var(--grass-d); }
 .bge-q.q-mid { color: #b86e00; }
 .bge-q.q-low { color: var(--red); }
+.slip-move { font-size: .8em; }
+.slip-leg.is-moved-up .slip-move { color: var(--grass-d); }
+.slip-leg.is-moved-down .slip-move { color: var(--red); }
+.slip-leg.is-moved-up, .slip-leg.is-moved-down { animation: slip-flash 1.2s ease-out; }
+@keyframes slip-flash { from { background: var(--yellow); } }
+@media (prefers-reduced-motion: reduce) { .slip-leg.is-moved-up, .slip-leg.is-moved-down { animation: none; } }

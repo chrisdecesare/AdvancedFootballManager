@@ -37,6 +37,10 @@ const BET_DEMAND_K = 0.5;        // forza con cui la quota si abbassa in base ai
 const BET_DEMAND_REF = 120.0;    // scala di riferimento (gettoni): con questa cifra già puntata la quota scende di circa un terzo
 const BET_DEMAND_FLOOR = 0.55;   // la domanda da sola non può mai abbassare una quota sotto il 55% di quella "di apertura"
 const BET_MIN_ODDS = 1.01;       // nessuna quota scende mai sotto ×1,01: chi indovina deve sempre guadagnare almeno qualcosa
+const BET_FLATTEN = 0.3;         // quanto i gol attesi dei giocatori vengono avvicinati alla media della partita (0 = niente, 1 = tutti uguali):
+                                 // a calcetto (portieri volanti) tutti prima o poi tirano, le differenze non devono essere estreme
+const BET_REWARD_GOAL = 25;      // gettoni a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
+const BET_REWARD_ASSIST = 10;    // e per ogni assist
 
 function bet_markets(): array
 {
@@ -155,10 +159,13 @@ function bet_odds(float $p, string $market, float $min, float $max): float
     return round(max(BET_MIN_ODDS, $min, min($max, 1 / ($p * (1 + BET_MARGIN[$market])))), 2);
 }
 
-/** Gol a partita attesi da un giocatore che non ha ancora giocato, in base al ruolo (poi pesano i suoi dati). */
+/**
+ * Gol a partita attesi da un giocatore che non ha ancora giocato, in base al ruolo (poi pesano i suoi dati).
+ * Valori vicini tra loro: a calcetto si gioca a portieri volanti, chi è in porta prima o poi va anche in attacco.
+ */
 function bet_goal_prior(?string $position): float
 {
-    return ['POR' => 0.03, 'DIF' => 0.18, 'CEN' => 0.35, 'ATT' => 0.65, 'JOL' => 0.35][position_abbr((string) $position)] ?? 0.35;
+    return ['POR' => 0.30, 'DIF' => 0.34, 'CEN' => 0.40, 'ATT' => 0.50, 'JOL' => 0.40][position_abbr((string) $position)] ?? 0.40;
 }
 
 /** Gol medi segnati da una squadra in una partita, dalle partite giocate dal gruppo (con un valore di partenza finché sono poche). */
@@ -263,7 +270,13 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $recent = ($s['goals_last5'] + $season * 2) / (count($s['last5']) + 2);
         $w = (0.65 * $season + 0.35 * $recent) * BET_FORM[$s['form'] ?? 'none'];
         $rows[$pid] = ['s' => $s, 'here' => $here, 'w' => $w, 'team' => in_array($r['team'], ['A', 'B'], true) ? $r['team'] : null];
-        $den += $here * $w;
+    }
+    // differenze attenuate: ognuno si avvicina un po' alla media della partita (nessuno a quote assurde solo per il ruolo o
+    // per qualche partita storta)
+    $avgW = $rows ? array_sum(array_column($rows, 'w')) / count($rows) : 0.0;
+    foreach ($rows as $pid => $x) {
+        $rows[$pid]['w'] = (1 - BET_FLATTEN) * $x['w'] + BET_FLATTEN * $avgW;
+        $den += $x['here'] * $rows[$pid]['w'];
     }
     // over/under: gol attesi totali, poi una quota over e una under per ogni soglia
     $apps = $goals = 0;
@@ -302,9 +315,10 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
     foreach ($rows as $pid => $x) {
         // gol attesi del giocatore: quota dei 2*mu gol della partita, aggiustata dalla forza della sua squadra
         $goals = $den > 0 ? $x['here'] * 2 * $mu * $x['w'] / $den * ($x['team'] ? $lam[$x['team']] / $mu : 1.0) : 0.0;
-        $out['gol'][$pid] = bet_odds(1 - exp(-$goals), 'gol', 1.05, 50);
-        $out['doppietta'][$pid] = bet_odds(bet_poisson_at_least($goals, 2), 'doppietta', 1.20, 100);
-        $out['tripletta'][$pid] = bet_odds(bet_poisson_at_least($goals, 3), 'tripletta', 1.50, 200);
+        // tetti più bassi di prima (erano 50 / 100 / 200): una quota da 200 su un giocatore che comunque tira non ha senso
+        $out['gol'][$pid] = bet_odds(1 - exp(-$goals), 'gol', 1.05, 15);
+        $out['doppietta'][$pid] = bet_odds(bet_poisson_at_least($goals, 2), 'doppietta', 1.20, 35);
+        $out['tripletta'][$pid] = bet_odds(bet_poisson_at_least($goals, 3), 'tripletta', 1.50, 75);
         $rate = ($x['s']['mvp'] + 3 / max(2, count($rows))) / ($x['s']['apps'] + 3);
         $v = (float) $x['s']['avg_vote'];
         $v5 = $x['s']['avg_vote_last5'];
@@ -314,7 +328,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
     }
     $tot = array_sum($mvpW);
     foreach ($mvpW as $pid => $x) {
-        $out['mvp'][$pid] = bet_odds($x / $tot, 'mvp', 1.10, 60);
+        $out['mvp'][$pid] = bet_odds($x / $tot, 'mvp', 1.10, 40);
     }
 
     // il banco si protegge: la quota di ogni scelta scende un po' per ogni gettone già puntato su di lei in questa partita
@@ -443,6 +457,9 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
         $ok = array_filter(bet_candidates((int) $match['id']), fn($r) => (string) $r['player_id'] === $pick);
         if (!$ok) {
             return 'Scegli un giocatore della partita.';
+        }
+        if ((int) $pick === $playerId) {
+            return 'Non puoi scommettere su te stesso.';
         }
     }
     if ($stake < 1) {
@@ -605,13 +622,103 @@ function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'm
     });
 }
 
-/** Il risultato è stato salvato o corretto: rifà i pagamenti dei mercati legati a risultato e marcatori. */
+/** Il risultato è stato salvato o corretto: rifà i pagamenti dei mercati legati a risultato e marcatori, e i premi per gol e assist. */
 function bets_resettle_result(int $matchId): void
 {
     bet_atomic(function () use ($matchId) {
         bets_unsettle($matchId, BET_RESULT_MARKETS);
         bets_settle($matchId, BET_RESULT_MARKETS);
+        match_rewards_sync($matchId);
     });
+}
+
+/**
+ * Premi della partita: BET_REWARD_GOAL gettoni per ogni gol e BET_REWARD_ASSIST per ogni assist, a chi li ha fatti (ospiti esclusi).
+ * Una mossa del portafoglio per giocatore e partita (ref "premio-m<id>"), che si aggiorna se il risultato viene corretto e sparisce
+ * se la partita torna "programmata" o viene eliminata. Si può richiamare quante volte si vuole.
+ */
+function match_rewards_sync(int $matchId): void
+{
+    $ref = 'premio-m' . $matchId;
+    $m = get_match($matchId);
+    $want = [];
+    if ($m && $m['status'] === 'giocata') {
+        foreach (q('SELECT mp.player_id, mp.goals, mp.assists FROM match_players mp JOIN players p ON p.id = mp.player_id
+                    WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0 AND (mp.goals > 0 OR mp.assists > 0)', [$matchId])->fetchAll() as $r) {
+            $want[(int) $r['player_id']] = (int) $r['goals'] * BET_REWARD_GOAL + (int) $r['assists'] * BET_REWARD_ASSIST;
+        }
+    }
+    foreach ($want as $pid => $delta) {
+        q("INSERT INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'premio', ?) ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$pid, $delta, $ref]);
+    }
+    $keep = array_keys($want);
+    q('DELETE FROM wallet_moves WHERE ref = ?' . ($keep ? ' AND player_id NOT IN (' . implode(',', array_map('intval', $keep)) . ')' : ''), [$ref]);
+}
+
+/** Gettoni vinti da un giocatore con gol e assist (premi di tutte le partite). */
+function player_rewards_total(int $playerId): int
+{
+    return (int) q("SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND kind = 'premio'", [$playerId])->fetchColumn();
+}
+
+/**
+ * Riprezza le puntate ancora aperte con il modello di quote attuale (serve quando il modello cambia): le singole con le quote di
+ * adesso (senza contare le proprie puntate nella domanda, come quando si punta), le gambe delle multiple idem, e la quota della
+ * multipla torna il prodotto delle gambe. Le puntate già decise non si toccano. Le puntate su se stessi vengono annullate e
+ * rimborsate (non sono più ammesse). Ritorna [singole riprezzate, multiple riprezzate, annullate].
+ */
+function bets_requote_open(): array
+{
+    $cache = [];
+    $quotes = function (int $matchId, ?int $exclude) use (&$cache) {
+        $k = $matchId . '|' . (int) $exclude;
+        if (!isset($cache[$k])) {
+            $m = get_match($matchId);
+            $cache[$k] = $m ? bet_quotes($m, $exclude) : [];
+        }
+        return $cache[$k];
+    };
+    $singles = $combos = $cancelled = 0;
+    // prima via le puntate su se stessi (singole e multiple che ne contengono una): i gettoni tornano indietro
+    foreach (q("SELECT id FROM bets WHERE status = 'aperta' AND market IN ('" . implode("','", BET_PLAYER_MARKETS) . "') AND pick = CAST(player_id AS CHAR)")->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        q('DELETE FROM bets WHERE id = ?', [$id]);
+        $cancelled++;
+    }
+    foreach (q("SELECT DISTINCT cb.id FROM combo_bets cb JOIN combo_legs cl ON cl.combo_id = cb.id
+                WHERE cb.status = 'aperta' AND cl.market IN ('" . implode("','", BET_PLAYER_MARKETS) . "') AND cl.pick = CAST(cb.player_id AS CHAR)")->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        q('DELETE FROM combo_bets WHERE id = ?', [$id]);
+        $cancelled++;
+    }
+    foreach (q("SELECT b.id, b.match_id, b.player_id, b.market, b.pick, b.odds FROM bets b JOIN matches m ON m.id = b.match_id
+                WHERE b.status = 'aperta' AND m.status = 'programmata'")->fetchAll() as $b) {
+        $new = $quotes((int) $b['match_id'], (int) $b['player_id'])[$b['market']][$b['pick']] ?? null;
+        if ($new !== null && abs((float) $new - (float) $b['odds']) > 0.001) {
+            q('UPDATE bets SET odds = ? WHERE id = ?', [$new, $b['id']]);
+            $singles++;
+        }
+    }
+    foreach (q("SELECT id FROM combo_bets WHERE status = 'aperta'")->fetchAll(PDO::FETCH_COLUMN) as $cid) {
+        $changed = false;
+        $odds = 1.0;
+        foreach (q("SELECT cl.id, cl.match_id, cl.market, cl.pick, cl.odds, cl.status, m.status AS mstatus FROM combo_legs cl JOIN matches m ON m.id = cl.match_id
+                    WHERE cl.combo_id = ?", [$cid])->fetchAll() as $l) {
+            $o = (float) $l['odds'];
+            if ($l['status'] === 'aperta' && $l['mstatus'] === 'programmata') {
+                $new = $quotes((int) $l['match_id'], null)[$l['market']][$l['pick']] ?? null;
+                if ($new !== null && abs((float) $new - $o) > 0.001) {
+                    q('UPDATE combo_legs SET odds = ? WHERE id = ?', [$new, $l['id']]);
+                    $o = (float) $new;
+                    $changed = true;
+                }
+            }
+            $odds *= max(BET_MIN_ODDS, $o);
+        }
+        if ($changed) {
+            q('UPDATE combo_bets SET odds = ? WHERE id = ?', [round(max(BET_MIN_ODDS, $odds), 2), $cid]);
+            $combos++;
+        }
+    }
+    return [$singles, $combos, $cancelled];
 }
 
 /* ---------------------------------------------------------------- multiple (combo) */
@@ -674,8 +781,10 @@ function combo_prepare(array $raw, int $playerId): array
             }
         } elseif (!array_filter(bet_candidates($matchId), fn($c) => (string) $c['player_id'] === $pick)) {
             return [null, 'Scegli un giocatore che gioca quella partita.'];
+        } elseif ((int) $pick === $playerId) {
+            return [null, 'Non puoi scommettere su te stesso: togli la tua selezione dalla multipla.'];
         }
-        $odds = bet_quotes($match)[$market][$pick] ?? null;
+        $odds = bet_quotes($match, $playerId)[$market][$pick] ?? null;   // le stesse quote che la persona vede nella schedina
         if ($odds === null) {
             return [null, 'Su una delle selezioni non ci sono quote.'];
         }

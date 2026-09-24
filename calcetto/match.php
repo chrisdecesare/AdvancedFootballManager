@@ -247,6 +247,7 @@ if (is_post()) {
         case 'reopen':
             q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL WHERE id = ?", [$id]);
             bets_unsettle($id);   // le scommesse tornano aperte e si ripagano quando la partita viene richiusa
+            match_rewards_sync($id);   // e i premi per gol e assist si tolgono (tornano quando il risultato viene salvato di nuovo)
             flash('ok', 'Partita riportata a "programmata".');
             break;
 
@@ -291,6 +292,7 @@ if (is_post()) {
             foreach (match_guests($id) as $g) {
                 guest_delete((int) $g['id']);              // gli ospiti se ne vanno con la partita
             }
+            q('DELETE FROM wallet_moves WHERE ref = ?', ['premio-m' . $id]);   // i premi per gol e assist se ne vanno con la partita
             q('DELETE FROM matches WHERE id = ?', [$id]);
             flash('ok', 'Partita eliminata.');
             redirect('matches.php');

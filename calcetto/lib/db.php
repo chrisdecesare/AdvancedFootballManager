@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 25;
+const SCHEMA_VERSION = 26;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -475,6 +475,16 @@ function ensure_schema(): void
         if (!q("SHOW INDEX FROM login_attempts WHERE Key_name = 'idx_user_time'")->fetch()) {
             db()->exec('ALTER TABLE login_attempts ADD INDEX idx_user_time (username, created_at)');
         }
+    }
+    if ($v < 26) {
+        // nuovo modello delle quote (ruolo meno pesante, differenze attenuate, tetti più bassi, niente scommesse su se stessi):
+        // si riprezzano le puntate ancora aperte e si annullano (rimborsandole) quelle su se stessi. E i premi per gol e assist
+        // (lib/bets.php, match_rewards_sync) valgono anche per le partite già giocate.
+        [$s1, $s2, $s3] = bets_requote_open();
+        foreach (q("SELECT id FROM matches WHERE status = 'giocata'")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+            match_rewards_sync((int) $mid);
+        }
+        meta_set('requote_v26', "singole $s1, multiple $s2, annullate $s3");
     }
     if ($v < 25) {
         // sfondo del profilo da una sola foto: l'originale (bg_src), il ritaglio orizzontale (bg_image, profilo) e quello
