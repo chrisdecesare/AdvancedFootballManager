@@ -102,16 +102,7 @@ img { max-width: 100%; }
   .nav-many .me span:not(.avatar) { display: none; }
   .nav-many .nav a { padding: 6px 9px; }
 }
-@media (min-width: 800px) and (max-width: 1339px) {   /* e con la campanella le sue schede restano solo icone finché non c'è tutto lo spazio */
-  .nav-many .nav a { padding: 6px 10px; }
-  .nav-many .nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .nav-many .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
-}
-@media (max-width: 1099px) {   /* solo le icone: il nome resta scritto sulla scheda attiva (e nel tooltip) */
-  .nav a { padding: 6px 10px; }
-  .nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
-}
+/* nomi o sole icone lo decide app.js in base allo spazio che c'è davvero (classe .nav-compact, vedi sotto) */
 /* pallino delle iscrizioni sull'icona del profilo: serve solo sui telefoni, dove la scheda Admin sta in fondo
    al menu scorrevole e può restare fuori schermo; altrove il pallino è accanto ad "Admin" */
 .userbox .pending-dot { display: none; position: absolute; top: -7px; left: 20px; margin: 0; z-index: 2; }
@@ -142,11 +133,18 @@ img { max-width: 100%; }
   .brand-ball { width: 32px; height: 32px; font-size: 19px; }
 }
 /* rete di sicurezza (app.js): se le schede non ci stanno comunque, il menu va su una riga sua */
-.topbar-wrap .topbar-inner { gap: 6px; }
-.topbar-wrap .nav { order: 3; flex-basis: 100%; }
-.topbar-wrap .brand { flex: 1; }
-.topbar-wrap .nav a { padding: 6px 12px; }
-.topbar-wrap .nav .nav-label, .topbar-wrap .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+/* il titolo è inclinato e il pallone ha l'ombra: non deve mai toccare le schede */
+.brand { flex: none; margin-right: 6px; }
+/* solo icone (app.js, quando i nomi non ci stanno): il nome resta sulla scheda attiva e nel tooltip */
+.nav-compact .nav a { padding: 6px 10px; }
+.nav-compact .nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.nav-compact .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+/* ultima risorsa: il menu su una riga sua, staccato dal titolo */
+.topbar-wrap .topbar-inner { row-gap: 10px; column-gap: 8px; }
+.topbar-wrap .nav { order: 3; flex-basis: 100%; padding-top: 6px; border-top: 2px dashed rgba(31, 26, 46, .25); }
+.topbar-wrap .brand { flex: 1 0 auto; }
+.topbar-wrap:not(.nav-compact) .nav a { padding: 6px 12px; }
+.topbar-wrap:not(.nav-compact) .nav .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
 
 /* ---------- layout ---------- */
 .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
@@ -1182,3 +1180,16 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .act-admin, .act-account, .act-pagamenti { background: var(--pink); }
 .radio-opt { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; font-weight: 600; cursor: pointer; }
 .radio-opt input { margin-top: 4px; flex: none; }
+
+/* ---------- sicurezza (login a due passaggi, conferma password, account.php) ---------- */
+.code-input { font: 800 1.35rem/1.2 var(--font); letter-spacing: .25em; text-align: center; }
+.link-btn { background: none; border: 0; padding: 0; font: inherit; font-weight: 800; color: inherit; text-decoration: underline; cursor: pointer; }
+.flash-warn { background: var(--yellow); }
+.totp-setup { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; margin: 10px 0 14px; }
+.totp-qr { width: 190px; height: 190px; padding: 6px; background: var(--white); border: var(--b); border-radius: 12px; box-shadow: var(--sh-sm); }
+.totp-qr svg { display: block; width: 100%; height: 100%; }
+.totp-key { font-size: 1.05rem; letter-spacing: .08em; word-break: break-all; }
+.recovery-box { background: var(--paper-2); border: var(--b2); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+.recovery-codes { columns: 2; margin: 6px 0 0; padding-left: 22px; font-size: 1.05rem; }
+.bar-fill.bar-warn { background: var(--orange); }
+.totp-setup > div:last-child { flex: 1 1 220px; min-width: 0; }

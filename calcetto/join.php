@@ -9,7 +9,11 @@ if (!tables_exist()) {
     redirect('install.php');
 }
 $code = is_string($_GET['c'] ?? $_POST['c'] ?? null) ? (string) ($_GET['c'] ?? $_POST['c']) : '';
-$league = league_by_code($code);
+$blocked = invite_blocked();   // troppi codici sbagliati da questa connessione: chi li prova a caso non trova più niente
+$league = $blocked ? null : league_by_code($code);
+if (!$league && !$blocked && $code !== '') {
+    invite_bad_attempt($code);
+}
 $u = current_user();
 
 if ($league && $u && is_post() && ($_POST['do'] ?? '') === 'join') {
@@ -24,9 +28,13 @@ if ($league && $u && is_post() && ($_POST['do'] ?? '') === 'join') {
         flash('ok', $res === 'joined' ? 'Benvenuto in ' . $league['name'] . '!' : 'Fai già parte di ' . $league['name'] . '.');
         redirect('index.php');
     }
-    flash('ok', $res === 'requested'
-        ? 'Richiesta inviata: appena un admin di ' . $league['name'] . ' la accetta, la lega ti compare.'
-        : 'Avevi già chiesto di entrare: la richiesta è in attesa di un admin della lega.');
+    if ($res === 'limit') {
+        flash('err', 'Hai già mandato troppe richieste oggi: riprova domani.');
+    } else {
+        flash('ok', $res === 'requested'
+            ? 'Richiesta inviata: appena un admin di ' . $league['name'] . ' la accetta, la lega ti compare.'
+            : 'Avevi già chiesto di entrare: la richiesta è in attesa di un admin della lega.');
+    }
     redirect('join.php?c=' . urlencode($league['invite_code']));
 }
 
@@ -44,7 +52,7 @@ layout_start($league ? 'Invito in ' . $league['name'] : 'Invito non valido');
     <div class="login-ball"><i class="ti ti-users-group"></i></div>
     <?php if (!$league): ?>
       <h1>Invito non valido</h1>
-      <p class="muted">Il link non corrisponde a nessuna lega: forse è stato cambiato. Chiedine uno nuovo a chi gestisce la lega.</p>
+      <p class="muted"><?= $blocked ? 'Troppi link d\'invito sbagliati da questa connessione: riprova tra un\'ora.' : 'Il link non corrisponde a nessuna lega: forse è stato cambiato. Chiedine uno nuovo a chi gestisce la lega.' ?></p>
       <a class="btn btn-primary btn-block" href="<?= $u ? 'index.php' : 'login.php' ?>"><?= $u ? 'Torna alla home' : 'Vai al login' ?></a>
     <?php else: ?>
       <h1><?= h($league['name']) ?></h1>

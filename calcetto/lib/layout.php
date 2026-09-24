@@ -128,6 +128,10 @@ function layout_start(string $title, string $active = ''): void
 <?php if ($u && !$guest && !is_admin() && !allowed_group_ids()): ?>
   <div class="flash flash-err"><i class="ti ti-users-group"></i> Non fai ancora parte di nessuna lega: apri il link d'invito che ti ha mandato chi la organizza<?= LEAGUE_CREATION ? ', oppure <a class="link" href="create_league.php">crea la tua lega</a>' : ' o chiedi all\'admin' ?>.</div>
 <?php endif; ?>
+<?php if ($u && !$guest && (is_admin() || my_owned_leagues()) && !totp_enabled_for((int) $u['id']) && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'account.php'): ?>
+  <div class="flash flash-warn"><i class="ti ti-shield-lock"></i> <?= is_admin() ? 'Il tuo account gestisce tutto il sito' : 'Il tuo account gestisce una lega' ?>: proteggilo con la
+    <a class="link" href="account.php#due-passaggi">verifica in due passaggi</a> (un codice dal telefono oltre alla password). Ci vuole un minuto.</div>
+<?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
   <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>
 <?php endforeach;

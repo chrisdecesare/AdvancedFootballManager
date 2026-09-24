@@ -1,6 +1,7 @@
 <?php
 require __DIR__ . '/lib/bootstrap.php';
 require_admin();
+require_recent_auth();   // password riconfermata se l'area admin non si usa da un po' (lib/security.php)
 
 $meUid = (int) current_user()['id'];
 // questa pagina gestisce le leghe "di casa" (storiche e quelle di cui l'admin fa parte): le leghe create dagli altri utenti
