@@ -5,7 +5,16 @@ require_login();
 $id = int_get('id');
 $isNew = $id === 0;
 $admin = is_admin();
-if ($isNew ? !$admin : (!$admin && my_player_id() !== $id)) {
+// chi amministra una lega gestisce le schede dei giocatori della sua lega (rating, attivo, correzioni, leghe),
+// ma non gli account (username, password, ruoli del sito): quelli restano all'admin del sito
+if ($admin) {
+    $editableGroups = all_groups();
+    $shownGroups = array_intersect_key($editableGroups, array_flip(array_merge(bar_group_ids(), $isNew ? [] : player_group_ids($id))));
+} else {
+    $editableGroups = $shownGroups = admin_groups();
+}
+$staff = $admin || ($isNew ? (bool) $editableGroups : (bool) array_intersect(player_group_ids($id), array_keys($editableGroups)));
+if ($isNew ? !$staff : (!$staff && my_player_id() !== $id)) {
     require_admin(); // mostra "accesso negato"
 }
 $p = $isNew ? [
@@ -54,7 +63,7 @@ if (is_post()) {
     }
 
     // sfondo del profilo: automatico (colore del ruolo), un colore oppure un'immagine
-    $bgMode = in_array($_POST['bg_mode'] ?? 'auto', ['auto', 'color', 'image'], true) ? $_POST['bg_mode'] : 'auto';
+    $bgMode = in_array($_POST['bg_mode'] ?? 'auto', ['color', 'image'], true) ? $_POST['bg_mode'] : 'auto';
     $bgColor = clean_hex_color($_POST['bg_color'] ?? '');
     if ($bgMode === 'color' && !$bgColor) {
         $errors[] = 'Colore dello sfondo non valido.';
@@ -79,12 +88,15 @@ if (is_post()) {
     if ($admin && $account && (int) $account['id'] === (int) current_user()['id'] && $role !== 'admin') {
         $errors[] = 'Non puoi toglierti il ruolo di admin da solo.';
     }
-    // gruppi (solo l'admin li cambia): almeno uno; con un solo gruppo esistente è automatico
-    $groupIds = array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys(all_groups())));
-    if ($admin && count(all_groups()) === 1) {
-        $groupIds = array_keys(all_groups());
+    // leghe (le cambia solo chi le amministra): almeno una; con una sola lega gestibile è automatico.
+    // Le leghe del giocatore che chi modifica non amministra restano com'erano.
+    $groupIds = array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys($shownGroups)));
+    if ($staff && count($shownGroups) === 1) {
+        $groupIds = array_keys($shownGroups);
     }
-    if ($admin && !$groupIds) {
+    $foreign = $isNew ? [] : array_values(array_diff(player_group_ids($id), array_keys($shownGroups)));
+    $groupIds = array_values(array_unique(array_merge($foreign, $groupIds)));
+    if ($staff && !$groupIds) {
         $errors[] = 'Scegli almeno un gruppo per il giocatore.';
     }
 
@@ -98,7 +110,8 @@ if (is_post()) {
             q('UPDATE players SET name = ?, shirt_number = ?, position = ?, position2 = ?, foot = ? WHERE id = ?', array_merge($vals, [$id]));
         }
 
-        if ($admin) {
+        log_activity('giocatore', ($isNew ? 'creato · ' : 'modificato · ') . $name, $groupIds[0] ?? null);
+        if ($staff) {
             $rating = max(1, min(10, (float) str_replace(',', '.', $_POST['base_rating'] ?? '6')));
             $sets = ['base_rating = ?', 'active = ?'];
             $params = [$rating, empty($_POST['active']) ? 0 : 1];
@@ -111,7 +124,8 @@ if (is_post()) {
             if (!$isNew) {
                 set_player_groups($id, $groupIds);
             }
-
+        }
+        if ($admin) {
             if ($username !== '') {
                 if ($account) {
                     q('UPDATE users SET username = ?, role = ? WHERE id = ?', [$username, $role, $account['id']]);
@@ -250,10 +264,10 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     <?php endif; ?>
   </section>
 
-  <?php if ($admin): ?>
+  <?php if ($staff): ?>
   <section class="card">
-    <h2>Solo admin</h2>
-    <?php $allGroups = all_groups(); ?>
+    <h2><?= $admin ? 'Solo admin' : 'Gestione della lega' ?></h2>
+    <?php $allGroups = $shownGroups; ?>
       <?php $checked = $errors && isset($_POST['groups']) ? array_map('intval', (array) $_POST['groups']) : ($isNew ? [group_filter() ?: (int) array_key_first($allGroups)] : player_group_ids($id)); ?>
       <fieldset class="group-box"><legend>Gruppi</legend>
         <div class="group-checks">
@@ -262,7 +276,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
           <?php endforeach; ?>
         </div>
         <p class="muted small">Il giocatore vede solo giocatori e partite dei suoi gruppi e può partecipare solo alle partite di quei gruppi.
-          <?= count($allGroups) === 1 ? 'Esiste un solo gruppo: creane un altro da <a class="link" href="admin.php#gruppi">Admin → Gruppi</a> per poter scegliere.' : '' ?></p>
+          <?= count($allGroups) === 1 && $admin ? 'Esiste un solo gruppo: creane un altro da <a class="link" href="admin.php#gruppi">Admin → Gruppi</a> per poter scegliere.' : '' ?></p>
       </fieldset>
     <div class="form-grid">
       <label class="field"><span>Rating base (1-10)</span><input name="base_rating" inputmode="decimal" value="<?= h(str_replace('.', ',', (string) $p['base_rating'])) ?>"></label>

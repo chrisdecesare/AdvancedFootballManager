@@ -7,7 +7,7 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
     $date = $_POST['date'] ?? '';
     $time = $_POST['time'] ?? '';
     $dt = DateTime::createFromFormat('Y-m-d H:i', "$date $time");
-    $mine = manageable_groups();   // l'admin crea partite in ogni gruppo, un manager solo nei suoi
+    $mine = manageable_groups();   // l'admin crea partite nei suoi gruppi, admin e manager di una lega solo nelle loro
     $gid = (int) ($_POST['group_id'] ?? 0) ?: (count($mine) === 1 ? (int) array_key_first($mine) : 0);
     if (!$dt) {
         flash('err', 'Data o ora non valide.');
@@ -24,6 +24,7 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
             $gid,
         ]);
         $id = (int) db()->lastInsertId();
+        log_activity('partita_creata', $dt->format('d/m/Y H:i') . ' · ' . trim($_POST['location'] ?? ''), $gid);
         sync_match_players($id);
         push_notify_new_match($id, (int) current_user()['id']);   // avvisa chi deve rispondere, dopo aver inviato la pagina
         flash('ok', 'Partita creata: ora i giocatori possono confermare.');

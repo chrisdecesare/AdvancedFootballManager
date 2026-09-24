@@ -21,6 +21,9 @@ if (is_post()) {
             redirect('account.php');
         }
     }
+    if (in_array($do, ['set_email', 'remove_email', 'change_password', 'logout_all'], true)) {
+        log_activity('account', ['set_email' => 'email cambiata', 'remove_email' => 'email tolta', 'change_password' => 'password cambiata', 'logout_all' => 'uscita dagli altri dispositivi'][$do]);
+    }
     switch ($do) {
         case 'set_email':
             $email = mb_strtolower(trim(is_string($_POST['email'] ?? null) ? $_POST['email'] : ''));

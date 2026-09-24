@@ -39,6 +39,7 @@ if (is_post()) {
                 } else {
                     $ok++;
                     $total += $stake;
+                    log_activity('puntata', bet_pick_label($m, (string) $market, (string) $pick) . ' · ' . $stake . ' gettoni', (int) $m['group_id']);
                 }
             }
             if ($ok) {
@@ -65,6 +66,7 @@ if (is_post()) {
                 flash('err', $err);
             } else {
                 $odds = combo_odds($legs);
+                log_activity('multipla', count($legs) . ' scelte · ' . $stake . ' gettoni a ×' . fmt_num($odds, 2), (int) get_match((int) $legs[0]['match_id'])['group_id']);
                 flash('ok', 'Multipla da ' . count($legs) . ' su ' . $stake . ' gettoni a ×' . fmt_num($odds, 2)
                     . ': se le indovini tutte vinci ' . bet_payout($stake, $odds) . '. Chi non risica...');
             }
@@ -73,6 +75,9 @@ if (is_post()) {
     }
     if ($do === 'combo_cancel') {
         $err = $me ? combo_cancel((int) ($_POST['combo_id'] ?? 0), $me) : 'Il tuo account non è collegato a un giocatore.';
+        if (!$err) {
+            log_activity('puntata_ritirata', 'multipla');
+        }
         flash($err ? 'err' : 'ok', $err ?: 'Multipla ritirata: i gettoni sono tornati nel portafoglio. Vigliacco.');
         redirect('bets.php?t=mie');
     }
@@ -94,11 +99,15 @@ if (is_post()) {
             flash('err', $err);
         } else {
             $label = bet_pick_label($match, $market, (string) $_POST['pick']);
+            log_activity('puntata', $label . ' · ' . $stake . ' gettoni', (int) $match['group_id']);
             $jokes = ['Che Dio ti assista.', 'Coraggio, o incoscienza.', 'Gli amici ti guardano.', 'Si vedrà chi ride a fine partita.', 'Il banco ringrazia.'];
             flash('ok', "Puntati {$stake} gettoni su «{$label}». " . $jokes[array_rand($jokes)]);
         }
     } elseif ($do === 'cancel') {
         $err = bet_cancel($match, $me, $market, (string) ($_POST['pick'] ?? ''));
+        if (!$err) {
+            log_activity('puntata_ritirata', bet_pick_label($match, $market, (string) ($_POST['pick'] ?? '')), (int) $match['group_id']);
+        }
         flash($err ? 'err' : 'ok', $err ?: 'Puntata ritirata: i gettoni sono tornati nel portafoglio. Vigliacco.');
     }
     redirect($back);
@@ -123,20 +132,19 @@ if ($me) {
 // scheda «Scommesse»: tutte le mie singole, quelle ancora in gioco (partita da giocare o in attesa del verdetto) e quelle decise
 $openSingles = $me ? q("SELECT b.*, m.match_date, m.team_a_name, m.team_b_name, m.status AS match_status, m.voting_open FROM bets b JOIN matches m ON m.id = b.match_id
                     WHERE b.player_id = ? AND b.status = 'aperta' AND " . scope_sql('m.group_id') . ' ORDER BY m.match_date ASC, b.id', [$me])->fetchAll() : [];
+// storico: le ultime (tutte con ?tutte=1), i saldi invece su tutto lo storico
+$showAll = !empty($_GET['tutte']);
+$histLimit = $showAll ? '' : ' LIMIT 20';
 $history = $me ? q("SELECT b.*, m.match_date, m.team_a_name, m.team_b_name FROM bets b JOIN matches m ON m.id = b.match_id
-                    WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id') . ' ORDER BY b.settled_at DESC, b.id DESC', [$me])->fetchAll() : [];
-$net = 0;
-foreach ($history as $b) {
-    $net += (int) $b['payout'] - (int) $b['stake'];
-}
+                    WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id') . ' ORDER BY b.settled_at DESC, b.id DESC' . $histLimit, [$me])->fetchAll() : [];
+$histTotal = $me ? (int) q("SELECT COUNT(*) FROM bets b JOIN matches m ON m.id = b.match_id WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id'), [$me])->fetchColumn() : 0;
+$net = $me ? (int) q("SELECT COALESCE(SUM(b.payout - b.stake), 0) FROM bets b JOIN matches m ON m.id = b.match_id WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id'), [$me])->fetchColumn() : 0;
 $markets = bet_markets();
 
 $comboOpen = $me ? combo_open($me) : [];
-$comboHist = $me ? combo_history($me, 1000) : [];
-$comboNet = 0;
-foreach ($comboHist as $c) {
-    $comboNet += (int) $c['payout'] - (int) $c['stake'];
-}
+$comboHist = $me ? combo_history($me, $showAll ? 1000 : 10) : [];
+$comboTotal = $me ? (int) q("SELECT COUNT(*) FROM combo_bets WHERE player_id = ? AND status <> 'aperta'", [$me])->fetchColumn() : 0;
+$comboNet = $me ? (int) q("SELECT COALESCE(SUM(payout - stake), 0) FROM combo_bets WHERE player_id = ? AND status <> 'aperta'", [$me])->fetchColumn() : 0;
 
 /** Una multipla disegnata come un foglio di bloc-notes scritto a mano: sopra le scelte con le loro quote, sotto la vincita. */
 function combo_sheet(array $c, array $markets, bool $open): string
@@ -214,7 +222,7 @@ layout_start('Scommesse', 'bets');
     $mid = (int) $m['id'];
     $open = bets_open_for($m);
     $cands = bet_candidates($mid);
-    $all = is_admin() ? match_bets($mid) : [];   // chi ha puntato su cosa lo vede solo l'admin: ai giocatori resta la sorpresa
+    $all = can_admin_group((int) $m['group_id']) ? match_bets($mid) : [];   // chi ha puntato su cosa lo vede solo chi amministra la lega: ai giocatori resta la sorpresa
     $quotes = bet_quotes($m);
     $canBet = $me && $open && (is_admin() || player_in_group($me, (int) $m['group_id'])); ?>
 <section class="card bet-match" id="m<?= $mid ?>">
@@ -344,6 +352,9 @@ layout_start('Scommesse', 'bets');
   <?php endforeach; ?></tbody></table></div></div>
 <?php endif; ?>
 
+<?php if (!$showAll && ($histTotal > count($history) || $comboTotal > count($comboHist))): ?>
+<p class="center"><a class="btn btn-ghost btn-sm" href="bets.php?t=mie&amp;tutte=1">Mostra tutto lo storico (<?= $histTotal ?> singole, <?= $comboTotal ?> multiple)</a></p>
+<?php endif; ?>
 <?php if ($comboHist): ?>
 <h2 class="section-title">Multiple decise <span class="muted small">saldo <?= fmt_signed($comboNet, 0) ?></span></h2>
 <div class="notepad-list">
@@ -400,198 +411,6 @@ layout_start('Scommesse', 'bets');
   </form>
 </div>
 
-<script>
-// Schedina: si clicca su una quota per aggiungerla (come in un'app di scommesse vera). Da qui si punta ogni selezione
-// da sola (scheda «Singole», una puntata indipendente ciascuna) oppure tutte insieme in una sola multipla (scheda «Multipla»,
-// quota = prodotto delle quote). Sopravvive alla navigazione tra le schede della pagina (sessionStorage).
-(() => {
-  const KEY = 'betslipCart';
-  const slip = document.getElementById('betslip');
-  if (!slip) return;
-  const balance = parseInt(slip.dataset.balance, 10) || 0;
-  const legsBox = document.getElementById('slip-legs');
-  const countOut = document.getElementById('slip-count');
-  const tabSingole = document.querySelector('[data-slip-tab="singole"]');
-  const tabMulti = document.getElementById('slip-tab-multi');
-  const panelSingole = document.getElementById('slip-singles-form');
-  const panelMulti = document.getElementById('slip-multi-form');
-  const multiLegsBox = document.getElementById('slip-multi-legs');
-  const multiOddsOut = document.getElementById('slip-multi-odds');
-  const singlesSubmit = document.getElementById('slip-singles-submit');
-
-  const load = () => { try { return JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch (e) { return []; } };
-  const save = cart => { try { sessionStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {} };
-  let cart = load();
-  let tab = 'singole';
-
-  const hidden = (name, value) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; return i; };
-  const win = (stake, odds) => Math.floor(stake * odds + 1e-9);
-
-  const hint = document.getElementById('slip-hint');
-  const singlesTotal = document.getElementById('slip-singles-total');
-  const multiStake = document.getElementById('slip-multi-stake');
-  const multiWin = document.getElementById('slip-multi-win');
-
-  // Singole: ogni selezione ha il suo importo ed è una scommessa a sé. Multipla: un solo importo per tutte le selezioni,
-  // la quota è il prodotto delle quote e si viene pagati solo se sono giuste TUTTE (basta un errore e si perde tutto).
-  const showTab = t => {
-    tab = t;
-    slip.dataset.mode = t;
-    tabSingole.classList.toggle('active', t === 'singole');
-    tabMulti.classList.toggle('active', t === 'multipla');
-    tabSingole.setAttribute('aria-selected', t === 'singole');
-    tabMulti.setAttribute('aria-selected', t === 'multipla');
-    panelSingole.hidden = t !== 'singole';
-    panelMulti.hidden = t !== 'multipla';
-    updateTotals();
-  };
-
-  const multiOddsNow = () => cart.reduce((o, l) => o * l.odds, 1);
-  const updateTotals = () => {
-    let staked = 0, maxWin = 0;
-    cart.forEach(l => { const n = l.stake || 0; staked += n; maxWin += n > 0 ? win(n, l.odds) : 0; });
-    singlesTotal.textContent = cart.length ? 'Totale puntato ' + staked + ' · se vincono tutte incassi ' + maxWin : '';
-    const n = parseInt(multiStake.value, 10) || 0;
-    multiWin.textContent = cart.length >= 2 && n > 0
-      ? 'Vinci ' + win(n, multiOddsNow()) + ' solo se sono giuste tutte le ' + cart.length + ' scelte'
-      : '';
-    hint.textContent = tab === 'singole'
-      ? 'Singole: ogni scelta è una scommessa separata con il suo importo, si paga ognuna per conto suo.'
-      : 'Multipla: un solo importo su tutte le scelte insieme, le quote si moltiplicano. Si viene pagati solo se sono giuste tutte: basta un errore e si perde la puntata.';
-  };
-  multiStake.addEventListener('input', updateTotals);
-
-  const render = () => {
-    legsBox.innerHTML = '';
-    multiLegsBox.innerHTML = '';
-    countOut.textContent = cart.length;
-    let multiOdds = 1;
-
-    cart.forEach((leg, i) => {
-      multiOdds *= leg.odds;
-
-      const row = document.createElement('div');
-      row.className = 'slip-leg';
-      row.innerHTML = '<span class="slip-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2) + '</span>';
-
-      // scheda «Singole»: uno stake per selezione, aggiornato in tempo reale. La lista è fuori dal <form> (resta visibile
-      // anche nella scheda Multipla), quindi questi campi si legano al form con l'attributo form="..." invece che con il nesting,
-      // altrimenti il browser non li invia e "Punta le singole" risulta come se non si fosse puntato nulla.
-      const legIn = hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick);
-      legIn.setAttribute('form', 'slip-singles-form');
-      const stakeIn = document.createElement('input');
-      stakeIn.type = 'number'; stakeIn.name = 'stakes[]'; stakeIn.className = 'slip-leg-stake';
-      stakeIn.min = 1; stakeIn.max = Math.max(1, balance); stakeIn.inputMode = 'numeric';
-      stakeIn.value = leg.stake || Math.min(10, Math.max(1, balance));
-      stakeIn.setAttribute('aria-label', 'Gettoni su questa selezione');
-      stakeIn.setAttribute('form', 'slip-singles-form');
-      row.appendChild(legIn);
-      row.appendChild(stakeIn);
-      const winOut = document.createElement('span');
-      winOut.className = 'slip-leg-win small';
-      row.appendChild(winOut);
-      const updateWin = () => {
-        const n = parseInt(stakeIn.value, 10) || 0;
-        leg.stake = n; save(cart);
-        winOut.textContent = n > 0 ? 'vinci ' + win(n, leg.odds) : '';
-        updateTotals();
-      };
-      stakeIn.addEventListener('input', updateWin);
-      updateWin();
-
-      const rm = document.createElement('button');
-      rm.type = 'button'; rm.className = 'slip-leg-rm'; rm.textContent = '×'; rm.title = 'Togli dalla schedina';
-      rm.addEventListener('click', () => { cart.splice(i, 1); save(cart); render(); });
-      row.appendChild(rm);
-      legsBox.appendChild(row);
-
-      multiLegsBox.appendChild(hidden('legs[]', leg.matchId + ':' + leg.market + ':' + leg.pick));
-    });
-
-    multiOddsOut.textContent = '×' + (cart.length ? multiOdds.toFixed(2) : '0');
-    // «chi vince», «over/under» e «MVP»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori invece
-    // si sommano, ma lo stesso giocatore su «segna», «doppietta» e «tripletta» no (una comprende l'altra). Stesse regole del server.
-    const SCORER = ['gol', 'doppietta', 'tripletta'];
-    const seen = {};
-    let clash = null;
-    cart.forEach(l => {
-      const scorer = SCORER.includes(l.market);
-      const k = l.matchId + '|' + (scorer ? 'scorer|' + l.pick : l.market);
-      if (seen[k] && !clash) clash = scorer ? 'scorer' : 'excl';
-      seen[k] = true;
-    });
-    const multiWarn = document.getElementById('slip-multi-warn');
-    multiWarn.hidden = !clash;
-    multiWarn.textContent = clash === 'excl' ? 'Due scelte di «chi vince», «over/under» o «MVP» della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).'
-      : clash === 'scorer' ? 'Lo stesso giocatore può stare in uno solo tra «segna», «doppietta» e «tripletta» nella multipla (una comprende l\'altra): togline uno (restano valide come singole).' : '';
-    document.getElementById('slip-multi-submit').disabled = clash || cart.length < 2;
-    singlesSubmit.disabled = cart.length === 0;
-    tabMulti.disabled = cart.length < 2;
-    tabMulti.title = cart.length < 2 ? 'Servono almeno 2 selezioni' : '';
-    if (cart.length < 2 && tab === 'multipla') showTab('singole');
-    slip.hidden = cart.length === 0;
-    updateTotals();
-
-    refreshPicked();
-  };
-
-  // evidenzia i pulsanti-quota già nella schedina (e, per l'over/under, quelli su cui ho già puntato alla soglia mostrata)
-  const refreshPicked = () => {
-    document.querySelectorAll('[data-slip-add]').forEach(btn => {
-      btn.classList.toggle('is-picked', cart.some(l => l.matchId === btn.dataset.match && l.market === btn.dataset.market && l.pick === btn.dataset.pick));
-    });
-    document.querySelectorAll('.ou-picker').forEach(box => {
-      const mine = JSON.parse(box.dataset.mine || '[]');
-      box.querySelectorAll('[data-ou-side]').forEach(b => b.classList.toggle('is-mine', mine.includes(b.dataset.pick)));
-    });
-  };
-
-  // over/under: chi punta sceglie la soglia (0,5 / 1,5 / ...; se scrive un intero N vale "più di N gol", cioè N,5);
-  // la quota di ogni soglia l'ha già calcolata il server, qui si mostra quella giusta e si aggiornano i pulsanti Over/Under
-  document.querySelectorAll('.ou-picker').forEach(box => {
-    const table = JSON.parse(box.dataset.ou);
-    const lines = Object.keys(table).map(Number).sort((a, b) => a - b);
-    const input = box.querySelector('.ou-line');
-    const fmt = n => n.toFixed(2).replace('.', ',');
-    const set = v => {
-      let line = Math.floor(Number.isFinite(v) ? v : lines[0]) + 0.5;
-      line = Math.min(lines[lines.length - 1], Math.max(lines[0], line));
-      input.value = line;
-      const odds = table[line.toFixed(1)];
-      box.querySelectorAll('[data-ou-side]').forEach(b => {
-        const over = b.dataset.ouSide === 'O';
-        const o = odds[over ? 0 : 1];
-        b.dataset.pick = b.dataset.ouSide + line.toFixed(1);
-        b.dataset.label = (over ? 'Over ' : 'Under ') + String(line).replace('.', ',') + ' gol';
-        b.dataset.odds = o;
-        b.innerHTML = (over ? 'Over' : 'Under') + ' <b>×' + fmt(o) + '</b>';
-      });
-      box.querySelector('.ou-over-txt').textContent = Math.ceil(line) + ' o più gol';
-      box.querySelector('.ou-under-txt').textContent = Math.floor(line) + ' o meno';
-      refreshPicked();
-    };
-    box.querySelectorAll('[data-ou-step]').forEach(b => b.addEventListener('click', () => set(parseFloat(input.value) + parseInt(b.dataset.ouStep, 10))));
-    input.addEventListener('change', () => set(parseFloat(String(input.value).replace(',', '.'))));
-  });
-
-  document.querySelectorAll('[data-slip-add]').forEach(btn => btn.addEventListener('click', () => {
-    // si può puntare su più scelte dello stesso mercato (es. due marcatori diversi): si toglie solo ri-toccando la STESSA quota.
-    const matchId = btn.dataset.match, market = btn.dataset.market, pick = btn.dataset.pick;
-    const already = cart.findIndex(l => l.matchId === matchId && l.market === market && l.pick === pick);
-    if (already !== -1) { cart.splice(already, 1); save(cart); render(); return; }
-    cart.push({ matchId, market, pick, label: btn.dataset.label, odds: parseFloat(btn.dataset.odds) || 1, matchLabel: btn.dataset.matchLabel });
-    save(cart); render();
-  }));
-  tabSingole.addEventListener('click', () => showTab('singole'));
-  tabMulti.addEventListener('click', () => { if (!tabMulti.disabled) showTab('multipla'); });
-  const clearAll = () => { cart = []; save(cart); render(); };
-  document.getElementById('slip-clear').addEventListener('click', clearAll);
-  document.getElementById('slip-clear-2').addEventListener('click', clearAll);
-  panelSingole.addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
-  panelMulti.addEventListener('submit', () => { sessionStorage.removeItem(KEY); });
-
-  render();
-})();
-</script>
+<script src="assets/bets.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/bets.js'), 0, 10)) ?>" defer></script>
 <?php
 layout_end();

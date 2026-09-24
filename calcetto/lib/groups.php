@@ -4,7 +4,8 @@
  *
  *  - un giocatore vede solo giocatori, partite, classifiche e statistiche dei SUOI gruppi;
  *  - chi è in più gruppi vede tutto (l'unione) e può restringere la vista a un gruppo con i pulsanti in alto;
- *  - l'admin può vedere e gestire tutti i gruppi.
+ *  - l'admin può vedere e gestire tutti i gruppi. Quando esistono leghe create da altri utenti (lib/leagues.php), nelle pagine
+ *    normali vede però solo le sue (storiche e di cui fa parte), a meno di sceglierne una apposta; tutte le altre sono in platform.php.
  *
  * "Ambito" (scope) = elenco dei gruppi visibili ORA (permessi ∩ filtro scelto), oppure null = nessun limite
  * (admin senza filtro). Le funzioni di stats.php e le pagine lo usano per limitare le query.
@@ -82,10 +83,11 @@ function allowed_group_ids(): array
         $ids = [];
     } elseif ($u['role'] === 'admin') {
         $ids = array_keys(all_groups());
-    } elseif (!empty($u['player_id'])) {
-        $ids = player_group_ids((int) $u['player_id']);
     } else {
-        $ids = [];
+        // i gruppi del suo giocatore, più quelli in cui ha un ruolo (chi amministra una lega la vede sempre)
+        $ids = !empty($u['player_id']) ? player_group_ids((int) $u['player_id']) : [];
+        $ids = array_values(array_unique(array_merge($ids, array_intersect(array_keys(my_league_roles()), array_keys(all_groups())))));
+        sort($ids);
     }
     groups_cache('allowed', $ids);
     return $ids;
@@ -117,7 +119,10 @@ function scope_ids(): ?array
     if ($f = group_filter()) {
         return [$f];
     }
-    return is_admin() ? null : allowed_group_ids();
+    if (is_admin()) {
+        return has_user_leagues() ? home_group_ids() : null;   // le leghe degli altri non si mescolano alle proprie
+    }
+    return allowed_group_ids();
 }
 
 function scope_key(?array $scope): string
@@ -204,19 +209,32 @@ function player_in_group(int $player_id, int $group_id): bool
 /** Etichetta del gruppo, solo se chi guarda ha accesso a più gruppi (altrimenti sarebbe rumore). */
 function group_tag(int $group_id): string
 {
-    if (count(allowed_group_ids()) < 2 && !is_admin()) {
+    if (count(bar_group_ids()) < 2 && !is_admin()) {
         return '';
     }
     if (count(all_groups()) < 2) {
         return '';
     }
-    return '<span class="tag tag-group" title="Gruppo"><i class="ti ti-users-group"></i> ' . h(group_name($group_id)) . '</span>';
+    return '<span class="tag tag-group" title="Lega"><i class="ti ti-users-group"></i> ' . h(group_name($group_id)) . '</span>';
+}
+
+/** Gruppi tra cui l'utente sceglie con i pulsanti in alto: l'admin del sito vede i suoi (più quello che sta guardando). */
+function bar_group_ids(): array
+{
+    if (is_admin() && has_user_leagues()) {
+        $ids = home_group_ids();
+        if (($f = group_filter()) && !in_array($f, $ids, true)) {
+            $ids[] = $f;
+        }
+        return $ids;
+    }
+    return allowed_group_ids();
 }
 
 /** Pulsanti "Tutti / YBQ / FANTA" in cima alle pagine, per chi ha accesso a più gruppi. */
 function group_bar(string $back): string
 {
-    $allowed = allowed_group_ids();
+    $allowed = bar_group_ids();
     if (count($allowed) < 2) {
         return '';
     }
@@ -226,19 +244,28 @@ function group_bar(string $back): string
         return '<button class="gchip' . ($cur === $id ? ' is-on' : '') . '" name="g" value="' . $id . '"'
             . ($cur === $id ? ' aria-pressed="true"' : ' aria-pressed="false"') . '>' . h($label) . '</button>';
     };
-    $out = '<form method="post" action="group.php" class="group-bar" aria-label="Gruppo">' . csrf_field()
+    $out = '<form method="post" action="group.php" class="group-bar" aria-label="Lega">' . csrf_field()
         . '<input type="hidden" name="back" value="' . h($back) . '">'
-        . '<span class="group-bar-label"><i class="ti ti-users-group"></i> Gruppo</span>' . $btn(0, 'Tutti');
+        . '<span class="group-bar-label"><i class="ti ti-users-group"></i> Lega</span>' . $btn(0, 'Tutte');
     foreach ($allowed as $gid) {
         $out .= $btn($gid, $groups[$gid] ?? '?');
     }
     return $out . '</form>';
 }
 
-/** Gruppi in cui si possono creare partite: l'admin in tutti, un manager solo nei suoi. [id => nome] */
+/** Gruppi in cui si possono creare partite: l'admin nei suoi (tutti, se non ci sono leghe di altri), gli altri dove gestiscono le partite. [id => nome] */
 function manageable_groups(): array
 {
-    return is_admin() ? all_groups() : (is_manager() ? selectable_groups() : []);
+    if (is_admin()) {
+        return array_intersect_key(all_groups(), array_flip(bar_group_ids() ?: array_keys(all_groups())));
+    }
+    $out = [];
+    foreach (selectable_groups() as $gid => $name) {
+        if (can_manage_group($gid)) {
+            $out[$gid] = $name;
+        }
+    }
+    return $out;
 }
 
 /** Gruppi tra cui scegliere quando si crea qualcosa (partita, giocatore): quelli permessi, con quello attivo per primo. */

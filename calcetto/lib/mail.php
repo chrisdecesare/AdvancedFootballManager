@@ -199,16 +199,21 @@ function notify_email_changed(string $oldEmail, int $uid, ?string $newEmail): vo
  * servizio push né dalle impostazioni del telefono. Va solo agli admin con l'email confermata.
  * @return int a quanti admin è partita
  */
-function notify_admins_registration(string $name, string $username): int
+function notify_admins_registration(string $name, string $username, ?int $groupId = null): int
 {
     $sent = 0;
-    foreach (q("SELECT id FROM users WHERE role = 'admin' AND status = 'attivo'")->fetchAll(PDO::FETCH_COLUMN) as $uid) {
+    // iscrizione dal link di una lega creata da un utente: l'avviso va ai suoi admin, non all'admin del sito
+    $league = $groupId ? league_get($groupId) : null;
+    $userLeague = $league && $league['owner_user_id'] !== null;
+    $admins = $userLeague ? push_league_admin_users($groupId)
+        : q("SELECT id FROM users WHERE role = 'admin' AND status = 'attivo'")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($admins as $uid) {
         if (!($email = verified_email((int) $uid))) {
             continue;
         }
         $sent += (int) send_mail($email, 'Nuova iscrizione da approvare · ' . APP_NAME, mail_text(mail_name((int) $uid), [
-            $name . ' (@' . $username . ') chiede di entrare in ' . APP_NAME . '.',
-            'Approvala o rifiutala da qui: ' . trusted_base_url() . 'admin.php',
+            $name . ' (@' . $username . ') chiede di entrare in ' . ($league ? $league['name'] : APP_NAME) . '.',
+            'Approvala o rifiutala da qui: ' . trusted_base_url() . ($userLeague ? 'league.php?id=' . (int) $groupId : 'admin.php'),
         ]));
     }
     return $sent;

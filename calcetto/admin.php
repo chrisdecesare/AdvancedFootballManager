@@ -3,47 +3,36 @@ require __DIR__ . '/lib/bootstrap.php';
 require_admin();
 
 $meUid = (int) current_user()['id'];
+// questa pagina gestisce le leghe "di casa" (storiche e quelle di cui l'admin fa parte): le leghe create dagli altri utenti
+// si guardano da platform.php e si gestiscono da league.php, così qui non si mescolano account e giocatori di sconosciuti
+$homeGroups = admin_groups();
+$homeIn = $homeGroups ? implode(',', array_map('intval', array_keys($homeGroups))) : '0';
+$legacyIn = implode(',', array_map('intval', legacy_group_ids() ?: [0]));
+// account "di casa": giocatore in una lega di casa, oppure in nessuna lega (o senza giocatore)
+$homeUserSql = "(u.player_id IS NULL OR NOT EXISTS (SELECT 1 FROM player_groups x WHERE x.player_id = u.player_id)
+                 OR EXISTS (SELECT 1 FROM player_groups x WHERE x.player_id = u.player_id AND x.group_id IN ($homeIn)))";
 
 if (is_post()) {
     $do = $_POST['do'] ?? '';
     $uid = (int) ($_POST['user_id'] ?? 0);
+    if ($do !== 'mail_test') {
+        log_activity('admin', $do . ($uid ? ' · account #' . $uid : '') . (!empty($_POST['group_id']) ? ' · lega #' . (int) $_POST['group_id'] : ''));
+    }
     switch ($do) {
         case 'approve':
-            $u = q("SELECT * FROM users WHERE id = ? AND status = 'in_attesa'", [$uid])->fetch();
-            if (!$u) {
-                break;
-            }
-            $data = json_decode($u['reg_json'] ?? '', true) ?: [];
-            [$pos1, $pos2] = normalize_positions($data['position'] ?? null, $data['position2'] ?? null);
             $link = (int) ($_POST['player_id'] ?? 0);
-            $groupIds = array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys(all_groups())));
-            if (count(all_groups()) === 1) {
-                $groupIds = array_keys(all_groups());
+            $groupIds = array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys($homeGroups)));
+            if (count($homeGroups) === 1) {
+                $groupIds = array_keys($homeGroups);
             }
             if (!$groupIds) {
                 flash('err', "Scegli almeno un gruppo per approvare l'iscrizione.");
                 break;
             }
-            db()->beginTransaction();
-            if ($link && !q('SELECT 1 FROM users WHERE player_id = ?', [$link])->fetch()) {
-                // giocatore già in rosa: collega l'account e aggiorna le sue preferenze
-                q('UPDATE players SET position = ?, position2 = ?, foot = ?, shirt_number = COALESCE(?, shirt_number), active = 1 WHERE id = ?',
-                    [$pos1, $pos2, $data['foot'] ?? 'Destro', $data['shirt_number'] ?? null, $link]);
-                $pid = $link;
-            } else {
-                q('INSERT INTO players (name, shirt_number, position, position2, foot) VALUES (?, ?, ?, ?, ?)',
-                    [$u['reg_name'], $data['shirt_number'] ?? null, $pos1, $pos2, $data['foot'] ?? 'Destro']);
-                $pid = (int) db()->lastInsertId();
+            $res = approve_registration($uid, $groupIds, $link);   // collega o crea il giocatore, lo mette nei gruppi e lo avvisa
+            if ($res) {
+                flash('ok', 'Iscrizione di ' . $res[0] . ' approvata.' . ($res[1] ? ' Gli abbiamo mandato anche un\'email.' : ''));
             }
-            q("UPDATE users SET status = 'attivo', player_id = ?, reg_json = NULL WHERE id = ?", [$pid, $uid]);
-            db()->commit();
-            set_player_groups($pid, $groupIds);   // e con questo entra nelle partite programmate dei suoi gruppi
-            guests_merge_for_user($uid);          // se aveva giocato da ospite con questa email (confermata), la partita gli compare
-            // avvisa l'utente: notifica sui dispositivi attivati mentre aspettava ed email (se ha un indirizzo)
-            $groupNames = array_values(array_intersect_key(all_groups(), array_flip($groupIds)));
-            push_notify_approved($uid, $groupNames);
-            $mailed = send_approval_email($uid, $groupNames);
-            flash('ok', 'Iscrizione di ' . $u['reg_name'] . ' approvata.' . ($mailed ? ' Gli abbiamo mandato anche un\'email.' : ''));
             break;
         case 'group_add':
         case 'group_rename':
@@ -51,21 +40,22 @@ if (is_post()) {
             $gname = trim((string) ($_POST['name'] ?? ''));
             if ($gname === '' || mb_strlen($gname) > 40) {
                 flash('err', 'Il nome del gruppo deve avere da 1 a 40 caratteri.');
-            } elseif (q('SELECT 1 FROM squad_groups WHERE LOWER(name) = ? AND id <> ?', [mb_strtolower($gname), $do === 'group_rename' ? $gid : 0])->fetch()) {
+            } elseif (q("SELECT 1 FROM squad_groups WHERE LOWER(name) = ? AND id <> ? AND id IN ($homeIn)", [mb_strtolower($gname), $do === 'group_rename' ? $gid : 0])->fetch()) {
                 flash('err', 'Esiste già un gruppo con questo nome.');
             } elseif ($do === 'group_add') {
                 q('INSERT INTO squad_groups (name) VALUES (?)', [$gname]);
                 groups_cache(null, null, true);
                 flash('ok', "Gruppo \"$gname\" creato: assegna i giocatori dalla loro scheda (Modifica) o all'approvazione delle iscrizioni.");
-            } elseif (isset(all_groups()[$gid])) {
+            } elseif (isset($homeGroups[$gid])) {
                 q('UPDATE squad_groups SET name = ? WHERE id = ?', [$gname, $gid]);
                 groups_cache(null, null, true);
                 flash('ok', 'Gruppo rinominato.');
             }
             break;
         case 'group_members':
-            // tabella "giocatori x gruppi": salva i gruppi di ogni giocatore mostrato (ne serve almeno uno)
-            $validGroups = array_keys(all_groups());
+            // tabella "giocatori x gruppi": salva i gruppi di ogni giocatore mostrato (ne serve almeno uno);
+            // le leghe degli altri utenti in cui il giocatore eventualmente sta non si toccano
+            $validGroups = array_keys($homeGroups);
             $changed = 0;
             $kept = [];
             foreach ((array) ($_POST['pids'] ?? []) as $pidRaw) {
@@ -74,11 +64,13 @@ if (is_post()) {
                 if ($pn === false) {
                     continue;
                 }
-                $want = array_values(array_intersect(array_map('intval', (array) ($_POST['pg'][$pid] ?? [])), $validGroups));
-                sort($want);
                 $have = player_group_ids($pid);
+                $foreign = array_values(array_diff($have, $validGroups));
+                $mine = array_values(array_intersect(array_map('intval', (array) ($_POST['pg'][$pid] ?? [])), $validGroups));
+                $want = array_values(array_unique(array_merge($foreign, $mine)));
+                sort($want);
                 sort($have);
-                if (!$want) {
+                if (!$mine && !$foreign) {
                     $kept[] = $pn;          // senza gruppo non vedrebbe nulla: resta com'e'
                 } elseif ($want !== $have) {
                     set_player_groups($pid, $want);
@@ -94,10 +86,10 @@ if (is_post()) {
             $gid = (int) ($_POST['group_id'] ?? 0);
             $onlyHere = (int) q('SELECT COUNT(*) FROM player_groups pg WHERE pg.group_id = ? AND NOT EXISTS
                 (SELECT 1 FROM player_groups o WHERE o.player_id = pg.player_id AND o.group_id <> pg.group_id)', [$gid])->fetchColumn();
-            if (!isset(all_groups()[$gid])) {
+            if (!isset($homeGroups[$gid])) {
                 break;
             }
-            if (count(all_groups()) <= 1) {
+            if (count($homeGroups) <= 1) {
                 flash('err', 'Deve esistere almeno un gruppo.');
             } elseif ((int) q('SELECT COUNT(*) FROM matches WHERE group_id = ?', [$gid])->fetchColumn() > 0) {
                 flash('err', 'Il gruppo ha delle partite: non si può eliminare (rinominalo, se serve).');
@@ -177,6 +169,8 @@ if (is_post()) {
         case 'delete':
             if ($uid === $meUid) {
                 flash('err', 'Non puoi eliminare il tuo account.');
+            } elseif (q('SELECT 1 FROM squad_groups WHERE owner_user_id = ?', [$uid])->fetch()) {
+                flash('err', 'L\'account possiede una lega: prima cedila a qualcun altro (o eliminala) da Piattaforma → Leghe → Gestisci.');
             } else {
                 q('DELETE FROM users WHERE id = ?', [$uid]);
                 flash('ok', 'Account eliminato (il giocatore e le sue statistiche restano).');
@@ -188,31 +182,34 @@ if (is_post()) {
 
 $users = q("SELECT u.*, p.name AS player_name, p.position, p.position2, p.foot, p.shirt_number
             FROM users u LEFT JOIN players p ON p.id = u.player_id
-            WHERE u.status = 'attivo' ORDER BY u.role, u.username")->fetchAll();
-$pendingUsers = q("SELECT * FROM users WHERE status = 'in_attesa' ORDER BY created_at")->fetchAll();
+            WHERE u.status = 'attivo' AND $homeUserSql ORDER BY u.role, u.username")->fetchAll();
+// iscrizioni da approvare qui: quelle senza lega (register.php senza invito) e quelle per le leghe storiche
+$pendingUsers = q("SELECT * FROM users WHERE status = 'in_attesa' AND (reg_group_id IS NULL OR reg_group_id IN ($legacyIn)) ORDER BY created_at")->fetchAll();
 $players = all_players();
-$groupList = all_groups();
+$groupList = $homeGroups;
 $groupStats = [];
-foreach (q('SELECT g.id, (SELECT COUNT(*) FROM player_groups pg WHERE pg.group_id = g.id) AS n_players,
-                   (SELECT COUNT(*) FROM matches m WHERE m.group_id = g.id) AS n_matches FROM squad_groups g')->fetchAll() as $r) {
+foreach (q("SELECT g.id, (SELECT COUNT(*) FROM player_groups pg WHERE pg.group_id = g.id) AS n_players,
+                   (SELECT COUNT(*) FROM matches m WHERE m.group_id = g.id) AS n_matches FROM squad_groups g WHERE g.id IN ($homeIn)")->fetchAll() as $r) {
     $groupStats[(int) $r['id']] = $r;
 }
 $playerGroups = [];
 foreach (q('SELECT player_id, group_id FROM player_groups')->fetchAll() as $r) {
     $playerGroups[(int) $r['player_id']][] = (int) $r['group_id'];
 }
-$allPlayers = q('SELECT id, name, position, active FROM players WHERE is_guest = 0 ORDER BY name')->fetchAll();
+$allPlayers = q("SELECT id, name, position, active FROM players p WHERE is_guest = 0
+                  AND (NOT EXISTS (SELECT 1 FROM player_groups x WHERE x.player_id = p.id) OR EXISTS (SELECT 1 FROM player_groups x WHERE x.player_id = p.id AND x.group_id IN ($homeIn)))
+                  ORDER BY name")->fetchAll();
 $membersOf = [];   // gruppo => [giocatori]
 foreach ($allPlayers as $ap) {
     foreach ($playerGroups[(int) $ap['id']] ?? [] as $gid) {
         $membersOf[$gid][] = $ap;
     }
 }
-$free = q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL AND p.is_guest = 0 ORDER BY p.name')->fetchAll();
+$free = free_roster_players(array_keys($homeGroups), true);
 
 // notifiche push: chi le ha attive (almeno un dispositivo) e chi no
 $pushAccounts = q("SELECT u.id, u.username, p.name AS player_name, (SELECT COUNT(*) FROM push_subscriptions s WHERE s.user_id = u.id) AS n
-                   FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.status = 'attivo' AND u.role <> 'ospite' ORDER BY p.name, u.username")->fetchAll();
+                   FROM users u LEFT JOIN players p ON p.id = u.player_id WHERE u.status = 'attivo' AND u.role <> 'ospite' AND $homeUserSql ORDER BY p.name, u.username")->fetchAll();
 $pushOn = array_filter($pushAccounts, fn($a) => (int) $a['n'] > 0);
 $pushOff = array_filter($pushAccounts, fn($a) => (int) $a['n'] === 0);
 $cronUrl = site_base_url() . 'cron.php?key=' . push_cron_key();
@@ -297,11 +294,12 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
   <a class="card admin-link" href="player_edit.php"><span><i class="ti ti-user-plus"></i></span><strong>Aggiungi giocatore</strong><small>Con o senza account</small></a>
   <a class="card admin-link" href="payments.php"><span><i class="ti ti-currency-euro"></i></span><strong>Pagamenti</strong><small>Quote e saldi</small></a>
   <a class="card admin-link" href="players.php?tutti=1"><span><i class="ti ti-chart-bar"></i></span><strong>Statistiche</strong><small>Apri un giocatore → Modifica</small></a>
+  <a class="card admin-link" href="platform.php"><span><i class="ti ti-world"></i></span><strong>Piattaforma</strong><small>Tutte le leghe, account e operazioni</small></a>
 </div>
 
 <section class="card" id="gruppi">
   <h2><i class="ti ti-users-group"></i> Gruppi</h2>
-  <p class="muted small">Ogni partita appartiene a un gruppo. Un giocatore vede solo giocatori e partite dei suoi gruppi (chi è in più gruppi li vede tutti e può filtrare). Tu, come admin, vedi sempre tutto.
+  <p class="muted small">Ogni partita appartiene a un gruppo. Un giocatore vede solo giocatori e partite dei suoi gruppi (chi è in più gruppi li vede tutti e può filtrare). Tu, come admin, vedi sempre tutti questi gruppi; le leghe create da altri utenti non sono qui ma in <a class="link" href="platform.php?t=leghe">Piattaforma</a>.
     Assegni i giocatori ai gruppi da qui sotto, dalla loro scheda (<em>Modifica</em>) o all'approvazione delle iscrizioni.</p>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Nome</th><th>Giocatori</th><th>Partite</th><th></th></tr></thead>

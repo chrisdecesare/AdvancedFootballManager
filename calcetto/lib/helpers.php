@@ -192,10 +192,30 @@ function gcal_icon_button(array $match): string
         . ' title="Aggiungi a Google Calendar" aria-label="Aggiungi a Google Calendar"><i class="ti ti-calendar-plus"></i></a>';
 }
 
-/** Giocatori in rosa che non hanno ancora un account collegato. */
-function free_roster_players(): array
+/**
+ * Giocatori in rosa che non hanno ancora un account collegato. Con $groupIds solo quelli di quelle leghe (più, se $withoutGroup,
+ * quelli che non sono in nessuna): chi si iscrive a una lega non deve finire abbinato a un omonimo di un'altra.
+ */
+function free_roster_players(?array $groupIds = null, bool $withoutGroup = false): array
 {
-    return q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL AND p.is_guest = 0 ORDER BY p.name')->fetchAll();
+    $where = '';
+    if ($groupIds !== null) {
+        $in = $groupIds ? implode(',', array_map('intval', $groupIds)) : '0';
+        $where = ' AND (EXISTS (SELECT 1 FROM player_groups pg WHERE pg.player_id = p.id AND pg.group_id IN (' . $in . '))'
+            . ($withoutGroup ? ' OR NOT EXISTS (SELECT 1 FROM player_groups pg2 WHERE pg2.player_id = p.id)' : '') . ')';
+    }
+    return q('SELECT p.id, p.name FROM players p LEFT JOIN users u ON u.player_id = p.id WHERE u.id IS NULL AND p.is_guest = 0'
+        . $where . ' ORDER BY p.name')->fetchAll();
+}
+
+/** Leghe storiche (create dall'admin del sito, senza proprietario). */
+function legacy_group_ids(): array
+{
+    try {
+        return array_map('intval', q('SELECT id FROM squad_groups WHERE owner_user_id IS NULL')->fetchAll(PDO::FETCH_COLUMN));
+    } catch (PDOException $e) {
+        return array_keys(all_groups());
+    }
 }
 
 /** Nome "confrontabile": senza maiuscole, accenti e punteggiatura, con le parole in ordine alfabetico. */

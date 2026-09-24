@@ -20,6 +20,9 @@ if (is_post()) {
     } elseif ($do === 'buy') {
         wallet_open($me);
         $err = shop_buy($me, $kind, $key);
+        if (!$err) {
+            log_activity('negozio', $kind . ' · ' . ($item['name'] ?? $key));
+        }
         flash($err ? 'err' : 'ok', $err ?: 'Comprato: «' . $item['name'] . '»! Ora puoi indossarlo.');
     } elseif ($do === 'wear') {
         $err = shop_equip($me, $kind, $key);

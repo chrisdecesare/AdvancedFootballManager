@@ -1152,3 +1152,33 @@ html.menu-open .betslip, html.tour-open .betslip { display: none; }
 .fact-timer span { display: block; height: 100%; width: 100%; background: var(--grass); transform-origin: left; animation: factTimer var(--fact-s, 15s) linear forwards; }
 @keyframes factTimer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { .fact-slides > .fact-body, .fact-slides > .fact-body.is-active { transition: none; } .fact-timer span { animation: none; transform: none; } }
+
+/* ---------- leghe create dagli utenti (join.php, create_league.php, league.php) ---------- */
+.btn-col { display: grid; gap: 10px; }
+.invite-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.invite-url { flex: 1 1 260px; min-width: 0; font-weight: 700; }
+
+/* ---------- Piattaforma (platform.php) ---------- */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 14px; margin-bottom: 18px; }
+.kpi { display: flex; flex-direction: column; gap: 2px; margin: 0; transition: transform .08s, box-shadow .08s; }
+a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink); }
+.kpi small { font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-size: .72rem; }
+.kpi strong { font: 400 2.1rem/1.1 var(--font-d); }
+.platform-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 18px; margin-bottom: 18px; }
+.platform-cols > .card { margin: 0; }
+.bars { display: grid; gap: 6px; }
+.bar-row { display: grid; grid-template-columns: minmax(110px, 38%) 1fr 44px; align-items: center; gap: 10px; }
+.bar-row:hover .bar-lbl { text-decoration: underline; }
+.bar-track { height: 14px; background: var(--paper-2); border: var(--b2); border-radius: 999px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: var(--grass); }
+.bar-n { font-weight: 800; text-align: right; }
+.filter-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.filter-bar .mini-input { min-width: 200px; }
+.plain-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.tag-act { background: var(--paper-2); white-space: nowrap; }
+.act-lega, .act-iscrizione { background: var(--sky); }
+.act-partita, .act-presenza, .act-voto { background: var(--grass); }
+.act-puntata, .act-multipla, .act-negozio { background: var(--yellow); }
+.act-admin, .act-account, .act-pagamenti { background: var(--pink); }
+.radio-opt { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 8px; font-weight: 600; cursor: pointer; }
+.radio-opt input { margin-top: 4px; flex: none; }

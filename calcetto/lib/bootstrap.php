@@ -50,6 +50,7 @@ require __DIR__ . '/db.php';
 require __DIR__ . '/helpers.php';
 require __DIR__ . '/auth.php';
 require __DIR__ . '/groups.php';
+require __DIR__ . '/leagues.php';
 require __DIR__ . '/stats.php';
 require __DIR__ . '/formation.php';
 require __DIR__ . '/chemistry.php';
@@ -72,12 +73,14 @@ if (tables_exist()) {
     if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         remember_base_url();   // un admin fissa l'indirizzo affidabile del sito per i link delle email
     }
+    touch_last_seen();     // ultima volta che l'account ha usato il sito (per platform.php)
     close_due_votings();   // votazioni arrivate all'orario di fine: si chiudono da sole
     bets_settle_pending();  // scommesse rimaste da pagare (di solito nessuna)
     // a risposta già inviata: prima si spediscono le notifiche in coda (e si riprovano quelle non riuscite),
     // poi, per chi è collegato, parte l'eventuale promemoria "non hai ancora risposto"
     push_defer('push_queue_kick');
-    push_defer('guests_maybe_cleanup');   // toglie gli account degli ospiti la cui partita e' vecchia di una settimana
+    push_defer('guests_maybe_cleanup');
+    push_defer('activity_maybe_prune');   // il registro delle operazioni tiene un anno   // toglie gli account degli ospiti la cui partita e' vecchia di una settimana
     if (!empty($_SESSION['uid']) && ($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         push_defer('push_maybe_run');
     }
