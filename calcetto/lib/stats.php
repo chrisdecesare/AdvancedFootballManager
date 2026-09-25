@@ -52,14 +52,51 @@ function last_played_match(): ?array
     return played_matches()[0] ?? null;
 }
 
-/** Aggiunge a una partita programmata i giocatori attivi DEL SUO GRUPPO che non ci sono ancora (stato "in attesa"). */
+/**
+ * SQL per lo stato con cui un giocatore entra in una partita: «assente» se infortunato, altrimenti «in attesa».
+ * Se la colonna players.injured non c'è ancora (migrazione non riuscita) tutti entrano «in attesa»: il sito non si rompe.
+ */
+function join_availability_sql(string $alias = 'p'): string
+{
+    static $has = null;
+    $has ??= (bool) q("SHOW COLUMNS FROM players LIKE 'injured'")->fetch();
+    return $has ? "IF($alias.injured = 1, 'assente', 'in_attesa')" : "'in_attesa'";
+}
+
+/** Aggiunge a una partita programmata i giocatori attivi DEL SUO GRUPPO che non ci sono ancora (stato "in attesa"; «assente» se infortunati). */
 function sync_match_players(int $match_id): void
 {
-    q("INSERT IGNORE INTO match_players (match_id, player_id)
-       SELECT m.id, p.id FROM matches m
+    // chi è infortunato entra già come «assente»: non può confermare finché non guarisce
+    q("INSERT IGNORE INTO match_players (match_id, player_id, availability)
+       SELECT m.id, p.id, " . join_availability_sql('p') . " FROM matches m
        JOIN player_groups pg ON pg.group_id = m.group_id
        JOIN players p ON p.id = pg.player_id
        WHERE m.id = ? AND p.active = 1", [$match_id]);
+}
+
+/**
+ * Segna un giocatore come infortunato (o di nuovo disponibile). Da infortunato non può confermare le partite:
+ *  - in tutte le partite in programma diventa «assente» ed esce da squadre e campo;
+ *  - le scommesse su di lui/lei in quelle partite saltano (singole cancellate, nelle multiple solo quella selezione);
+ *  - le partite create dopo lo trovano già assente (sync_match_players).
+ * Quando guarisce non cambia nulla in automatico: resta «assente» nelle partite in programma finché non conferma di nuovo
+ * (non si può sapere quali assenze erano dell'infortunio e quali una sua scelta).
+ * Ritorna in quante partite in programma è stato segnato assente.
+ */
+function player_set_injured(int $playerId, bool $injured): int
+{
+    q('UPDATE players SET injured = ? WHERE id = ?', [$injured ? 1 : 0, $playerId]);
+    if (!$injured) {
+        return 0;
+    }
+    $ids = q("SELECT mp.match_id FROM match_players mp JOIN matches m ON m.id = mp.match_id
+              WHERE mp.player_id = ? AND m.status = 'programmata' AND mp.availability <> 'assente'", [$playerId])->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($ids as $mid) {
+        q("UPDATE match_players SET availability = 'assente', team = NULL WHERE match_id = ? AND player_id = ?", [$mid, $playerId]);
+        assign_formation((int) $mid);   // esce anche dal campo
+        bets_void_for_player((int) $mid, $playerId);
+    }
+    return count($ids);
 }
 
 /**

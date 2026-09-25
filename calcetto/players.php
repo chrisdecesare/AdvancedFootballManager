@@ -38,6 +38,8 @@ layout_start('Rosa', 'players');
   <?php endforeach; ?>
 </div>
 
+<?php $injuredNames = array_map(fn($p) => $p['name'], array_filter($players, fn($p) => !empty($p['injured']) && $p['active'])); ?>
+<?php if ($injuredNames): ?><p class="muted small"><i class="ti ti-bandage"></i> <b>Infortunati:</b> <?= h(implode(', ', $injuredNames)) ?></p><?php endif; ?>
 <div class="player-grid">
 <?php foreach ($players as $p): $s = $stats[(int) $p['id']]; ?>
   <?php $bgStyle = profile_bg_style($p); ?>
@@ -58,6 +60,7 @@ layout_start('Rosa', 'players');
       <div><strong class="<?= vote_class($s['avg_vote']) ?>-t"><?= fmt_num($s['avg_vote']) ?></strong><span>Media</span></div>
     </div>
     <?php if (!$p['active']): ?><span class="tag">non attivo</span><?php endif; ?>
+    <?php if (!empty($p['injured'])): ?><span class="tag tag-injured"><i class="ti ti-bandage"></i> infortunato</span><?php endif; ?>
   </a>
 <?php endforeach; ?>
 </div>

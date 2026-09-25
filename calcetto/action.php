@@ -24,6 +24,8 @@ if (($_POST['do'] ?? '') === 'availability') {
         flash('err', 'Il giocatore non fa parte del gruppo di questa partita.');
     } elseif (!in_array($status, ['confermato', 'assente', 'in_attesa'], true)) {
         flash('err', 'Stato non valido.');
+    } elseif ($status === 'confermato' && !empty(get_player((int) $pid)['injured'])) {
+        flash('err', 'Giocatore infortunato: non può confermare finché non è segnato di nuovo disponibile.');
     } else {
         sync_match_players((int) $match['id']);
         $was = (string) q('SELECT availability FROM match_players WHERE match_id = ? AND player_id = ?', [$match['id'], $pid])->fetchColumn();
@@ -33,6 +35,9 @@ if (($_POST['do'] ?? '') === 'availability') {
              team = IF(VALUES(availability) = \'confermato\', team, NULL)',
             [$match['id'], $pid, $status]);
         assign_formation((int) $match['id']); // chi si ritira esce anche dal campo
+        if ($status === 'assente') {
+            bets_void_for_player((int) $match['id'], (int) $pid);   // le scommesse su di lui/lei saltano (singole cancellate, nelle multiple solo quella selezione)
+        }
         log_activity('presenza', $status . ' · ' . fmt_date_short($match['match_date']) . ($pid !== my_player_id() ? ' · giocatore #' . $pid : ''), (int) $match['group_id']);
         push_notify_roster_change((int) $match['id'], $pid, $was, $status, (int) current_user()['id']);   // avvisa gli altri confermati
         $msg = ['confermato' => 'Presenza confermata', 'assente' => 'Segnato come assente', 'in_attesa' => 'Risposta annullata'];

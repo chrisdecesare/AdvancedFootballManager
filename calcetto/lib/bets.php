@@ -21,13 +21,14 @@
  *  - doppietta / tripletta: un giocatore segna almeno 2 / almeno 3 gol, si paga a fine partita;
  *  - overunder: i gol totali della partita stanno sopra o sotto una soglia scelta da chi punta (es. 8,5), si paga a fine partita.
  *    Il sito dà una quota per ogni soglia possibile e la soglia viene salvata dentro la scelta ("O8.5" / "U8.5");
+ *  - autogol: un giocatore fa almeno un autogol, si paga a fine partita (evento raro: quote alte; su se stessi non si punta);
  *  - mvp: chi sarà l'MVP, si paga alla chiusura delle votazioni.
  */
 
 const BET_START = 100;       // gettoni di benvenuto
 const BET_DOLE_BELOW = 20;   // chi scende sotto questa cifra (e non ha puntate in corso)...
 const BET_DOLE = 30;         // ...riceve il "sussidio" (una volta a settimana)
-const BET_MARGIN = ['esito' => 0.06, 'gol' => 0.12, 'doppietta' => 0.15, 'tripletta' => 0.18, 'overunder' => 0.06, 'mvp' => 0.15];   // margine del banco (overround) per mercato, come nei bookmaker veri
+const BET_MARGIN = ['esito' => 0.06, 'gol' => 0.12, 'doppietta' => 0.15, 'tripletta' => 0.18, 'autogol' => 0.20, 'overunder' => 0.06, 'mvp' => 0.15];   // margine del banco (overround) per mercato, come nei bookmaker veri
 const BET_RATING_K = 0.25;       // quanto pesa la differenza di rating tra le squadre sui gol attesi
 const BET_FORM = ['hot' => 1.12, 'ok' => 1.0, 'cold' => 0.88, 'none' => 1.0];   // effetto dello stato di forma (ultime 5 partite) su gol attesi e MVP
 const BET_DRAW_BOOST = 1.15;     // i pareggi sono più frequenti di quanto dica Poisson puro (correzione tipo Dixon-Coles)
@@ -44,6 +45,9 @@ const BET_REWARD_ASSIST = 10;    // e per ogni assist
 const BET_BOOST_MULT = 1.17;     // prime partite (più incertezza): quota finale = quota x 1,17 + c...
 const BET_BOOST_C = [0.2, 0.5];  // ...con c tra 0,2 e 0,5, diverso per ogni scelta (vedi bet_boost)
 const BET_OPEN_HOURS = 48;       // le scommesse su una partita si aprono 48 ore prima del calcio d'inizio (e da lì i ruoli sono bloccati)
+const BET_OG_PRIOR = 0.04;       // autogol per giocatore e partita finché il gruppo ne ha visti pochi (circa uno ogni 25 presenze)...
+const BET_OG_PRIOR_APPS = 30;    // ...pesano come tante presenze
+const BET_OG_OWN_APPS = 5;       // quanto la media del gruppo pesa sul singolo giocatore (in presenze): pochi eventi, quindi ci si fida poco del suo storico
 
 function bet_markets(): array
 {
@@ -52,13 +56,14 @@ function bet_markets(): array
         'gol' => ['label' => 'Chi segna?', 'icon' => 'ball-football', 'when' => 'segna almeno un gol'],
         'doppietta' => ['label' => 'Chi fa doppietta?', 'icon' => 'square-number-2', 'when' => 'segna almeno 2 gol'],
         'tripletta' => ['label' => 'Chi fa tripletta?', 'icon' => 'square-number-3', 'when' => 'segna almeno 3 gol'],
+        'autogol' => ['label' => 'Chi fa autogol?', 'icon' => 'mood-sad', 'when' => 'fa almeno un autogol'],
         'overunder' => ['label' => 'Over/Under', 'icon' => 'arrows-up-down', 'when' => 'gol totali della partita'],
         'mvp' => ['label' => 'Chi sarà l\'MVP?', 'icon' => 'star', 'when' => 'alla chiusura dei voti'],
     ];
 }
 
 /** Mercati in cui si punta su un giocatore (le scelte sono id di giocatori). */
-const BET_PLAYER_MARKETS = ['gol', 'doppietta', 'tripletta', 'mvp'];
+const BET_PLAYER_MARKETS = ['gol', 'doppietta', 'tripletta', 'autogol', 'mvp'];
 /** Mercati sui gol di un giocatore: stesso giocatore in due di questi nella stessa multipla non si può (uno implica l'altro). */
 const BET_SCORER_MARKETS = ['gol', 'doppietta', 'tripletta'];
 const BET_OU_MIN_LINES = 25;   // over/under: soglie proposte almeno da 0,5 a 25,5 gol (di più se la partita promette tanti gol)
@@ -66,7 +71,7 @@ const BET_OU_PLAYERS_W = 0.7;  // quanto pesa "chi gioca" sui gol attesi totali 
 const BET_OU_FULL_ROSTER = 10; // con almeno tanti giocatori in lista quel peso vale in pieno, con meno scala (la lista è ancora incompleta)
 
 /** Mercati che si pagano col risultato (gli altri, cioè l'MVP, alla chiusura dei voti). */
-const BET_RESULT_MARKETS = ['esito', 'gol', 'doppietta', 'tripletta', 'overunder'];
+const BET_RESULT_MARKETS = ['esito', 'gol', 'doppietta', 'tripletta', 'autogol', 'overunder'];
 
 /** Scelta dell'over/under: "O8.5" / "U8.5" => ['O', 8.5], null se non valida. */
 function bet_ou_parse(string $pick): ?array
@@ -216,7 +221,7 @@ function bet_poisson_1x2(float $la, float $lb): array
 }
 
 /**
- * Quote di una partita: ['esito' => [A, X, B], 'gol' / 'doppietta' / 'tripletta' / 'mvp' => [id giocatore],
+ * Quote di una partita: ['esito' => [A, X, B], 'gol' / 'doppietta' / 'tripletta' / 'autogol' / 'mvp' => [id giocatore],
  * 'overunder' => ["O8.5", "U8.5"]] => quota decimale.
  *
  *  - esito: dalla differenza di rating medio delle due squadre (se non sono ancora fatte, partita in equilibrio) si ricavano i gol
@@ -225,6 +230,8 @@ function bet_poisson_1x2(float $la, float $lb): array
  *    a partita (stagione + ultime 5 partite + stato di forma); probabilità = 1 - e^(-gol attesi del giocatore). Chi segna spesso ed è
  *    in forma ha quota bassa, chi non segna mai quota alta;
  *  - doppietta / tripletta: con gli stessi gol attesi, probabilità di Poisson di segnarne almeno 2 / almeno 3;
+ *  - autogol: evento raro, quindi il tasso di ogni giocatore (autogol a presenza) è tirato forte verso quello di tutto il gruppo
+ *    (con un valore di partenza finché ce ne sono pochi); probabilità = 1 - e^(-tasso), meno per chi potrebbe non esserci;
  *  - overunder: gol attesi totali = gol attesi delle due squadre (media gol del gruppo + rating) x un fattore "chi gioca": quanto i
  *    giocatori in lista segnano più (o meno) della media del gruppo, da stagione, ultime 5 partite e forma. Chi ha giocato poco vale
  *    come la media; il fattore pesa di più man mano che la lista si riempie.
@@ -261,7 +268,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         'A' => bet_odds($pw, 'esito', 1.05, 30),
         'X' => bet_odds($pd, 'esito', 1.05, 30),
         'B' => bet_odds($pl, 'esito', 1.05, 30),
-    ], 'gol' => [], 'doppietta' => [], 'tripletta' => [], 'overunder' => [], 'mvp' => []];
+    ], 'gol' => [], 'doppietta' => [], 'tripletta' => [], 'autogol' => [], 'overunder' => [], 'mvp' => []];
 
 
     // gol e MVP
@@ -287,11 +294,14 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $den += $x['here'] * $rows[$pid]['w'];
     }
     // over/under: gol attesi totali, poi una quota over e una under per ogni soglia
-    $apps = $goals = 0;
+    $apps = $goals = $ownGoals = 0;
     foreach ($stats as $st) {
         $apps += (int) ($st['apps'] ?? 0);
         $goals += (int) ($st['goals'] ?? 0);
+        $ownGoals += (int) ($st['own_goals'] ?? 0);
     }
+    // autogol per giocatore e partita nel gruppo (con un valore di partenza finché sono pochi)
+    $ogGroup = ($ownGoals + BET_OG_PRIOR * BET_OG_PRIOR_APPS) / ($apps + BET_OG_PRIOR_APPS);
     $factor = 1.0;
     if ($apps > 0 && $goals > 0) {
         $g = $goals / $apps;   // gol a partita del giocatore medio del gruppo
@@ -327,6 +337,9 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $out['gol'][$pid] = bet_odds(1 - exp(-$goals), 'gol', 1.05, 15);
         $out['doppietta'][$pid] = bet_odds(bet_poisson_at_least($goals, 2), 'doppietta', 1.20, 35);
         $out['tripletta'][$pid] = bet_odds(bet_poisson_at_least($goals, 3), 'tripletta', 1.50, 75);
+        // autogol: storico del giocatore mescolato alla media del gruppo (pesa quanto BET_OG_OWN_APPS presenze)
+        $ogRate = (((int) ($x['s']['own_goals'] ?? 0)) + $ogGroup * BET_OG_OWN_APPS) / ((int) ($x['s']['apps'] ?? 0) + BET_OG_OWN_APPS);
+        $out['autogol'][$pid] = bet_odds(1 - exp(-$ogRate * $x['here']), 'autogol', 2.00, 40);
         $rate = ($x['s']['mvp'] + 3 / max(2, count($rows))) / ($x['s']['apps'] + 3);
         $v = (float) $x['s']['avg_vote'];
         $v5 = $x['s']['avg_vote_last5'];
@@ -588,6 +601,9 @@ function bet_winning_picks(array $match, string $market): array|false|null
         }
         return [(int) $match['score_a'] > (int) $match['score_b'] ? 'A' : ((int) $match['score_a'] < (int) $match['score_b'] ? 'B' : 'X')];
     }
+    if ($market === 'autogol') {
+        return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND own_goals >= 1', [$id])->fetchAll(PDO::FETCH_COLUMN));
+    }
     $minGoals = ['gol' => 1, 'doppietta' => 2, 'tripletta' => 3][$market] ?? null;
     if ($minGoals) {
         return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND goals >= ?', [$id, $minGoals])->fetchAll(PDO::FETCH_COLUMN));
@@ -821,7 +837,10 @@ function combo_prepare(array $raw, int $playerId): array
         $seen[$dup] = true;
         // «chi vince» e «MVP» hanno un solo esito vincente: due scelte della stessa partita in una multipla si escludono
         // a vicenda (sarebbe persa di sicuro), come nei bookmaker veri. I marcatori invece possono segnare in tanti.
-        if (!in_array($market, BET_SCORER_MARKETS, true)) {
+        if ($market === 'autogol') {
+            // più giocatori diversi sì (gli autogol sono eventi indipendenti), e lo stesso giocatore può stare anche in «segna»:
+            // fare gol e fare autogol non si comprendono a vicenda. La stessa scelta due volte l'ha già scartata il controllo sopra.
+        } elseif (!in_array($market, BET_SCORER_MARKETS, true)) {
             $excl = $matchId . '|' . $market;
             if (isset($seen[$excl])) {
                 return [null, 'Nella multipla puoi mettere una sola scelta di «' . bet_markets()[$market]['label'] . '» per partita: si escludono a vicenda. Due marcatori invece sì.'];
@@ -927,6 +946,53 @@ function combo_cancel(int $comboId, int $playerId): ?string
     }
     q('DELETE FROM combo_bets WHERE id = ?', [$comboId]);   // gambe e mossa spariscono con lei (rimborso)
     return null;
+}
+
+/**
+ * Un giocatore si ritira da una partita («Non ci sono»): le scommesse SU di lui non hanno più senso e vanno tolte.
+ *  - puntate singole aperte su di lui (chi segna, doppietta, tripletta, autogol, MVP): cancellate, i gettoni tornano a chi aveva puntato;
+ *  - selezioni di multiple aperte su di lui: si toglie SOLO quella selezione, la multipla resta con le altre e la quota si ricalcola
+ *    (prodotto delle quote rimaste). Se non ne resta nessuna la multipla sparisce e i gettoni tornano.
+ * Quello che riguarda la partita nel suo insieme (chi vince, over/under) e le scommesse degli altri giocatori non si tocca.
+ * Si può richiamare senza danni (la seconda volta non trova più nulla).
+ * @return array{0: int, 1: int, 2: int} puntate singole cancellate, selezioni tolte da multiple, multiple sparite del tutto
+ */
+function bets_void_for_player(int $matchId, int $playerId): array
+{
+    $in = "'" . implode("','", BET_PLAYER_MARKETS) . "'";
+    $pick = (string) $playerId;
+    $singles = $legsRemoved = $combosGone = 0;
+    $touched = [];
+    bet_atomic(function () use ($matchId, $pick, $in, &$singles, &$legsRemoved, &$combosGone, &$touched) {
+        // singole: la puntata se ne va e con lei la sua mossa nel portafoglio (rimborso)
+        foreach (q("SELECT id FROM bets WHERE match_id = ? AND pick = ? AND market IN ($in) AND status = 'aperta' FOR UPDATE", [$matchId, $pick])->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            q('DELETE FROM bets WHERE id = ?', [$id]);
+            $singles++;
+        }
+        // multiple: via solo la gamba di quel giocatore
+        $legs = q("SELECT cl.id, cl.combo_id FROM combo_legs cl JOIN combo_bets cb ON cb.id = cl.combo_id
+                   WHERE cl.match_id = ? AND cl.pick = ? AND cl.market IN ($in) AND cl.status = 'aperta' AND cb.status = 'aperta' FOR UPDATE", [$matchId, $pick])->fetchAll();
+        foreach ($legs as $l) {
+            q('DELETE FROM combo_legs WHERE id = ?', [$l['id']]);
+            $legsRemoved++;
+            $touched[(int) $l['combo_id']] = true;
+        }
+        foreach (array_keys($touched) as $cid) {
+            $left = q('SELECT odds FROM combo_legs WHERE combo_id = ?', [$cid])->fetchAll();
+            if (!$left) {
+                q('DELETE FROM combo_bets WHERE id = ?', [$cid]);   // nessuna selezione rimasta: i gettoni tornano (la mossa sparisce con lei)
+                $combosGone++;
+                unset($touched[$cid]);
+            } else {
+                q('UPDATE combo_bets SET odds = ? WHERE id = ?', [combo_odds($left), $cid]);
+            }
+        }
+    });
+    // se le selezioni rimaste erano già tutte decise, la multipla si può pagare (o dare per persa) adesso
+    foreach (array_keys($touched) as $cid) {
+        combo_maybe_settle((int) $cid);
+    }
+    return [$singles, $legsRemoved, $combosGone];
 }
 
 /** Multiple aperte di un giocatore, con le loro gambe. */

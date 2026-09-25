@@ -19,7 +19,7 @@ if ($isNew ? !$staff : (!$staff && my_player_id() !== $id)) {
 }
 $p = $isNew ? [
     'id' => 0, 'name' => '', 'photo' => null, 'bg_color' => null, 'bg_image' => null, 'shirt_number' => null, 'position' => 'Centrocampista', 'position2' => null, 'foot' => 'Destro',
-    'base_rating' => '6.0', 'active' => 1, 'adj_apps' => 0, 'adj_wins' => 0, 'adj_draws' => 0, 'adj_losses' => 0,
+    'base_rating' => '6.0', 'active' => 1, 'injured' => 0, 'adj_apps' => 0, 'adj_wins' => 0, 'adj_draws' => 0, 'adj_losses' => 0,
     'adj_goals' => 0, 'adj_assists' => 0, 'adj_own_goals' => 0, 'adj_mvp' => 0,
 ] : get_player($id);
 if (!$p || !empty($p['is_guest'])) {   // un ospite non ha una scheda da modificare: si gestisce dalla sua partita
@@ -133,6 +133,14 @@ if (is_post()) {
             }
             $params[] = $id;
             q('UPDATE players SET ' . implode(', ', $sets) . ' WHERE id = ?', $params);
+            $injuredNow = empty($_POST['injured']) ? 0 : 1;
+            if ($injuredNow !== (int) ($p['injured'] ?? 0)) {
+                $away = player_set_injured($id, (bool) $injuredNow);   // da infortunato: assente nelle partite in programma, scommesse su di lui annullate
+                log_activity('giocatore', ($injuredNow ? 'infortunato' : 'di nuovo disponibile') . ' · ' . $name, $groupIds[0] ?? null);
+                if ($injuredNow && $away) {
+                    flash('ok', $name . ' è segnato infortunato: risulta assente in ' . $away . ($away > 1 ? ' partite' : ' partita') . ' e le scommesse su di lui/lei sono state tolte.');
+                }
+            }
             if (!$isNew) {
                 set_player_groups($id, $groupIds);
             }
@@ -324,6 +332,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
     <div class="form-grid">
       <label class="field"><span>Rating base (1-10)</span><input name="base_rating" inputmode="decimal" value="<?= h(str_replace('.', ',', (string) $p['base_rating'])) ?>"></label>
       <label class="field check"><input type="checkbox" name="active" value="1" <?= $p['active'] ? 'checked' : '' ?>><span>Attivo (compare nelle nuove partite)</span></label>
+      <label class="field check"><input type="checkbox" name="injured" value="1" <?= !empty($p['injured']) ? 'checked' : '' ?>><span>Infortunato (non può confermare: risulta assente e le scommesse su di lui/lei saltano)</span></label>
     </div>
     <p class="muted small">Il rating base è il livello di partenza per il bilanciamento delle squadre. Con le partite votate si combina con la media voto e la % di vittorie.</p>
     <h3>Correzioni statistiche</h3>
