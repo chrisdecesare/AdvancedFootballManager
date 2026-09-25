@@ -121,6 +121,7 @@
     const seen = {};
     let clash = null;
     cart.forEach(l => {
+      if (l.market === 'autogol') return;   // più giocatori sì, e anche chi segna può fare autogol: eventi indipendenti
       const scorer = SCORER.includes(l.market);
       const k = l.matchId + '|' + (scorer ? 'scorer|' + l.pick : l.market);
       if (seen[k] && !clash) clash = scorer ? 'scorer' : 'excl';

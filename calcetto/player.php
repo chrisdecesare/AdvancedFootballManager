@@ -106,7 +106,7 @@ layout_start($p['name'], 'players');
   <div class="profile-photo"><?= avatar($p, 'xxl') ?>
     <?php if ($p['shirt_number'] !== null): ?><span class="profile-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?></div>
   <div class="profile-info">
-    <h1><?= h($p['name']) ?> <?= $p['active'] ? '' : '<span class="tag">non attivo</span>' ?></h1>
+    <h1><?= h($p['name']) ?> <?= $p['active'] ? '' : '<span class="tag">non attivo</span>' ?><?= !empty($p['injured']) ? ' <span class="tag tag-injured"><i class="ti ti-bandage"></i> infortunato</span>' : '' ?></h1>
     <?php if ($nick = nick_html($p)): ?><div class="profile-nick"><?= $nick ?></div><?php endif; ?>
     <div class="profile-tags">
       <span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>" title="Posizione preferita"><?= h($p['position']) ?></span>

@@ -236,10 +236,10 @@ layout_start('Scommesse', 'bets');
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
-    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> gettoni e ogni assist <?= BET_REWARD_ASSIST ?>, appena viene salvato il risultato. Su te stesso (chi segna, doppietta, tripletta, MVP) non si scommette.
+    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> gettoni e ogni assist <?= BET_REWARD_ASSIST ?>, appena viene salvato il risultato. Su te stesso (chi segna, doppietta, tripletta, autogol, MVP) non si scommette.
     I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
 </section>
 

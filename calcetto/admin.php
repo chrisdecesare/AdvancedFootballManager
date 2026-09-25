@@ -125,6 +125,22 @@ if (is_post()) {
                 flash('ok', "Account \"$username\" creato.");
             }
             break;
+        case 'gift_coins':
+            // regalo di gettoni a un giocatore delle leghe di casa: una mossa «regalo» nel portafoglio (si vede nel saldo e in classifica)
+            $giftId = (int) ($_POST['gift_player'] ?? 0);
+            $giftAmount = (int) ($_POST['amount'] ?? 0);
+            $giftPlayer = $giftId ? q("SELECT p.id, p.name FROM players p WHERE p.id = ? AND p.is_guest = 0
+                                       AND EXISTS (SELECT 1 FROM player_groups pg WHERE pg.player_id = p.id AND pg.group_id IN ($homeIn))", [$giftId])->fetch() : null;
+            if (!$giftPlayer) {
+                flash('err', 'Scegli un giocatore.');
+            } elseif ($giftAmount < 1 || $giftAmount > 1000) {
+                flash('err', 'Il regalo va da 1 a 1000 gettoni.');
+            } else {
+                q("INSERT INTO wallet_moves (player_id, delta, kind) VALUES (?, ?, 'regalo')", [$giftPlayer['id'], $giftAmount]);
+                log_activity('gettoni', 'regalo · ' . $giftAmount . ' a ' . $giftPlayer['name']);
+                flash('ok', 'Regalati ' . $giftAmount . ' gettoni a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id']) . '.');
+            }
+            break;
         case 'mail_test':
             $to = mb_strtolower(trim((string) ($_POST['to'] ?? '')));
             if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
@@ -430,6 +446,24 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
       <?php foreach ($free as $f): ?><option value="<?= (int) $f['id'] ?>"><?= h($f['name']) ?></option><?php endforeach; ?></select></label>
     <label class="field"><span>Ruolo</span><select name="role"><option value="player">Giocatore</option><option value="manager">Manager</option><option value="admin">Admin</option></select></label>
     <div><button class="btn btn-primary">Crea account</button></div>
+  </form>
+</section>
+
+<?php
+$giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0) FROM wallet_moves w WHERE w.player_id = p.id) AS bal
+                  FROM players p JOIN player_groups pg ON pg.player_id = p.id
+                  WHERE p.is_guest = 0 AND pg.group_id IN ($homeIn) ORDER BY p.name")->fetchAll();
+?>
+<section class="card" id="gettoni">
+  <h2><i class="ti ti-coin"></i> Regala gettoni</h2>
+  <p class="muted small">Aggiunge gettoni al portafoglio di un giocatore (da 1 a 1000 per volta): si vedono subito nel suo saldo, in classifica e nel Negozio.</p>
+  <form method="post" class="form form-grid form-grid-4">
+    <?= csrf_field() ?><input type="hidden" name="do" value="gift_coins">
+    <label class="field"><span>Giocatore</span><select name="gift_player" required>
+      <option value="">— scegli —</option>
+      <?php foreach ($giftPlayers as $gp): ?><option value="<?= (int) $gp['id'] ?>"><?= h($gp['name']) ?> (<?= (int) $gp['bal'] ?> gettoni)</option><?php endforeach; ?></select></label>
+    <label class="field"><span>Gettoni</span><input type="number" name="amount" min="1" max="1000" value="50" required inputmode="numeric"></label>
+    <div><button class="btn btn-primary" data-confirm="Regalare questi gettoni?"><i class="ti ti-gift"></i> Regala</button></div>
   </form>
 </section>
 

@@ -65,8 +65,8 @@ function set_player_groups(int $player_id, array $group_ids): void
     q("DELETE mp FROM match_players mp JOIN matches m ON m.id = mp.match_id
        WHERE mp.player_id = ? AND m.status = 'programmata'
          AND NOT EXISTS (SELECT 1 FROM player_groups pg WHERE pg.player_id = mp.player_id AND pg.group_id = m.group_id)", [$player_id]);
-    q("INSERT IGNORE INTO match_players (match_id, player_id)
-       SELECT m.id, p.id FROM matches m
+    q("INSERT IGNORE INTO match_players (match_id, player_id, availability)
+       SELECT m.id, p.id, " . join_availability_sql('p') . " FROM matches m
        JOIN player_groups pg ON pg.group_id = m.group_id
        JOIN players p ON p.id = pg.player_id
        WHERE p.id = ? AND p.active = 1 AND m.status = 'programmata'", [$player_id]);

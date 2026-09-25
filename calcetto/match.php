@@ -92,11 +92,16 @@ if (is_post()) {
 
         case 'set_avail':
             $st = $_POST['status'] ?? '';
-            if (in_array($st, ['confermato', 'in_attesa', 'assente'], true)) {
+            if ($st === 'confermato' && !empty(get_player((int) $pid)['injured'])) {
+                flash('err', 'Giocatore infortunato: non può confermare finché non è segnato di nuovo disponibile.');
+            } elseif (in_array($st, ['confermato', 'in_attesa', 'assente'], true)) {
                 $was = (string) q('SELECT availability FROM match_players WHERE match_id = ? AND player_id = ?', [$id, $pid])->fetchColumn();
                 q("UPDATE match_players SET availability = ?, team = IF(? = 'confermato', team, NULL)
                    WHERE match_id = ? AND player_id = ?", [$st, $st, $id, $pid]);
                 assign_formation($id);
+                if ($st === 'assente') {
+                    bets_void_for_player($id, $pid);   // le scommesse su di lui/lei saltano (singole cancellate, nelle multiple solo quella selezione)
+                }
                 push_notify_roster_change($id, $pid, $was, $st, $actor);   // lo sanno gli altri confermati
             }
             break;

@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 28;
+const SCHEMA_VERSION = 29;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -548,6 +548,11 @@ function ensure_schema(): void
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
             FOREIGN KEY (assist_id) REFERENCES players(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 29) {
+        // giocatori infortunati (vedi player_set_injured in stats.php). Sta PRIMA della migrazione 28 di proposito: quella ricalcola le
+        // quote e passa da sync_match_players, che legge questa colonna.
+        $add('players', 'injured', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
     }
     if ($v < 28) {
         // quote più alte per le prime partite (bet_boost in lib/bets.php): valgono per tutte le partite già in programma

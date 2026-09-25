@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS players (
   foot VARCHAR(12) NOT NULL DEFAULT 'Destro',
   base_rating DECIMAL(3,1) NOT NULL DEFAULT 6.0,
   active TINYINT(1) NOT NULL DEFAULT 1,
+  injured TINYINT(1) NOT NULL DEFAULT 0,           -- 1 = infortunato: non può confermare le partite (vedi player_set_injured in stats.php)
   -- correzioni manuali (es. statistiche precedenti al sito)
   adj_apps INT NOT NULL DEFAULT 0,
   adj_wins INT NOT NULL DEFAULT 0,

@@ -136,6 +136,17 @@ Configurazione, una volta sola (repository → *Settings → Secrets and variabl
 Da riga di comando: `gh secret set FTP_PASSWORD` (chiede il valore senza mostrarlo).
 Il primo deploy si può lanciare anche a mano da *Actions → Deploy su Altervista → Run workflow*.
 
+## Infortunati
+
+Dalla scheda del giocatore (*Modifica*, per l'admin o chi amministra la lega) c'è la casella **Infortunato**. Da infortunato un giocatore:
+- risulta **assente** in tutte le partite in programma, esce dalle squadre e dal campo, e le scommesse su di lui/lei saltano (come per chi si ritira, vedi sotto *Scommesse*);
+- **non può confermare** la presenza (né da sé né da chi gestisce la partita) finché non viene segnato di nuovo disponibile;
+- nelle partite create dopo (e se cambia lega) entra già come assente (`sync_match_players`);
+- si vede in Rosa (etichetta rossa e riga «Infortunati» in alto) e nel profilo.
+
+Quando guarisce le sue assenze non cambiano da sole: non si può sapere quali erano dell'infortunio e quali una sua scelta, quindi ridà lui/lei la presenza
+sulle partite. La logica è `player_set_injured` in `lib/stats.php` (colonna `players.injured`, migrazione v27).
+
 ## Posizioni, squadre bilanciate e calendario
 
 **Posizioni:** ogni giocatore ha una posizione preferita (Portiere, Difensore, Centrocampista, Attaccante)
@@ -253,7 +264,7 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
 
 
 **Regole aggiunte:**
-- **Niente scommesse su se stessi** nei mercati sui giocatori (chi segna, doppietta, tripletta, MVP): i pulsanti non compaiono e il server
+- **Niente scommesse su se stessi** nei mercati sui giocatori (chi segna, doppietta, tripletta, autogol, MVP): i pulsanti non compaiono e il server
   le rifiuta, anche dentro una multipla.
 - **Quote dal vivo nella schedina**: mentre la pagina è aperta la schedina chiede al server le quote ogni 20 secondi (`bets.php?quote=1`) e
   aggiorna pulsanti, selettore dell'over/under e selezioni già messe, con una freccia ▲/▼ quando una quota cambia; le partite ormai chiuse escono
@@ -262,11 +273,22 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
 - **Ruolo meno pesante**: i gol attesi di partenza per ruolo sono vicini tra loro (portieri volanti: chi è in porta prima o poi tira), i gol
   attesi dei giocatori si avvicinano del 30% alla media della partita (`BET_FLATTEN`) e i tetti delle quote sono più bassi (gol ×15,
   doppietta ×35, tripletta ×75, MVP ×40).
+- **Mercato «Chi fa autogol?»** (`autogol`): si punta su un giocatore che fa almeno un autogol, si paga a fine partita con quelli inseriti nel risultato.
+  È un evento raro, quindi le quote sono alte (tra ×2 e ×40, margine del 20%): il tasso di ogni giocatore (autogol a presenza) è tirato forte verso quello di
+  tutto il gruppo (`BET_OG_PRIOR`, `BET_OG_PRIOR_APPS`, `BET_OG_OWN_APPS` in `lib/bets.php`). Nella multipla si possono mettere più giocatori, e lo stesso
+  giocatore può stare anche in «segna»: fare gol e fare autogol non si comprendono a vicenda.
+- **Chi si ritira porta via le sue scommesse** (`bets_void_for_player`): quando un giocatore si segna «Non ci sono» (da sé, o lo fa chi gestisce la partita),
+  le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, autogol, MVP) vengono cancellate e i gettoni tornano; nelle
+  multiple si toglie **solo quella selezione**, la multipla resta con le altre e la quota si ricalcola (se non ne restano, sparisce e i gettoni tornano).
+  Chi vince, over/under e le scommesse sugli altri giocatori non si toccano.
 - **Premi per gol e assist**: 25 gettoni per ogni gol e 10 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`) a chi li ha fatti, appena
   il risultato viene salvato; se viene corretto il premio si aggiorna, se la partita torna «programmata» o viene eliminata sparisce. Una mossa
   del portafoglio per giocatore e partita (`kind = 'premio'`). Il totale si vede nella scheda «Scommesse».
 - Al passaggio al nuovo modello (migrazione v26) le puntate ancora aperte sono state riprezzate, quelle su se stessi annullate e rimborsate, e i
   premi assegnati anche per le partite già giocate.
+**Regalare gettoni:** in *Admin → Regala gettoni* l'admin sceglie un giocatore delle sue leghe e una cifra (da 1 a 1000): si aggiunge una mossa `regalo` al
+portafoglio, visibile subito nel saldo, in classifica e nel Negozio. Ogni regalo finisce nel registro delle operazioni.
+
 ## Notifiche push
 
 I giocatori possono ricevere notifiche sul telefono (o sul computer) anche a sito chiuso, con il logo del sito

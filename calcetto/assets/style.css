@@ -287,6 +287,7 @@ body:has(.betslip:not([hidden])) .wrap { padding-bottom: 260px; }
 .tag-admin { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
 .tag-mvp { background: var(--yellow); }
 .tag-live { background: var(--red); color: var(--white); }
+.tag-injured { background: var(--red); color: var(--white); }
 .tag-ok { background: var(--grass); }
 .chip { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; border: var(--b2); font: 400 .8rem var(--font-d); margin-right: 3px; }
 .chip-v { background: var(--grass); }
