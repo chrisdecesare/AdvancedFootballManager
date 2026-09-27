@@ -250,7 +250,7 @@ return [
      * Personaggio (avatar.php, disegno in lib/avatar.php). Prezzo 0 = incluso per tutti, senza comprarlo.
      * Carnagione e colori naturali dei capelli sono sempre gratis.
      */
-    // capelli: [chiave, nome, prezzo, acconciatura (lib/avatar.php: avatar_hair_styles), descrizione]
+    // capelli: [chiave, nome, prezzo, acconciatura (lib/avatar_pixel_art.php: px_hair), descrizione]
     'hair' => [
         ['ha_classico', 'Taglio classico', 0, 'classic', 'Il primo taglio della tua carriera.'],
         ['ha_rasato', 'Rasato', 0, 'buzz', 'Zero pensieri, zero pettine.'],
@@ -291,7 +291,7 @@ return [
         ['sk_6', 'Scura', 0, '#8a5a36'],
         ['sk_7', 'Molto scura', 0, '#643f24'],
     ],
-    // barba e baffi: [chiave, nome, prezzo, stile (lib/avatar.php: avatar_beards)]
+    // barba e baffi: [chiave, nome, prezzo, stile (lib/avatar_pixel_art.php: px_beards)]
     'beard' => [
         ['be_nessuna', 'Niente barba', 0, 'none'],
         ['be_accenno', 'Barba di tre giorni', 0, 'stubble'],
@@ -300,7 +300,7 @@ return [
         ['be_capitano', 'Baffi e pizzetto', 120, 'captain'],
         ['be_piena', 'Barba piena', 160, 'full'],
     ],
-    // occhiali: [chiave, nome, prezzo, stile (lib/avatar.php: avatar_glasses)]
+    // occhiali: [chiave, nome, prezzo, stile (lib/avatar_pixel_art.php: px_glasses)]
     'glasses' => [
         ['gl_nessuno', 'Niente occhiali', 0, 'none'],
         ['gl_vista', 'Occhiali da vista', 60, 'round'],
@@ -361,7 +361,7 @@ return [
         ['s_arancio', 'Scarpette arancioni', 55, '#ff8c42'],
         ['s_oro', 'Scarpette dorate', 120, '#ffd23f'],
     ],
-    // pet: [chiave, nome, prezzo, animale (lib/avatar.php: avatar_pets), colore a, colore b]
+    // pet: [chiave, nome, prezzo, animale (lib/avatar_pixel_art.php: px_pets), colore a, colore b]
     'pet' => [
         ['pe_nessuno', 'Nessun pet', 0, 'none', '', ''],
         ['pe_pallino', 'Pallino', 120, 'ball', '', ''],
@@ -371,7 +371,7 @@ return [
         ['pe_cane', 'Cane', 220, 'dog', '#c98a3b', '#fff3d6'],
         ['pe_pinguino', 'Pinguino', 260, 'penguin', '#2b2540', '#ffffff'],
     ],
-    // pose (come sta fermo il personaggio): [chiave, nome, prezzo, posa (lib/avatar_rig.php: avatar_pose_items)]
+    // pose (come sta fermo il personaggio): [chiave, nome, prezzo, posa (lib/avatar_pixel.php: px_poses)]
     'pose' => [
         ['po_riposo', 'Riposo', 0, 'rest'],
         ['po_aperte', 'Braccia aperte', 40, 'open'],
@@ -380,7 +380,7 @@ return [
         ['po_vittoria', 'Vittoria', 120, 'victory'],
         ['po_cielo', 'Braccia al cielo', 160, 'up'],
     ],
-    // esultanze: [chiave, nome, prezzo, esultanza (pose chiave in lib/avatar_rig.php: avatar_celebrations)]
+    // esultanze: [chiave, nome, prezzo, esultanza (fotogrammi in lib/avatar_pixel.php: px_celebrations)]
     'celebration' => [
         ['c_pugno', 'Pugno al cielo', 0, 'fist-pump'],
         ['c_esultanza', 'Esultanza classica', 45, 'celebration'],

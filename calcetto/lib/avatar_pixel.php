@@ -1,19 +1,24 @@
 <?php
 /*
- * Personaggio in pixel art 16-bit.
+ * Personaggio in pixel art 16-bit: motore, fotogrammi, pose ed esultanze.
  *
- * Ogni fotogramma del corpo è una mappa di caratteri su una griglia di 32×56 (il terreno è la riga 55); ogni lettera è una "zona" di
- * colore che prende il colore dal look del giocatore:
+ * Ogni fotogramma è una griglia di lettere, una per pixel; ogni lettera è una "zona" che prende il colore dal look del giocatore:
  *   o contorno   s pelle   h capelli   j maglia   a maniche   k finiture (colletto, polsini, calzettoni)   p pantaloncini
- *   c calzettoni   f scarpe   w bianco degli occhi   e pupilla   m bocca   M interno della bocca   t lingua
- *   x y z   colori del copricapo o del pet   g oro   l bianco
- * Una lettera maiuscola (S, H, J, ...) è la stessa zona in ombra; le altre ombre e le luci si aggiungono da sole (la luce arriva da
- * sinistra, in alto). "." non disegna niente, "_" cancella quello che c'era sotto (serve ai copricapi).
- * La testa, i capelli, la barba, gli occhiali e il copricapo sono livelli a parte, agganciati alla testa di ogni fotogramma.
+ *   c calzettoni   f scarpe   w bianco degli occhi   e pupilla/nero   m bocca   M interno della bocca   t lingua   n numero
+ *   x y z   i tre colori del copricapo   u i   i due colori del pet   1 barba di tre giorni
+ *   g oro   l bianco   r rosso   b legno   v metallo   d q polvere   3 lente blu   4 rosa
+ * Una maiuscola è la stessa zona in ombra; le altre ombre e le luci si aggiungono da sole (la luce arriva da sinistra, in alto).
+ * "." non disegna niente, "_" cancella quello che c'era sotto.
+ *
+ * Coordinate dello sprite: x da -8 a 39, y da -8 a 55; il corpo sta tra x 0 e 31 (centro a 15,5) e i piedi toccano terra alla riga 55.
+ * Le parti disegnate a mano sono in lib/avatar_pixel_art.php, quelle con le diagonali (braccia, gambe, corpi di profilo) in
+ * lib/avatar_pixel_parts.php, generato da tools/pixel/gen_parts.php.
  */
 
-const PX_W = 32;
-const PX_H = 56;
+const PX_OX = 8;
+const PX_OY = 8;
+const PX_W = 48;
+const PX_H = 64;
 const PX_INK = '#1f1a2e';
 
 /** Colore esadecimale -> [r, g, b]. */
@@ -40,7 +45,7 @@ function px_luma(string $hex): float
     return (0.299 * $r + 0.587 * $g + 0.114 * $b) / 255;
 }
 
-/** I tre toni di una zona: [luce, base, ombra]. L'ombra tende al viola del contorno, come nelle palette dei 16 bit. */
+/** I tre toni di una zona: [luce, base, ombra]. L'ombra tende al viola del contorno, come nelle palette dei 16 bit (uguale in JS). */
 function px_tones(string $base): array
 {
     $l = px_luma($base);
@@ -49,9 +54,7 @@ function px_tones(string $base): array
     return [$light, $base, $shade];
 }
 
-/* ------------------------------------------------------------------ disegni */
-
-/** Espande una mappa: le righe "a metà" (m) sono il lato sinistro, specchiato a destra. */
+/** Espande una mappa: con $mirror le righe sono la metà sinistra, specchiata a destra. */
 function px_rows(array $rows, bool $mirror, int $half = 0): array
 {
     if (!$mirror) {
@@ -64,227 +67,10 @@ function px_rows(array $rows, bool $mirror, int $half = 0): array
     }, $rows);
 }
 
-/** Le teste (senza capelli): 16×13, "front" di fronte e "side" di profilo verso destra. */
-function px_heads(): array
-{
-    return [
-        'front' => px_rows([
-            '....oooo',
-            '..oossss',
-            '.ossssss',
-            '.ossssss',
-            '.osshhss',
-            'oSsswess',
-            'oSsswess',
-            'oSssssss',
-            '.ossssss',
-            '.osssssm',
-            '..osssss',
-            '...oosss',
-            '.....ooo',
-        ], true),
-        'side' => [
-            '.....oooooo.....',
-            '...oossssssoo...',
-            '..osssssssssso..',
-            '.osssssssssssso.',
-            '.ossssssssshhso.',
-            '.ossssSSsssweso.',
-            '.ossssSSssssesso',
-            '.ossssSsssssssso',
-            '.osssssssssssoo.',
-            '..osssssssssmo..',
-            '..osssssssssso..',
-            '...oossssssoo...',
-            '......oooooo....',
-        ],
-    ];
-}
+/* ---------------------------------------------------------------- corpo di fronte */
 
-/**
- * Acconciature: per ogni vista [dx, dy, righe] rispetto all'angolo della testa; "back" va dietro al corpo (capelli lunghi).
- * Le viste di fronte sono metà specchiate.
- */
-function px_hair(): array
-{
-    return [
-        'bald' => [],
-        'classic' => [
-            'front' => [0, -2, px_rows([
-                '...ooooo',
-                '..ohhhhh',
-                '.ohhhhhh',
-                'ohhHhhhh',
-                'ohHhhhhh',
-                'ohhhh...',
-                'oh......',
-            ], true)],
-            'side' => [0, -2, [
-                '....ooooooo.....',
-                '..oohhhhhhhoo...',
-                '.ohhhhhhhhhhhho.',
-                'ohhhhhhhhhhhhhho',
-                'ohhhhhhhhhhhhho.',
-                'ohhhhhhhhhh.....',
-                'ohhhhhh.........',
-                'ohhhh...........',
-                '.ohhh...........',
-                '..oo............',
-            ]],
-        ],
-        'curly' => [
-            'front' => [-2, -5, px_rows([
-                '.....ooo..',
-                '...oohhhoo',
-                '..ohhhhhhh',
-                '.ohhhHhhhh',
-                'ohhHhhhhHh',
-                'ohhhhhhhhh',
-                'ohHhhhHhhh',
-                'ohhhhhhhhh',
-                'ohhhhhh...',
-                'ohhhh.....',
-                '.ohh......',
-                '..o.......',
-            ], true)],
-            'side' => [-2, -5, [
-                '......ooo.ooo.......',
-                '....oohhhohhhoo.....',
-                '...ohhhhhhhhhhho....',
-                '..ohhhHhhhhHhhhhoo..',
-                '.ohhHhhhhhhhhhHhhho.',
-                'ohhhhhhhHhhhhhhhhho.',
-                'ohhHhhhhhhhhhhhhho..',
-                'ohhhhhhhhhhhhh......',
-                'ohhhhHhhhh..........',
-                'ohhhhhhh............',
-                '.ohhhhh.............',
-                '..ohhh..............',
-                '...oo...............',
-            ]],
-        ],
-        'long' => [
-            'front' => [-1, -2, px_rows([
-                '...ooooo.',
-                '..ohhhhhh',
-                '.ohhhhhhh',
-                'ohhHhhhhh',
-                'ohhhhhhhh',
-                'ohhhhh...',
-                'ohhh.....',
-                'ohhh.....',
-                'ohhh.....',
-                'ohHh.....',
-                'ohhh.....',
-                'ohhh.....',
-                'ohhh.....',
-                '.oho.....',
-                '..o......',
-            ], true)],
-            'side' => [0, -2, [
-                '....ooooooo.....',
-                '..oohhhhhhhoo...',
-                '.ohhhhhhhhhhhho.',
-                'ohhhhhhhhhhhhhho',
-                'ohhhhhhhhhhhhho.',
-                'ohhhhhhhhhh.....',
-                'ohhhhhh.........',
-                'ohhhhh..........',
-                'ohhhhh..........',
-                'ohhHhh..........',
-                'ohhhhh..........',
-                'ohhhho..........',
-                'ohhhho..........',
-                '.ohho...........',
-                '..oo............',
-            ]],
-        ],
-    ];
-}
-
-/** Barbe: [dx, dy, righe] rispetto alla testa (solo pelle e capelli, niente contorno esterno nuovo). */
-function px_beards(): array
-{
-    return [
-        'none' => [],
-        'full' => [
-            'front' => [0, 5, px_rows([
-                '........',
-                '.o......',
-                '.oh.....',
-                '.ohh....',
-                '.ohhhhhm',
-                '..ohhhhh',
-                '...ohhhh',
-                '.....ooo',
-            ], true)],
-            'side' => [0, 5, [
-                '................',
-                '.........h......',
-                '........hh......',
-                '.......hhhhh....',
-                '..ohhhhhhhhhmo..',
-                '..ohhhhhhhhhho..',
-                '...oohhhhhhoo...',
-                '......oooooo....',
-            ]],
-        ],
-    ];
-}
-
-/** Occhiali: [dx, dy, righe] rispetto alla testa. */
-function px_glasses(): array
-{
-    return [
-        'none' => [],
-        'sun' => [
-            'front' => [0, 4, px_rows([
-                '........',
-                'oooooooo',
-                '..oeeeoo',
-                '...oeo..',
-            ], true)],
-            'side' => [0, 4, [
-                '................',
-                '.......ooooooooo',
-                '..........oeeeo.',
-                '...........oeo..',
-            ]],
-        ],
-    ];
-}
-
-/** Copricapi pixel: [dx, dy, righe] rispetto alla testa, x/y/z sono i tre colori del copricapo. */
-function px_hats(): array
-{
-    return [
-        'cap' => [
-            'front' => [-1, -4, px_rows([
-                '....ooooo',
-                '..ooxxxxx',
-                '.oxxxxxxx',
-                '.oxXxxxxy',
-                'oxxxxxxxy',
-                'oxxxxxxxx',
-                'oooooooo.',
-                '.oyyyyyyy',
-                '..ooooooo',
-            ], true)],
-            'side' => [0, -4, [
-                '....ooooooo.........',
-                '..ooxxxxxxxoo.......',
-                '.oxxxxxxxxxxxo......',
-                'oxxXxxxxxxxxxxo.....',
-                'oxxxxxxxxxxxxxxooooo',
-                'oxxxxxxxxxxxxxyyyyyo',
-                'oooooooooooooooooooo',
-            ]],
-        ],
-    ];
-}
-
-/** Busto e gambe di fronte, senza braccia (metà sinistra, dalla riga 23). */
-function px_front_body(): array
+/** Busto di fronte senza braccia (metà sinistra, dalla riga 23 alla 41). */
+function px_front_torso(): array
 {
     return [
         '............ooss',
@@ -306,764 +92,200 @@ function px_front_body(): array
         '.........opppppp',
         '.........opppppo',
         '.........ooooooo',
-        '..........ossso.',
-        '..........oSsso.',
-        '..........okkko.',
-        '..........occco.',
-        '..........occco.',
-        '..........occco.',
-        '..........occco.',
-        '..........occco.',
-        '..........occco.',
-        '..........occco.',
-        '.........offffo.',
-        '........offfffo.',
-        '........offfffo.',
-        '.........oooooo.',
     ];
 }
 
-/** Braccio sinistro di fronte (quello destro è lo stesso specchiato): [prima riga, righe]. */
-function px_front_arms(): array
+/** Gamba sinistra in piedi (dalla riga 42 al terreno). */
+function px_front_leg(): array
 {
     return [
-        'down' => [25, [
-            '......ooaa',
-            '.....oaaaa',
-            '....oaaaao',
-            '....oaaaao',
-            '....oaaaao',
-            '....okkkko',
-            '....ossss',
-            '....ossss',
-            '....ossss',
-            '....ossss',
-            '....ossss',
-            '....ossss',
-            '....ossss',
-            '.....oooo',
-        ]],
-        'up' => [5, [
-            '.ooo',
-            'osssoo',
-            'ossssso',
-            'osssso',
-            '.ossso',
-            '.ossso',
-            '.ossso',
-            '..ossso',
-            '..ossso',
-            '..ossso',
-            '...ossso',
-            '...ossso',
-            '...okkkko',
-            '....oaaao',
-            '....oaaaao',
-            '.....oaaaao',
-            '.....oaaaaoo',
-            '......oaaaaoo',
-            '.......oaaaao',
-            '........oaaao',
-            '........oaaaj',
-            '.........oaj',
-        ]],
-    ];
-}
-
-/** Corpi di profilo (verso destra): [prima riga, righe]; "_over" sono le braccia, disegnate davanti alla testa. */
-function px_side_parts(): array
-{
-    return [
-        'crouch_base' => [36, [
-            '..............ooo...ooo',
-            '.............ojjjo.ojjjo',
-            '............ojjjo...ojjo',
-            '..........ooAooo....ojo',
-            '.........oAAAo......ojo',
-            '.......ooASSo......ojjo',
-            '....oooSSSoo......ojjjo',
-            '..ooSSSSoo......oojjjjo',
-            '.oSSSooo.......ojjjjjo',
-            '.oSSo......oooojjjjjjooo',
-            '.oSSo.....opppppppppppppo',
-            '..oo.....opppppppppppssspo',
-            '.........oppppppppppsssssso',
-            '.........oppppppppppsscccso',
-            '.........oppppppppppcccccco',
-            '..........ooopoooppccccccco',
-            '.............oFFFoofffffffo',
-            '.............oFFFofffffffffo',
-            '.............oFFFofffffffffo',
-            '..............ooooooooooooo',
-        ]],
-        'crouch_over' => [36, [
-            '.................ooo',
-            '................oaaao',
-            '..............ooaaaaao',
-            '.............oaaaaaaao',
-            '............oaaaaaaaao',
-            '..........ooassaaaaao',
-            '........oossssssaaao',
-            '.....ooossssssssaao',
-            '....ossssssssssaoo',
-            '...osssssssssaao',
-            '...osssssssoooo',
-            '...ossssooo',
-            '....osso',
-            '.....oo',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'land_base' => [36, [
-            '..............ooo...ooo',
-            '.............ojjjo.ojjjo',
-            '............ojjjo...ojjo',
-            '............ojjjo....oooooooo',
-            '............ojjjo.....oSSSSSSo',
-            '...........ojjjjjo.....oooooo',
-            '...........ojjjjjjo',
-            '..........ojjjjjjjo',
-            '..........ojjjjjjjjoo',
-            '..........ojjjjjjjjjjooo',
-            '.........oppppppppppppppo',
-            '.........opppppppppppssspo',
-            '.........oppppppppppsssssso',
-            '.........oppppppppppsscccso',
-            '.........oppppppppppcccccco',
-            '..........ooopoooppccccccco',
-            '.............oFFFoofffffffo',
-            '.............oFFFofffffffffo',
-            '.............oFFFofffffffffo',
-            '..............ooooooooooooo',
-        ]],
-        'land_over' => [36, [
-            '.................ooo',
-            '................oaaao',
-            '...............oaaaaao',
-            '...............oaaaaaao',
-            '...............oaaaaaaaoooooo',
-            '................oaasssssssssso',
-            '.................oassssssssssso',
-            '.................oasssssssssssso',
-            '..................oaassssssssso',
-            '...................oooooooosso',
-            '...........................oo',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'stretch_base' => [5, [
-            '...................ooo',
-            '..................oSSSo',
-            '.................oSSSSo',
-            '.................oSSSSo',
-            '.................oSSSSo',
-            '.................oSSSSo',
-            '.................oSSSSo',
-            '.................oSSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '................oSSSSo',
-            '................oSSSSo',
-            '................oSSSSo',
-            '.................oSSSo',
-            '............o....oSSAo',
-            '...........ojo...ooooo',
-            '...........ojo...ojjjo',
-            '...........ojo...ojjjo',
-            '...........ojo...ojjjo',
-            '...........ojoo.oojjjo',
-            '...........ojjjojjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........ooppppppppo',
-            '...........oPoppspppo',
-            '...........oPossssspo',
-            '...........oPossssspo',
-            '...........oPPocccso',
-            '............oCocccco',
-            '............oCocccco',
-            '............oCocccco',
-            '............oCocccco',
-            '............oCofffco',
-            '............oCoffffo',
-            '............oCFoffffo',
-            '.............ooFofffo',
-            '...............oFoffo',
-        ]],
-        'stretch_over' => [4, [
-            '.............oo',
-            '............osso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '............ossso',
-            '............ossso',
-            '............ossso',
-            '............osssso',
-            '............osssso',
-            '............osssso',
-            '............osssso',
-            '............osssso',
-            '...........oassssao',
-            '...........oassssao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '.............ooaoo',
-            '...............o',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'tuck_base' => [36, [
-            '..........oooo....o',
-            '.........ojjjjo..ojooooo',
-            '.........ojjjjo...oopssso',
-            '.........ojjjo....opssssso',
-            '.........ojjjjo....osssssso',
-            '.........ojjjjo.....oscccso',
-            '........ojjjjjjo....occccco',
-            '........ojjjjpppo....ooccco',
-            '........ojjjpppppoo....oco',
-            '........oppppppppppo....o',
-            '........opppppppppopoo.o',
-            '........oppppppppoCoccoco',
-            '........oopppppppoCocccco',
-            '........oPoppppooooffffffo',
-            '.........oppppoFFofffffffo',
-            '..........oooooFFoffoooffo',
-            '...............oooooFFFoo',
-            '....................ooo',
-            '',
-            '',
-        ]],
-        'tuck_over' => [36, [
-            '..............oooo',
-            '.............oaaaao',
-            '.............oaaaaao',
-            '............oaaaaaao',
-            '.............oaaaaaao',
-            '.............oaaasssao',
-            '..............oaassssoo',
-            '...............oasssssso',
-            '................oasssssso',
-            '.................oosssssso',
-            '...................osssso',
-            '....................ooso',
-            '......................o',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'stand_base' => [24, [
-            '............ooooo.ooo',
-            '...........ojjjjjojjjo',
-            '...........ojjjoo.oojo',
-            '...........ojjjo...ojo',
-            '...........ojjjo...ojo',
-            '...........ojjjo...ojo',
-            '...........ojjjo...ojo',
-            '...........ojjjo....o',
-            '...........ojjjo....o',
-            '...........ojjjjo..ojo',
-            '...........ojjjjo..ojo',
-            '...........ojjjjo..ojo',
-            '...........ojjjjo..ojo',
-            '...........oppppo..opo',
-            '...........opppppo.opo',
-            '...........opppppo..o',
-            '...........oppppo',
-            '...........opppppo..o',
-            '..........oPopppppoopo',
-            '..........oPPoppspppo',
-            '..........oPPossssspo',
-            '...........oPossssspo',
-            '...........oPPocccso',
-            '............oCocccco',
-            '...........oCCocccco',
-            '...........oCCocccco',
-            '...........oCCocccco',
-            '...........oCCoccccooo',
-            '...........oCFofffffffo',
-            '...........oFFofffffffo',
-            '...........oFFofffffffo',
-            '............oooooooooo',
-        ]],
-        'stand_over' => [24, [
-            '.................o',
-            '...............ooaoo',
-            '..............oaaaaao',
-            '..............oaaaaao',
-            '..............oaaaaao',
-            '..............oaaaaao',
-            '..............oaassao',
-            '..............oassssao',
-            '..............oassssao',
-            '...............osssso',
-            '...............osssso',
-            '...............osssso',
-            '...............osssso',
-            '...............osssso',
-            '................ossso',
-            '................osssso',
-            '...............ossssso',
-            '................osssso',
-            '.................osso',
-            '..................oo',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'win_base' => [5, [
-            '....................ooo',
-            '...................oSSSo',
-            '...................oSSSo',
-            '...................oSSSo',
-            '..................oSSSSo',
-            '..................oSSSSo',
-            '..................oSSSo',
-            '..................oSSSo',
-            '..................oSSSo',
-            '..................oSSSo',
-            '.................oSSSSo',
-            '.................oSSSSo',
-            '.................oSSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '.................oSSSo',
-            '................oASSSo',
-            '................oSSSSo',
-            '.................oSSSo',
-            '............o....oSSAo',
-            '...........ojo...ooooo',
-            '...........ojo...ojjjo',
-            '...........ojo...ojjjo',
-            '...........ojo...ojjjo',
-            '...........ojoo.oojjjo',
-            '...........ojjjojjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '..........oPoppppppppo',
-            '..........oPPoppspppo',
-            '..........oPPossssspo',
-            '...........oPossssspo',
-            '...........oPPocccso',
-            '............oCocccco',
-            '...........oCCocccco',
-            '...........oCCocccco',
-            '...........oCCocccco',
-            '...........oCCoccccooo',
-            '...........oCFofffffffo',
-            '...........oFFofffffffo',
-            '...........oFFofffffffo',
-            '............oooooooooo',
-        ]],
-        'win_over' => [4, [
-            '.............oo',
-            '............osso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '...........osssso',
-            '............ossso',
-            '............ossso',
-            '............ossso',
-            '............osssso',
-            '............osssso',
-            '............osssso',
-            '............osssso',
-            '............osssso',
-            '...........oassssao',
-            '...........oassssao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '............oaaaaao',
-            '.............ooaoo',
-            '...............o',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'swing_base' => [26, [
-            '.............oooo..ooo',
-            '............ojjjjoojjjo',
-            '............ojjjo..ojjoooooo',
-            '............ojjo....oooSSSSSo',
-            '............ojjo.......ooooo',
-            '............ojjjo',
-            '............ojjjjoo',
-            '............ojjjjjjo',
-            '............ojjjjjjjoo',
-            '............ojjjjjjjjjo',
-            '............ojjjjjjjjjo',
-            '............ojjjjjjjjjo',
-            '...........opppppppppjo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........ooopppppppo',
-            '...........oPPopppsspo',
-            '............oPoppsssspo',
-            '............oPPosssssso',
-            '.............oPCocccsso',
-            '.............oCCoccccso',
-            '.............oCCocccco',
-            '............oCCocccco',
-            '............oCCoccccoo',
-            '............oFFoffffffo',
-            '...........oFFofffffffo',
-            '...........oFFofffffffo',
-            '............oooooooooo',
-        ]],
-        'swing_over' => [26, [
-            '.................oo',
-            '................oaao',
-            '...............oaaaaoo',
-            '..............oaaaaaaaoooooooo',
-            '..............oaaaaasssssssssso',
-            '...............oaaasssssssssssso',
-            '................oaasssssssssssso',
-            '.................ooasssssssssso',
-            '...................oaaoooooooo',
-            '....................oo',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'arch_base' => [5, [
-            '.........ooo',
-            '........oSSSo',
-            '........oSSSo',
-            '........oSSSo',
-            '........oSSSSo',
-            '.........oSSSo',
-            '.........oSSSo',
-            '..........oSSo',
-            '..........oSSo',
-            '..........oSSo',
-            '...........oSSo',
-            '...........oSSo',
-            '............oSo',
-            '............oSo',
-            '............oSo',
-            '.............oAo',
-            '..............oo',
-            '..............oAo',
-            '...............oAooo',
-            '...............oojjjo',
-            '...............ojjjjo',
-            '................ojjjo',
-            '................ojjjo',
-            '............o..ojjjjo',
-            '...........ojoojjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '............ojjjjjjjjo',
-            '............ojjjjjjjjo',
-            '............oppppppppo',
-            '............oppppppppo',
-            '............oppppppppo',
-            '...........oPopppppppo',
-            '...........oPopppppppo',
-            '...........oPopppppppo',
-            '..........oPPoppppppo',
-            '..........oPPoppppppo',
-            '..........oPPosssppo',
-            '..........oPPosssspo',
-            '..........oCCosssspo',
-            '..........oCoccccso',
-            '.........oCCCoccco',
-            '.........oCCocccco',
-            '.........oCCocccco',
-            '........oCCocccco',
-            '........oCFoffcco',
-            '........oFofffco',
-            '.......oFFofffco',
-            '.......oFFoffoo',
-        ]],
-        'arch_over' => [6, [
-            '......ooo',
-            '.....ossso',
-            '....osssso',
-            '....osssso',
-            '.....osssso',
-            '.....osssso',
-            '......osssso',
-            '......osssso',
-            '......osssso',
-            '.......osssso',
-            '.......osssso',
-            '........osssso',
-            '........osssso',
-            '........osssso',
-            '.........osssso',
-            '.........ossssao',
-            '.........ossssao',
-            '.........oasssaao',
-            '.........oaaaaaao',
-            '..........oaaaaao',
-            '..........oaaaaaao',
-            '..........oaaaaaao',
-            '...........oaaaao',
-            '............oaao',
-            '.............oo',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
-        'open_base' => [28, [
-            '.............oooo..ooo',
-            '............ojjjjoojjjo',
-            '............ojjjo..ojjo...o',
-            '............ojjo....oo...oSo',
-            '............ojjo..........o',
-            '............ojjjo',
-            '............ojjjjoo',
-            '...........ojjjjjjjo',
-            '...........ojjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........ojjjjjjjjjo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........opppppppppo',
-            '...........oooppppppppo',
-            '...........oPPopppppsppo',
-            '............oPPoppssssso',
-            '.............oPPopssssso',
-            '..............oPPoccccso',
-            '...............oCCocccso',
-            '...............oCoccccso',
-            '..............oCCoccccoo',
-            '..............oFFoffffffo',
-            '..............oFFoffffffo',
-            '..............oFFoffffffo',
-            '...............ooooooooo',
-        ]],
-        'open_over' => [28, [
-            '.................oo',
-            '................oaao',
-            '...............oaaaaoo',
-            '..............oaaaaaaaoooooooo',
-            '..............oaaaaasssssssssso',
-            '...............oaaasssssssssssso',
-            '................oaasssssssssssso',
-            '.................ooasssssssssso',
-            '...................oaaoooooooo',
-            '....................oo',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]],
+        '..........ossso',
+        '..........oSsso',
+        '..........okkko',
+        '..........occco',
+        '..........occco',
+        '..........occco',
+        '..........occco',
+        '..........occco',
+        '..........occco',
+        '..........occco',
+        '.........offffo',
+        '........offfffo',
+        '........offfffo',
+        '.........oooooo',
     ];
 }
 
 /**
- * Fotogrammi: view = vista della testa, layers = livelli [righe, x, y, specchiato], head = angolo della testa,
- * num = dove va il numero di maglia (centro, riga in alto), c = centro di rotazione.
+ * Un braccio sinistro di fronte: [x, y, righe, davanti alla testa]. "down" e "up" sono disegnati a mano, gli altri generati.
+ */
+function px_arm(string $name): array
+{
+    static $hand = null;
+    $hand ??= [
+        'down' => [0, 25, ['......ooaa', '.....oaaaa', '....oaaaao', '....oaaaao', '....oaaaao', '....okkkko', '....ossss', '....ossss',
+            '....ossss', '....ossss', '....ossss', '....ossss', '....ossss', '.....oooo'], false],
+        'up' => [0, 5, ['.ooo', 'osssoo', 'ossssso', 'osssso', '.ossso', '.ossso', '.ossso', '..ossso', '..ossso', '..ossso', '...ossso',
+            '...ossso', '...okkkko', '....oaaao', '....oaaaao', '.....oaaaao', '.....oaaaaoo', '......oaaaaoo', '.......oaaaao',
+            '........oaaao', '........oaaaj', '.........oaj'], true],
+    ];
+    if (isset($hand[$name])) {
+        return $hand[$name];
+    }
+    $p = px_parts()['arm_' . $name];
+    $over = in_array($name, ['sky', 'wave_b', 'ear', 'ear_b', 'mouth', 'salute', 'selfie'], true);
+    return [$p[0], $p[1], $p[2], $over];
+}
+
+/** Specchia un livello rispetto al centro del corpo (x 15,5). */
+function px_flip_layer(int $x, array $rows): array
+{
+    $w = max(array_map('strlen', $rows));
+    return [32 - $x - $w, array_map(fn($r) => strrev(str_pad($r, $w, '.')), $rows)];
+}
+
+/** Livello di una gamba sinistra di fronte (variante): [x, y, righe]. */
+function px_leg(string $v): array
+{
+    if ($v === 'stand') {
+        return [0, 42, px_front_leg()];
+    }
+    return px_parts()['leg_' . $v];
+}
+
+/**
+ * Fotogramma di fronte: braccio sinistro e destro (quello destro è la variante specchiata), gambe, espressione.
+ * Gambe: stand, wide, jump, spread, crouch, kneel, lotus, step (alza la sinistra), step_r (alza la destra).
+ */
+function px_front(string $l, string $r, string $legs = 'stand', string $face = '', int $breath = 0): array
+{
+    $drop = ['kneel' => 6, 'lotus' => 10, 'crouch' => 5, 'wide' => 1][$legs] ?? 0;
+    [$lv, $rv] = match ($legs) {
+        'step' => ['step', 'stand'],
+        'step_r' => ['stand', 'step'],
+        default => [$legs, $legs],
+    };
+    $layers = [];
+    [$x, $y, $rows] = px_leg($lv);
+    $layers[] = [$rows, $x, $y, false];
+    [$x, $y, $rows] = px_leg($rv);
+    [$x, $rows] = px_flip_layer($x, $rows);
+    $layers[] = [$rows, $x, $y, false];
+    $dy = $drop + $breath;
+    $layers[] = [px_rows(px_front_torso(), true), 0, 23 + $dy, false];
+    [$x, $y, $rows, $over] = px_arm($l);
+    $layers[] = [$rows, $x, $y + $dy, $over];
+    [$x, $y, $rows, $over] = px_arm($r);
+    [$x, $rows] = px_flip_layer($x, $rows);
+    $layers[] = [$rows, $x, $y + $dy, $over];
+    return ['view' => 'front', 'layers' => $layers, 'head' => [8, 10 + $dy], 'num' => [16, 28 + $dy], 'c' => [16, 30], 'face' => $face];
+}
+
+/** Fotogramma di profilo (verso destra) da una parte generata "side_<nome>". */
+function px_side(string $name, array $head, string $face = '', array $c = [17, 38]): array
+{
+    $p = px_parts();
+    $layers = [[$p['side_' . $name][2], $p['side_' . $name][0], $p['side_' . $name][1], false]];
+    if (isset($p['side_' . $name . '.over'])) {
+        $o = $p['side_' . $name . '.over'];
+        $layers[] = [$o[2], $o[0], $o[1], true];
+    }
+    return ['view' => 'side', 'layers' => $layers, 'head' => $head, 'c' => $c, 'face' => $face];
+}
+
+/**
+ * Tutti i fotogrammi. Un nome può avere dei suffissi: "<" = girato verso sinistra, "@45" = ruotato di 45° in senso orario
+ * attorno al suo centro (i giri a scatti di 90° li fa l'SVG, che non sposta i pixel dalla griglia).
  */
 function px_frames(): array
 {
-    $arm = fn(string $k) => [px_front_arms()[$k][1], 0, px_front_arms()[$k][0], true];
-    $front = fn(string $arms) => ['view' => 'front', 'layers' => [[px_front_body(), 0, 23, true], $arm($arms)],
-        'head' => [8, 10], 'num' => [16, 28], 'c' => [16, 32]];
-    $side = function (string $k, array $head) {
-        $p = px_side_parts();
-        return ['view' => 'side', 'layers' => [[$p[$k . '_base'][1], 0, $p[$k . '_base'][0], false], [$p[$k . '_over'][1], 0, $p[$k . '_over'][0], false, true]],
-            'head' => $head, 'c' => [17, 38]];
-    };
-    return [
-        'rest' => $front('down'),
-        'up' => $front('up'),
-        's_stand' => $side('stand', [9, 12]),
-        's_swing' => $side('swing', [10, 14]),
-        's_crouch' => $side('crouch', [13, 24]),
-        's_land' => $side('land', [13, 24]),
-        's_stretch' => $side('stretch', [9, 12]),
-        's_arch' => $side('arch', [7, 11]),
-        's_tuck' => $side('tuck', [10, 24]),
-        's_tuck45' => ['rot45' => 's_tuck', 'view' => 'side', 'c' => [17, 38]],   // la raccolta girata di 45°: il giro ha 8 posizioni
-        's_open' => $side('open', [11, 16]),
-        's_win' => $side('win', [9, 12]),
+    static $f = null;
+    if ($f !== null) {
+        return $f;
+    }
+    $f = [
+        // pose da fermo
+        'rest' => px_front('down', 'down'),
+        'rest_b' => px_front('down', 'down', 'stand', '', 1),
+        'open' => px_front('out', 'out', 'stand', 'smile'),
+        'wave_a' => px_front('down', 'wave_a', 'stand', 'smile'),
+        'wave_b' => px_front('down', 'wave_b', 'stand', 'smile'),
+        'point' => px_front('down', 'point'),
+        'victory' => px_front('flex', 'flex', 'stand', 'smile'),
+        'up' => px_front('up', 'up', 'stand', 'smile'),
+        // esultanze di fronte
+        'up_shout' => px_front('up', 'up', 'stand', 'shout'),
+        'pump_up' => px_front('down', 'flex', 'wide', 'shout'),
+        'pump_down' => px_front('down', 'fist_low', 'wide', 'shout'),
+        'pump_sky' => px_front('down', 'up', 'wide', 'shout'),
+        'crouch_f' => px_front('out_low', 'out_low', 'crouch'),
+        'jump_up' => px_front('up', 'up', 'jump', 'shout'),
+        'kiss_grab' => px_front('chest', 'chest'),
+        'kiss' => px_front('mouth', 'mouth', 'stand', 'kiss'),
+        'salute' => px_front('down', 'salute'),
+        'sky' => px_front('sky', 'sky', 'stand', 'closed'),
+        'sky_b' => px_front('sky', 'sky', 'stand', 'closed', 1),
+        'dance_a' => px_front('flex', 'out', 'step', 'smile'),
+        'tongue_a' => px_front('flex', 'out_low', 'step', 'tongue'),
+        'tongue_hold' => px_front('out', 'out', 'wide', 'tongue'),
+        'plane_a' => px_front('out', 'out', 'step', 'smile'),
+        'plane_b' => px_front('out', 'out', 'step_r', 'smile'),
+        'cradle' => px_front('cradle', 'cradle', 'stand', 'smile'),
+        'ear_a' => px_front('down', 'ear', 'wide', 'shout'),
+        'ear_b' => px_front('down', 'ear_b', 'wide', 'shout'),
+        'thumb' => px_front('hip', 'mouth', 'stand', 'closed'),
+        'robot_a' => px_front('robot_a', 'flex'),
+        'robot_b' => px_front('flex', 'robot_a'),
+        'robot_c' => px_front('out', 'robot_a', 'wide'),
+        'crossed' => px_front('cross', 'cross'),
+        'heart' => px_front('heart', 'heart', 'stand', 'smile'),
+        'why' => px_front('out_low', 'out_low', 'wide'),
+        'milla_a' => px_front('hip', 'wave_a', 'step', 'smile'),
+        'milla_b' => px_front('hip', 'wave_b', 'step_r', 'smile'),
+        'selfie' => px_front('selfie', 'flex', 'stand', 'smile'),
+        'tard_a' => px_front('flex', 'fist_low', 'step', 'shout'),
+        'zen' => px_front('out_low', 'out_low', 'lotus', 'closed'),
+        'star' => px_front('up', 'up', 'spread', 'smile'),
+        'siu_air' => px_front('out_low', 'out_low', 'jump', 'shout'),
+        'siu' => px_front('out_low', 'out_low', 'wide', 'shout'),
+        // di profilo
+        's_stand' => px_side('stand', [9, 12]),
+        's_swing' => px_side('swing', [10, 14]),
+        's_crouch' => px_side('crouch', [13, 24]),
+        's_land' => px_side('land', [13, 24]),
+        's_stretch' => px_side('stretch', [9, 12]),
+        's_arch' => px_side('arch', [7, 11]),
+        's_tuck' => px_side('tuck', [10, 24]),
+        's_open' => px_side('open', [11, 16]),
+        's_win' => px_side('win', [9, 12], 'shout'),
+        's_run1' => px_side('run1', [10, 15]),
+        's_run2' => px_side('run2', [10, 15]),
+        's_run1s' => px_side('run1', [10, 15], 'shout'),
+        's_run2s' => px_side('run2', [10, 15], 'shout'),
+        's_kneel' => px_side('kneel', [9, 21], 'shout'),
+        's_dive' => px_side('dive', [18, 42], 'shout', [17, 46]),
+        's_gun' => px_side('gun', [9, 12], 'shout'),
+        's_archer' => px_side('archer', [9, 12]),
     ];
+    $f['star']['c'] = [16, 30];
+    return $f;
 }
+
 /* ---------------------------------------------------------------- composizione */
 
-/** Disegna le righe sulla griglia a partire da (x, y); con $flip specchia orizzontalmente il livello rispetto alla sua larghezza. */
+/** Disegna le righe sulla griglia a partire da (x, y) in coordinate dello sprite. */
 function px_paint(array &$g, array $rows, int $x, int $y): void
 {
     foreach ($rows as $dy => $row) {
+        $gy = $y + $dy + PX_OY;
+        if ($gy < 0 || $gy >= PX_H) {
+            continue;
+        }
         $len = strlen($row);
         for ($dx = 0; $dx < $len; $dx++) {
             $ch = $row[$dx];
-            if ($ch === '.') {
-                continue;
-            }
-            $gy = $y + $dy;
-            $gx = $x + $dx;
-            if ($gy < 0 || $gy >= PX_H || $gx < 0 || $gx >= PX_W) {
+            $gx = $x + $dx + PX_OX;
+            if ($ch === '.' || $gx < 0 || $gx >= PX_W) {
                 continue;
             }
             $g[$gy][$gx] = $ch === '_' ? '.' : $ch;
@@ -1071,63 +293,92 @@ function px_paint(array &$g, array $rows, int $x, int $y): void
     }
 }
 
-/** Griglia di lettere di un fotogramma col look indicato (capelli, barba, occhiali, copricapo, numero). */
-function px_letters(string|array $frame, array $parts): array
+function px_blank(): array
 {
-    $f = is_array($frame) ? $frame : px_frames()[$frame];
-    if (isset($f['rot45'])) {
-        return px_rotate45(px_letters($f['rot45'], $parts), $f['c']);
-    }
-    $view = $f['view'];
-    $g = array_fill(0, PX_H, array_fill(0, PX_W, '.'));
-    [$hx, $hy] = $f['head'];
-    $layer = function (?array $def) use (&$g, $view, $hx, $hy) {
-        if (!$def || empty($def[$view])) {
-            return;
-        }
-        [$dx, $dy, $rows] = $def[$view];
-        px_paint($g, $rows, $hx + $dx, $hy + $dy);
-    };
-    $hair = px_hair()[$parts['hair']] ?? [];
-    if ($parts['hat'] && $hair) {   // sotto a un copricapo i capelli alti restano un taglio corto
-        $hair = in_array($parts['hair'], ['long'], true) ? $hair : px_hair()['classic'];
-    }
-    $over = [];   // livelli davanti alla testa (braccia alzate)
-    foreach ($f['layers'] as $l) {
-        if (!empty($l[4])) {
-            $over[] = $l;
-            continue;
-        }
-        px_paint($g, px_rows($l[0], $l[3], 16), $l[1], $l[2]);
-    }
-    px_paint($g, px_heads()[$view], $hx, $hy);
-    $layer(px_beards()[$parts['beard']] ?? null);
-    $layer($hair);
-    $layer(px_glasses()[$parts['glasses']] ?? null);
-    $layer($parts['hat'] ? (px_hats()[$parts['hat']] ?? null) : null);
-    foreach ($over as $l) {
-        px_paint($g, px_rows($l[0], $l[3], 16), $l[1], $l[2]);
-    }
-    if (isset($f['num']) && $parts['number'] !== '') {
-        px_number($g, $parts['number'], $f['num'][0], $f['num'][1]);
-    }
-    return $g;
+    return array_fill(0, PX_H, array_fill(0, PX_W, '.'));
 }
 
 /**
- * Griglia girata di 45° in senso antiorario attorno a $c (pixel più vicino): serve solo ai fotogrammi intermedi di un giro,
- * che restano a schermo pochi centesimi di secondo.
+ * Griglia di lettere di un fotogramma col look ($parts: hair, beard, glasses, hat (modello pixel), number). Con cache per richiesta.
  */
-function px_rotate45(array $g, array $c): array
+function px_letters(string $name, array $parts): array
 {
-    $out = array_fill(0, PX_H, array_fill(0, PX_W, '.'));
-    $k = M_SQRT1_2;
+    static $cache = [];
+    $ck = $name . '|' . implode('|', array_map(fn($v) => (string) $v, $parts));
+    if (isset($cache[$ck])) {
+        return $cache[$ck];
+    }
+    if (preg_match('/^(.+)@(-?\d+)$/', $name, $m)) {   // ruotato
+        $base = $m[1];
+        $c = px_frames()[rtrim($base, '<')]['c'] ?? [16, 30];
+        return $cache[$ck] = px_rotate(px_letters($base, $parts), $c, (int) $m[2]);
+    }
+    if (str_ends_with($name, '<')) {   // girato verso sinistra (il numero si rimette dopo, se no si leggerebbe al contrario)
+        $base = substr($name, 0, -1);
+        $g = array_map('array_reverse', px_letters($base, ['number' => ''] + $parts));
+        $num = px_frames()[$base]['num'] ?? null;
+        if ($num && $parts['number'] !== '') {
+            px_number($g, (string) $parts['number'], 31 - $num[0] + 1, $num[1]);
+        }
+        return $cache[$ck] = $g;
+    }
+    $f = px_frames()[$name];
+    $view = $f['view'];
+    $g = px_blank();
+    [$hx, $hy] = $f['head'];
+    $piece = function (?array $def) use (&$g, $view, $hx, $hy) {
+        $d = $def[$view] ?? ($def['front'] ?? null);
+        if ($d) {
+            px_paint($g, $d[2], $hx + $d[0], $hy + $d[1]);
+        }
+    };
+    $style = $parts['hat'] ? px_hair_under_hat($parts['hair']) : $parts['hair'];
+    $over = [];
+    foreach ($f['layers'] as $l) {
+        if (!empty($l[3])) {
+            $over[] = $l;
+            continue;
+        }
+        px_paint($g, $l[0], $l[1], $l[2]);
+    }
+    $head = px_heads()[$view];
+    foreach ((px_faces()[$f['face'] ?? ''] ?? [])[$view] ?? [] as [$r, $col, $px]) {
+        $head[$r] = substr_replace($head[$r], $px, $col, strlen($px));
+    }
+    px_paint($g, $head, $hx, $hy);
+    $piece(px_beards()[$parts['beard']] ?? null);
+    $piece(px_hair()[$style] ?? null);
+    $piece(px_glasses()[$parts['glasses']] ?? null);
+    if ($parts['hat']) {
+        $piece(px_hats()[$parts['hat']] ?? null);
+    }
+    foreach ($over as $l) {
+        px_paint($g, $l[0], $l[1], $l[2]);
+    }
+    if (isset($f['num']) && $parts['number'] !== '') {
+        px_number($g, (string) $parts['number'], $f['num'][0], $f['num'][1]);
+    }
+    return $cache[$ck] = $g;
+}
+
+/**
+ * Griglia ruotata di $deg gradi in senso orario attorno a $c (pixel più vicino): serve ai fotogrammi intermedi dei giri, che restano
+ * a schermo pochi centesimi di secondo, e alle piccole inclinazioni (l'aeroplanino).
+ */
+function px_rotate(array $g, array $c, int $deg): array
+{
+    $out = px_blank();
+    $a = deg2rad($deg);
+    $cos = cos($a);
+    $sin = sin($a);
+    $cx = $c[0] + PX_OX;
+    $cy = $c[1] + PX_OY;
     for ($y = 0; $y < PX_H; $y++) {
         for ($x = 0; $x < PX_W; $x++) {
-            $px = $x + .5 - $c[0];
-            $py = $y + .5 - $c[1];
-            $sx = (int) floor($c[0] + $px * $k - $py * $k);
-            $sy = (int) floor($c[1] + $px * $k + $py * $k);
+            $px = $x + .5 - $cx;
+            $py = $y + .5 - $cy;
+            $sx = (int) floor($cx + $px * $cos + $py * $sin);
+            $sy = (int) floor($cy - $px * $sin + $py * $cos);
             if ($sx >= 0 && $sy >= 0 && $sx < PX_W && $sy < PX_H) {
                 $out[$y][$x] = $g[$sy][$sx];
             }
@@ -1151,26 +402,31 @@ function px_digits(): array
 function px_number(array &$g, string $num, int $cx, int $y): void
 {
     $num = substr(preg_replace('/\D/', '', $num), 0, 2);
+    if ($num === '') {
+        return;
+    }
     $w = strlen($num) * 4 - 1;
     $x = $cx - intdiv($w + 1, 2);
     foreach (str_split($num) as $i => $d) {
         foreach (px_digits()[$d] as $dy => $row) {
             for ($dx = 0; $dx < 3; $dx++) {
                 if ($row[$dx] === '#') {
-                    $g[$y + $dy][$x + $i * 4 + $dx] = 'n';
+                    $g[$y + $dy + PX_OY][$x + $i * 4 + $dx + PX_OX] = 'n';
                 }
             }
         }
     }
 }
 
+/** Zone con tre toni (ombra e luce automatiche). */
+const PX_ZONES = 'shjakpcfxyzuibr';
+
 /**
- * Da lettere a colori. Le zone prendono tre toni: ombra lungo il bordo destro e in basso, luce lungo il bordo sinistro in alto.
+ * Da lettere a colori. Ombra lungo il bordo destro e in basso, luce lungo il bordo sinistro in alto.
  * Le maglie a motivo cambiano colore in base alla posizione (strisce, metà, fascia).
  */
 function px_colorize(array $g, array $pal, string $pattern = 'solid'): array
 {
-    $zones = 'shjakpcfxyz';
     $out = [];
     $edge = fn(int $x, int $y) => $x < 0 || $y < 0 || $x >= PX_W || $y >= PX_H || $g[$y][$x] === '.' || $g[$y][$x] === 'o';
     for ($y = 0; $y < PX_H; $y++) {
@@ -1181,28 +437,26 @@ function px_colorize(array $g, array $pal, string $pattern = 'solid'): array
                 continue;
             }
             $lower = strtolower($ch);
-            $forced = $ch !== $lower && str_contains($zones, $lower);
-            if ($lower === 'j' || $lower === 'a') {
-                $lower = px_pattern_zone($lower, $x, $y, $pattern);
-            }
-            if (!isset($pal[$lower])) {
-                $out[$y][$x] = $pal[$ch] ?? PX_INK;
+            $zone = str_contains(PX_ZONES, $lower);
+            if (!$zone) {
+                $out[$y][$x] = $pal[$ch] ?? ($pal[$lower] ?? PX_INK);
+                if (is_array($out[$y][$x])) {
+                    $out[$y][$x] = $out[$y][$x][1];
+                }
                 continue;
+            }
+            if ($lower === 'j' || $lower === 'a') {
+                $lower = px_pattern_zone($lower, $x - PX_OX, $y - PX_OY, $pattern);
             }
             $t = $pal[$lower];
-            if (!is_array($t)) {
-                $out[$y][$x] = $t;
-                continue;
-            }
-            $tone = 1;
-            if ($forced) {
+            if ($ch !== strtolower($ch)) {
                 $tone = 2;
-            } elseif (str_contains($zones, $lower)) {
-                if ($edge($x + 1, $y) || ($edge($x, $y + 1) && !$edge($x - 1, $y))) {
-                    $tone = 2;
-                } elseif ($edge($x - 1, $y) && $edge($x, $y - 1) || ($edge($x, $y - 1) && !$edge($x + 1, $y) && $lower !== 's')) {
-                    $tone = 0;
-                }
+            } elseif ($edge($x + 1, $y) || ($edge($x, $y + 1) && !$edge($x - 1, $y))) {
+                $tone = 2;
+            } elseif (($edge($x - 1, $y) && $edge($x, $y - 1)) || ($edge($x, $y - 1) && !$edge($x + 1, $y) && $lower !== 's')) {
+                $tone = 0;
+            } else {
+                $tone = 1;
             }
             $out[$y][$x] = $t[$tone];
         }
@@ -1214,37 +468,48 @@ function px_colorize(array $g, array $pal, string $pattern = 'solid'): array
 function px_pattern_zone(string $z, int $x, int $y, string $pattern): string
 {
     return match ($pattern) {
-        'stripes_v' => $z === 'j' && ($x % 4) >= 2 ? 'k' : 'j',
-        'stripes_h' => ($y % 4) >= 2 ? 'k' : 'j',
-        'halves' => $z === 'j' ? ($x < 16 ? 'j' : 'k') : ($x < 16 ? 'j' : 'k'),
+        'stripes_v' => $z === 'j' && (($x + 64) % 4) >= 2 ? 'k' : 'j',
+        'stripes_h' => (($y + 64) % 4) >= 2 ? 'k' : 'j',
+        'halves' => $x < 16 ? 'j' : 'k',
         'sleeves' => $z === 'a' ? 'k' : 'j',
         'sash' => $z === 'j' && abs(($x + $y) - 44) <= 1 ? 'k' : 'j',
         default => 'j',
     };
 }
 
+/** Colore del numero: il secondo colore sulle maglie a tinta unita, altrimenti bianco o scuro. */
+function px_number_color(string $a, string $b, string $pattern): string
+{
+    $plain = $pattern === 'solid' && abs(px_luma($a) - px_luma($b)) > .25;
+    return $plain ? $b : (px_luma($a) > .6 ? PX_INK : '#ffffff');
+}
+
 /**
- * Palette del look: ogni zona ha i tre toni. $c ha skin, hair, ja (maglia), jb (secondo colore), shorts, shoes, hat (x, y, z).
+ * Palette del look. $c: skin, hair, ja (maglia), jb (secondo colore), shorts, shoes, pattern, hat [x, y, z], pet [u, i].
  */
 function px_palette(array $c): array
 {
-    // numero: il secondo colore sulle maglie a tinta unita, altrimenti bianco o scuro (sulle strisce il secondo colore si confonde)
-    $plain = ($c['pattern'] ?? 'solid') === 'solid' && abs(px_luma($c['ja']) - px_luma($c['jb'])) > .25;
-    $numColor = $plain ? $c['jb'] : (px_luma($c['ja']) > .6 ? PX_INK : '#ffffff');
+    $hat = array_values(array_filter($c['hat'] ?? [])) + ['#c0392b', '#ffffff', '#ffd23f'];
+    $pet = array_values(array_filter($c['pet'] ?? [])) + ['#ffd23f', '#ffffff'];
     return [
         's' => px_tones($c['skin']), 'h' => px_tones($c['hair']), 'j' => px_tones($c['ja']), 'a' => px_tones($c['ja']),
-        'k' => px_tones($c['jb']), 'p' => px_tones($c['shorts']), 'c' => px_tones($c['socks'] ?? $c['ja']), 'f' => px_tones($c['shoes']),
-        'x' => px_tones($c['hat'][0] ?? '#c0392b'), 'y' => px_tones($c['hat'][1] ?? '#ffffff'), 'z' => px_tones($c['hat'][2] ?? '#ffd23f'),
+        'k' => px_tones($c['jb']), 'p' => px_tones($c['shorts']), 'c' => px_tones($c['ja']), 'f' => px_tones($c['shoes']),
+        'x' => px_tones($hat[0]), 'y' => px_tones($hat[1] ?? $hat[0]), 'z' => px_tones($hat[2] ?? '#ffd23f'),
+        'u' => px_tones($pet[0]), 'i' => px_tones($pet[1]),
+        'r' => px_tones('#e63946'), 'b' => px_tones('#a86a3a'),
         'o' => PX_INK, 'w' => '#ffffff', 'e' => PX_INK, 'm' => '#8a2d3b', 'M' => '#5a1a2a', 't' => '#ff6b8b',
-        'g' => ['#fff1a8', '#ffd23f', '#c98a1b'], 'l' => '#ffffff', 'n' => $numColor, 'd' => '#f6f1de', 'q' => '#cdc3a3',
+        'g' => '#ffd23f', 'G' => '#c98a1b', 'l' => '#ffffff', 'v' => '#c9ced8', 'd' => '#f6f1de', 'q' => '#cdc3a3', '3' => '#3a63ff',
+        '4' => '#ff5a8a', '1' => px_mix($c['skin'], $c['hair'], .45),
+        'n' => px_number_color($c['ja'], $c['jb'], $c['pattern'] ?? 'solid'),
     ];
 }
 
-/** SVG di una griglia di colori: un <path> per colore, una riga alla volta, pixel vicini uguali uniti. */
+/** SVG di una griglia di colori: un <path> per colore, pixel vicini uguali uniti per riga. Coordinate dello sprite. */
 function px_svg_paths(array $colors): string
 {
     $by = [];
-    foreach ($colors as $y => $row) {
+    foreach ($colors as $gy => $row) {
+        $y = $gy - PX_OY;
         $x = 0;
         while ($x < PX_W) {
             $c = $row[$x] ?? null;
@@ -1256,7 +521,7 @@ function px_svg_paths(array $colors): string
             while ($x < PX_W && ($row[$x] ?? null) === $c) {
                 $x++;
             }
-            $by[$c] = ($by[$c] ?? '') . 'M' . $x0 . ' ' . $y . 'h' . ($x - $x0) . 'v1h-' . ($x - $x0) . 'z';
+            $by[$c] = ($by[$c] ?? '') . 'M' . ($x0 - PX_OX) . ' ' . $y . 'h' . ($x - $x0) . 'v1h-' . ($x - $x0) . 'z';
         }
     }
     $s = '';
@@ -1266,107 +531,135 @@ function px_svg_paths(array $colors): string
     return $s;
 }
 
-/* ---------------------------------------------------------------- animazioni */
+/* ---------------------------------------------------------------- pose ed esultanze */
 
-/**
- * Esultanze a fotogrammi: ogni passo è [fotogramma, durata in ms, dx, dy, rotazione, effetto]. Spostamenti in pixel dello sprite e
- * rotazioni a scatti di 90° attorno al centro "c" del fotogramma, così i pixel restano sulla griglia; le posizioni a 45° sono
- * fotogrammi a parte (s_tuck45). Effetti: d1/d2/d3 = polvere ai piedi, trail = scia dei due passi precedenti.
- * Il backflip è tutto di profilo: visto di fronte una capriola all'indietro sembrerebbe una ruota.
- */
-function px_celebrations(): array
+/** Pose da fermo (shop_items 'pose'): passi [fotogramma, ms] ripetuti all'infinito (il respiro, il saluto). */
+function px_poses(): array
 {
     return [
-        'backflip' => [
-            ['s_stand', 450, 0, 0, 0, ''],
-            ['s_swing', 150, 0, 0, 0, ''],
-            ['s_crouch', 230, 0, 0, 0, ''],
-            ['s_stretch', 70, 0, -4, 0, 'd1'],
-            ['s_arch', 70, 0, -13, 0, 'd2'],
-            ['s_tuck', 60, 0, -21, 0, 'd3'],
-            ['s_tuck45', 55, -1, -26, 0, 'trail'],
-            ['s_tuck', 55, -1, -28, -90, 'trail'],
-            ['s_tuck45', 55, -2, -29, -90, 'trail'],
-            ['s_tuck', 55, -2, -28, -180, 'trail'],
-            ['s_tuck45', 55, -2, -25, -180, 'trail'],
-            ['s_tuck', 60, -2, -20, -270, 'trail'],
-            ['s_tuck45', 60, -2, -13, -270, 'trail'],
-            ['s_open', 70, -2, -5, 0, ''],
-            ['s_land', 90, -2, 0, 0, 'd1'],
-            ['s_crouch', 160, -2, 0, 0, 'd2'],
-            ['s_swing', 110, -2, 0, 0, 'd3'],
-            ['s_win', 1000, -2, 0, 0, ''],
-        ],
+        'rest' => [['rest', 1500], ['rest_b', 600]],
+        'open' => [['open', 1500]],
+        'wave' => [['wave_a', 280], ['wave_b', 280]],
+        'point' => [['point', 1500]],
+        'victory' => [['victory', 1500]],
+        'up' => [['up', 1500]],
     ];
 }
 
-/** Polvere ai piedi (d chiara, q in ombra), in tre momenti: appena sollevata, che si allarga, che svanisce. */
-function px_dust(): array
+/**
+ * Esultanze a fotogrammi (shop_items 'celebration': anim). Ogni passo è [fotogramma, ms, dx, dy, rotazione, effetti]: spostamenti in
+ * pixel e rotazioni a scatti di 90° (attorno al centro "c" del fotogramma); le posizioni intermedie sono fotogrammi "@45".
+ * Effetti (px_fx, anche più d'uno con "+"): d1/d2/d3 polvere, trail scia dei due passi prima, heart, flash, muzzle, bow, arrow, ...
+ * "hint" è il passo mostrato nelle miniature del catalogo.
+ */
+function px_celebrations(): array
 {
-    return [
-        'd1' => [52, [
-            '............dd.......dd',
-            '...........dqqd.....dqqd',
-            '..........dqqqqd...dqqqqd',
-            '...........dddd.....dddd',
-        ]],
-        'd2' => [50, [
-            '........dd.............dd',
-            '.......dqqd...........dqqd',
-            '.......dqqd...........dqqd',
-            '........dd.............dd',
-            '...........d..........d',
-        ]],
-        'd3' => [48, [
-            '.....d...................d',
-            '....dqd.................dqd',
-            '.....d...................d',
-        ]],
+    static $c = null;
+    if ($c !== null) {
+        return $c;
+    }
+    $run = fn(int $from, string $a = 's_run1', string $b = 's_run2', int $n = 3, int $step = 3, int $ms = 100) =>
+        array_map(fn($i) => [$i % 2 ? $b : $a, $ms, $from + $i * $step, 0, 0, ''], range(0, $n - 1));
+    $flip = function (string $f, int $x0, int $sign, int $ms = 55, string $fx = 'trail', array $h = [-17, -22, -26, -27, -26, -22, -16, -9]) {
+        $out = [];
+        for ($i = 0; $i < 8; $i++) {
+            $q = intdiv($i, 2) * 90 * $sign;
+            $out[] = [$f . ($i % 2 ? '@' . (45 * $sign) : ''), $ms, $x0 + ($sign > 0 ? $i : -intdiv($i, 3)), $h[$i], $q, $i ? $fx : 'd3'];
+        }
+        return $out;
+    };
+    $alt = function (array $frames, int $n, int $ms, array $dy = [0], string $fx = '') {
+        $out = [];
+        for ($i = 0; $i < $n; $i++) {
+            $out[] = [$frames[$i % count($frames)], $ms, 0, $dy[$i % count($dy)], 0, $fx];
+        }
+        return $out;
+    };
+    $c = [
+        'fist-pump' => ['hint' => 1, 'steps' => array_merge([['rest', 200, 0, 0, 0, '']],
+            $alt(['pump_up', 'pump_down'], 5, 150), [['pump_sky', 900, 0, 0, 0, ''], ['rest', 120, 0, 0, 0, '']])],
+        'celebration' => ['hint' => 3, 'steps' => [['rest', 180, 0, 0, 0, ''], ['crouch_f', 160, 0, 0, 0, ''], ['jump_up', 110, 0, -6, 0, 'd1'],
+            ['jump_up', 170, 0, -12, 0, 'd2'], ['jump_up', 130, 0, -7, 0, 'd3'], ['crouch_f', 120, 0, 0, 0, 'd1'], ['up_shout', 900, 0, 0, 0, 'd2']]],
+        'shirt-kiss' => ['hint' => 2, 'steps' => [['rest', 180, 0, 0, 0, ''], ['kiss_grab', 260, 0, 0, 0, ''], ['kiss', 500, 0, 0, 0, ''],
+            ['kiss', 500, 0, 0, 0, 'heart'], ['kiss', 500, 0, 0, 0, 'heart2'], ['rest', 150, 0, 0, 0, '']]],
+        'salute' => ['hint' => 1, 'steps' => [['rest', 250, 0, 0, 0, ''], ['salute', 1500, 0, 0, 0, ''], ['rest', 120, 0, 0, 0, '']]],
+        'skyfingers' => ['hint' => 1, 'steps' => [['rest', 200, 0, 0, 0, ''], ['sky', 700, 0, 0, 0, ''], ['sky_b', 400, 0, 0, 0, ''],
+            ['sky', 700, 0, 0, 0, ''], ['rest', 120, 0, 0, 0, '']]],
+        'kneel' => ['hint' => 6, 'steps' => array_merge($run(-12, 's_run1s', 's_run2s'), [['s_kneel', 100, -3, 0, 0, 'd1'],
+            ['s_kneel', 100, 0, 0, 0, 'd2'], ['s_kneel', 100, 2, 0, 0, 'd3'], ['s_kneel', 1100, 3, 0, 0, '']])],
+        'dance' => ['hint' => 0, 'steps' => array_merge($alt(['dance_a', 'dance_a<'], 10, 190, [0, -1]), [['victory', 500, 0, 0, 0, '']])],
+        'tongue' => ['hint' => 5, 'steps' => array_merge($alt(['tongue_a', 'tongue_a<'], 8, 140, [0, -1]), [['tongue_hold', 900, 0, 0, 0, '']])],
+        'plane' => ['hint' => 2, 'steps' => array_merge(array_map(fn($i) => [$i % 2 ? 'plane_b' : 'plane_a', 140, [-8, -5, -2, 1, 4, 6, 4, 1, -2][$i],
+            $i % 2 ? -1 : 0, 0, ''], range(0, 8)), [['plane_b', 140, 0, 0, 0, ''], ['open', 600, 0, 0, 0, '']])],
+        'cradle' => ['hint' => 1, 'steps' => array_merge([['rest', 150, 0, 0, 0, '']], array_map(fn($i) => ['cradle', 230, [-1, 0, 1, 0][$i % 4], 0, 0, ''], range(0, 8)),
+            [['rest', 120, 0, 0, 0, '']])],
+        'ear' => ['hint' => 1, 'steps' => array_merge([['rest', 150, 0, 0, 0, '']], $alt(['ear_a', 'ear_b'], 8, 170), [['ear_a', 500, 0, 0, 0, '']])],
+        'thumb' => ['hint' => 1, 'steps' => [['rest', 150, 0, 0, 0, ''], ['thumb', 600, 0, 0, 0, ''], ['thumb', 500, 1, 0, 0, ''],
+            ['thumb', 600, 0, 0, 0, ''], ['rest', 120, 0, 0, 0, '']]],
+        'robot' => ['hint' => 1, 'steps' => array_merge($alt(['robot_a', 'robot_b', 'robot_c', 'robot_b'], 8, 210), [['rest', 120, 0, 0, 0, '']])],
+        'inzaghi' => ['hint' => 3, 'steps' => array_merge($run(-12, 's_run1s', 's_run2s', 8, 3, 90),
+            array_map(fn($i) => [$i % 2 ? 's_run2s<' : 's_run1s<', 90, 12 - $i * 3, 0, 0, ''], range(0, 3)), [['up_shout', 800, 0, 0, 0, '']])],
+        'crossed' => ['hint' => 1, 'steps' => [['rest', 200, 0, 0, 0, ''], ['crossed', 1600, 0, 0, 0, ''], ['rest', 120, 0, 0, 0, '']]],
+        'heart' => ['hint' => 1, 'steps' => array_merge([['rest', 150, 0, 0, 0, '']],
+            array_map(fn($i) => ['heart', 300, 0, 0, 0, $i % 2 ? 'heart2' : 'heart'], range(0, 5)), [['rest', 120, 0, 0, 0, '']])],
+        'machinegun' => ['hint' => 2, 'steps' => array_merge([['s_stand', 200, 0, 0, 0, '']],
+            array_map(fn($i) => ['s_gun', 80, $i % 2 ? -1 : 0, 0, 0, $i % 2 ? 'muzzle2' : 'muzzle1'], range(0, 11)), [['s_gun', 500, 0, 0, 0, '']])],
+        'archer' => ['hint' => 1, 'steps' => [['s_stand', 250, 0, 0, 0, ''], ['s_archer', 700, 0, 0, 0, 'bow+arrow1'], ['s_archer', 90, 0, 0, 0, 'bow+arrow2'],
+            ['s_archer', 90, 0, 0, 0, 'bow+arrow3'], ['s_archer', 700, 0, 0, 0, 'bow'], ['s_stand', 150, 0, 0, 0, '']]],
+        'why' => ['hint' => 1, 'steps' => [['rest', 200, 0, 0, 0, ''], ['why', 1800, 0, 0, 0, ''], ['rest', 120, 0, 0, 0, '']]],
+        'milla' => ['hint' => 1, 'steps' => array_merge(array_map(fn($i) => [$i % 2 ? 'milla_b' : 'milla_a', 210, $i % 2 ? 1 : -1, 0, 0, 'flag'], range(0, 9)),
+            [['rest', 120, 0, 0, 0, '']])],
+        'selfie' => ['hint' => 1, 'steps' => [['rest', 200, 0, 0, 0, ''], ['selfie', 700, 0, 0, 0, 'phone'], ['selfie', 120, 0, 0, 0, 'phone+flash'],
+            ['selfie', 800, 0, 0, 0, 'phone'], ['rest', 120, 0, 0, 0, '']]],
+        'dive' => ['hint' => 6, 'steps' => array_merge($run(-12), [['s_crouch', 110, -3, 0, 0, ''], ['s_stretch', 90, -3, -6, 90, 'd1'],
+            ['s_dive', 110, 0, 0, 0, 'd1'], ['s_dive', 110, 3, 0, 0, 'd2'], ['s_dive', 110, 5, 0, 0, 'd3'], ['s_dive', 1000, 6, 0, 0, '']])],
+        'tardelli' => ['hint' => 2, 'steps' => array_merge($alt(['tard_a', 'tard_a<'], 10, 130, [0, -1]), [['up_shout', 800, 0, 0, 0, '']])],
+        'zen' => ['hint' => 2, 'steps' => [['rest', 200, 0, 0, 0, ''], ['crouch_f', 180, 0, 0, 0, ''], ['zen', 900, 0, 0, 0, ''], ['zen', 900, 0, 0, 0, 'z'],
+            ['rest', 120, 0, 0, 0, '']]],
+        'cartwheel' => ['hint' => 2, 'steps' => array_merge([['rest', 150, -8, 0, 0, ''], ['star', 130, -8, 0, 0, '']],
+            array_map(fn($i) => ['star' . ($i % 2 ? '' : '@45'), 75, -6 + $i * 2, 0, (intdiv($i + 1, 2)) * 90, $i ? 'trail' : 'd1'], range(0, 6)),
+            [['star', 250, 8, 0, 0, 'd1'], ['up', 700, 8, 0, 0, '']])],
+        'backflip' => ['hint' => 8, 'steps' => array_merge(
+            [['s_stand', 450, 0, 0, 0, ''], ['s_swing', 150, 0, 0, 0, ''], ['s_crouch', 230, 0, 0, 0, ''], ['s_stretch', 70, 0, -4, 0, 'd1'],
+                ['s_arch', 70, 0, -13, 0, 'd2']],
+            array_map(fn($s) => [$s[0], $s[1], $s[2] - 1, $s[3] - 4, $s[4], $s[5]], $flip('s_tuck', 0, -1)),
+            [['s_open', 70, -2, -5, 0, ''], ['s_land', 90, -2, 0, 0, 'd1'], ['s_crouch', 160, -2, 0, 0, 'd2'], ['s_swing', 110, -2, 0, 0, 'd3'],
+                ['s_win', 1000, -2, 0, 0, '']])],
+        'siu' => ['hint' => 6, 'steps' => array_merge($run(-12), [['s_crouch', 110, -3, 0, 0, ''], ['s_stretch', 90, -2, -8, 0, 'd1'],
+            ['siu_air', 150, 0, -13, 0, 'd2'], ['siu_air', 110, 0, -6, 0, ''], ['siu', 1100, 0, 0, 0, 'd1']])],
+        'hernanes' => ['hint' => 9, 'steps' => array_merge($run(-14), [['s_crouch', 100, -5, 0, 0, ''], ['s_stretch', 70, -4, -5, 0, 'd1']],
+            $flip('s_tuck', -3, 1, 60), [['s_open', 70, 5, -4, 0, ''], ['s_land', 100, 5, 0, 0, 'd1'], ['s_crouch', 150, 5, 0, 0, 'd2'],
+                ['s_win', 900, 5, 0, 0, '']])],
     ];
+    return $c;
 }
 
 /** Trasformazione SVG di un passo di animazione. */
 function px_step_transform(array $step): string
 {
-    [$frame, , $dx, $dy, $rot] = $step;
-    $c = px_frames()[$frame]['c'] ?? [16, 32];
-    return 'translate(' . $dx . ' ' . $dy . ')' . ($rot ? ' rotate(' . $rot . ' ' . $c[0] . ' ' . $c[1] . ')' : '');
+    [$frame, , $dx, $dy, $rot] = $step + [0, 0, 0, 0, 0];
+    $base = rtrim(preg_replace('/@-?\d+$/', '', $frame), '<');
+    $c = px_frames()[$base]['c'] ?? [16, 30];
+    return ($dx || $dy ? 'translate(' . $dx . ' ' . $dy . ')' : '') . ($rot ? ' rotate(' . $rot . ' ' . $c[0] . ' ' . $c[1] . ')' : '');
 }
 
-/**
- * SVG del personaggio: un <g data-f> per ogni fotogramma usato e un <use data-sprite> che mostra quello del passo e che il player
- * sposta e ruota; i fotogrammi stanno nei <defs> e si mostrano con <use>, così anche le "scie" dei passi precedenti sono <use>. $o: frames (nomi), seq (passi di un'esultanza),
- * step (passo da mostrare fermo), viewBox, class, autoplay, bg (SVG di sfondo).
- */
-function px_svg(array $colors, array $parts, string $pattern, array $o = []): string
+/** Effetti (px_fx) come griglia colorata. */
+function px_fx_svg(string $key, array $pal): string
 {
-    static $n = 0;
-    $id = 'px' . (++$n);
-    $seq = $o['seq'] ?? null;
-    $names = $o['frames'] ?? ($seq ? array_values(array_unique(array_column($seq, 0))) : ['rest']);
-    $show = isset($o['step']) ? $o['step'][0] : $names[0];
-    $pal = px_palette($colors + ['pattern' => $pattern]);
-    $g = '';
-    foreach ($names as $f) {
-        $g .= '<g id="' . $id . '-' . $f . '" data-f="' . $f . '">'
-            . px_svg_paths(px_colorize(px_letters($f, $parts), $pal, $pattern)) . '</g>';
+    [$x, $y, $rows] = px_fx()[$key];
+    $g = px_blank();
+    px_paint($g, $rows, $x, $y);
+    return px_svg_paths(px_colorize($g, $pal));
+}
+
+/** Pet a bordo campo, accanto ai piedi. */
+function px_pet_svg(string $kind, array $pal): string
+{
+    $rows = px_pets()[$kind] ?? null;
+    if (!$rows) {
+        return '';
     }
-    $fx = '';
-    $stepFx = isset($o['step']) ? ($o['step'][5] ?? '') : '';
-    if ($seq || $stepFx) {
-        foreach (px_dust() as $k => [$y, $rows]) {
-            $grid = array_fill(0, PX_H, array_fill(0, PX_W, '.'));
-            px_paint($grid, $rows, 0, $y);
-            $fx .= '<g data-fx="' . $k . '"' . ($k === $stepFx ? '' : ' display="none"') . '>' . px_svg_paths(px_colorize($grid, $pal)) . '</g>';
-        }
-        if ($seq) {
-            $fx .= '<use data-ghost="1" opacity=".32" display="none"/><use data-ghost="2" opacity=".15" display="none"/>';
-        }
-    }
-    $t = isset($o['step']) ? ' transform="' . px_step_transform($o['step']) . '"' : '';
-    $data = $seq ? ' data-id="' . $id . '" data-seq="' . htmlspecialchars(json_encode(array_map(fn($s) => [$s[0], $s[1], px_step_transform($s), $s[5] ?? ''], $seq)), ENT_QUOTES) . '"' : '';
-    return '<svg class="' . ($o['class'] ?? 'pxa') . '" viewBox="' . ($o['viewBox'] ?? '-6 -10 44 66') . '" shape-rendering="crispEdges"'
-        . $data . (!empty($o['autoplay']) ? ' data-autoplay' : '') . ' aria-hidden="true">'
-        . ($o['bg'] ?? '') . '<ellipse cx="16.5" cy="55.5" rx="9" ry="1.6" fill="#1f1a2e" opacity=".22" data-shadow/>' . $fx
-        . '<defs>' . $g . '</defs><use data-sprite href="#' . $id . '-' . $show . '"' . $t . '/></svg>';
+    $g = px_blank();
+    px_paint($g, $rows, 28, 56 - count($rows));
+    return '<g class="pxa-pet">' . px_svg_paths(px_colorize($g, $pal)) . '</g>';
 }

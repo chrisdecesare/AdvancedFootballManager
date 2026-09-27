@@ -169,6 +169,12 @@ $crop = ['hair' => 'head', 'hair_color' => 'head', 'beard' => 'head', 'glasses' 
     'shorts' => 'legs', 'shoes' => 'feet'][$cat] ?? '';
 $stageLook = $lookWith($selected);
 
+// «Prova» dal catalogo: la pagina chiede solo il personaggio del palco (avatar_px.js lo mette al posto di quello di prima)
+if (isset($_GET['fig'])) {
+    echo avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'Il personaggio di ' . $mp['name']]);
+    exit;
+}
+
 layout_start('Personaggio', 'avatar');
 ?>
 <div class="page-head"><h1>Personaggio</h1><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span></div>
@@ -184,7 +190,7 @@ layout_start('Personaggio', 'avatar');
         </div>
       </div>
       <div class="av-stage" data-av-stage<?= $cat === 'celebration' && $try !== '' ? ' data-autoplay="1"' : '' ?>>
-        <?= avatar_figure($stageLook, ['number' => $number, 'label' => 'Il personaggio di ' . $mp['name']]) ?>
+        <?= avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'Il personaggio di ' . $mp['name']]) ?>
       </div>
       <div class="av-who"><strong><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
       <div class="av-info" data-av-info aria-live="polite"><?= $infoHtml($selected, $itemsOf($cat)[$selected]) ?></div>
@@ -253,16 +259,15 @@ layout_start('Personaggio', 'avatar');
   </div>
 </div>
 
-<script type="application/json" id="av-rig"><?= avatar_rig_json() ?></script>
-<script src="assets/avatar.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar.js'), 0, 10)) ?>"></script>
+<script src="assets/avatar_px.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar_px.js'), 0, 10)) ?>"></script>
 <script>
 (() => {
   const stage = document.querySelector('[data-av-stage]');
   const info = document.querySelector('[data-av-info]');
   const playBtn = document.querySelector('[data-av-play]');
   const pauseBtn = document.querySelector('[data-av-pause]');
-  if (!stage || !info || !window.AvatarRig) return;
-  const FULL = '<?= AVATAR_VIEWBOX ?>';
+  const P = window.PixelAvatar;
+  if (!stage || !info || !P) return;
   playBtn.hidden = pauseBtn.hidden = false;
   const colors = ['#ffd23f', '#ff6b9a', '#53c8f5', '#38d178', '#ff8c42', '#a67cf2', '#ffffff'];
   const confetti = () => {
@@ -276,36 +281,45 @@ layout_start('Personaggio', 'avatar');
     }
     setTimeout(() => stage.querySelectorAll('.av-confetti').forEach(c => c.remove()), 3400);
   };
-  const rig = window.AvatarRig;
-  const play = () => {
-    const svg = stage.querySelector('.avf');
-    if (svg && rig.play(svg)) confetti();
+  const svg = () => stage.querySelector('.avf');
+  const play = () => { if (P.play(svg())) confetti(); };
+  const setPause = (v) => {
+    stage.classList.toggle('is-paused', v);
+    P.setPaused(v);
+    pauseBtn.setAttribute('aria-pressed', v ? 'true' : 'false');
+    pauseBtn.innerHTML = v ? '<i class="ti ti-player-play"></i> Riprendi' : '<i class="ti ti-player-pause"></i> Pausa';
   };
-  playBtn.addEventListener('click', play);
-  pauseBtn.addEventListener('click', () => {
-    const paused = stage.classList.toggle('is-paused');
-    rig.setPaused(paused);
-    pauseBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
-    pauseBtn.innerHTML = paused ? '<i class="ti ti-player-play"></i> Riprendi' : '<i class="ti ti-player-pause"></i> Pausa';
-  });
-  document.querySelectorAll('[data-av-try]').forEach(link => link.addEventListener('click', e => {
+  playBtn.addEventListener('click', () => { setPause(false); play(); });
+  pauseBtn.addEventListener('click', () => setPause(!stage.classList.contains('is-paused')));
+  let req = 0;
+  document.querySelectorAll('[data-av-try]').forEach(link => link.addEventListener('click', async e => {
     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
     e.preventDefault();
     const card = link.closest('[data-av-item]');
-    const old = stage.querySelector('.avf');
-    if (old) rig.stop(old);
-    const svg = card.querySelector('.avf').cloneNode(true);
-    svg.setAttribute('viewBox', FULL);
-    svg.classList.add('is-new');
-    stage.replaceChildren(svg);
+    const href = link.getAttribute('href').split('#')[0];
     info.replaceChildren(card.querySelector('template').content.cloneNode(true));
     document.querySelectorAll('[data-av-item].is-trying').forEach(c => c.classList.remove('is-trying'));
     card.classList.add('is-trying');
-    history.replaceState(null, '', link.getAttribute('href').split('#')[0]);
-    if (card.dataset.kind === 'celebration') play(); else rig.rest(svg);
+    history.replaceState(null, '', href);
     if (window.matchMedia('(max-width: 899px)').matches) stage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const mine = ++req;
+    try {
+      const res = await fetch(href + (href.includes('?') ? '&' : '?') + 'fig=1', { credentials: 'same-origin' });
+      if (!res.ok || mine !== req) { if (!res.ok) location.href = href; return; }
+      const html = await res.text();
+      if (mine !== req) return;
+      const old = svg();
+      if (old) P.stop(old);
+      setPause(false);
+      stage.querySelectorAll('.avf').forEach(n => n.remove());
+      stage.insertAdjacentHTML('afterbegin', html);
+      const fig = svg();
+      fig.classList.add('is-new');
+      P.idle(fig);
+      if (card.dataset.kind === 'celebration') play();
+    } catch (err) { location.href = href; }
   }));
-  if (stage.dataset.autoplay) play(); else rig.rest(stage.querySelector('.avf'));
+  if (stage.dataset.autoplay) play();
 })();
 </script>
 <?php

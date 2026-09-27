@@ -443,7 +443,7 @@ function render_pitch_figures(array $match, array $roster): string
         $pid = (int) $r['player_id'];
         $style = 'left:' . round($p['lx'], 2) . '%;top:' . round($p['ly'], 2) . '%;--s:' . round($p['s'], 3)
             . ';z-index:' . (int) round($p['top']) . ';--dl:-' . (($pid * 733) % 2800) . 'ms';
-        $fig = avatar_figure(avatar_look($r), ['number' => $r['shirt_number'], 'ring' => true, 'label' => $r['name']])
+        $fig = avatar_figure(avatar_look($r), ['number' => $r['shirt_number'], 'ring' => true, 'idle' => true, 'label' => $r['name']])
             . '<span class="pav-name">' . h($short[$pid]) . '</span>';
         $figs .= empty($r['is_guest'])
             ? '<a class="pav team-' . strtolower($p['t']) . '" style="' . $style . '" href="player.php?id=' . $pid . '" title="' . h($r['name']) . '">' . $fig . '</a>'
