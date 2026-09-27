@@ -21,14 +21,17 @@ if (!$me) {
 
 $kinds = avatar_kinds();
 $cat = isset($kinds[$_GET['c'] ?? '']) ? (string) $_GET['c'] : 'hair';
-$view = ($_GET['v'] ?? '') === 'mine' ? 'mine' : 'shop';
+$view = in_array($_GET['v'] ?? '', ['mine', 'wish'], true) ? (string) $_GET['v'] : 'shop';
+$page = max(1, (int) ($_GET['p'] ?? 1));
+const AV_PER_PAGE = 48;
 $rarities = ['base' => 'Base', 'comune' => 'Comune', 'raro' => 'Raro', 'epico' => 'Epico', 'leggendario' => 'Leggendario'];
 $rar = isset($rarities[$_GET['r'] ?? '']) ? (string) $_GET['r'] : '';
 $sort = ($_GET['o'] ?? '') === 'desc' ? 'desc' : 'asc';
 $try = (string) ($_GET['try'] ?? '');
 
-$url = function (array $set = []) use ($cat, $view, $rar, $sort): string {
-    $q = array_filter(array_merge(['c' => $cat, 'v' => $view === 'mine' ? 'mine' : '', 'r' => $rar, 'o' => $sort === 'desc' ? 'desc' : ''], $set),
+$url = function (array $set = []) use ($cat, $view, $rar, $sort, $page): string {
+    $q = array_filter(array_merge(['c' => $cat, 'v' => $view !== 'shop' ? $view : '', 'r' => $rar, 'o' => $sort === 'desc' ? 'desc' : '',
+        'p' => $page > 1 ? $page : ''], $set),
         fn($v) => $v !== '' && $v !== null);
     return 'avatar.php' . ($q ? '?' . http_build_query($q) : '');
 };
@@ -47,13 +50,22 @@ if (is_post()) {
                 log_activity('negozio', $kind . ' · ' . $item['name']);
             }
             flash($err ? 'err' : 'ok', $err ?: 'Comprato e indossato: «' . $item['name'] . '»!');
+        } elseif ($do === 'wish' && $item) {
+            $on = shop_wish_toggle($me, $key);
+            if (($_SERVER['HTTP_ACCEPT'] ?? '') === 'application/json') {   // il cuoricino premuto senza ricaricare la pagina
+                header('Content-Type: application/json');
+                echo json_encode(['on' => $on, 'n' => shop_market(true)['wish'][$key] ?? 0]);
+                exit;
+            }
+            flash('ok', $on ? '«' . $item['name'] . '» è tra i tuoi obiettivi.' : 'Tolto dagli obiettivi.');
         } elseif ($do === 'wear') {
             $err = shop_equip($me, $kind, $key !== '' ? $key : null);
             flash($err ? 'err' : 'ok', $err ?: ($item ? '«' . $item['name'] . '» ' . ($kind === 'celebration' ? 'è la tua esultanza.' : 'indossato.') : 'Tolto.'));
         }
     }
     $r = (string) ($_POST['r'] ?? '');
-    redirect($url(['c' => isset($kinds[$kind]) ? $kind : $cat, 'try' => $key, 'v' => ($_POST['v'] ?? '') === 'mine' ? 'mine' : '',
+    redirect($url(['c' => isset($kinds[$kind]) ? $kind : $cat, 'try' => $key, 'v' => in_array($_POST['v'] ?? '', ['mine', 'wish'], true) ? $_POST['v'] : '',
+        'p' => max(1, (int) ($_POST['p'] ?? 1)) > 1 ? (int) $_POST['p'] : '',
         'r' => isset($rarities[$r]) ? $r : '', 'o' => ($_POST['o'] ?? '') === 'desc' ? 'desc' : '']) . '#personaggio');
 }
 
@@ -68,17 +80,29 @@ $owned = shop_owned($me) + ['' => true];
 $balance = wallet_balance($me);
 $catalog = shop_catalog();
 $number = $mp['shirt_number'];
+$wish = shop_wishlist($me);
+$wishN = shop_market()['wish'];
+$admin = is_admin();
 
-/** Oggetti di un tipo che questo giocatore può vedere (le maglie create dagli altri no; tra i copricapi anche «nessuno»). */
-$itemsOf = function (string $kind) use ($catalog, $me): array {
-    $items = $kind === 'hat' ? ['' => ['name' => 'Nessun copricapo', 'price' => 0]] : [];
+/**
+ * Oggetti di un tipo che questo giocatore può vedere (le maglie create dagli altri no; tra i copricapi anche «nessuno»).
+ * Quelli non ancora usciti (drops.php) li vede solo l'admin, in anteprima ("out"), e chi li ha già.
+ */
+$itemsOf = function (string $kind) use ($catalog, $me, $owned, $admin): array {
+    static $cache = [];
+    if (isset($cache[$kind])) {
+        return $cache[$kind];
+    }
+    $items = $kind === 'hat' ? ['' => ['name' => 'Nessun copricapo', 'price' => 0, 'out' => false]] : [];
     foreach ($catalog[$kind] as $k => $item) {
-        if (!isset($item['owner_player_id']) || $item['owner_player_id'] === $me) {
-            $items[$k] = $item;
+        $out = !shop_released((string) $k, $item);
+        if ((!isset($item['owner_player_id']) || $item['owner_player_id'] === $me) && (!$out || $admin || isset($owned[$k]))) {
+            $items[$k] = $item + ['out' => $out];
         }
     }
-    return $items;
+    return $cache[$kind] = $items;
 };
+$priceOf = fn(string $key, array $item) => shop_price($key, $item, $me);   // il prezzo di adesso (lib/shop.php: shop_price)
 $wornKey = fn(string $kind) => $kind === 'hat' ? (string) $look['hat'] : $look[$kind];
 
 // schede Negozio / Guardaroba e categorie: quanti oggetti ci sono e quanti ne ho
@@ -86,7 +110,7 @@ $count = [];
 $totAll = $totMine = 0;
 foreach ($kinds as $k => $_) {
     $all = $itemsOf($k);
-    $count[$k] = [count($all), count(array_intersect_key($all, $owned))];
+    $count[$k] = [count(array_filter($all, fn($i) => !$i['out'])), count(array_intersect_key($all, $owned))];
     $totAll += $count[$k][0];
     $totMine += $count[$k][1];
 }
@@ -94,12 +118,15 @@ foreach ($kinds as $k => $_) {
 $items = [];
 foreach ($itemsOf($cat) as $k => $item) {
     [$rk] = avatar_rarity($item['price']);
-    if (($view === 'mine' && !isset($owned[$k])) || ($rar !== '' && $rk !== $rar)) {
+    if (($view === 'mine' && !isset($owned[$k])) || ($view === 'wish' && !isset($wish[$k])) || ($rar !== '' && $rk !== $rar)) {
         continue;
     }
-    $items[(string) $k] = $item;
+    $items[(string) $k] = $item + ['now' => $priceOf((string) $k, $item)[0]];
 }
-uasort($items, fn($a, $b) => $sort === 'desc' ? (int) $b['price'] <=> (int) $a['price'] : (int) $a['price'] <=> (int) $b['price']);
+uasort($items, fn($a, $b) => [$a['out'], $sort === 'desc' ? -(int) $a['now'] : (int) $a['now']] <=> [$b['out'], $sort === 'desc' ? -(int) $b['now'] : (int) $b['now']]);
+$pages = max(1, (int) ceil(count($items) / AV_PER_PAGE));
+$page = min($page, $pages);
+$items = array_slice($items, ($page - 1) * AV_PER_PAGE, AV_PER_PAGE, true);
 $presentRar = [];
 foreach ($itemsOf($cat) as $item) {
     $presentRar[avatar_rarity($item['price'])[0]] = true;
@@ -133,31 +160,45 @@ $stateOf = function (string $key, array $item) use ($cat, $owned, $wornKey): str
 };
 
 /** Il pannello sotto il personaggio: nome, rarità, descrizione e il pulsante giusto (compra, indossa, già tuo). */
-$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $stateOf, $view, $rar, $sort): string {
+$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN): string {
     [$rk, $rl] = avatar_rarity($item['price']);
     $desc = $item['desc'] ?? ($cat === 'jersey'
         ? $jerseyKind[$item['kind']] . (($item['pattern'] ?? 'solid') !== 'solid' ? ' · ' . mb_strtolower($patterns[$item['pattern']]) : '') . '.'
         : ($kindDesc[$cat] ?? ''));
     $state = $stateOf($key, $item);
-    $form = function (string $do, string $label, string $cls, bool $disabled = false) use ($cat, $key, $view, $rar, $sort): string {
+    $form = function (string $do, string $label, string $cls, bool $disabled = false) use ($cat, $key, $view, $rar, $sort, $page): string {
         return '<form method="post" class="av-act">' . csrf_field()
             . '<input type="hidden" name="do" value="' . $do . '"><input type="hidden" name="kind" value="' . h($cat) . '"><input type="hidden" name="key" value="' . h($key) . '">'
             . '<input type="hidden" name="v" value="' . h($view) . '"><input type="hidden" name="r" value="' . h($rar) . '"><input type="hidden" name="o" value="' . h($sort) . '">'
+            . '<input type="hidden" name="p" value="' . $page . '">'
             . '<button class="btn ' . $cls . ' btn-block"' . ($disabled ? ' disabled' : '') . '>' . $label . '</button></form>';
     };
+    [$price, $why] = $key !== '' ? $priceOf($key, $item) : [0, null];
+    $wishBtn = $key !== '' && ($item['price'] ?? 0) > 0
+        ? '<form method="post" class="av-wish">' . csrf_field() . '<input type="hidden" name="do" value="wish"><input type="hidden" name="kind" value="' . h($cat) . '">'
+            . '<input type="hidden" name="key" value="' . h($key) . '"><input type="hidden" name="v" value="' . h($view) . '"><input type="hidden" name="p" value="' . $page . '">'
+            . '<button class="wish' . (isset($wish[$key]) ? ' is-on' : '') . '" data-wish aria-pressed="' . (isset($wish[$key]) ? 'true' : 'false') . '" title="'
+            . (isset($wish[$key]) ? 'Togli dagli obiettivi' : 'Aggiungi agli obiettivi') . '"><i class="ti ti-heart' . (isset($wish[$key]) ? '-filled' : '') . '"></i> <span data-wish-n>'
+            . ($wishN[$key] ?? 0) . '</span></button></form>'
+        : '';
     $word = $cat === 'celebration' ? ['Scegli questa esultanza', 'È la tua esultanza'] : ($cat === 'pose' ? ['Usa questa posa', 'È la tua posa'] : ['Indossa', 'Lo indossi']);
     if ($state === 'worn') {
         $act = '<p class="av-state is-worn"><i class="ti ti-circle-check"></i> ' . $word[1] . '</p>';
     } elseif ($state === 'buy') {
-        $short = $balance < (int) $item['price'];
-        $act = '<p class="av-price"><i class="ti ti-coin"></i> ' . (int) $item['price'] . ' <span>gettoni</span></p>'
-            . $form('buy', '<i class="ti ti-shopping-bag"></i> Compra e ' . ($cat === 'celebration' || $cat === 'pose' ? 'usa' : 'indossa'), 'btn-primary', $short)
-            . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $item['price'] - $balance) . ' gettoni: <a class="link" href="bets.php">vai a scommettere</a>.</p>' : '');
+        $short = $balance < (int) $price;
+        $out = !empty($item['out']);
+        $act = '<p class="av-price"><i class="ti ti-coin"></i> ' . (int) $price . ' <span>gettoni</span>'
+            . ($price !== $item['price'] ? ' <span class="price-move ' . ($price > $item['price'] ? 'is-up' : 'is-down') . '"><i class="ti ti-trending-'
+                . ($price > $item['price'] ? 'up' : 'down') . '"></i> base ' . (int) $item['price'] . '</span>' : '') . '</p>'
+            . ($why ? '<p class="small av-why">' . h(shop_price_note($why)) . '</p>' : '')
+            . ($out ? '<p class="av-state"><i class="ti ti-eye-off"></i> Non ancora uscito: lo fai uscire da <a class="link" href="drops.php">Uscite</a>.</p>'
+                : $form('buy', '<i class="ti ti-shopping-bag"></i> Compra e ' . ($cat === 'celebration' || $cat === 'pose' ? 'usa' : 'indossa'), 'btn-primary', $short)
+                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' gettoni: <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
     } else {
         $act = '<p class="av-state"><i class="ti ti-' . ($state === 'free' ? 'gift' : 'hanger') . '"></i> ' . ($state === 'free' ? 'Incluso per tutti' : 'Nel tuo guardaroba') . '</p>'
             . $form('wear', $word[0], 'btn-primary');
     }
-    return '<div class="av-info-top"><span class="av-info-kind">' . h($kinds[$cat]) . '</span><span class="rar rar-' . $rk . '">' . $rl . '</span></div>'
+    return '<div class="av-info-top"><span class="av-info-kind">' . h($kinds[$cat]) . '</span>' . $wishBtn . '<span class="rar rar-' . $rk . '">' . $rl . '</span></div>'
         . '<h2 class="av-info-name">' . h($item['name']) . '</h2>'
         . ($desc !== '' ? '<p class="av-info-desc">' . h($desc) . '</p>' : '') . $act;
 };
@@ -199,14 +240,16 @@ layout_start('Personaggio', 'avatar');
 
   <div class="av-main">
     <nav class="shop-tabs av-tabs">
-      <a href="<?= h($url(['v' => ''])) ?>" class="<?= $view === 'shop' ? 'active' : '' ?>"><i class="ti ti-building-store"></i> Negozio <span class="count"><?= $totAll ?></span></a>
-      <a href="<?= h($url(['v' => 'mine'])) ?>" class="<?= $view === 'mine' ? 'active' : '' ?>"><i class="ti ti-hanger"></i> Guardaroba <span class="count"><?= $totMine ?></span></a>
+      <a href="<?= h($url(['v' => '', 'p' => ''])) ?>" class="<?= $view === 'shop' ? 'active' : '' ?>"><i class="ti ti-building-store"></i> Negozio <span class="count"><?= $totAll ?></span></a>
+      <a href="<?= h($url(['v' => 'mine', 'p' => ''])) ?>" class="<?= $view === 'mine' ? 'active' : '' ?>"><i class="ti ti-hanger"></i> Guardaroba <span class="count"><?= $totMine ?></span></a>
+      <a href="<?= h($url(['v' => 'wish', 'p' => ''])) ?>" class="<?= $view === 'wish' ? 'active' : '' ?>"><i class="ti ti-heart"></i> Obiettivi <span class="count"><?= count($wish) ?></span></a>
+      <a href="drops.php" class="av-drops"><i class="ti ti-rocket"></i> Uscite</a>
       <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> gettoni</span>
     </nav>
 
     <nav class="av-cats" aria-label="Categorie">
       <?php $i = 0; foreach ($kinds as $k => $label): $i++; ?>
-      <a href="<?= h($url(['c' => $k, 'r' => ''])) ?>" class="av-cat<?= $k === $cat ? ' active' : '' ?>"<?= $k === $cat ? ' aria-current="page"' : '' ?>>
+      <a href="<?= h($url(['c' => $k, 'r' => '', 'p' => ''])) ?>" class="av-cat<?= $k === $cat ? ' active' : '' ?>"<?= $k === $cat ? ' aria-current="page"' : '' ?>>
         <span class="av-cat-n"><?= sprintf('%02d', $i) ?> <i class="ti ti-<?= $catIcons[$k] ?>"></i></span>
         <span class="av-cat-l"><?= h($label) ?></span>
         <span class="av-cat-c"><?= $count[$k][1] ?>/<?= $count[$k][0] ?></span>
@@ -217,11 +260,11 @@ layout_start('Personaggio', 'avatar');
     <div class="av-head">
       <h2><?= h($kinds[$cat]) ?></h2>
       <div class="sortbar av-filters">
-        <a href="<?= h($url(['r' => ''])) ?>" class="<?= $rar === '' ? 'active' : '' ?>">Tutte</a>
+        <a href="<?= h($url(['r' => '', 'p' => ''])) ?>" class="<?= $rar === '' ? 'active' : '' ?>">Tutte</a>
         <?php foreach ($rarities as $rk => $rl): if (!isset($presentRar[$rk])) continue; ?>
-          <a href="<?= h($url(['r' => $rk])) ?>" class="<?= $rar === $rk ? 'active' : '' ?>"><?= $rl ?></a>
+          <a href="<?= h($url(['r' => $rk, 'p' => ''])) ?>" class="<?= $rar === $rk ? 'active' : '' ?>"><?= $rl ?></a>
         <?php endforeach; ?>
-        <a href="<?= h($url(['o' => $sort === 'desc' ? '' : 'desc'])) ?>" class="av-sort" title="Cambia ordine"><i class="ti ti-arrows-sort"></i> Prezzo <?= $sort === 'desc' ? 'decrescente' : 'crescente' ?></a>
+        <a href="<?= h($url(['o' => $sort === 'desc' ? '' : 'desc', 'p' => ''])) ?>" class="av-sort" title="Cambia ordine"><i class="ti ti-arrows-sort"></i> Prezzo <?= $sort === 'desc' ? 'decrescente' : 'crescente' ?></a>
       </div>
     </div>
 
@@ -239,26 +282,34 @@ layout_start('Personaggio', 'avatar');
           [$rk, $rl] = avatar_rarity($item['price']);
           $state = $stateOf($key, $item);
           $pl = $lookWith($key); ?>
-      <article class="av-item rar-<?= $rk ?><?= $state === 'worn' ? ' is-worn' : '' ?><?= $key === $selected ? ' is-trying' : '' ?>" data-av-item data-kind="<?= h($cat) ?>">
+      <article class="av-item rar-<?= $rk ?><?= $state === 'worn' ? ' is-worn' : '' ?><?= $key === $selected ? ' is-trying' : '' ?><?= $item['out'] ? ' is-out' : '' ?>" data-av-item data-kind="<?= h($cat) ?>">
         <a class="av-item-link" href="<?= h($url(['try' => $key])) ?>#personaggio" data-av-try>
-          <span class="av-item-top"><span class="rar rar-<?= $rk ?>"><?= $rl ?></span>
+          <span class="av-item-top"><span class="rar rar-<?= $rk ?>"><?= $item['out'] ? 'Non uscito' : $rl ?></span><?php if (isset($wish[$key])): ?><i class="ti ti-heart-filled av-item-wish" title="Tra i tuoi obiettivi"></i><?php endif; ?>
             <span class="av-item-mark" title="<?= ['worn' => 'Indossato', 'owned' => 'Nel guardaroba', 'free' => 'Incluso', 'buy' => 'Da comprare'][$state] ?>"><i class="ti ti-<?= ['worn' => 'check', 'owned' => 'hanger', 'free' => 'gift', 'buy' => 'plus'][$state] ?>"></i></span></span>
           <span class="av-item-fig"><?= avatar_figure($pl, ['number' => $number, 'crop' => $crop] + ($cat === 'celebration' ? ['hint' => $item['anim']] : [])) ?></span>
           <span class="av-item-name"><?= h($item['name']) ?></span>
           <span class="av-item-state"><?php if ($state === 'worn'): ?><?= $cat === 'celebration' || $cat === 'pose' ? 'In uso' : 'Indossato' ?>
             <?php elseif ($state === 'free'): ?>Incluso
             <?php elseif ($state === 'owned'): ?>Nel guardaroba
-            <?php else: ?><span class="av-cost<?= $balance < (int) $item['price'] ? ' is-short' : '' ?>"><i class="ti ti-coin"></i> <?= (int) $item['price'] ?></span><?php endif; ?></span>
+            <?php else: ?><span class="av-cost<?= $balance < (int) $item['now'] ? ' is-short' : '' ?>"><i class="ti ti-coin"></i> <?= (int) $item['now'] ?><?php if ($item['now'] !== $item['price']): ?> <i class="ti ti-trending-<?= $item['now'] > $item['price'] ? 'up' : 'down' ?> price-move <?= $item['now'] > $item['price'] ? 'is-up' : 'is-down' ?>"></i><?php endif; ?></span><?php endif; ?></span>
           <span class="av-item-try"><?= $cat === 'celebration' ? 'Guarda' : 'Prova' ?> <i class="ti ti-arrow-right"></i></span>
         </a>
         <template><?= $infoHtml($key, $item) ?></template>
       </article>
       <?php endforeach; ?>
     </div>
-    <?php if (!$items): ?><p class="empty card"><?= $view === 'mine' ? 'Nel guardaroba non hai niente di questo tipo con questo filtro.' : 'Niente da mostrare con questo filtro.' ?></p><?php endif; ?>
+    <?php if (!$items): ?><p class="empty card"><?= $view === 'mine' ? 'Nel guardaroba non hai niente di questo tipo con questo filtro.' : ($view === 'wish' ? 'Nessun obiettivo di questo tipo: premi il cuoricino su un oggetto per aggiungerlo.' : 'Niente da mostrare con questo filtro.') ?></p><?php endif; ?>
+    <?php if ($pages > 1): ?>
+    <nav class="pager" aria-label="Pagine">
+      <?php if ($page > 1): ?><a class="btn btn-ghost btn-sm" href="<?= h($url(['p' => $page - 1 > 1 ? $page - 1 : ''])) ?>"><i class="ti ti-chevron-left"></i> Indietro</a><?php endif; ?>
+      <span class="pager-n">Pagina <?= $page ?> di <?= $pages ?></span>
+      <?php if ($page < $pages): ?><a class="btn btn-ghost btn-sm" href="<?= h($url(['p' => $page + 1])) ?>">Avanti <i class="ti ti-chevron-right"></i></a><?php endif; ?>
+    </nav>
+    <?php endif; ?>
   </div>
 </div>
 
+<script src="assets/wish.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/wish.js'), 0, 10)) ?>"></script>
 <script src="assets/avatar_px.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar_px.js'), 0, 10)) ?>"></script>
 <script>
 (() => {

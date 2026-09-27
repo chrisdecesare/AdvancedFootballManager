@@ -1373,3 +1373,54 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .pav-name { position: absolute; left: 50%; top: 96%; transform: translateX(-50%); font: 800 .7rem/1.15 var(--font); white-space: nowrap;
   background: var(--tc); border: 2px solid var(--ink); border-radius: 7px; padding: 1px 6px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 520px) { .pav-name { font-size: .6rem; padding: 0 4px; } }
+
+/* ---------------------------------------------------------------- negozio: obiettivi, prezzi che cambiano, pagine, uscite (drops.php) */
+.shop-item { position: relative; }
+.wish-form { position: absolute; top: 8px; right: 8px; margin: 0; z-index: 1; }
+.av-wish { margin: 0 0 0 auto; }
+.wish { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border: var(--b2); border-radius: 99px; background: var(--white);
+  font: 800 .78rem var(--font); color: var(--ink-2); cursor: pointer; }
+.wish:hover { background: #ffe3ec; }
+.wish.is-on { background: var(--pink); color: var(--white); }
+.wish:focus-visible { outline: 3px solid var(--sky); outline-offset: 2px; }
+.av-item-wish { color: var(--pink); font-size: 1rem; }
+.price-move { display: inline-flex; align-items: center; gap: 2px; font: 800 .72rem var(--font); vertical-align: middle; }
+.price-move.is-up { color: #c2410c; }
+.price-move.is-down { color: var(--grass-d); }
+.shop-market { margin: 4px 0 12px; }
+.av-why { margin: -4px 0 8px; color: var(--muted); line-height: 1.35; }
+.shop-drops, .av-drops { margin-left: auto; }
+.shop-item.is-out, .av-item.is-out { opacity: .72; border-style: dashed; }
+.shop-out { position: absolute; top: 8px; left: 8px; font-size: .68rem; }
+.pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 18px 0; }
+.pager-n { font-weight: 800; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.drops-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+.drop { margin: 0; display: grid; gap: 10px; align-content: start; }
+.drop-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.drop-kind { font: 800 .7rem var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.drop-name { margin: 0; font: 400 1.25rem var(--font-d); }
+.drop-bar { display: flex; height: 10px; border: var(--b2); border-radius: 99px; overflow: hidden; background: var(--paper-2); }
+.drop-bar .is-out { background: var(--grass); }
+.drop-bar .is-sched { background: var(--yellow); }
+.drop-bar .is-pend { background: transparent; }
+.drop-counts { margin: 0; color: var(--ink-2); }
+.drop-sample { display: flex; gap: 6px; align-items: flex-end; min-height: 64px; }
+.drop-thumb { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 10px; background: var(--paper); overflow: hidden; }
+.drop-thumb .hat-thumb { width: 54px; }
+.drop-thumb .avf { height: 60px; width: auto; max-width: 100%; }
+.drop-thumb .nick-big { font-size: .62rem; text-align: center; }
+.drop-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.drop-acts form, .drop-withdraw { margin: 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.drop-acts input[type=number] { width: 64px; }
+.drop-acts label, .drop-pick-bar label { font-weight: 700; font-size: .85rem; display: inline-flex; gap: 4px; align-items: center; }
+.drop-pick-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px; position: sticky; top: 76px; z-index: 5; }
+.drop-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.drop-item { margin: 0; display: grid; gap: 6px; justify-items: center; text-align: center; padding: 10px; cursor: pointer; position: relative; }
+.drop-item input { position: absolute; top: 10px; left: 10px; width: 18px; height: 18px; }
+.drop-item:has(input:checked) { background: #fff3c4; outline: 3px solid var(--yellow); }
+.drop-item-fig { height: 96px; display: grid; place-items: center; }
+.drop-item-fig .avf { height: 96px; width: auto; }
+.drop-item-name { font-weight: 800; font-size: .88rem; }
+.drop-item.is-out .drop-item-state { color: var(--grass-d); }
+.drop-item.is-scheduled .drop-item-state { color: #b86e00; }

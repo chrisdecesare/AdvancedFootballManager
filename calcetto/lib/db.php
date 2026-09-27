@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 31;
+const SCHEMA_VERSION = 32;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -593,6 +593,24 @@ function ensure_schema(): void
                 db()->exec("ALTER TABLE players DROP COLUMN $c");
             }
         }
+    }
+    if ($v < 32) {
+        // negozio: gli oggetti del catalogo esteso escono quando lo decide l'admin (drops.php), e ogni giocatore ha la sua lista
+        // desideri ("obiettivi"), che insieme a possessori e gettoni in circolo muove i prezzi (lib/shop.php: shop_price)
+        db()->exec('CREATE TABLE IF NOT EXISTS shop_releases (
+            item_key VARCHAR(16) NOT NULL PRIMARY KEY,
+            release_at DATETIME NOT NULL,
+            released_by INT NULL,
+            INDEX (release_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS wishlist (
+            player_id INT NOT NULL,
+            item_key VARCHAR(16) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (player_id, item_key),
+            INDEX (item_key),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     if ($v < 28) {
         // quote più alte per le prime partite (bet_boost in lib/bets.php): valgono per tutte le partite già in programma
