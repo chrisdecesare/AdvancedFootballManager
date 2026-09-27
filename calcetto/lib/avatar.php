@@ -84,7 +84,8 @@ function avatar_pose_angles(string $pose): array
  */
 function avatar_hair_styles(): array
 {
-    $classic = '<path class="f-ha o" d="M33 46 C31 24 44 13 60 13 C77 13 90 24 87 46 C84 38 79 33 72 32 C66 36 58 36 52 32 C44 33 37 38 33 46 Z"/>';
+    $classic = '<path class="f-ha o" d="M33 46 C31 24 44 13 60 13 C77 13 90 24 87 46 C84 38 79 33 72 32 C66 36 58 36 52 32 C44 33 37 38 33 46 Z"/>'
+        . '<path d="M47 32 Q49.5 26.5 54 23 M59.5 35 Q61 28.5 66 25 M71 32.5 Q73 28.5 77.5 27" fill="none" stroke="#1f1a2e" stroke-width="1.3" opacity=".28" stroke-linecap="round"/>';
     $buzz = '<path class="f-ha" opacity=".55" d="M34.5 41 C35.5 23 47 17.5 60 17.5 C73 17.5 84.5 23 85.5 41 C78 32 70 29.5 60 29.5 C50 29.5 42 32 34.5 41 Z"/>';
     $cloud = function (array $circles, float $pad): string {
         $ink = $fill = '';
@@ -223,11 +224,12 @@ function avatar_hex_luma(string $hex): float
 }
 
 const AVATAR_VIEWBOX = '0 -24 120 194';
-const AVATAR_VIEWBOX_HEAD = '14 -16 92 92';
+/** Inquadrature delle miniature: solo la parte del corpo che conta per quell'oggetto. */
+const AVATAR_CROPS = ['head' => '14 -16 92 92', 'torso' => '20 12 80 104', 'legs' => '20 62 80 104', 'feet' => '26 118 68 50'];
 
 /**
  * Il personaggio in SVG. Opzioni:
- *  - number: numero di maglia (null = nessuno);   - crop 'head': solo la testa (miniature dei capelli, degli occhiali...);
+ *  - number: numero di maglia (null = nessuno);   - crop: un'inquadratura di AVATAR_CROPS (miniature del negozio);
  *  - ring: sotto i piedi un disco del colore della squadra (var(--tc) di chi lo contiene) invece dell'ombra;
  *  - pose: posa al posto di quella scelta;   - jersey: ['a' =>, 'b' =>, 'pattern' =>] al posto della maglia (crea maglia);
  *  - all_patterns: disegna tutti i motivi della maglia (nascosti tranne quello scelto) per cambiarli al volo da JS;
@@ -269,6 +271,9 @@ function avatar_figure(array $look, array $o = []): string
     $beard = avatar_beards()[$it('beard')['style']] ?? [];
     $torso = 'M41 73 Q60 67 79 73 L81 108 Q60 111 39 108 Z';
     $clip = 'avf' . $n;
+    $clipHead = 'avh' . $n;
+    $shade = 'fill="#1f1a2e" opacity=".13"';   // ombra a cel-shading: la luce arriva da sinistra, in alto
+    $light = 'fill="#fff" opacity=".13"';
 
     $patterns = '';
     foreach (!empty($o['all_patterns']) ? array_keys(avatar_patterns()) : [$pattern] as $pk) {
@@ -278,16 +283,23 @@ function avatar_figure(array $look, array $o = []): string
         }
     }
 
+    // braccio: manica col bordino del secondo colore, pollice verso l'interno
     $arm = function (string $side, int $deg): string {
-        [$sx, $hx, $slx, $hand] = $side === 'l' ? [42, 37.5, 40.5, 37] : [78, 82.5, 79.5, 83];
+        $m = $side === 'l' ? 1 : -1;
+        $sx = 60 - 18 * $m;
+        $hx = 60 - 22.5 * $m;
+        $hand = 60 - 23 * $m;
+        $at = fn(float $y) => round($sx + ($hx - $sx) * ($y - 77) / 26, 2) . ' ' . $y;
         $line = 'M' . $sx . ' 77 L' . $hx . ' 103';
-        $sleeve = 'M' . $sx . ' 77 L' . $slx . ' 85';
         return '<g class="avf-arm avf-arm-' . $side . '"' . ($deg ? ' style="transform:rotate(' . $deg . 'deg)"' : '') . '>'
             . '<path class="s-ink" d="' . $line . '" stroke-width="12" stroke-linecap="round"/>'
             . '<path class="s-sk" d="' . $line . '" stroke-width="7" stroke-linecap="round"/>'
+            . '<path d="M' . $at(90) . ' L' . $at(102) . '" stroke="#1f1a2e" stroke-width="2.2" opacity=".12" stroke-linecap="round" transform="translate(' . (-2.2 * $m) . ' 0)"/>'
             . '<circle class="f-sk o" cx="' . $hand . '" cy="106" r="5.5"/>'
-            . '<path class="s-ink" d="' . $sleeve . '" stroke-width="15.5" stroke-linecap="round"/>'
-            . '<path class="s-sl" d="' . $sleeve . '" stroke-width="10.5" stroke-linecap="round"/></g>';
+            . '<circle class="f-sk o o2" cx="' . ($hand + 3.6 * $m) . '" cy="103.6" r="2.4"/>'
+            . '<path class="s-ink" d="M' . $sx . ' 77 L' . $at(86) . '" stroke-width="15.5" stroke-linecap="round"/>'
+            . '<path class="s-sb" d="M' . $sx . ' 77 L' . $at(86) . '" stroke-width="10.5" stroke-linecap="round"/>'
+            . '<path class="s-sl" d="M' . $sx . ' 77 L' . $at(82.8) . '" stroke-width="10.5" stroke-linecap="round"/></g>';
     };
 
     $hatSvg = '';
@@ -299,42 +311,84 @@ function avatar_figure(array $look, array $o = []): string
         ? '<text class="avf-num" x="60" y="101" text-anchor="middle">' . (int) $o['number'] . '</text>' : '';
     $petSvg = avatar_pets()[$pet['style'] ?? 'none'] ?? '';
     $ground = !empty($o['ring'])
-        ? '<ellipse class="avf-ring o" cx="60" cy="163" rx="28" ry="6.5"/>'
-        : '<ellipse cx="60" cy="163" rx="30" ry="5.5" fill="rgba(31,26,46,.18)"/>';
+        ? '<ellipse class="avf-ring o" cx="60" cy="162.5" rx="28" ry="6.5"/>'
+        : '<ellipse cx="60" cy="162.5" rx="31" ry="5.5" fill="#1f1a2e" opacity=".12"/><ellipse cx="60" cy="162" rx="21" ry="3.6" fill="#1f1a2e" opacity=".14"/>';
     $anim = $it('celebration')['anim'] ?? 'fist-pump';
     $label = isset($o['label']) ? ' role="img" aria-label="' . h($o['label']) . '"' : ' aria-hidden="true"';
+    $hairStyle = $it('hair')['style'];
+    $shine = $hat ? '' : ([
+        'classic' => 'M41.5 26.5 Q48.5 18.5 58.5 17', 'side' => 'M41 27 Q48 18 57.5 16.5', 'quiff' => 'M47 20 Q56 8 70 6.5',
+        'bun' => 'M41.5 26.5 Q48.5 18.5 58.5 17', 'long' => 'M40 27 Q47.5 17.5 58 16', 'mullet' => 'M41.5 26.5 Q48.5 18.5 58.5 17',
+        'braids' => 'M41.5 26 Q48.5 18 58.5 16.5', 'fade' => 'M44 22 Q50.5 14 59 12.5', 'spiky' => 'M42 30 Q47 24.5 55 22.5',
+        'curly' => 'M40 25 Q42.5 21.5 46.5 21.5 M51 19.5 Q53.5 16.5 57.5 16.5', 'mohawk' => 'M56.5 6 L58 13', 'bald' => 'M44 25 Q50 19.5 57.5 19',
+    ][$hairStyle] ?? '');
+    // occhio: bianco, iride, pupilla e due riflessi, con la palpebra superiore marcata
+    $eye = fn(float $x) => '<ellipse cx="' . $x . '" cy="46.8" rx="3.9" ry="4.6" fill="#fff" stroke="#1f1a2e" stroke-width="1.3"/>'
+        . '<ellipse cx="' . ($x + .3) . '" cy="47.4" rx="3.1" ry="3.75" fill="#3b2a20"/><ellipse cx="' . ($x + .3) . '" cy="48.6" rx="2.3" ry="2" fill="#6b4a33"/>'
+        . '<circle cx="' . ($x + .35) . '" cy="47.5" r="1.55" fill="#1f1a2e"/>'
+        . '<circle cx="' . ($x + 1.5) . '" cy="45.7" r="1.2" fill="#fff"/><circle cx="' . ($x - .8) . '" cy="49.3" r=".6" fill="#fff"/>'
+        . '<path d="M' . ($x - 4.4) . ' 44.6 Q' . $x . ' 40.4 ' . ($x + 4.4) . ' 44.6" fill="none" stroke="#1f1a2e" stroke-width="2.1" stroke-linecap="round"/>';
+    $leg = fn(float $x) => '<rect class="f-sk o" x="' . $x . '" y="118" width="11" height="34" rx="4"/>'
+        . '<rect x="' . ($x + 6.8) . '" y="119.5" width="2.6" height="14" rx="1.3" ' . $shade . '/>'
+        . '<rect class="f-so o" x="' . $x . '" y="133" width="11" height="15" rx="3"/>'
+        . '<rect class="f-sb" x="' . ($x + 1.5) . '" y="136" width="8" height="2.6"/>'
+        . '<rect x="' . ($x + 6.8) . '" y="139.5" width="2.6" height="6" rx="1.3" ' . $shade . '/>';
+    // scarpetta sinistra (la destra è la stessa, specchiata): tomaia, suola chiara, tacchetti e la riga laterale
+    $shoe = '<path class="f-fo o" d="M44 145 H58 V155.5 H38 Q36.3 155.5 36.8 152.8 Q38.2 146 44 145 Z"/>'
+        . '<path d="M50 147.4 H56 M50 149.9 H56" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".75"/>'
+        . '<path class="o o2" fill="#f4efe4" d="M36.8 155.5 H58 V157.3 Q58 159.4 55.8 159.4 H39.2 Q36.4 159.4 36.8 156.8 Z"/>'
+        . '<path d="M41 160.2 V161.6 M46.5 160.2 V161.6 M53 160.2 V161.6" stroke="#1f1a2e" stroke-width="2.3" stroke-linecap="round"/>'
+        . '<path d="M40 153.6 Q47 151.6 57 152.8" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" opacity=".85"/>'
+        . '<ellipse cx="41.5" cy="149.6" rx="2.2" ry="1" fill="#fff" opacity=".4"/>';
 
-    return '<svg class="avf pose-' . h($pose) . (isset($o['hint']) ? ' hint-' . h($o['hint']) : '') . '" viewBox="' . (($o['crop'] ?? '') === 'head' ? AVATAR_VIEWBOX_HEAD : AVATAR_VIEWBOX) . '"'
+    return '<svg class="avf pose-' . h($pose) . (isset($o['hint']) ? ' hint-' . h($o['hint']) : '') . '" viewBox="' . (AVATAR_CROPS[$o['crop'] ?? ''] ?? AVATAR_VIEWBOX) . '"'
         . ' style="' . h($style) . '" data-anim="' . h($anim) . '"' . $label . ' focusable="false">'
-        . '<defs><clipPath id="' . $clip . '"><path d="' . $torso . '"/></clipPath></defs>'
+        . '<defs><clipPath id="' . $clip . '"><path d="' . $torso . '"/></clipPath><clipPath id="' . $clipHead . '"><circle cx="60" cy="44" r="26"/></clipPath></defs>'
         . $ground
         . '<g class="avf-body">'
         . ($hs['back'] ?? '')
-        . '<rect class="f-sk o" x="54" y="60" width="12" height="14" rx="3"/>'
-        . '<rect class="f-sk o" x="47" y="118" width="11" height="34" rx="4"/><rect class="f-sk o" x="62" y="118" width="11" height="34" rx="4"/>'
-        . '<rect class="f-so o" x="47" y="133" width="11" height="18" rx="3"/><rect class="f-so o" x="62" y="133" width="11" height="18" rx="3"/>'
-        . '<path class="f-fo o" d="M45 149 H58 V156 Q58 159 55 159 H40 Q36.5 159 37.5 155.5 Q39 150 45 149 Z"/>'
-        . '<path class="f-fo o" d="M62 149 H75 Q81 150 82.5 155.5 Q83.5 159 80 159 H65 Q62 159 62 156 Z"/>'
-        . '<path d="M40 156.3 H56.5 M63.5 156.3 H80" stroke="#fff" stroke-width="1.5" opacity=".6"/>'
+        // collo, con l'ombra della testa
+        . '<rect class="f-sk o" x="54" y="60" width="12" height="14" rx="3"/><path d="M55.5 62 H64.5 V68 Q60 70.5 55.5 68 Z" fill="#1f1a2e" opacity=".2"/>'
+        . $leg(47) . $leg(62)
+        . $shoe . '<g transform="matrix(-1 0 0 1 120 0)">' . $shoe . '</g>'
+        // pantaloncini: bande laterali, elastico e la gamba in ombra
         . '<path class="f-sh o" d="M43 103 H77 L80.5 127 Q72 129.5 62.5 127.5 L60 115 L57.5 127.5 Q48 129.5 39.5 127 Z"/>'
+        . '<path d="M62 104.5 H76 L79 126 Q72 128 63.5 126.5 L60.8 114.5 Z" ' . $shade . '/>'
+        . '<path class="s-sb" d="M44.4 106.5 L41.8 125.2 M75.6 106.5 L78.2 125.2" stroke-width="2.2" stroke-linecap="round"/>'
+        . '<path d="M44 107.6 H76" stroke="#1f1a2e" stroke-width="1.2" opacity=".28"/>'
+        // maglia: motivo, ombre, orlo, stemma e colletto a V
         . '<path class="f-sa" d="' . $torso . '"/>'
-        . '<g class="f-sb" clip-path="url(#' . $clip . ')">' . $patterns . '</g>'
+        . '<g clip-path="url(#' . $clip . ')">'
+        . '<g class="f-sb">' . $patterns . '</g>'
+        . '<path d="M71 66 Q78.5 88 74 116 H92 V66 Z" ' . $shade . '/>'
+        . '<path d="M36 103.5 Q60 99.5 84 103.5 V116 H36 Z" fill="#1f1a2e" opacity=".1"/>'
+        . '<ellipse cx="48.5" cy="86" rx="5" ry="10" ' . $light . '/>'
+        . '<path class="s-sb" d="M38 105.8 Q60 109.6 82 105.8" stroke-width="2.4"/>'
+        . '</g>'
         . '<path class="o" fill="none" d="' . $torso . '"/>'
-        . '<path class="s-sb" d="M52 71.5 L60 79 L68 71.5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        . '<path class="f-sk" d="M55.3 69.2 L60 75 L64.7 69.2 Z"/><path d="M56.5 69.3 L60 73.6 L63.5 69.3 Z" fill="#1f1a2e" opacity=".18"/>'
+        . '<path class="f-sb" d="M51.5 69.4 L60 80.4 L68.5 69.4 L64.9 68.9 L60 75.1 L55.1 68.9 Z" stroke="#1f1a2e" stroke-width="1.4" stroke-linejoin="round"/>'
+        . '<path class="f-sb" d="M65.8 78.6 H71.2 V81.6 Q71.2 84.8 68.5 86.2 Q65.8 84.8 65.8 81.6 Z" stroke="#1f1a2e" stroke-width="1.3" stroke-linejoin="round"/>'
+        . '<path d="M67.4 80.4 H69.6 M68.5 80.4 V84" stroke="#1f1a2e" stroke-width="1" opacity=".55"/>'
         . $number
+        // testa: orecchie, ombra laterale, occhi, naso, guance, bocca; poi barba, occhiali, capelli e copricapo
         . '<g class="avf-head">'
         . '<circle class="f-sk o" cx="34.5" cy="47" r="6"/><circle class="f-sk o" cx="85.5" cy="47" r="6"/>'
-        . '<circle class="f-sk o" cx="60" cy="44" r="26"/>'
+        . '<path d="M33.2 44.2 Q31.2 47 33.6 50 M86.8 44.2 Q88.8 47 86.4 50" fill="none" stroke="#1f1a2e" stroke-width="1.4" opacity=".35" stroke-linecap="round"/>'
+        . '<circle class="f-sk" cx="60" cy="44" r="26"/>'
+        . '<g clip-path="url(#' . $clipHead . ')"><path d="M83 14 Q69.5 44 81 76 H100 V14 Z" ' . $shade . '/><ellipse cx="60" cy="72" rx="22" ry="6" fill="#1f1a2e" opacity=".08"/></g>'
+        . '<circle class="o" fill="none" cx="60" cy="44" r="26"/>'
         . ($beard['under'] ?? '')
-        . '<ellipse cx="45" cy="54" rx="4.2" ry="2.6" fill="#ff6b9a" opacity=".32"/><ellipse cx="75" cy="54" rx="4.2" ry="2.6" fill="#ff6b9a" opacity=".32"/>'
-        . '<ellipse cx="51" cy="46.5" rx="3" ry="3.9" fill="#1f1a2e"/><ellipse cx="69" cy="46.5" rx="3" ry="3.9" fill="#1f1a2e"/>'
-        . '<circle cx="52.1" cy="44.8" r="1.1" fill="#fff"/><circle cx="70.1" cy="44.8" r="1.1" fill="#fff"/>'
-        . '<path class="s-ha" d="M46 38.5 Q50.5 36 55 38 M65 38 Q69.5 36 74 38.5" stroke-width="2.6" stroke-linecap="round"/>'
-        . '<path class="avf-mouth" d="M54 56.5 Q60 61.5 66 56.5" fill="none" stroke="#1f1a2e" stroke-width="2.6" stroke-linecap="round"/>'
-        . '<path class="avf-mouth-open" d="M53.5 55 Q60 55.8 66.5 55 Q65 64 60 64 Q55 64 53.5 55 Z" fill="#1f1a2e"/>'
+        . '<ellipse cx="44.5" cy="54.5" rx="4.4" ry="2.7" fill="#ff6b9a" opacity=".3"/><ellipse cx="75.5" cy="54.5" rx="4.4" ry="2.7" fill="#ff6b9a" opacity=".3"/>'
+        . $eye(51) . $eye(69)
+        . '<path class="s-ha" d="M45.5 37.8 Q50.5 35 55.5 37.4 M64.5 37.4 Q69.5 35 74.5 37.8" stroke-width="2.6" stroke-linecap="round"/>'
+        . '<path d="M59.2 50.6 Q60.8 53.2 62.4 51" fill="none" stroke="#1f1a2e" stroke-width="1.5" opacity=".45" stroke-linecap="round"/>'
+        . '<path class="avf-mouth" d="M54 56.8 Q60 62 66 56.8" fill="none" stroke="#1f1a2e" stroke-width="2.6" stroke-linecap="round"/>'
+        . '<path class="avf-mouth-open" d="M53.5 55.2 Q60 56 66.5 55.2 Q65 64.2 60 64.2 Q55 64.2 53.5 55.2 Z" fill="#1f1a2e"/>'
         . ($beard['over'] ?? '')
         . (avatar_glasses()[$it('glasses')['style']] ?? '')
         . ($hs['front'] ?? '')
+        . ($shine !== '' ? '<path d="' . $shine . '" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" opacity=".45"/>' : '')
         . $hatSvg
         . '</g>'
         . $arm('l', $aL) . $arm('r', $aR)

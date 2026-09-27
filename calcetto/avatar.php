@@ -165,7 +165,8 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
 $catIcons = ['hair' => 'scissors', 'hair_color' => 'palette', 'skin' => 'hand-stop', 'beard' => 'mood-smile-beam', 'glasses' => 'eyeglass',
     'hat' => 'hat', 'jersey' => 'shirt-sport', 'shorts' => 'hanger', 'shoes' => 'shoe', 'pet' => 'paw', 'pose' => 'accessible',
     'celebration' => 'confetti'];
-$headCrop = in_array($cat, ['hair', 'hair_color', 'beard', 'glasses', 'hat'], true);
+$crop = ['hair' => 'head', 'hair_color' => 'head', 'beard' => 'head', 'glasses' => 'head', 'hat' => 'head', 'jersey' => 'torso',
+    'shorts' => 'legs', 'shoes' => 'feet'][$cat] ?? '';
 $stageLook = $lookWith($selected);
 
 layout_start('Personaggio', 'avatar');
@@ -236,7 +237,7 @@ layout_start('Personaggio', 'avatar');
         <a class="av-item-link" href="<?= h($url(['try' => $key])) ?>#personaggio" data-av-try>
           <span class="av-item-top"><span class="rar rar-<?= $rk ?>"><?= $rl ?></span>
             <span class="av-item-mark" title="<?= ['worn' => 'Indossato', 'owned' => 'Nel guardaroba', 'free' => 'Incluso', 'buy' => 'Da comprare'][$state] ?>"><i class="ti ti-<?= ['worn' => 'check', 'owned' => 'hanger', 'free' => 'gift', 'buy' => 'plus'][$state] ?>"></i></span></span>
-          <span class="av-item-fig"><?= avatar_figure($pl, ['number' => $number, 'crop' => $headCrop ? 'head' : ''] + ($cat === 'celebration' ? ['hint' => $item['anim']] : [])) ?></span>
+          <span class="av-item-fig"><?= avatar_figure($pl, ['number' => $number, 'crop' => $crop] + ($cat === 'celebration' ? ['hint' => $item['anim']] : [])) ?></span>
           <span class="av-item-name"><?= h($item['name']) ?></span>
           <span class="av-item-state"><?php if ($state === 'worn'): ?><?= $cat === 'celebration' || $cat === 'pose' ? 'In uso' : 'Indossato' ?>
             <?php elseif ($state === 'free'): ?>Incluso
