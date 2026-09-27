@@ -371,7 +371,7 @@ return [
         ['pe_cane', 'Cane', 220, 'dog', '#c98a3b', '#fff3d6'],
         ['pe_pinguino', 'Pinguino', 260, 'penguin', '#2b2540', '#ffffff'],
     ],
-    // pose (come sta fermo il personaggio): [chiave, nome, prezzo, posa (lib/avatar.php: avatar_pose_angles)]
+    // pose (come sta fermo il personaggio): [chiave, nome, prezzo, posa (lib/avatar_rig.php: avatar_pose_items)]
     'pose' => [
         ['po_riposo', 'Riposo', 0, 'rest'],
         ['po_aperte', 'Braccia aperte', 40, 'open'],
@@ -380,7 +380,7 @@ return [
         ['po_vittoria', 'Vittoria', 120, 'victory'],
         ['po_cielo', 'Braccia al cielo', 160, 'up'],
     ],
-    // esultanze: [chiave, nome, prezzo, animazione (classi .is-anim-<animazione> in assets/style.css)]
+    // esultanze: [chiave, nome, prezzo, esultanza (pose chiave in lib/avatar_rig.php: avatar_celebrations)]
     'celebration' => [
         ['c_pugno', 'Pugno al cielo', 0, 'fist-pump'],
         ['c_esultanza', 'Esultanza classica', 45, 'celebration'],
