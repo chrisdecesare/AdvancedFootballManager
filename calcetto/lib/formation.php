@@ -404,7 +404,7 @@ function render_pitch_figures(array $match, array $roster): string
         . '</g><g fill="#fff" stroke="#1f1a2e" stroke-width="2">'
         . '<polygon points="' . $quad(-.15, .15, -.035, .03) . '"/><polygon points="' . $quad(-.17, .17, .97, 1) . '"/></g></svg>';
 
-    $figs = '';
+    $pl = [];
     foreach (['A', 'B'] as $t) {
         $n = count($teams[$t]);
         if (!$n) {
@@ -413,19 +413,41 @@ function render_pitch_figures(array $match, array $roster): string
         $layout = formation_layout(formation_for($match, $t, $n));
         $slots = team_slots($teams[$t], array_column($layout, 'role'));
         foreach ($teams[$t] as $r) {
-            $pid = (int) $r['player_id'];
-            $c = $layout[$slots[$pid] ?? 0];
+            $c = $layout[$slots[(int) $r['player_id']] ?? 0];
             $top = $t === 'A' ? 94 - $c['depth'] * 42 : 6 + $c['depth'] * 42;   // come in render_pitch()
             $left = $t === 'A' ? $c['x'] : 100 - $c['x'];
             $d = $top / 100;
-            $style = 'left:' . round($x(($left - 50) / 50 * .9, $d) / 4, 2) . '%;top:' . round($y($d) / 3.3, 2) . '%;--s:' . round(.62 + .38 * $d, 3)
-                . ';z-index:' . (int) round($top);
-            $fig = avatar_figure(avatar_look($r), ['number' => $r['shirt_number'], 'ring' => true, 'label' => $r['name']])
-                . '<span class="pav-name">' . h($short[$pid]) . '</span>';
-            $figs .= empty($r['is_guest'])
-                ? '<a class="pav team-' . strtolower($t) . '" style="' . $style . '" href="player.php?id=' . $pid . '" title="' . h($r['name']) . '">' . $fig . '</a>'
-                : '<span class="pav team-' . strtolower($t) . '" style="' . $style . '" title="' . h($r['name'] . ' · ospite') . '">' . $fig . '</span>';
+            $pl[] = ['r' => $r, 't' => $t, 'top' => $top, 'lx' => $x(($left - 50) / 50 * .9, $d) / 4, 'ly' => $y($d) / 3.3, 's' => .62 + .38 * $d];
         }
+    }
+    // in prospettiva i personaggi sono alti: chi finirebbe quasi davanti a un altro viene spostato un po' di lato
+    for ($pass = 0; $pass < 4; $pass++) {
+        foreach ($pl as $i => $p) {
+            foreach ($pl as $j => $q) {
+                if ($j <= $i || abs($p['ly'] - $q['ly']) > 14) {
+                    continue;
+                }
+                $dx = $q['lx'] - $pl[$i]['lx'];
+                $need = 10 * ($p['s'] + $q['s']) / 2;
+                if (abs($dx) < $need) {
+                    $push = ($need - abs($dx)) / 2 * ($dx >= 0 ? 1 : -1);
+                    $pl[$i]['lx'] = max(8, min(92, $pl[$i]['lx'] - $push));
+                    $pl[$j]['lx'] = max(8, min(92, $pl[$j]['lx'] + $push));
+                }
+            }
+        }
+    }
+    $figs = '';
+    foreach ($pl as $p) {
+        $r = $p['r'];
+        $pid = (int) $r['player_id'];
+        $style = 'left:' . round($p['lx'], 2) . '%;top:' . round($p['ly'], 2) . '%;--s:' . round($p['s'], 3)
+            . ';z-index:' . (int) round($p['top']) . ';--dl:-' . (($pid * 733) % 2800) . 'ms';
+        $fig = avatar_figure(avatar_look($r), ['number' => $r['shirt_number'], 'ring' => true, 'label' => $r['name']])
+            . '<span class="pav-name">' . h($short[$pid]) . '</span>';
+        $figs .= empty($r['is_guest'])
+            ? '<a class="pav team-' . strtolower($p['t']) . '" style="' . $style . '" href="player.php?id=' . $pid . '" title="' . h($r['name']) . '">' . $fig . '</a>'
+            : '<span class="pav team-' . strtolower($p['t']) . '" style="' . $style . '" title="' . h($r['name'] . ' · ospite') . '">' . $fig . '</span>';
     }
     return '<div class="pitch-av-wrap">'
         . ($teams['B'] ? '<div class="pitch-label team-b">' . h(team_name('B', $match)) . '</div>' : '')

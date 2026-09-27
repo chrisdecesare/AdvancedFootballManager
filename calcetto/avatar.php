@@ -263,6 +263,18 @@ layout_start('Personaggio', 'avatar');
   const FULL = '<?= AVATAR_VIEWBOX ?>';
   playBtn.hidden = pauseBtn.hidden = false;
   let timer = 0;
+  const colors = ['#ffd23f', '#ff6b9a', '#53c8f5', '#38d178', '#ff8c42', '#a67cf2', '#ffffff'];
+  const confetti = () => {
+    stage.querySelectorAll('.av-confetti').forEach(c => c.remove());
+    for (let i = 0; i < 34; i++) {
+      const c = document.createElement('span');
+      c.className = 'av-confetti';
+      c.style.cssText = `--x:${Math.random() * 100}%;--c:${colors[i % colors.length]};--dx:${(Math.random() - .5) * 90}px;--r:${(Math.random() - .5) * 900}deg;`
+        + `--t:${1.6 + Math.random() * 1.2}s;--d:${Math.random() * .5}s`;
+      stage.append(c);
+    }
+    setTimeout(() => stage.querySelectorAll('.av-confetti').forEach(c => c.remove()), 3400);
+  };
   const play = () => {
     const svg = stage.querySelector('.avf');
     const anim = svg && svg.dataset.anim;
@@ -270,6 +282,7 @@ layout_start('Personaggio', 'avatar');
     [...svg.classList].filter(c => c.startsWith('is-anim-')).forEach(c => svg.classList.remove(c));
     void svg.getBoundingClientRect();   // riparte da capo anche se era a metà
     svg.classList.add('is-anim-' + anim);
+    confetti();
     clearTimeout(timer);
     timer = setTimeout(() => svg.classList.remove('is-anim-' + anim), (+svg.dataset.animMs || 2400) + 150);
   };
@@ -285,6 +298,7 @@ layout_start('Personaggio', 'avatar');
     const card = link.closest('[data-av-item]');
     const svg = card.querySelector('.avf').cloneNode(true);
     svg.setAttribute('viewBox', FULL);
+    svg.classList.add('is-new');
     stage.replaceChildren(svg);
     info.replaceChildren(card.querySelector('template').content.cloneNode(true));
     document.querySelectorAll('[data-av-item].is-trying').forEach(c => c.classList.remove('is-trying'));
