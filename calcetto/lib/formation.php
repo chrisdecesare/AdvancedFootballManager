@@ -359,12 +359,12 @@ function render_pitch(array $match, array $roster, bool $editable = false, bool 
     return $h . '</div>';
 }
 
+
 /**
- * Come render_pitch(), ma calcola solo le posizioni (in percentuale, stesso sistema) e i colori dell'equip 3D di ognuno: la resa
- * vera e propria (Three.js) la fa assets/avatar3d.js leggendo questo JSON da un <div data-pitch3d>. Usata dal toggle della Home
- * (index.php) per la vista "campo con avatar a grandezza naturale" in alternativa ai cerchi 2D.
+ * Le formazioni con i Personaggi (lib/avatar.php) in piedi su un campo in prospettiva, nelle stesse posizioni di render_pitch():
+ * la squadra A vicina (in basso), la B in fondo. È la vista «Campo» della Home, in alternativa ai cerchi.
  */
-function pitch3d_players(array $match, array $roster): array
+function render_pitch_figures(array $match, array $roster): string
 {
     $teams = ['A' => [], 'B' => []];
     foreach ($roster as $r) {
@@ -372,31 +372,64 @@ function pitch3d_players(array $match, array $roster): array
             $teams[$r['team']][] = $r;
         }
     }
-    $out = [];
+    if (!$teams['A'] && !$teams['B']) {
+        return '';
+    }
+    $short = short_names(array_merge($teams['A'], $teams['B']));
+
+    // il campo è un trapezio nel riquadro 400 x 330: il fondo (t = 0) a y 62 largo 268, il bordo vicino (t = 1) a y 330 largo 396
+    $half = fn(float $t) => 134 + 64 * $t;
+    $x = fn(float $u, float $t) => 200 + $u * $half($t);
+    $y = fn(float $t) => 62 + 268 * $t;
+    $pt = fn(float $u, float $t) => round($x($u, $t), 1) . ',' . round($y($t), 1);
+    $quad = fn(float $u0, float $u1, float $t0, float $t1) => $pt($u0, $t0) . ' ' . $pt($u1, $t0) . ' ' . $pt($u1, $t1) . ' ' . $pt($u0, $t1);
+
+    $svg = '<svg class="pitch-av-field" viewBox="0 0 400 330" preserveAspectRatio="none" aria-hidden="true">'
+        . '<rect width="400" height="66" fill="#4a4360"/>';
+    $crowd = ['#ffd23f', '#ff6b9a', '#53c8f5', '#ff8c42', '#ffffff', '#38d178'];
+    for ($row = 0; $row < 3; $row++) {
+        for ($i = 0; $i < 41; $i++) {
+            $svg .= '<circle cx="' . (4 + $i * 10 - ($row % 2) * 5) . '" cy="' . (14 + $row * 16) . '" r="4.2" fill="' . $crowd[($i * 7 + $row * 3) % 6] . '"/>';
+        }
+    }
+    for ($i = 0; $i < 8; $i++) {
+        $svg .= '<polygon points="' . $quad(-1.02, 1.02, $i / 8, ($i + 1) / 8) . '" fill="' . ($i % 2 ? '#36c270' : '#3fcf7a') . '"/>';
+    }
+    $svg .= '<g fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round" opacity=".9">'
+        . '<polygon points="' . $quad(-.94, .94, .03, .97) . '"/>'
+        . '<polyline points="' . $pt(-.94, .5) . ' ' . $pt(.94, .5) . '"/>'
+        . '<ellipse cx="200" cy="' . $y(.5) . '" rx="' . round($half(.5) * .24, 1) . '" ry="20"/>'
+        . '<polyline points="' . $pt(-.42, .03) . ' ' . $pt(-.42, .16) . ' ' . $pt(.42, .16) . ' ' . $pt(.42, .03) . '"/>'
+        . '<polyline points="' . $pt(-.42, .97) . ' ' . $pt(-.42, .84) . ' ' . $pt(.42, .84) . ' ' . $pt(.42, .97) . '"/>'
+        . '</g><g fill="#fff" stroke="#1f1a2e" stroke-width="2">'
+        . '<polygon points="' . $quad(-.15, .15, -.035, .03) . '"/><polygon points="' . $quad(-.17, .17, .97, 1) . '"/></g></svg>';
+
+    $figs = '';
     foreach (['A', 'B'] as $t) {
         $n = count($teams[$t]);
         if (!$n) {
             continue;
         }
-        $f = formation_for($match, $t, $n);
-        $layout = formation_layout($f);
-        $roles = array_column($layout, 'role');
-        $slots = team_slots($teams[$t], $roles);
+        $layout = formation_layout(formation_for($match, $t, $n));
+        $slots = team_slots($teams[$t], array_column($layout, 'role'));
         foreach ($teams[$t] as $r) {
             $pid = (int) $r['player_id'];
             $c = $layout[$slots[$pid] ?? 0];
-            $top = $t === 'A' ? 94 - $c['depth'] * 42 : 6 + $c['depth'] * 42;
+            $top = $t === 'A' ? 94 - $c['depth'] * 42 : 6 + $c['depth'] * 42;   // come in render_pitch()
             $left = $t === 'A' ? $c['x'] : 100 - $c['x'];
-            $jersey = $r['equipped_jersey_key'] ? shop_item('jersey', $r['equipped_jersey_key']) : shop_item('jersey', 'j_casa');
-            $shorts = $r['equipped_shorts_key'] ? shop_item('shorts', $r['equipped_shorts_key']) : shop_item('shorts', 'p_bianchi');
-            $shoes = $r['equipped_shoes_key'] ? shop_item('shoes', $r['equipped_shoes_key']) : shop_item('shoes', 's_nere');
-            $out[] = [
-                'name' => $r['name'], 'team' => $t, 'left' => round($left, 2), 'top' => round($top, 2),
-                'rpmUrl' => $r['avatar_rpm_url'] ?: null,
-                'jersey' => $jersey['colors'] ?? ['a' => '#2a3f9b', 'b' => '#ffffff'],
-                'shorts' => $shorts['color'] ?? '#ffffff', 'shoes' => $shoes['color'] ?? '#1f1a2e',
-            ];
+            $d = $top / 100;
+            $style = 'left:' . round($x(($left - 50) / 50 * .9, $d) / 4, 2) . '%;top:' . round($y($d) / 3.3, 2) . '%;--s:' . round(.62 + .38 * $d, 3)
+                . ';z-index:' . (int) round($top);
+            $fig = avatar_figure(avatar_look($r), ['number' => $r['shirt_number'], 'ring' => true, 'label' => $r['name']])
+                . '<span class="pav-name">' . h($short[$pid]) . '</span>';
+            $figs .= empty($r['is_guest'])
+                ? '<a class="pav team-' . strtolower($t) . '" style="' . $style . '" href="player.php?id=' . $pid . '" title="' . h($r['name']) . '">' . $fig . '</a>'
+                : '<span class="pav team-' . strtolower($t) . '" style="' . $style . '" title="' . h($r['name'] . ' · ospite') . '">' . $fig . '</span>';
         }
     }
-    return $out;
+    return '<div class="pitch-av-wrap">'
+        . ($teams['B'] ? '<div class="pitch-label team-b">' . h(team_name('B', $match)) . '</div>' : '')
+        . '<div class="pitch-av">' . $svg . $figs . '</div>'
+        . ($teams['A'] ? '<div class="pitch-label team-a">' . h(team_name('A', $match)) . '</div>' : '')
+        . '</div>';
 }

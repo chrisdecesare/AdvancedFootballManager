@@ -1,10 +1,11 @@
 <?php
-/* Crea la tua maglia: colore primario, colore secondario e un pattern. Resta tua (lib/shop.php: shop_owned() la sblocca in automatico
- * per chi l'ha creata), non si vende ad altri. Il disegno vero e proprio (SVG piatto e texture 3D) si ricostruisce sempre dai tre dati
- * salvati qui: non serve caricare nessuna immagine. */
+/*
+ * Crea la tua maglia per il Personaggio: due colori e un motivo (lib/avatar.php: avatar_patterns). Resta tua, gratis
+ * (lib/shop.php: shop_owned() la dà a chi l'ha creata) e non si vende agli altri. Ancora in prova: la vede solo l'admin.
+ */
 require __DIR__ . '/lib/bootstrap.php';
 require_login();
-if (!is_admin()) {   // ancora in prova: finché non si apre a tutti, solo l'admin la vede (lib/layout.php)
+if (!is_admin()) {
     redirect('index.php');
 }
 
@@ -14,111 +15,104 @@ if (!$me) {
     redirect('profile.php');
 }
 
-const JERSEY_PATTERNS = [
-    'solid' => 'Tinta unita',
-    'stripes_v' => 'Strisce verticali',
-    'stripes_h' => 'Strisce orizzontali',
-    'halves' => 'A metà',
-    'sleeves' => 'Maniche a contrasto',
-];
-
-$MAX_CUSTOM = 8;
+const MAX_CUSTOM_JERSEYS = 8;
+$patterns = avatar_patterns();
 $mine = q('SELECT id, name, primary_color, secondary_color, pattern_key FROM custom_jerseys WHERE player_id = ? ORDER BY created_at DESC', [$me])->fetchAll();
 
 if (is_post()) {
+    if (isset($_POST['delete_id'])) {
+        q('DELETE FROM custom_jerseys WHERE id = ? AND player_id = ?', [(int) $_POST['delete_id'], $me]);
+        flash('ok', 'Maglia cancellata.');
+        redirect('jersey_creator.php');
+    }
     $name = trim((string) ($_POST['name'] ?? ''));
-    $a = (string) ($_POST['primary_color'] ?? '#2a3f9b');
-    $b = (string) ($_POST['secondary_color'] ?? '#ffffff');
-    $pattern = (string) ($_POST['pattern_key'] ?? 'solid');
+    $a = (string) ($_POST['primary_color'] ?? '');
+    $b = (string) ($_POST['secondary_color'] ?? '');
+    $pattern = (string) ($_POST['pattern_key'] ?? '');
     if ($name === '' || mb_strlen($name) > 40) {
         flash('err', 'Dai un nome alla maglia (fino a 40 caratteri).');
     } elseif (!preg_match('/^#[0-9a-fA-F]{6}$/', $a) || !preg_match('/^#[0-9a-fA-F]{6}$/', $b)) {
         flash('err', 'Colori non validi.');
-    } elseif (!isset(JERSEY_PATTERNS[$pattern])) {
-        flash('err', 'Pattern non valido.');
-    } elseif (count($mine) >= $MAX_CUSTOM) {
-        flash('err', 'Hai già ' . $MAX_CUSTOM . ' maglie create: cancellane una per farne un\'altra.');
+    } elseif (!isset($patterns[$pattern])) {
+        flash('err', 'Motivo non valido.');
+    } elseif (count($mine) >= MAX_CUSTOM_JERSEYS) {
+        flash('err', 'Hai già ' . MAX_CUSTOM_JERSEYS . ' maglie create: cancellane una per farne un\'altra.');
     } else {
         q('INSERT INTO custom_jerseys (player_id, name, primary_color, secondary_color, pattern_key) VALUES (?, ?, ?, ?, ?)',
-            [$me, $name, $a, $b, $pattern]);
-        flash('ok', 'Maglia creata: la trovi nel Negozio e sull\'avatar, pronta da indossare.');
-        redirect('jersey_creator.php');
+            [$me, $name, strtolower($a), strtolower($b), $pattern]);
+        flash('ok', 'Maglia creata: premi «Indossa» per metterla al tuo personaggio.');
+        redirect('avatar.php?c=jersey&try=cj' . (int) db()->lastInsertId() . '#personaggio');
     }
-}
-
-if (isset($_POST['delete_id'])) {
-    q('DELETE FROM custom_jerseys WHERE id = ? AND player_id = ?', [(int) $_POST['delete_id'], $me]);
-    flash('ok', 'Maglia cancellata.');
     redirect('jersey_creator.php');
 }
 
+$mp = get_player($me);
+$look = avatar_look($mp);
+
 layout_start('Crea la tua maglia', 'avatar');
 ?>
-<div class="page-head"><h1>Crea la tua maglia <span class="muted small">resta solo tua</span></h1></div>
+<a class="back" href="avatar.php?c=jersey"><i class="ti ti-arrow-left"></i> Personaggio</a>
+<div class="page-head"><h1>Crea la tua maglia</h1><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span></div>
 
-<section class="card">
-  <div class="jersey-creator">
-    <div class="jersey-preview">
-      <svg viewBox="0 0 100 100" class="jersey-preview-svg" data-jersey-preview>
-        <path data-jp-base d="M20 12 L38 4 Q50 14 62 4 L80 12 L92 30 L78 38 L78 96 H22 L22 38 L8 30 Z" fill="#2a3f9b"/>
-        <path data-jp-second d="" fill="#ffffff" opacity="0"/>
-      </svg>
-    </div>
-    <form method="post" class="jersey-form">
-      <?= csrf_field() ?>
-      <label>Nome<br><input type="text" name="name" maxlength="40" required placeholder="Es. Maglia della fortuna"></label>
-      <label>Colore primario<br><input type="color" name="primary_color" value="#2a3f9b" data-jc-a></label>
-      <label>Colore secondario<br><input type="color" name="secondary_color" value="#ffffff" data-jc-b></label>
-      <label>Pattern<br>
-        <select name="pattern_key" data-jc-pattern>
-          <?php foreach (JERSEY_PATTERNS as $k => $label): ?><option value="<?= h($k) ?>"><?= h($label) ?></option><?php endforeach; ?>
-        </select>
-      </label>
-      <button class="btn btn-primary"><i class="ti ti-check"></i> Crea la maglia</button>
-    </form>
+<section class="card jc">
+  <div class="jc-stage av-stage" data-jc-preview>
+    <?= avatar_figure($look, ['number' => $mp['shirt_number'], 'all_patterns' => true, 'jersey' => ['a' => '#2a3f9b', 'b' => '#ffffff', 'pattern' => 'solid'],
+        'label' => 'Anteprima della maglia']) ?>
   </div>
+  <form method="post" class="jc-form">
+    <?= csrf_field() ?>
+    <label>Nome della maglia<input type="text" name="name" maxlength="40" required placeholder="Es. Maglia della fortuna"></label>
+    <div class="jc-colors">
+      <label>Colore principale<input type="color" name="primary_color" value="#2a3f9b" data-jc-a></label>
+      <label>Secondo colore<input type="color" name="secondary_color" value="#ffffff" data-jc-b></label>
+    </div>
+    <fieldset class="jc-patterns">
+      <legend>Motivo</legend>
+      <?php foreach ($patterns as $k => $label): ?>
+        <label class="jc-pat"><input type="radio" name="pattern_key" value="<?= h($k) ?>"<?= $k === 'solid' ? ' checked' : '' ?> data-jc-pattern> <span><?= h($label) ?></span></label>
+      <?php endforeach; ?>
+    </fieldset>
+    <p class="muted small">Il numero è quello del tuo profilo. La maglia resta solo tua ed è gratis<?= $mine ? ' (ne hai ' . count($mine) . ' su ' . MAX_CUSTOM_JERSEYS . ')' : '' ?>.</p>
+    <button class="btn btn-primary"<?= count($mine) >= MAX_CUSTOM_JERSEYS ? ' disabled title="Hai già ' . MAX_CUSTOM_JERSEYS . ' maglie: cancellane una"' : '' ?>><i class="ti ti-check"></i> Crea la maglia</button>
+  </form>
 </section>
 
 <?php if ($mine): ?>
-<section class="card">
-  <h2><i class="ti ti-shirt-sport"></i> Le tue maglie create (<?= count($mine) ?>/<?= $MAX_CUSTOM ?>)</h2>
-  <div class="shop-grid">
-    <?php foreach ($mine as $cj): ?>
-    <article class="card shop-item">
-      <div class="shop-thumb"><span class="jersey-thumb" style="--jc-a:<?= h($cj['primary_color']) ?>;--jc-b:<?= h($cj['secondary_color']) ?>"><i class="ti ti-shirt-sport"></i></span></div>
-      <div class="shop-name"><?= h($cj['name']) ?></div>
-      <div class="shop-act">
-        <a class="btn btn-ghost btn-sm" href="avatar.php"><i class="ti ti-3d-cube-sphere"></i> Indossa</a>
-        <form method="post"><?= csrf_field() ?><input type="hidden" name="delete_id" value="<?= (int) $cj['id'] ?>">
-          <button class="btn btn-ghost btn-sm" data-confirm="Cancellare questa maglia?"><i class="ti ti-trash"></i></button></form>
-      </div>
-    </article>
-    <?php endforeach; ?>
-  </div>
-</section>
+<h2 class="section-title">Le tue maglie</h2>
+<div class="av-grid">
+  <?php foreach ($mine as $cj): $l = $look; $l['jersey'] = 'cj' . $cj['id']; ?>
+  <article class="av-item">
+    <div class="av-item-link">
+      <span class="av-item-top"><span class="rar rar-base">Creata da te</span></span>
+      <span class="av-item-fig"><?= avatar_figure($l, ['number' => $mp['shirt_number']]) ?></span>
+      <span class="av-item-name"><?= h($cj['name']) ?></span>
+      <span class="av-item-state"><?= h($patterns[$cj['pattern_key']] ?? '') ?></span>
+    </div>
+    <div class="av-item-foot">
+      <a class="btn btn-primary btn-sm" href="avatar.php?c=jersey&amp;try=cj<?= (int) $cj['id'] ?>#personaggio">Indossa</a>
+      <form method="post"><?= csrf_field() ?><input type="hidden" name="delete_id" value="<?= (int) $cj['id'] ?>">
+        <button class="btn btn-ghost btn-sm" data-confirm="Cancellare «<?= h($cj['name']) ?>»?" title="Cancella" aria-label="Cancella"><i class="ti ti-trash"></i></button></form>
+    </div>
+  </article>
+  <?php endforeach; ?>
+</div>
 <?php endif; ?>
 
 <script>
 (() => {
-  const svg = document.querySelector('[data-jersey-preview]');
-  if (!svg) return;
-  const base = svg.querySelector('[data-jp-base]'), second = svg.querySelector('[data-jp-second]');
-  const a = document.querySelector('[data-jc-a]'), b = document.querySelector('[data-jc-b]'), pat = document.querySelector('[data-jc-pattern]');
-  const shapes = {
-    solid: '',
-    stripes_v: 'M32 4 L26 96 H36 L42 4 Z M58 4 L64 96 H74 L68 4 Z',
-    stripes_h: 'M10 40 L90 40 L90 55 L10 55 Z',
-    halves: 'M50 4 V96 H78 V38 L92 30 L80 12 Z',
-    sleeves: 'M20 12 L38 4 Q50 14 62 4 L80 12 L92 30 L78 38 L70 22 L62 4 L38 4 L30 22 L8 30 Z',
-  };
+  const svg = document.querySelector('[data-jc-preview] .avf');
+  const a = document.querySelector('[data-jc-a]'), b = document.querySelector('[data-jc-b]');
+  if (!svg || !a || !b) return;
   const draw = () => {
-    base.setAttribute('fill', a.value);
-    const shape = shapes[pat.value] || '';
-    second.setAttribute('d', shape);
-    second.setAttribute('fill', b.value);
-    second.setAttribute('opacity', shape ? '1' : '0');
+    const pat = (document.querySelector('[data-jc-pattern]:checked') || {}).value || 'solid';
+    svg.style.setProperty('--av-sa', a.value);
+    svg.style.setProperty('--av-so', a.value);
+    svg.style.setProperty('--av-sb', b.value);
+    svg.style.setProperty('--av-sl', pat === 'sleeves' ? b.value : a.value);
+    svg.style.setProperty('--av-num', pat === 'solid' ? b.value : '#ffffff');
+    svg.querySelectorAll('[data-pat]').forEach(g => g.setAttribute('display', g.dataset.pat === pat ? 'inline' : 'none'));
   };
-  [a, b, pat].forEach(el => el.addEventListener('input', draw));
+  document.querySelectorAll('[data-jc-a], [data-jc-b], [data-jc-pattern]').forEach(el => el.addEventListener('input', draw));
   draw();
 })();
 </script>
