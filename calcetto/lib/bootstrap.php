@@ -63,6 +63,7 @@ require __DIR__ . '/layout.php';
 require __DIR__ . '/tour.php';
 require __DIR__ . '/bets.php';
 require __DIR__ . '/shop.php';
+require __DIR__ . '/avatar_rig.php';
 require __DIR__ . '/avatar.php';
 require __DIR__ . '/webpush.php';
 require __DIR__ . '/guests.php';

@@ -253,16 +253,17 @@ layout_start('Personaggio', 'avatar');
   </div>
 </div>
 
+<script type="application/json" id="av-rig"><?= avatar_rig_json() ?></script>
+<script src="assets/avatar.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar.js'), 0, 10)) ?>"></script>
 <script>
 (() => {
   const stage = document.querySelector('[data-av-stage]');
   const info = document.querySelector('[data-av-info]');
   const playBtn = document.querySelector('[data-av-play]');
   const pauseBtn = document.querySelector('[data-av-pause]');
-  if (!stage || !info) return;
+  if (!stage || !info || !window.AvatarRig) return;
   const FULL = '<?= AVATAR_VIEWBOX ?>';
   playBtn.hidden = pauseBtn.hidden = false;
-  let timer = 0;
   const colors = ['#ffd23f', '#ff6b9a', '#53c8f5', '#38d178', '#ff8c42', '#a67cf2', '#ffffff'];
   const confetti = () => {
     stage.querySelectorAll('.av-confetti').forEach(c => c.remove());
@@ -275,20 +276,15 @@ layout_start('Personaggio', 'avatar');
     }
     setTimeout(() => stage.querySelectorAll('.av-confetti').forEach(c => c.remove()), 3400);
   };
+  const rig = window.AvatarRig;
   const play = () => {
     const svg = stage.querySelector('.avf');
-    const anim = svg && svg.dataset.anim;
-    if (!anim) return;
-    [...svg.classList].filter(c => c.startsWith('is-anim-')).forEach(c => svg.classList.remove(c));
-    void svg.getBoundingClientRect();   // riparte da capo anche se era a metà
-    svg.classList.add('is-anim-' + anim);
-    confetti();
-    clearTimeout(timer);
-    timer = setTimeout(() => svg.classList.remove('is-anim-' + anim), (+svg.dataset.animMs || 2400) + 150);
+    if (svg && rig.play(svg)) confetti();
   };
   playBtn.addEventListener('click', play);
   pauseBtn.addEventListener('click', () => {
     const paused = stage.classList.toggle('is-paused');
+    rig.setPaused(paused);
     pauseBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
     pauseBtn.innerHTML = paused ? '<i class="ti ti-player-play"></i> Riprendi' : '<i class="ti ti-player-pause"></i> Pausa';
   });
@@ -296,6 +292,8 @@ layout_start('Personaggio', 'avatar');
     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
     e.preventDefault();
     const card = link.closest('[data-av-item]');
+    const old = stage.querySelector('.avf');
+    if (old) rig.stop(old);
     const svg = card.querySelector('.avf').cloneNode(true);
     svg.setAttribute('viewBox', FULL);
     svg.classList.add('is-new');
@@ -304,10 +302,10 @@ layout_start('Personaggio', 'avatar');
     document.querySelectorAll('[data-av-item].is-trying').forEach(c => c.classList.remove('is-trying'));
     card.classList.add('is-trying');
     history.replaceState(null, '', link.getAttribute('href').split('#')[0]);
-    if (card.dataset.kind === 'celebration') play();
+    if (card.dataset.kind === 'celebration') play(); else rig.rest(svg);
     if (window.matchMedia('(max-width: 899px)').matches) stage.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }));
-  if (stage.dataset.autoplay) play();
+  if (stage.dataset.autoplay) play(); else rig.rest(stage.querySelector('.avf'));
 })();
 </script>
 <?php
