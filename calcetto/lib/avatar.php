@@ -118,18 +118,17 @@ function avatar_figure(array $look, array $o = []): string
     $parts['number'] = isset($o['number']) && $o['number'] !== null ? (string) $o['number'] : '';
     $poseName = $o['pose'] ?? $pose;
     $poseSteps = px_poses()[$poseName] ?? px_poses()['rest'];
-    $cels = px_celebrations();
 
     $idle = null;
     $seq = null;
     $static = null;
     if (isset($o['hint'])) {
-        $c = $cels[$o['hint']] ?? $cels['fist-pump'];
+        $c = px_celebration($o['hint']);
         $s = $c['steps'][$c['hint']];
         $static = [$s[0], 0, 0, $s[3], $s[4], $s[5]];
     } elseif (!empty($o['stage'])) {
         $idle = $poseSteps;
-        $seq = ($cels[$anim] ?? $cels['fist-pump'])['steps'];
+        $seq = px_celebration($anim)['steps'];
     } elseif (!empty($o['idle'])) {
         $idle = $poseSteps;
     }
@@ -168,7 +167,7 @@ function avatar_figure(array $look, array $o = []): string
         $fx = [];
         foreach (array_merge([$static], $seq ?? []) as $s) {
             foreach (array_filter(explode('+', (string) ($s[5] ?? ''))) as $k) {
-                if ($k !== 'trail' && isset(px_fx()[$k])) {
+                if ($k !== 'trail' && isset(px_fx()[rtrim($k, '<')])) {
                     $fx[$k] = true;
                 }
             }

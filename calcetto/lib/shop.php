@@ -14,6 +14,7 @@
  */
 
 require_once __DIR__ . '/hats.php';
+require_once __DIR__ . '/shop_items_more.php';
 
 /** Tipi del Negozio del profilo (shop.php). Quelli del Personaggio sono in lib/avatar.php (avatar_kinds). */
 function shop_kinds(): array
@@ -79,6 +80,10 @@ function shop_catalog(): array
     foreach ($src['celebration'] as [$k, $name, $price, $anim]) {
         $c['celebration'][$k] = ['name' => $name, 'price' => $price, 'anim' => $anim];
     }
+    // il catalogo esteso: esce a pacchetti quando lo decide l'admin (drops.php)
+    foreach (shop_more_items($c) as $kind => $items) {
+        $c[$kind] += $items;
+    }
     return $c;
 }
 
@@ -141,12 +146,149 @@ function shop_owned(int $playerId): array
     }
     foreach (avatar_kinds() as $kind => $_) {
         foreach (shop_catalog()[$kind] as $k => $item) {
-            if (isset($item['owner_player_id']) ? $item['owner_player_id'] === $playerId : $item['price'] === 0) {
+            if (isset($item['owner_player_id']) ? $item['owner_player_id'] === $playerId : ($item['price'] === 0 && shop_released($k, $item))) {
                 $owned[$k] = true;
             }
         }
     }
     return $owned;
+}
+
+/* ---------------------------------------------------------------- uscite (drops.php) */
+
+/** Quando esce ogni oggetto del catalogo esteso: chiave => timestamp (solo quelli già decisi dall'admin). */
+function shop_release_map(bool $fresh = false): array
+{
+    static $map = null;
+    if ($map === null || $fresh) {
+        $map = [];
+        foreach (q('SELECT item_key, release_at FROM shop_releases')->fetchAll() as $r) {
+            $map[$r['item_key']] = strtotime($r['release_at']);
+        }
+    }
+    return $map;
+}
+
+/** In vendita? Gli oggetti di sempre sì; quelli del catalogo esteso solo dopo che l'admin li ha fatti uscire. */
+function shop_released(string $key, array $item): bool
+{
+    if (!isset($item['drop'])) {
+        return true;
+    }
+    $at = shop_release_map()[$key] ?? null;
+    return $at !== null && $at <= time();
+}
+
+/* ---------------------------------------------------------------- prezzi */
+
+/** Saldo medio di riferimento: con questa media di gettoni a testa i prezzi restano quelli del catalogo. */
+const SHOP_PRICE_REF = 300;
+
+/**
+ * Il mercato di adesso, una volta per richiesta: quante volte ogni oggetto è nella lista desideri, quanti lo possiedono,
+ * i saldi di tutti i giocatori (chi ha almeno una mossa nel portafoglio) e la loro media.
+ */
+function shop_market(bool $fresh = false): array
+{
+    static $m = null;
+    if ($m !== null && !$fresh) {
+        return $m;
+    }
+    $m = ['wish' => [], 'owners' => [], 'balances' => [], 'avg' => 0.0];
+    foreach (q('SELECT item_key, COUNT(*) n FROM wishlist GROUP BY item_key')->fetchAll() as $r) {
+        $m['wish'][$r['item_key']] = (int) $r['n'];
+    }
+    foreach (q('SELECT item_key, COUNT(*) n FROM player_items GROUP BY item_key')->fetchAll() as $r) {
+        $m['owners'][$r['item_key']] = (int) $r['n'];
+    }
+    foreach (q('SELECT player_id, SUM(delta) b FROM wallet_moves GROUP BY player_id')->fetchAll() as $r) {
+        $m['balances'][(int) $r['player_id']] = (int) $r['b'];
+    }
+    $m['avg'] = $m['balances'] ? array_sum($m['balances']) / count($m['balances']) : 0.0;
+    return $m;
+}
+
+/**
+ * Prezzo di adesso di un oggetto per chi lo compra: [prezzo, dettaglio]. Parte dal prezzo del catalogo e lo moltiplica per
+ *  - desiderato: +8% per ogni giocatore che l'ha tra gli obiettivi (fino a +80%);
+ *  - moda: da -10% (non ce l'ha nessuno) a +50% (ce l'hanno tutti);
+ *  - gettoni in circolo: saldo medio / SHOP_PRICE_REF, tra ×0,8 e ×1,6;
+ *  - il portafoglio di chi compra: (il suo saldo / la media)^0,25, tra ×0,85 e ×1,3.
+ * Gratis e nickname da sbloccare restano come sono. Arrotondato a 5, minimo 5.
+ */
+function shop_price(string $key, array $item, ?int $buyerId): array
+{
+    $base = $item['price'];
+    if ($base === null || $base === 0 || isset($item['owner_player_id'])) {
+        return [$base, null];
+    }
+    $m = shop_market();
+    $wish = $m['wish'][$key] ?? 0;
+    $owners = $m['owners'][$key] ?? 0;
+    $players = max(1, count($m['balances']));
+    $clamp = fn(float $v, float $lo, float $hi) => max($lo, min($hi, $v));
+    $f = [
+        'wish' => min(1.8, 1 + .08 * $wish),
+        'owners' => $clamp(.9 + .6 * $owners / $players, .9, 1.5),
+        'money' => $clamp($m['avg'] / SHOP_PRICE_REF, .8, 1.6),
+        'mine' => 1.0,
+    ];
+    if ($buyerId !== null && $m['avg'] > 0) {
+        $f['mine'] = $clamp((max(0, $m['balances'][$buyerId] ?? 0) / $m['avg']) ** .25, .85, 1.3);
+    }
+    $price = max(5, (int) (round($base * array_product($f) / 5) * 5));
+    return [$price, $f + ['base' => $base, 'wish_n' => $wish, 'owners_n' => $owners]];
+}
+
+/** Il dettaglio del prezzo in una riga, per il pannello dell'oggetto. */
+function shop_price_note(?array $d): string
+{
+    if (!$d) {
+        return '';
+    }
+    $pct = fn(float $f) => ($f >= 1 ? '+' : '−') . abs((int) round(($f - 1) * 100)) . '%';
+    $parts = ['prezzo base ' . $d['base']];
+    $parts[] = $d['wish_n'] ? 'obiettivo di ' . $d['wish_n'] . ' ' . ($d['wish_n'] === 1 ? 'giocatore' : 'giocatori') . ' ' . $pct($d['wish'])
+        : 'nessuno lo desidera';
+    $parts[] = ($d['owners_n'] ? 'ce l\'hanno in ' . $d['owners_n'] : 'non ce l\'ha nessuno') . ' ' . $pct($d['owners']);
+    $parts[] = 'gettoni in circolo ' . $pct($d['money']);
+    if (abs($d['mine'] - 1) >= .005) {
+        $parts[] = 'il tuo portafoglio ' . $pct($d['mine']);
+    }
+    return implode(' · ', $parts);
+}
+
+/* ---------------------------------------------------------------- lista desideri */
+
+/** Gli obiettivi di un giocatore. @return array<string, true> */
+function shop_wishlist(int $playerId): array
+{
+    $w = [];
+    foreach (q('SELECT item_key FROM wishlist WHERE player_id = ?', [$playerId])->fetchAll(PDO::FETCH_COLUMN) as $k) {
+        $w[$k] = true;
+    }
+    return $w;
+}
+
+/** Aggiunge o toglie un oggetto dagli obiettivi. Ritorna true se adesso c'è. */
+function shop_wish_toggle(int $playerId, string $key): bool
+{
+    if (q('DELETE FROM wishlist WHERE player_id = ? AND item_key = ?', [$playerId, $key])->rowCount()) {
+        return false;
+    }
+    q('INSERT IGNORE INTO wishlist (player_id, item_key) VALUES (?, ?)', [$playerId, $key]);
+    return true;
+}
+
+/** Il tipo di un oggetto dalla sua chiave (le chiavi sono uniche in tutto il catalogo). */
+function shop_kind_of(string $key): ?string
+{
+    foreach (shop_catalog() as $kind => $items) {
+        if (isset($items[$key])) {
+            return $kind;
+        }
+    }
+    return null;
 }
 
 /* ---------------------------------------------------------------- acquisti */
@@ -164,6 +306,9 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
     if (isset($item['owner_player_id'])) {
         return 'Questa maglia l\'ha creata un altro giocatore: non si compra.';
     }
+    if (!shop_released($key, $item)) {
+        return 'Questo oggetto non è ancora uscito.';
+    }
     if ($item['price'] === 0) {
         return 'È già tuo: è incluso per tutti.';
     }
@@ -172,12 +317,14 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
         if (q('SELECT 1 FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $key])->fetch()) {
             return 'Ce l\'hai già.';
         }
+        shop_market(true);   // il prezzo di adesso, con desideri, possessori e saldi letti ora
+        [$price] = shop_price($key, $item, $playerId);
         $left = wallet_balance($playerId);
-        if ($left < $item['price']) {
-            return 'Ti servono ' . $item['price'] . ' gettoni, ne hai ' . $left . '. Vai a scommettere!';
+        if ($left < $price) {
+            return 'Ti servono ' . $price . ' gettoni, ne hai ' . $left . '. Vai a scommettere!';
         }
-        q('INSERT INTO player_items (player_id, item_key, price) VALUES (?, ?, ?)', [$playerId, $key, $item['price']]);
-        q("INSERT INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'acquisto', ?)", [$playerId, -$item['price'], 'buy-' . $key]);
+        q('INSERT INTO player_items (player_id, item_key, price) VALUES (?, ?, ?)', [$playerId, $key, $price]);
+        q("INSERT INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'acquisto', ?)", [$playerId, -$price, 'buy-' . $key]);
         return null;
     });
 }

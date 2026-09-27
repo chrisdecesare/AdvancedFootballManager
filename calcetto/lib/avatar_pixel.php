@@ -316,9 +316,9 @@ function px_letters(string $name, array $parts): array
     if (str_ends_with($name, '<')) {   // girato verso sinistra (il numero si rimette dopo, se no si leggerebbe al contrario)
         $base = substr($name, 0, -1);
         $g = array_map('array_reverse', px_letters($base, ['number' => ''] + $parts));
-        $num = px_frames()[$base]['num'] ?? null;
-        if ($num && $parts['number'] !== '') {
-            px_number($g, (string) $parts['number'], 31 - $num[0] + 1, $num[1]);
+        $num = str_contains($name, '@') ? null : (px_frames()[rtrim($name, '<')]['num'] ?? null);
+        if ($num && $parts['number'] !== '') {   // girato un numero dispari di volte: il numero va dall'altra parte
+            px_number($g, (string) $parts['number'], substr_count($name, '<') % 2 ? 32 - $num[0] : $num[0], $num[1]);
         }
         return $cache[$ck] = $g;
     }
@@ -630,6 +630,30 @@ function px_celebrations(): array
         'hernanes' => ['hint' => 9, 'steps' => array_merge($run(-14), [['s_crouch', 100, -5, 0, 0, ''], ['s_stretch', 70, -4, -5, 0, 'd1']],
             $flip('s_tuck', -3, 1, 60), [['s_open', 70, 5, -4, 0, ''], ['s_land', 100, 5, 0, 0, 'd1'], ['s_crouch', 150, 5, 0, 0, 'd2'],
                 ['s_win', 900, 5, 0, 0, '']])],
+        // basi aggiunte col catalogo esteso (lib/shop_items_more.php)
+        'double-backflip' => ['hint' => 9, 'steps' => array_merge(
+            [['s_stand', 350, 0, 0, 0, ''], ['s_swing', 140, 0, 0, 0, ''], ['s_crouch', 240, 0, 0, 0, ''], ['s_stretch', 70, 0, -6, 0, 'd1'],
+                ['s_arch', 70, 0, -16, 0, 'd2']],
+            $flip('s_tuck', 0, -1, 45, 'trail', [-22, -28, -32, -34, -35, -35, -34, -32]),
+            array_map(fn($s) => [$s[0], $s[1], $s[2] - 1, $s[3], $s[4], 'trail'], $flip('s_tuck', 0, -1, 50, 'trail', [-30, -27, -23, -19, -15, -11, -8, -5])),
+            [['s_open', 70, -3, -3, 0, ''], ['s_land', 100, -3, 0, 0, 'd1'], ['s_crouch', 170, -3, 0, 0, 'd2'], ['s_win', 1000, -3, 0, 0, '']])],
+        'moonwalk' => ['hint' => 3, 'steps' => array_merge(array_map(fn($i) => [$i % 2 ? 's_swing<' : 's_stand<', 170, -10 + $i * 2, 0, 0, ''], range(0, 9)),
+            [['rest', 150, 10, 0, 0, ''], ['up', 700, 10, 0, 0, '']])],
+        'spin' => ['hint' => 2, 'steps' => array_merge([['rest', 200, 0, 0, 0, '']],
+            array_map(fn($i) => [['s_stand', 'rest<', 's_stand<', 'rest'][$i % 4], 80, 0, $i % 2 ? -1 : 0, 0, ''], range(0, 11)),
+            [['victory', 900, 0, 0, 0, '']])],
+        'jump-pump' => ['hint' => 3, 'steps' => [['rest', 180, 0, 0, 0, ''], ['crouch_f', 150, 0, 0, 0, ''], ['pump_up', 110, 0, -7, 0, 'd1'],
+            ['pump_sky', 150, 0, -13, 0, 'd2'], ['pump_up', 130, 0, -8, 0, 'd3'], ['crouch_f', 120, 0, 0, 0, 'd1'], ['pump_down', 150, 0, 0, 0, ''],
+            ['pump_sky', 800, 0, 0, 0, '']]],
+        'star-jump' => ['hint' => 3, 'steps' => [['rest', 180, 0, 0, 0, ''], ['crouch_f', 140, 0, 0, 0, ''], ['star', 120, 0, -8, 0, 'd1'],
+            ['star', 160, 0, -12, 0, 'd2'], ['crouch_f', 130, 0, 0, 0, 'd1'], ['star', 120, 0, -8, 0, 'd1'], ['star', 160, 0, -12, 0, 'd2'],
+            ['crouch_f', 130, 0, 0, 0, 'd1'], ['up_shout', 800, 0, 0, 0, '']]],
+        'crowd' => ['hint' => 2, 'steps' => array_merge(array_map(fn($i) => [$i % 2 ? 'wave_b' : 'wave_a', 220, [-6, -3, 0, 3, 6, 3, 0, -3, 0][$i], 0, 0, ''],
+            range(0, 8)), [['open', 700, 0, 0, 0, '']])],
+        'sky-kneel' => ['hint' => 7, 'steps' => array_merge($run(-12, 's_run1s', 's_run2s'), [['s_kneel', 100, -3, 0, 0, 'd1'],
+            ['s_kneel', 100, 0, 0, 0, 'd2'], ['s_kneel', 500, 1, 0, 0, 'd3'], ['sky', 900, 1, 0, 0, '']])],
+        'robot-dance' => ['hint' => 4, 'steps' => array_merge($alt(['robot_a', 'robot_b', 'robot_c', 'robot_c<', 'dance_a', 'dance_a<'], 12, 170, [0, -1]),
+            [['victory', 600, 0, 0, 0, '']])],
     ];
     return $c;
 }
@@ -638,18 +662,79 @@ function px_celebrations(): array
 function px_step_transform(array $step): string
 {
     [$frame, , $dx, $dy, $rot] = $step + [0, 0, 0, 0, 0];
-    $base = rtrim(preg_replace('/@-?\d+$/', '', $frame), '<');
+    $mirror = str_ends_with($frame, '<');
+    $base = preg_replace('/@-?\d+$/', '', rtrim($frame, '<'));
     $c = px_frames()[$base]['c'] ?? [16, 30];
+    if ($mirror) {
+        $c[0] = 32 - $c[0];
+    }
     return ($dx || $dy ? 'translate(' . $dx . ' ' . $dy . ')' : '') . ($rot ? ' rotate(' . $rot . ' ' . $c[0] . ' ' . $c[1] . ')' : '');
 }
 
 /** Effetti (px_fx) come griglia colorata. */
 function px_fx_svg(string $key, array $pal): string
 {
-    [$x, $y, $rows] = px_fx()[$key];
+    [$x, $y, $rows] = px_fx()[rtrim($key, '<')];
     $g = px_blank();
     px_paint($g, $rows, $x, $y);
+    if (str_ends_with($key, '<')) {   // effetto girato, per le esultanze "al contrario"
+        $g = array_map('array_reverse', $g);
+    }
     return px_svg_paths(px_colorize($g, $pal));
+}
+
+/** Varianti delle esultanze: chiave => [nome, effetti in fondo]. */
+function px_celebration_mods(): array
+{
+    return [
+        'x2' => ['×2', []],
+        'm' => ['al contrario', []],
+        'f' => ['turbo', []],
+        'fw' => ['con fuochi d\'artificio', ['fw1', 'fw2', 'fw3']],
+        'st' => ['stellare', ['st1', 'st2']],
+        'bo' => ['col fulmine', ['bo1', 'bo2']],
+        'co' => ['con pioggia di gettoni', ['co1', 'co2', 'co3']],
+        'he' => ['con cuori', ['he1', 'he2']],
+    ];
+}
+
+/**
+ * Un'esultanza del catalogo: il nome di una base (px_celebrations) seguito da varianti "+mod" (px_celebration_mods).
+ * x2 = ripetuta, m = al contrario (girata verso sinistra), f = più veloce, gli altri aggiungono un effetto sul finale.
+ */
+function px_celebration(string $anim): array
+{
+    static $cache = [];
+    if (isset($cache[$anim])) {
+        return $cache[$anim];
+    }
+    $mods = explode('+', $anim);
+    $cels = px_celebrations();
+    $c = $cels[array_shift($mods)] ?? $cels['fist-pump'];
+    $steps = $c['steps'];
+    $hint = $c['hint'];
+    foreach ($mods as $m) {
+        if ($m === 'x2') {
+            $steps = array_merge(array_slice($steps, 0, -1), $steps);
+        } elseif ($m === 'm') {
+            $steps = array_map(function ($s) {
+                $fx = implode('+', array_map(fn($k) => $k === '' || $k === 'trail' ? $k : $k . '<', explode('+', (string) $s[5])));
+                return [$s[0] . '<', $s[1], -$s[2], $s[3], -$s[4], $fx];
+            }, $steps);
+        } elseif ($m === 'f') {
+            $steps = array_map(fn($s) => [$s[0], max(40, (int) round($s[1] * .65)), $s[2], $s[3], $s[4], $s[5]], $steps);
+        } elseif (isset(px_celebration_mods()[$m])) {
+            // l'ultimo passo (la posa finale) si divide in pezzi, ognuno col suo fotogramma dell'effetto
+            $last = array_pop($steps);
+            $fx = px_celebration_mods()[$m][1];
+            $n = count($fx) * 2;
+            for ($i = 0; $i < $n; $i++) {
+                $steps[] = [$last[0], max(120, intdiv($last[1] + 600, $n)), $last[2], $last[3], $last[4],
+                    implode('+', array_filter([$last[5], $fx[$i % count($fx)]]))];
+            }
+        }
+    }
+    return $cache[$anim] = ['hint' => min($hint, count($steps) - 1), 'steps' => $steps];
 }
 
 /** Pet a bordo campo, accanto ai piedi. */

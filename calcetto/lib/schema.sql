@@ -347,4 +347,22 @@ CREATE TABLE IF NOT EXISTS custom_jerseys (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- negozio: quando esce ogni oggetto del catalogo esteso (lib/shop_items_more.php), deciso dall'admin in drops.php
+CREATE TABLE IF NOT EXISTS shop_releases (
+  item_key VARCHAR(16) NOT NULL PRIMARY KEY,
+  release_at DATETIME NOT NULL,
+  released_by INT NULL,
+  INDEX (release_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- lista desideri ("obiettivi") dei giocatori: muove i prezzi insieme a possessori e gettoni in circolo (lib/shop.php: shop_price)
+CREATE TABLE IF NOT EXISTS wishlist (
+  player_id INT NOT NULL,
+  item_key VARCHAR(16) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (player_id, item_key),
+  INDEX (item_key),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO meta (k, v) VALUES ('schema', '20');
