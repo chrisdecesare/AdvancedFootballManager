@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS players (
   nick_key VARCHAR(16) NULL,                       -- nickname che porta adesso
   hat_key VARCHAR(16) NULL,                        -- copricapo che porta adesso
   border_key VARCHAR(16) NULL,                     -- bordo speciale che porta adesso
+  avatar_rpm_url VARCHAR(255) NULL,                -- modello 3D (Ready Player Me) dell'avatar del Personaggio (avatar.php)
+  equipped_jersey_key VARCHAR(16) NULL,            -- maglia che porta adesso sull'avatar 3D
+  equipped_shorts_key VARCHAR(16) NULL,            -- pantaloncini che porta adesso sull'avatar 3D
+  equipped_shoes_key VARCHAR(16) NULL,             -- scarpe che porta adesso sull'avatar 3D
+  equipped_celebration_key VARCHAR(16) NULL,       -- esultanza scelta per l'avatar 3D
   is_guest TINYINT(1) NOT NULL DEFAULT 0,          -- 1 = Ospite: gioca una partita sola, fuori da rosa e statistiche (lib/guests.php)
   guest_email VARCHAR(190) NULL,                   -- email dell'Ospite: se poi si iscrive con questa, la partita passa al suo profilo
   guest_match_id INT NULL,                         -- la partita a cui e' invitato
@@ -330,6 +335,20 @@ CREATE TABLE IF NOT EXISTS match_events (
   FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
   FOREIGN KEY (assist_id) REFERENCES players(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- maglie personalizzate create dai giocatori nel Personaggio (avatar.php / jersey_creator.php): colore + pattern,
+-- diventano un oggetto "jersey" indossabile nel negozio (lib/shop.php) solo da chi le ha create
+CREATE TABLE IF NOT EXISTS custom_jerseys (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  player_id INT NOT NULL,
+  name VARCHAR(40) NOT NULL,
+  primary_color VARCHAR(7) NOT NULL,
+  secondary_color VARCHAR(7) NOT NULL,
+  pattern_key VARCHAR(16) NOT NULL DEFAULT 'solid',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (player_id),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO meta (k, v) VALUES ('schema', '20');

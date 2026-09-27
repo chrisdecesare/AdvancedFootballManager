@@ -358,3 +358,45 @@ function render_pitch(array $match, array $roster, bool $editable = false, bool 
     }
     return $h . '</div>';
 }
+
+/**
+ * Come render_pitch(), ma calcola solo le posizioni (in percentuale, stesso sistema) e i colori dell'equip 3D di ognuno: la resa
+ * vera e propria (Three.js) la fa assets/avatar3d.js leggendo questo JSON da un <div data-pitch3d>. Usata dal toggle della Home
+ * (index.php) per la vista "campo con avatar a grandezza naturale" in alternativa ai cerchi 2D.
+ */
+function pitch3d_players(array $match, array $roster): array
+{
+    $teams = ['A' => [], 'B' => []];
+    foreach ($roster as $r) {
+        if ($r['team']) {
+            $teams[$r['team']][] = $r;
+        }
+    }
+    $out = [];
+    foreach (['A', 'B'] as $t) {
+        $n = count($teams[$t]);
+        if (!$n) {
+            continue;
+        }
+        $f = formation_for($match, $t, $n);
+        $layout = formation_layout($f);
+        $roles = array_column($layout, 'role');
+        $slots = team_slots($teams[$t], $roles);
+        foreach ($teams[$t] as $r) {
+            $pid = (int) $r['player_id'];
+            $c = $layout[$slots[$pid] ?? 0];
+            $top = $t === 'A' ? 94 - $c['depth'] * 42 : 6 + $c['depth'] * 42;
+            $left = $t === 'A' ? $c['x'] : 100 - $c['x'];
+            $jersey = $r['equipped_jersey_key'] ? shop_item('jersey', $r['equipped_jersey_key']) : shop_item('jersey', 'j_casa');
+            $shorts = $r['equipped_shorts_key'] ? shop_item('shorts', $r['equipped_shorts_key']) : shop_item('shorts', 'p_bianchi');
+            $shoes = $r['equipped_shoes_key'] ? shop_item('shoes', $r['equipped_shoes_key']) : shop_item('shoes', 's_nere');
+            $out[] = [
+                'name' => $r['name'], 'team' => $t, 'left' => round($left, 2), 'top' => round($top, 2),
+                'rpmUrl' => $r['avatar_rpm_url'] ?: null,
+                'jersey' => $jersey['colors'] ?? ['a' => '#2a3f9b', 'b' => '#ffffff'],
+                'shorts' => $shorts['color'] ?? '#ffffff', 'shoes' => $shoes['color'] ?? '#1f1a2e',
+            ];
+        }
+    }
+    return $out;
+}

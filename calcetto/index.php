@@ -78,8 +78,39 @@ layout_start('Home', 'home');
       <?= availability_buttons($next, $myStatus, 'index.php') ?>
 
       <?php if ($hasTeams): ?>
-        <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
-        <?= render_pitch($next, $roster) ?>
+        <?php if (is_admin()): // avatar 3D (Personaggio) ancora in prova: il campo 3D resta nascosto finché non si apre a tutti ?>
+        <div class="sub-title-row">
+          <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
+          <div class="pitch-view-toggle" role="group" aria-label="Vista formazioni">
+            <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-view-toggle="2d"><i class="ti ti-circles"></i> Cerchi</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-pitch-view-toggle="3d"><i class="ti ti-3d-cube-sphere"></i> Campo 3D</button>
+          </div>
+        </div>
+        <div data-pitch-view="2d"><?= render_pitch($next, $roster) ?></div>
+        <div data-pitch-view="3d" hidden>
+          <div class="pitch3d-canvas" data-pitch3d="<?= h(json_encode(pitch3d_players($next, $roster), JSON_UNESCAPED_SLASHES)) ?>"></div>
+        </div>
+        <script type="importmap">
+        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+        </script>
+        <script type="module" src="assets/avatar3d.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar3d.js'), 0, 10)) ?>"></script>
+        <script>
+        document.querySelectorAll('[data-pitch-view-toggle]').forEach(btn => btn.addEventListener('click', () => {
+          const view = btn.dataset.pitchViewToggle;
+          document.querySelectorAll('[data-pitch-view-toggle]').forEach(b => b.classList.toggle('is-on', b === btn));
+          document.querySelectorAll('[data-pitch-view]').forEach(el => el.hidden = el.dataset.pitchView !== view);
+          try { localStorage.setItem('pitchView', view); } catch (e) {}
+        }));
+        try {
+          const saved = localStorage.getItem('pitchView');
+          if (saved === '3d') { document.querySelector('[data-pitch-view-toggle="3d"]')?.click(); }
+        } catch (e) {}
+        </script>
+        <?php else: ?>
+          <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
+          <?= render_pitch($next, $roster) ?>
+        <?php endif; ?>
       <?php endif; ?>
 
       <div class="avail-cols">

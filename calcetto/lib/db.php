@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 29;
+const SCHEMA_VERSION = 30;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -553,6 +553,26 @@ function ensure_schema(): void
         // giocatori infortunati (vedi player_set_injured in stats.php). Sta PRIMA della migrazione 28 di proposito: quella ricalcola le
         // quote e passa da sync_match_players, che legge questa colonna.
         $add('players', 'injured', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
+    }
+    if ($v < 30) {
+        // avatar 3D del Personaggio (avatar.php): modello Ready Player Me collegato e cosa indossa adesso
+        // (stesso schema equip-by-column di hat_key/border_key, lib/shop.php)
+        $add('players', 'avatar_rpm_url', 'VARCHAR(255) NULL');
+        $add('players', 'equipped_jersey_key', 'VARCHAR(16) NULL');
+        $add('players', 'equipped_shorts_key', 'VARCHAR(16) NULL');
+        $add('players', 'equipped_shoes_key', 'VARCHAR(16) NULL');
+        $add('players', 'equipped_celebration_key', 'VARCHAR(16) NULL');
+        db()->exec('CREATE TABLE IF NOT EXISTS custom_jerseys (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            player_id INT NOT NULL,
+            name VARCHAR(40) NOT NULL,
+            primary_color VARCHAR(7) NOT NULL,
+            secondary_color VARCHAR(7) NOT NULL,
+            pattern_key VARCHAR(16) NOT NULL DEFAULT \'solid\',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX (player_id),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     if ($v < 28) {
         // quote più alte per le prime partite (bet_boost in lib/bets.php): valgono per tutte le partite già in programma

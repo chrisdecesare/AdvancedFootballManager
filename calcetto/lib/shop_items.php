@@ -245,4 +245,49 @@ return [
         ['n_magnate', 'Il Magnate', null, ['coins', 1000, '1000 gettoni in portafoglio']],
         ['n_collezionista', 'Il Collezionista', null, ['items', 10, '10 oggetti comprati nel negozio']],
     ],
+    // maglie dell'avatar 3D (avatar.php): [chiave, nome, prezzo, tipo ('club'|'national'), colore primario, colore secondario]
+    // le maglie 'national' riprendono i colori delle divise più note, senza loghi federali (vedi lib/shop.php)
+    'jersey' => [
+        ['j_casa', 'Maglia da gioco', 0, 'club', '#2a3f9b', '#ffffff'],
+        ['j_rossa', 'Maglia rossa', 40, 'club', '#c0392b', '#ffffff'],
+        ['j_nera', 'Maglia nera', 40, 'club', '#1f1a2e', '#ffd23f'],
+        ['j_biancoceleste', 'Maglia biancoceleste', 40, 'club', '#a6e6ff', '#ffffff'],
+        ['j_giallorossa', 'Maglia giallorossa', 40, 'club', '#c0392b', '#ffd23f'],
+        ['j_viola', 'Maglia viola', 50, 'club', '#7a4fd6', '#ffffff'],
+        ['j_verdona', 'Maglia verdona', 50, 'club', '#1f8a4c', '#ffd23f'],
+        ['n_italia', 'Nazionale Italia', 90, 'national', '#2a3f9b', '#ffffff'],
+        ['n_brasile', 'Nazionale Brasile', 90, 'national', '#ffd23f', '#1f8a4c'],
+        ['n_argentina', 'Nazionale Argentina', 90, 'national', '#a6e6ff', '#ffffff'],
+        ['n_francia', 'Nazionale Francia', 90, 'national', '#1f2a5c', '#ffffff'],
+        ['n_germania', 'Nazionale Germania', 90, 'national', '#ffffff', '#1f1a2e'],
+        ['n_spagna', 'Nazionale Spagna', 90, 'national', '#c0392b', '#ffd23f'],
+        ['n_portogallo', 'Nazionale Portogallo', 90, 'national', '#c0392b', '#1f8a4c'],
+        ['n_olanda', 'Nazionale Olanda', 90, 'national', '#ff8c42', '#ffffff'],
+        ['n_inghilterra', 'Nazionale Inghilterra', 90, 'national', '#ffffff', '#2a3f9b'],
+    ],
+    // pantaloncini: [chiave, nome, prezzo, colore]
+    'shorts' => [
+        ['p_bianchi', 'Pantaloncini bianchi', 0, '#ffffff'],
+        ['p_neri', 'Pantaloncini neri', 25, '#1f1a2e'],
+        ['p_blu', 'Pantaloncini blu', 25, '#2a3f9b'],
+        ['p_rossi', 'Pantaloncini rossi', 25, '#c0392b'],
+        ['p_oro', 'Pantaloncini oro', 60, '#ffd23f'],
+    ],
+    // scarpe: [chiave, nome, prezzo, colore]
+    'shoes' => [
+        ['s_nere', 'Scarpe nere', 0, '#1f1a2e'],
+        ['s_bianche', 'Scarpe bianche', 30, '#ffffff'],
+        ['s_fluo', 'Scarpe fluo', 55, '#38d178'],
+        ['s_rosa', 'Scarpe rosa', 55, '#ff8fbf'],
+        ['s_oro', 'Scarpe dorate', 120, '#ffd23f'],
+    ],
+    // esultanze dell'avatar 3D: [chiave, nome, prezzo, animazione (assets/anims/<animazione>.glb, vedi assets/avatar3d.js)]
+    'celebration' => [
+        ['c_pugno', 'Pugno al cielo', 0, 'fist-pump'],
+        ['c_esultanza', 'Esultanza classica', 45, 'celebration'],
+        ['c_backflip', 'Backflip', 160, 'backflip'],
+        ['c_danza', 'Balletto', 90, 'dance'],
+        ['c_inginocchio', 'In ginocchio', 70, 'kneel'],
+        ['c_bacio', 'Bacio alla maglia', 55, 'shirt-kiss'],
+    ],
 ];
