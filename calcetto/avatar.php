@@ -271,7 +271,7 @@ layout_start('Personaggio', 'avatar');
     void svg.getBoundingClientRect();   // riparte da capo anche se era a metà
     svg.classList.add('is-anim-' + anim);
     clearTimeout(timer);
-    timer = setTimeout(() => svg.classList.remove('is-anim-' + anim), 2600);
+    timer = setTimeout(() => svg.classList.remove('is-anim-' + anim), (+svg.dataset.animMs || 2400) + 150);
   };
   playBtn.addEventListener('click', play);
   pauseBtn.addEventListener('click', () => {
