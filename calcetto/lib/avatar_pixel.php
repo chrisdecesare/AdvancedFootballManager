@@ -613,6 +613,410 @@ function px_side_parts(): array
             '',
             '',
         ]],
+        'stand_base' => [24, [
+            '............ooooo.ooo',
+            '...........ojjjjjojjjo',
+            '...........ojjjoo.oojo',
+            '...........ojjjo...ojo',
+            '...........ojjjo...ojo',
+            '...........ojjjo...ojo',
+            '...........ojjjo...ojo',
+            '...........ojjjo....o',
+            '...........ojjjo....o',
+            '...........ojjjjo..ojo',
+            '...........ojjjjo..ojo',
+            '...........ojjjjo..ojo',
+            '...........ojjjjo..ojo',
+            '...........oppppo..opo',
+            '...........opppppo.opo',
+            '...........opppppo..o',
+            '...........oppppo',
+            '...........opppppo..o',
+            '..........oPopppppoopo',
+            '..........oPPoppspppo',
+            '..........oPPossssspo',
+            '...........oPossssspo',
+            '...........oPPocccso',
+            '............oCocccco',
+            '...........oCCocccco',
+            '...........oCCocccco',
+            '...........oCCocccco',
+            '...........oCCoccccooo',
+            '...........oCFofffffffo',
+            '...........oFFofffffffo',
+            '...........oFFofffffffo',
+            '............oooooooooo',
+        ]],
+        'stand_over' => [24, [
+            '.................o',
+            '...............ooaoo',
+            '..............oaaaaao',
+            '..............oaaaaao',
+            '..............oaaaaao',
+            '..............oaaaaao',
+            '..............oaassao',
+            '..............oassssao',
+            '..............oassssao',
+            '...............osssso',
+            '...............osssso',
+            '...............osssso',
+            '...............osssso',
+            '...............osssso',
+            '................ossso',
+            '................osssso',
+            '...............ossssso',
+            '................osssso',
+            '.................osso',
+            '..................oo',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+        ]],
+        'win_base' => [5, [
+            '....................ooo',
+            '...................oSSSo',
+            '...................oSSSo',
+            '...................oSSSo',
+            '..................oSSSSo',
+            '..................oSSSSo',
+            '..................oSSSo',
+            '..................oSSSo',
+            '..................oSSSo',
+            '..................oSSSo',
+            '.................oSSSSo',
+            '.................oSSSSo',
+            '.................oSSSSo',
+            '.................oSSSo',
+            '.................oSSSo',
+            '.................oSSSo',
+            '................oASSSo',
+            '................oSSSSo',
+            '.................oSSSo',
+            '............o....oSSAo',
+            '...........ojo...ooooo',
+            '...........ojo...ojjjo',
+            '...........ojo...ojjjo',
+            '...........ojo...ojjjo',
+            '...........ojoo.oojjjo',
+            '...........ojjjojjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '..........oPoppppppppo',
+            '..........oPPoppspppo',
+            '..........oPPossssspo',
+            '...........oPossssspo',
+            '...........oPPocccso',
+            '............oCocccco',
+            '...........oCCocccco',
+            '...........oCCocccco',
+            '...........oCCocccco',
+            '...........oCCoccccooo',
+            '...........oCFofffffffo',
+            '...........oFFofffffffo',
+            '...........oFFofffffffo',
+            '............oooooooooo',
+        ]],
+        'win_over' => [4, [
+            '.............oo',
+            '............osso',
+            '...........osssso',
+            '...........osssso',
+            '...........osssso',
+            '...........osssso',
+            '...........osssso',
+            '...........osssso',
+            '...........osssso',
+            '...........osssso',
+            '...........osssso',
+            '............ossso',
+            '............ossso',
+            '............ossso',
+            '............osssso',
+            '............osssso',
+            '............osssso',
+            '............osssso',
+            '............osssso',
+            '...........oassssao',
+            '...........oassssao',
+            '............oaaaaao',
+            '............oaaaaao',
+            '............oaaaaao',
+            '............oaaaaao',
+            '............oaaaaao',
+            '.............ooaoo',
+            '...............o',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+        ]],
+        'swing_base' => [26, [
+            '.............oooo..ooo',
+            '............ojjjjoojjjo',
+            '............ojjjo..ojjoooooo',
+            '............ojjo....oooSSSSSo',
+            '............ojjo.......ooooo',
+            '............ojjjo',
+            '............ojjjjoo',
+            '............ojjjjjjo',
+            '............ojjjjjjjoo',
+            '............ojjjjjjjjjo',
+            '............ojjjjjjjjjo',
+            '............ojjjjjjjjjo',
+            '...........opppppppppjo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........ooopppppppo',
+            '...........oPPopppsspo',
+            '............oPoppsssspo',
+            '............oPPosssssso',
+            '.............oPCocccsso',
+            '.............oCCoccccso',
+            '.............oCCocccco',
+            '............oCCocccco',
+            '............oCCoccccoo',
+            '............oFFoffffffo',
+            '...........oFFofffffffo',
+            '...........oFFofffffffo',
+            '............oooooooooo',
+        ]],
+        'swing_over' => [26, [
+            '.................oo',
+            '................oaao',
+            '...............oaaaaoo',
+            '..............oaaaaaaaoooooooo',
+            '..............oaaaaasssssssssso',
+            '...............oaaasssssssssssso',
+            '................oaasssssssssssso',
+            '.................ooasssssssssso',
+            '...................oaaoooooooo',
+            '....................oo',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+        ]],
+        'arch_base' => [5, [
+            '.........ooo',
+            '........oSSSo',
+            '........oSSSo',
+            '........oSSSo',
+            '........oSSSSo',
+            '.........oSSSo',
+            '.........oSSSo',
+            '..........oSSo',
+            '..........oSSo',
+            '..........oSSo',
+            '...........oSSo',
+            '...........oSSo',
+            '............oSo',
+            '............oSo',
+            '............oSo',
+            '.............oAo',
+            '..............oo',
+            '..............oAo',
+            '...............oAooo',
+            '...............oojjjo',
+            '...............ojjjjo',
+            '................ojjjo',
+            '................ojjjo',
+            '............o..ojjjjo',
+            '...........ojoojjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '............ojjjjjjjjo',
+            '............ojjjjjjjjo',
+            '............oppppppppo',
+            '............oppppppppo',
+            '............oppppppppo',
+            '...........oPopppppppo',
+            '...........oPopppppppo',
+            '...........oPopppppppo',
+            '..........oPPoppppppo',
+            '..........oPPoppppppo',
+            '..........oPPosssppo',
+            '..........oPPosssspo',
+            '..........oCCosssspo',
+            '..........oCoccccso',
+            '.........oCCCoccco',
+            '.........oCCocccco',
+            '.........oCCocccco',
+            '........oCCocccco',
+            '........oCFoffcco',
+            '........oFofffco',
+            '.......oFFofffco',
+            '.......oFFoffoo',
+        ]],
+        'arch_over' => [6, [
+            '......ooo',
+            '.....ossso',
+            '....osssso',
+            '....osssso',
+            '.....osssso',
+            '.....osssso',
+            '......osssso',
+            '......osssso',
+            '......osssso',
+            '.......osssso',
+            '.......osssso',
+            '........osssso',
+            '........osssso',
+            '........osssso',
+            '.........osssso',
+            '.........ossssao',
+            '.........ossssao',
+            '.........oasssaao',
+            '.........oaaaaaao',
+            '..........oaaaaao',
+            '..........oaaaaaao',
+            '..........oaaaaaao',
+            '...........oaaaao',
+            '............oaao',
+            '.............oo',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+        ]],
+        'open_base' => [28, [
+            '.............oooo..ooo',
+            '............ojjjjoojjjo',
+            '............ojjjo..ojjo...o',
+            '............ojjo....oo...oSo',
+            '............ojjo..........o',
+            '............ojjjo',
+            '............ojjjjoo',
+            '...........ojjjjjjjo',
+            '...........ojjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........ojjjjjjjjjo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........opppppppppo',
+            '...........oooppppppppo',
+            '...........oPPopppppsppo',
+            '............oPPoppssssso',
+            '.............oPPopssssso',
+            '..............oPPoccccso',
+            '...............oCCocccso',
+            '...............oCoccccso',
+            '..............oCCoccccoo',
+            '..............oFFoffffffo',
+            '..............oFFoffffffo',
+            '..............oFFoffffffo',
+            '...............ooooooooo',
+        ]],
+        'open_over' => [28, [
+            '.................oo',
+            '................oaao',
+            '...............oaaaaoo',
+            '..............oaaaaaaaoooooooo',
+            '..............oaaaaasssssssssso',
+            '...............oaaasssssssssssso',
+            '................oaasssssssssssso',
+            '.................ooasssssssssso',
+            '...................oaaoooooooo',
+            '....................oo',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+        ]],
     ];
 }
 
@@ -633,10 +1037,16 @@ function px_frames(): array
     return [
         'rest' => $front('down'),
         'up' => $front('up'),
+        's_stand' => $side('stand', [9, 12]),
+        's_swing' => $side('swing', [10, 14]),
         's_crouch' => $side('crouch', [13, 24]),
         's_land' => $side('land', [13, 24]),
         's_stretch' => $side('stretch', [9, 12]),
+        's_arch' => $side('arch', [7, 11]),
         's_tuck' => $side('tuck', [10, 24]),
+        's_tuck45' => ['rot45' => 's_tuck', 'view' => 'side', 'c' => [17, 38]],   // la raccolta girata di 45°: il giro ha 8 posizioni
+        's_open' => $side('open', [11, 16]),
+        's_win' => $side('win', [9, 12]),
     ];
 }
 /* ---------------------------------------------------------------- composizione */
@@ -665,6 +1075,9 @@ function px_paint(array &$g, array $rows, int $x, int $y): void
 function px_letters(string|array $frame, array $parts): array
 {
     $f = is_array($frame) ? $frame : px_frames()[$frame];
+    if (isset($f['rot45'])) {
+        return px_rotate45(px_letters($f['rot45'], $parts), $f['c']);
+    }
     $view = $f['view'];
     $g = array_fill(0, PX_H, array_fill(0, PX_W, '.'));
     [$hx, $hy] = $f['head'];
@@ -699,6 +1112,28 @@ function px_letters(string|array $frame, array $parts): array
         px_number($g, $parts['number'], $f['num'][0], $f['num'][1]);
     }
     return $g;
+}
+
+/**
+ * Griglia girata di 45° in senso antiorario attorno a $c (pixel più vicino): serve solo ai fotogrammi intermedi di un giro,
+ * che restano a schermo pochi centesimi di secondo.
+ */
+function px_rotate45(array $g, array $c): array
+{
+    $out = array_fill(0, PX_H, array_fill(0, PX_W, '.'));
+    $k = M_SQRT1_2;
+    for ($y = 0; $y < PX_H; $y++) {
+        for ($x = 0; $x < PX_W; $x++) {
+            $px = $x + .5 - $c[0];
+            $py = $y + .5 - $c[1];
+            $sx = (int) floor($c[0] + $px * $k - $py * $k);
+            $sy = (int) floor($c[1] + $px * $k + $py * $k);
+            if ($sx >= 0 && $sy >= 0 && $sx < PX_W && $sy < PX_H) {
+                $out[$y][$x] = $g[$sy][$sx];
+            }
+        }
+    }
+    return $out;
 }
 
 /** Numeri 3×5. */
@@ -801,7 +1236,7 @@ function px_palette(array $c): array
         'k' => px_tones($c['jb']), 'p' => px_tones($c['shorts']), 'c' => px_tones($c['socks'] ?? $c['ja']), 'f' => px_tones($c['shoes']),
         'x' => px_tones($c['hat'][0] ?? '#c0392b'), 'y' => px_tones($c['hat'][1] ?? '#ffffff'), 'z' => px_tones($c['hat'][2] ?? '#ffd23f'),
         'o' => PX_INK, 'w' => '#ffffff', 'e' => PX_INK, 'm' => '#8a2d3b', 'M' => '#5a1a2a', 't' => '#ff6b8b',
-        'g' => ['#fff1a8', '#ffd23f', '#c98a1b'], 'l' => '#ffffff', 'n' => $numColor,
+        'g' => ['#fff1a8', '#ffd23f', '#c98a1b'], 'l' => '#ffffff', 'n' => $numColor, 'd' => '#f6f1de', 'q' => '#cdc3a3',
     ];
 }
 
@@ -834,25 +1269,59 @@ function px_svg_paths(array $colors): string
 /* ---------------------------------------------------------------- animazioni */
 
 /**
- * Esultanze a fotogrammi: ogni passo è [fotogramma, durata in ms, dx, dy, rotazione]. Spostamenti in pixel dello sprite e rotazioni
- * a scatti di 90° (attorno al centro "c" del fotogramma), così i pixel restano sempre sulla griglia.
- * Il backflip è di profilo: visto di fronte una rotazione nel piano sembrerebbe una ruota.
+ * Esultanze a fotogrammi: ogni passo è [fotogramma, durata in ms, dx, dy, rotazione, effetto]. Spostamenti in pixel dello sprite e
+ * rotazioni a scatti di 90° attorno al centro "c" del fotogramma, così i pixel restano sulla griglia; le posizioni a 45° sono
+ * fotogrammi a parte (s_tuck45). Effetti: d1/d2/d3 = polvere ai piedi, trail = scia dei due passi precedenti.
+ * Il backflip è tutto di profilo: visto di fronte una capriola all'indietro sembrerebbe una ruota.
  */
 function px_celebrations(): array
 {
     return [
         'backflip' => [
-            ['rest', 350, 0, 0, 0],
-            ['s_crouch', 260, 0, 0, 0],
-            ['s_stretch', 110, 0, -5, 0],
-            ['s_tuck', 90, 0, -17, 0],
-            ['s_tuck', 90, -1, -22, -90],
-            ['s_tuck', 90, -1, -23, -180],
-            ['s_tuck', 90, 0, -20, -270],
-            ['s_tuck', 80, 0, -10, 0],
-            ['s_land', 280, 0, 0, 0],
-            ['up', 800, 0, 0, 0],
+            ['s_stand', 450, 0, 0, 0, ''],
+            ['s_swing', 150, 0, 0, 0, ''],
+            ['s_crouch', 230, 0, 0, 0, ''],
+            ['s_stretch', 70, 0, -4, 0, 'd1'],
+            ['s_arch', 70, 0, -13, 0, 'd2'],
+            ['s_tuck', 60, 0, -21, 0, 'd3'],
+            ['s_tuck45', 55, -1, -26, 0, 'trail'],
+            ['s_tuck', 55, -1, -28, -90, 'trail'],
+            ['s_tuck45', 55, -2, -29, -90, 'trail'],
+            ['s_tuck', 55, -2, -28, -180, 'trail'],
+            ['s_tuck45', 55, -2, -25, -180, 'trail'],
+            ['s_tuck', 60, -2, -20, -270, 'trail'],
+            ['s_tuck45', 60, -2, -13, -270, 'trail'],
+            ['s_open', 70, -2, -5, 0, ''],
+            ['s_land', 90, -2, 0, 0, 'd1'],
+            ['s_crouch', 160, -2, 0, 0, 'd2'],
+            ['s_swing', 110, -2, 0, 0, 'd3'],
+            ['s_win', 1000, -2, 0, 0, ''],
         ],
+    ];
+}
+
+/** Polvere ai piedi (d chiara, q in ombra), in tre momenti: appena sollevata, che si allarga, che svanisce. */
+function px_dust(): array
+{
+    return [
+        'd1' => [52, [
+            '............dd.......dd',
+            '...........dqqd.....dqqd',
+            '..........dqqqqd...dqqqqd',
+            '...........dddd.....dddd',
+        ]],
+        'd2' => [50, [
+            '........dd.............dd',
+            '.......dqqd...........dqqd',
+            '.......dqqd...........dqqd',
+            '........dd.............dd',
+            '...........d..........d',
+        ]],
+        'd3' => [48, [
+            '.....d...................d',
+            '....dqd.................dqd',
+            '.....d...................d',
+        ]],
     ];
 }
 
@@ -865,21 +1334,39 @@ function px_step_transform(array $step): string
 }
 
 /**
- * SVG del personaggio: un <g data-f> per ogni fotogramma usato (visibile solo il primo), dentro un <g data-sprite> che il player
- * sposta e ruota. $o: frames (nomi), seq (passi di un'esultanza), step (passo da mostrare fermo), viewBox, class.
+ * SVG del personaggio: un <g data-f> per ogni fotogramma usato e un <use data-sprite> che mostra quello del passo e che il player
+ * sposta e ruota; i fotogrammi stanno nei <defs> e si mostrano con <use>, così anche le "scie" dei passi precedenti sono <use>. $o: frames (nomi), seq (passi di un'esultanza),
+ * step (passo da mostrare fermo), viewBox, class, autoplay, bg (SVG di sfondo).
  */
 function px_svg(array $colors, array $parts, string $pattern, array $o = []): string
 {
+    static $n = 0;
+    $id = 'px' . (++$n);
     $seq = $o['seq'] ?? null;
     $names = $o['frames'] ?? ($seq ? array_values(array_unique(array_column($seq, 0))) : ['rest']);
     $show = isset($o['step']) ? $o['step'][0] : $names[0];
     $pal = px_palette($colors + ['pattern' => $pattern]);
     $g = '';
-    foreach ($names as $n) {
-        $g .= '<g data-f="' . $n . '"' . ($n === $show ? '' : ' display="none"') . '>' . px_svg_paths(px_colorize(px_letters($n, $parts), $pal, $pattern)) . '</g>';
+    foreach ($names as $f) {
+        $g .= '<g id="' . $id . '-' . $f . '" data-f="' . $f . '">'
+            . px_svg_paths(px_colorize(px_letters($f, $parts), $pal, $pattern)) . '</g>';
+    }
+    $fx = '';
+    $stepFx = isset($o['step']) ? ($o['step'][5] ?? '') : '';
+    if ($seq || $stepFx) {
+        foreach (px_dust() as $k => [$y, $rows]) {
+            $grid = array_fill(0, PX_H, array_fill(0, PX_W, '.'));
+            px_paint($grid, $rows, 0, $y);
+            $fx .= '<g data-fx="' . $k . '"' . ($k === $stepFx ? '' : ' display="none"') . '>' . px_svg_paths(px_colorize($grid, $pal)) . '</g>';
+        }
+        if ($seq) {
+            $fx .= '<use data-ghost="1" opacity=".32" display="none"/><use data-ghost="2" opacity=".15" display="none"/>';
+        }
     }
     $t = isset($o['step']) ? ' transform="' . px_step_transform($o['step']) . '"' : '';
-    $data = $seq ? ' data-seq="' . htmlspecialchars(json_encode(array_map(fn($s) => [$s[0], $s[1], px_step_transform($s)], $seq)), ENT_QUOTES) . '"' : '';
+    $data = $seq ? ' data-id="' . $id . '" data-seq="' . htmlspecialchars(json_encode(array_map(fn($s) => [$s[0], $s[1], px_step_transform($s), $s[5] ?? ''], $seq)), ENT_QUOTES) . '"' : '';
     return '<svg class="' . ($o['class'] ?? 'pxa') . '" viewBox="' . ($o['viewBox'] ?? '-6 -10 44 66') . '" shape-rendering="crispEdges"'
-        . $data . (!empty($o['autoplay']) ? ' data-autoplay' : '') . ' aria-hidden="true"><ellipse cx="16.5" cy="55.5" rx="9" ry="1.6" fill="#1f1a2e" opacity=".22" data-shadow/><g data-sprite' . $t . '>' . $g . '</g></svg>';
+        . $data . (!empty($o['autoplay']) ? ' data-autoplay' : '') . ' aria-hidden="true">'
+        . ($o['bg'] ?? '') . '<ellipse cx="16.5" cy="55.5" rx="9" ry="1.6" fill="#1f1a2e" opacity=".22" data-shadow/>' . $fx
+        . '<defs>' . $g . '</defs><use data-sprite href="#' . $id . '-' . $show . '"' . $t . '/></svg>';
 }
