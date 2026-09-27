@@ -318,17 +318,24 @@ function avatar_figure(array $look, array $o = []): string
         $hx = 60 - 22.5 * $m;
         $hand = 60 - 23 * $m;
         $at = fn(float $y) => round($sx + ($hx - $sx) * ($y - 77) / 26, 2) . ' ' . $y;
-        $line = 'M' . $sx . ' 77 L' . $hx . ' 103';
+        // gomito a metà braccio: l'avambraccio (con mano e oggetti) ruota da lì, nelle esultanze (.avf-fore-l/-r in assets/style.css)
+        $ex = round($sx + ($hx - $sx) / 2, 2);
+        $fore = ' class="avf-fore avf-fore-' . $side . '" style="transform-origin:' . $ex . 'px 90px"';
+        $upper = 'M' . $sx . ' 77 L' . $ex . ' 90';
+        $lower = 'M' . $ex . ' 90 L' . $hx . ' 103';
         return '<g class="avf-arm avf-arm-' . $side . '"' . ($deg ? ' style="transform:rotate(' . $deg . 'deg)"' : '') . '>'
-            . '<path class="s-ink" d="' . $line . '" stroke-width="12" stroke-linecap="round"/>'
-            . '<path class="s-sk" d="' . $line . '" stroke-width="7" stroke-linecap="round"/>'
-            . '<path d="M' . $at(90) . ' L' . $at(102) . '" stroke="#1f1a2e" stroke-width="2.2" opacity=".12" stroke-linecap="round" transform="translate(' . (-2.2 * $m) . ' 0)"/>'
+            . '<path class="s-ink" d="' . $upper . '" stroke-width="12" stroke-linecap="round"/>'
+            . '<g' . $fore . '><path class="s-ink" d="' . $lower . '" stroke-width="12" stroke-linecap="round"/></g>'
+            . '<path class="s-sk" d="' . $upper . '" stroke-width="7" stroke-linecap="round"/>'
+            . '<g' . $fore . '><path class="s-sk" d="' . $lower . '" stroke-width="7" stroke-linecap="round"/>'
+            . '<path d="M' . $at(91) . ' L' . $at(102) . '" stroke="#1f1a2e" stroke-width="2.2" opacity=".12" stroke-linecap="round" transform="translate(' . (-2.2 * $m) . ' 0)"/>'
             . '<circle class="f-sk o" cx="' . $hand . '" cy="106" r="5.5"/>'
             . '<circle class="f-sk o o2" cx="' . ($hand + 3.6 * $m) . '" cy="103.6" r="2.4"/>'
             . ($side === 'r' && isset($props['phone']) ? '<g class="avf-p avf-p-phone"><rect x="80.5" y="100" width="8" height="12.5" rx="1.8" fill="#1f1a2e"/>'
                 . '<rect x="81.9" y="101.6" width="5.2" height="8.4" rx=".8" fill="#53c8f5"/><circle class="avf-p avf-p-flash" cx="84.5" cy="98" r="7" fill="#fff" stroke="#ffd23f" stroke-width="2"/></g>' : '')
             . ($side === 'l' && isset($props['bow']) ? '<g class="avf-p avf-p-bow"><path d="M26 107 Q37 120 48 107" fill="none" stroke="#1f1a2e" stroke-width="5.5" stroke-linecap="round"/>'
                 . '<path d="M26 107 Q37 120 48 107" fill="none" stroke="#c98a3b" stroke-width="2.6" stroke-linecap="round"/><path d="M26 107 L48 107" stroke="#1f1a2e" stroke-width=".9"/></g>' : '')
+            . '</g>'
             . '<path class="s-ink" d="M' . $sx . ' 77 L' . $at(86) . '" stroke-width="15.5" stroke-linecap="round"/>'
             . '<path class="s-sb" d="M' . $sx . ' 77 L' . $at(86) . '" stroke-width="10.5" stroke-linecap="round"/>'
             . '<path class="s-sl" d="M' . $sx . ' 77 L' . $at(82.8) . '" stroke-width="10.5" stroke-linecap="round"/></g>';
@@ -411,7 +418,7 @@ function avatar_figure(array $look, array $o = []): string
         . '<circle class="o" fill="none" cx="60" cy="44" r="26"/>'
         . ($beard['under'] ?? '')
         . '<ellipse cx="44.5" cy="54.5" rx="4.4" ry="2.7" fill="#ff6b9a" opacity=".3"/><ellipse cx="75.5" cy="54.5" rx="4.4" ry="2.7" fill="#ff6b9a" opacity=".3"/>'
-        . $eye(51) . $eye(69)
+        . '<g class="avf-eyes">' . $eye(51) . $eye(69) . '</g>'
         . '<path class="s-ha" d="M45.5 37.8 Q50.5 35 55.5 37.4 M64.5 37.4 Q69.5 35 74.5 37.8" stroke-width="2.6" stroke-linecap="round"/>'
         . '<path d="M59.2 50.6 Q60.8 53.2 62.4 51" fill="none" stroke="#1f1a2e" stroke-width="1.5" opacity=".45" stroke-linecap="round"/>'
         . '<path class="avf-mouth" d="M54 56.8 Q60 62 66 56.8" fill="none" stroke="#1f1a2e" stroke-width="2.6" stroke-linecap="round"/>'
