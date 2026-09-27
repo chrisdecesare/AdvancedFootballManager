@@ -5,6 +5,9 @@ require_view();
 
 $me = my_player_id();
 $kinds = shop_kinds();
+if (!is_admin()) {   // avatar 3D (Personaggio) ancora in prova: le sue schede del negozio restano nascoste finché non si apre a tutti
+    $kinds = array_diff_key($kinds, array_flip(['jersey', 'shorts', 'shoes', 'celebration']));
+}
 $tab = isset($kinds[$_GET['s'] ?? ''] ) ? $_GET['s'] : 'hat';
 $filter = in_array($_GET['f'] ?? '', ['mine', 'buy', 'locked'], true) ? $_GET['f'] : 'all';
 
@@ -15,7 +18,9 @@ if (is_post()) {
     $kind = (string) ($_POST['kind'] ?? '');
     $key = (string) ($_POST['key'] ?? '');
     $item = shop_item($kind, $key);
-    if (!$me) {
+    if (!isset($kinds[$kind])) {   // schede nascoste (avatar 3D ancora in prova) o tipo inesistente: niente da fare
+        redirect('shop.php');
+    } elseif (!$me) {
         flash('err', 'Il tuo account non è collegato a un giocatore: chiedi all\'admin.');
     } elseif ($do === 'buy') {
         wallet_open($me);
@@ -117,6 +122,10 @@ layout_start('Negozio', 'shop');
   <?php if ($tab === 'nick'): ?><a href="<?= h($tabUrl($tab, 'locked')) ?>" class="<?= $filter === 'locked' ? 'active' : '' ?>">Da sbloccare</a><?php endif; ?>
 </div>
 
+<?php if ($tab === 'jersey' && $me): ?>
+<p class="muted small"><i class="ti ti-brush"></i> Non trovi la maglia che vuoi? <a class="link" href="jersey_creator.php">Creala tu</a>: resta solo tua, gratis.</p>
+<?php endif; ?>
+
 <?php if (!$items): ?><p class="empty card">Niente da mostrare con questo filtro.</p><?php endif; ?>
 <div class="shop-grid">
   <?php foreach ($items as $key => $item):
@@ -128,6 +137,10 @@ layout_start('Negozio', 'shop');
       <?php if ($tab === 'bg'): ?><span class="shop-swatch bgp-<?= h($key) ?>"></span>
       <?php elseif ($tab === 'border'): ?><span class="shop-brdthumb brd-<?= h($key) ?>"></span>
       <?php elseif ($tab === 'hat'): ?><span class="hat-thumb"><?= hat_svg($key) ?></span>
+      <?php elseif ($tab === 'jersey'): ?><span class="jersey-thumb" style="--jc-a:<?= h($item['colors']['a']) ?>;--jc-b:<?= h($item['colors']['b']) ?>"><i class="ti ti-shirt-sport"></i></span>
+      <?php elseif ($tab === 'shorts'): ?><span class="jersey-thumb" style="--jc-a:<?= h($item['color']) ?>;--jc-b:<?= h($item['color']) ?>"><i class="ti ti-swimming"></i></span>
+      <?php elseif ($tab === 'shoes'): ?><span class="jersey-thumb" style="--jc-a:<?= h($item['color']) ?>;--jc-b:<?= h($item['color']) ?>"><i class="ti ti-shoe"></i></span>
+      <?php elseif ($tab === 'celebration'): ?><span class="jersey-thumb celeb-thumb"><i class="ti ti-confetti"></i></span>
       <?php else: ?><span class="nick nick-big">«<?= h($item['name']) ?>»</span><?php endif; ?>
     </div>
     <div class="shop-name"><?= h($item['name']) ?><?= $isWorn ? ' <span class="tag tag-ok"><i class="ti ti-check"></i> indossato</span>' : '' ?></div>
@@ -140,8 +153,12 @@ layout_start('Negozio', 'shop');
     <?php endif; ?>
     <?php if ($me): ?>
     <div class="shop-act">
+      <?php if (in_array($tab, ['bg', 'border', 'hat', 'nick'], true)): ?>
       <button type="button" class="btn btn-ghost btn-sm" data-try="<?= $tab ?>"
         <?= $tab === 'bg' ? 'data-cls="bgp-' . h($key) . '"' : ($tab === 'border' ? 'data-cls="brd-' . h($key) . '"' : ($tab === 'nick' ? 'data-text="«' . h($item['name']) . '»"' : '')) ?>><i class="ti ti-eye"></i> Prova</button>
+      <?php else: ?>
+      <a class="btn btn-ghost btn-sm" href="avatar.php"><i class="ti ti-3d-cube-sphere"></i> Vedi sull'avatar</a>
+      <?php endif; ?>
       <form method="post"><?= csrf_field() ?><input type="hidden" name="kind" value="<?= $tab ?>"><input type="hidden" name="key" value="<?= h($key) ?>"><input type="hidden" name="f" value="<?= h($filter) ?>">
         <?php if ($isWorn): ?>
           <input type="hidden" name="do" value="take_off"><button class="btn btn-ghost btn-sm">Togli</button>

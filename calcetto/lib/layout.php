@@ -28,6 +28,8 @@ function layout_start(string $title, string $active = ''): void
         }
     }
     if (is_admin()) {
+        // Personaggio (avatar 3D, avatar.php): ancora in prova, visibile solo all'admin finché non si apre a tutti
+        $nav['avatar'] = ['avatar.php', 'Personaggio', '3d-cube-sphere'];
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
         $nav['platform'] = ['platform.php', 'Piattaforma', 'world'];
