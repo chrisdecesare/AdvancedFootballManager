@@ -88,6 +88,7 @@ layout_start('Home', 'home');
         </div>
         <div data-pitch-view="2d"><?= render_pitch($next, $roster) ?></div>
         <div data-pitch-view="fig" hidden><?= render_pitch_figures($next, $roster) ?></div>
+        <script src="assets/avatar_px.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar_px.js'), 0, 10)) ?>"></script>
         <script>
         document.querySelectorAll('[data-pitch-view-toggle]').forEach(btn => btn.addEventListener('click', () => {
           const view = btn.dataset.pitchViewToggle;

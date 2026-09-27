@@ -100,16 +100,21 @@ layout_start('Crea la tua maglia', 'avatar');
 
 <script>
 (() => {
+  // gli stessi tre toni (luce, base, ombra) di px_tones() in lib/avatar_pixel.php
   const svg = document.querySelector('[data-jc-preview] .avf');
   const a = document.querySelector('[data-jc-a]'), b = document.querySelector('[data-jc-b]');
   if (!svg || !a || !b) return;
+  const rgb = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+  const hex = c => '#' + c.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+  const mix = (x, y, t) => { const p = rgb(x), q = rgb(y); return hex(p.map((v, i) => v + (q[i] - v) * t)); };
+  const luma = h => { const [r, g, bb] = rgb(h); return (0.299 * r + 0.587 * g + 0.114 * bb) / 255; };
+  const tones = c => { const l = luma(c); return [mix(c, '#fff8e6', l > .85 ? 0 : (l < .2 ? .28 : .22)), c, mix(c, '#2a1f4a', l > .85 ? .22 : .32)]; };
   const draw = () => {
     const pat = (document.querySelector('[data-jc-pattern]:checked') || {}).value || 'solid';
-    svg.style.setProperty('--av-sa', a.value);
-    svg.style.setProperty('--av-so', a.value);
-    svg.style.setProperty('--av-sb', b.value);
-    svg.style.setProperty('--av-sl', pat === 'sleeves' ? b.value : a.value);
-    svg.style.setProperty('--av-num', pat === 'solid' ? b.value : '#ffffff');
+    tones(a.value).forEach((v, i) => svg.style.setProperty('--pj' + i, v));
+    tones(b.value).forEach((v, i) => svg.style.setProperty('--pk' + i, v));
+    const plain = pat === 'solid' && Math.abs(luma(a.value) - luma(b.value)) > .25;
+    svg.style.setProperty('--pn', plain ? b.value : (luma(a.value) > .6 ? '#1f1a2e' : '#ffffff'));
     svg.querySelectorAll('[data-pat]').forEach(g => g.setAttribute('display', g.dataset.pat === pat ? 'inline' : 'none'));
   };
   document.querySelectorAll('[data-jc-a], [data-jc-b], [data-jc-pattern]').forEach(el => el.addEventListener('input', draw));

@@ -1,0 +1,662 @@
+<?php
+/*
+ * Personaggio in pixel art: le parti disegnate a mano, pixel per pixel (lettere come in lib/avatar_pixel.php).
+ * Teste e facce, acconciature, barbe, occhiali, copricapi, pet ed effetti. Ogni pezzo della testa ha una vista "front" (di fronte)
+ * e una "side" (di profilo verso destra), come [dx, dy, righe] rispetto all'angolo in alto a sinistra della testa (16×13).
+ * px_m() prende la metà sinistra e la specchia, per i pezzi simmetrici.
+ */
+
+/** Pezzo simmetrico: metà sinistra specchiata. */
+function px_m(int $dx, int $dy, array $half): array
+{
+    return [$dx, $dy, px_rows($half, true)];
+}
+
+/** Pezzo disegnato per intero. */
+function px_l(int $dx, int $dy, array $rows): array
+{
+    return [$dx, $dy, $rows];
+}
+
+/** Le teste (senza capelli): 16×13. */
+function px_heads(): array
+{
+    static $h = null;
+    return $h ??= [
+        'front' => px_rows([
+            '....oooo',
+            '..oossss',
+            '.ossssss',
+            '.ossssss',
+            '.osshhss',
+            'oSsswess',
+            'oSsswess',
+            'oSssssss',
+            '.ossssss',
+            '.osssssm',
+            '..osssss',
+            '...oosss',
+            '.....ooo',
+        ], true),
+        'side' => [
+            '.....oooooo.....',
+            '...oossssssoo...',
+            '..osssssssssso..',
+            '.osssssssssssso.',
+            '.ossssssssshhso.',
+            '.ossssSSsssweso.',
+            '.ossssSSssssesso',
+            '.ossssSsssssssso',
+            '.osssssssssssoo.',
+            '..osssssssssmo..',
+            '..osssssssssso..',
+            '...oossssssoo...',
+            '......oooooo....',
+        ],
+    ];
+}
+
+/** Espressioni: ritocchi alla faccia [riga, colonna, pixel] (di fronte le colonne 4-5 e 10-11 sono gli occhi, 7-8 la bocca). */
+function px_faces(): array
+{
+    return [
+        'shout' => [
+            'front' => [[9, 6, 'mMMm'], [10, 7, 'MM']],
+            'side' => [[9, 11, 'MM'], [10, 12, 'M']],
+        ],
+        'tongue' => [
+            'front' => [[9, 6, 'mMMm'], [10, 7, 'tt'], [11, 7, 'tt'], [12, 7, 'oo']],
+            'side' => [[9, 11, 'MM'], [10, 12, 'tt'], [11, 13, 'o']],
+        ],
+        'kiss' => [
+            'front' => [[9, 7, 'mm'], [10, 7, 'mm']],
+            'side' => [[9, 12, 'mm'], [10, 12, 'm']],
+        ],
+        'closed' => [
+            'front' => [[5, 4, 'ss'], [6, 4, 'ee'], [5, 10, 'ss'], [6, 10, 'ee']],
+            'side' => [[5, 11, 'ss'], [6, 11, 'ee']],
+        ],
+        'smile' => [
+            'front' => [[9, 6, 'm..m'], [10, 7, 'mm']],
+            'side' => [[9, 12, 'm'], [10, 11, 'm']],
+        ],
+    ];
+}
+
+/**
+ * Acconciature (chiavi di shop_items.php 'hair'). Col copricapo i capelli alti diventano "classic" (px_hair_under_hat).
+ */
+function px_hair(): array
+{
+    static $h = null;
+    return $h ??= [
+        'bald' => [],
+        'classic' => [
+            'front' => px_m(0, -2, [
+                '...ooooo',
+                '..ohhhhh',
+                '.ohhhhhh',
+                'ohhHhhhh',
+                'ohHhhhhh',
+                'ohhhh...',
+                'oh......',
+            ]),
+            'side' => px_l(0, -2, [
+                '....ooooooo.....',
+                '..oohhhhhhhoo...',
+                '.ohhhhhhhhhhhho.',
+                'ohhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhho.',
+                'ohhhhhhhhhh.....',
+                'ohhhhhh.........',
+                'ohhhh...........',
+                '.ohhh...........',
+                '..oo............',
+            ]),
+        ],
+        'buzz' => [
+            'front' => px_m(0, 0, [
+                '....oooo',
+                '..oohhhh',
+                '.ohhHhhh',
+                '.ohhhhhh',
+                '.oh.....',
+            ]),
+            'side' => px_l(0, 0, [
+                '.....oooooo.....',
+                '...oohhhhhhoo...',
+                '..ohhhhhhhhhho..',
+                '.ohhhhhhhhh.....',
+                '.ohhhh..........',
+                '.ohhh...........',
+                '.ohh............',
+            ]),
+        ],
+        'side' => [
+            'front' => px_l(-1, -2, [
+                '....oooooooooo....',
+                '..oohhhhhhhhhhoo..',
+                '.ohhhhhhhhhhhhhho.',
+                'ohhhhhhhHhhhhhhhho',
+                'ohhHhhhhhHhhhhhhho',
+                'ohhhh..hhhhhhhhhho',
+                'ohh.........hhhhho',
+                'oh............hho.',
+                'oh.............ho.',
+            ]),
+            'side' => px_l(0, -2, [
+                '....ooooooo.....',
+                '..oohhhhhhhoo...',
+                '.ohhhhhhhhhhhhoo',
+                'ohhhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhh...',
+                'ohhhhhh.........',
+                'ohhhh...........',
+                '.ohhh...........',
+                '..oo............',
+            ]),
+        ],
+        'fade' => [
+            'front' => px_m(0, -2, [
+                '...ooooo',
+                '..ohhhhh',
+                '.ohhhhhh',
+                '.ohhHhhh',
+                'oHhhhhhh',
+                'oHH.....',
+                'oH......',
+            ]),
+            'side' => px_l(0, -2, [
+                '....ooooooo.....',
+                '..oohhhhhhhoo...',
+                '.ohhhhhhhhhhhho.',
+                'ohhhhhhhhhhhhhho',
+                'oHhhhhhhhhhhhho.',
+                'oHHHhhhhhhh.....',
+                'oHHHHHH.........',
+                'oHHHH...........',
+                '.oHHH...........',
+                '..oo............',
+            ]),
+        ],
+        'spiky' => [
+            'front' => px_m(-1, -4, [
+                '...o...o.',
+                '..oho.oho',
+                '.ohhhohhh',
+                '.ohhhhhhh',
+                'oohhhhhhh',
+                '.ohhHhhhh',
+                '.ohhhhhhh',
+                '.ohhh.hh.',
+                '.oh......',
+            ]),
+            'side' => px_l(0, -4, [
+                '.....o...o..o...',
+                '....oho.oho.oho.',
+                '...ohhhohhhohhho',
+                '..oohhhhhhhhhhoo',
+                '.ohhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhho.',
+                'ohhhhhhhhhh.....',
+                'ohhhhhh.........',
+                'ohhhh...........',
+                '.ohhh...........',
+                '..oo............',
+            ]),
+        ],
+        'quiff' => [
+            'front' => px_m(-1, -5, [
+                '.....oooo',
+                '...oohhhh',
+                '..ohhhhhh',
+                '..ohhhhhh',
+                '.ohhhhhhh',
+                '.ohhHhhhh',
+                'oohhhhhhh',
+                'ohhhh....',
+                'ohh......',
+            ]),
+            'side' => px_l(0, -5, [
+                '........ooooo...',
+                '......oohhhhhoo.',
+                '....oohhhhhhhhho',
+                '..oohhhhhhhhhhho',
+                '.ohhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhho.',
+                'ohhhhhhhhhh.....',
+                'ohhhhhh.........',
+                'ohhhh...........',
+                '.ohhh...........',
+                '..oo............',
+            ]),
+        ],
+        'curly' => [
+            'front' => px_m(-2, -5, [
+                '.....ooo..',
+                '...oohhhoo',
+                '..ohhhhhhh',
+                '.ohhhHhhhh',
+                'ohhHhhhhHh',
+                'ohhhhhhhhh',
+                'ohHhhhHhhh',
+                'ohhhhhhhhh',
+                'ohhhhhh...',
+                'ohhhh.....',
+                '.ohh......',
+                '..o.......',
+            ]),
+            'side' => px_l(-2, -5, [
+                '......ooo.ooo.......',
+                '....oohhhohhhoo.....',
+                '...ohhhhhhhhhhho....',
+                '..ohhhHhhhhHhhhhoo..',
+                '.ohhHhhhhhhhhhHhhho.',
+                'ohhhhhhhHhhhhhhhhho.',
+                'ohhHhhhhhhhhhhhhho..',
+                'ohhhhhhhhhhhhh......',
+                'ohhhhHhhhh..........',
+                'ohhhhhhh............',
+                '.ohhhhh.............',
+                '..ohhh..............',
+                '...oo...............',
+            ]),
+        ],
+        'bun' => [
+            'front' => px_m(-1, -6, [
+                '.......oo',
+                '......ohh',
+                '......ohH',
+                '...oooooo',
+                '..ohhhhhh',
+                '.ohhhhhhh',
+                '.ohHhhhhh',
+                'oohhhhhhh',
+                '.ohh.....',
+                '.oh......',
+            ]),
+            'side' => px_l(0, -5, [
+                '.ooo............',
+                'ohhho...........',
+                'ohHho...........',
+                '.oooooooooo.....',
+                '..ohhhhhhhhoo...',
+                '.ohhhhhhhhhhhho.',
+                'ohhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhho.',
+                'ohhhhhhhhhh.....',
+                'ohhhhhh.........',
+                'ohhhh...........',
+                '.ohhh...........',
+                '..oo............',
+            ]),
+        ],
+        'long' => [
+            'front' => px_m(-1, -2, [
+                '...ooooo.',
+                '..ohhhhhh',
+                '.ohhhhhhh',
+                'ohhHhhhhh',
+                'ohhhhhhhh',
+                'ohhhhh...',
+                'ohhh.....',
+                'ohhh.....',
+                'ohhh.....',
+                'ohHh.....',
+                'ohhh.....',
+                'ohhh.....',
+                'ohhh.....',
+                '.oho.....',
+                '..o......',
+            ]),
+            'side' => px_l(0, -2, [
+                '....ooooooo.....',
+                '..oohhhhhhhoo...',
+                '.ohhhhhhhhhhhho.',
+                'ohhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhho.',
+                'ohhhhhhhhhh.....',
+                'ohhhhhh.........',
+                'ohhhhh..........',
+                'ohhhhh..........',
+                'ohhHhh..........',
+                'ohhhhh..........',
+                'ohhhho..........',
+                'ohhhho..........',
+                '.ohho...........',
+                '..oo............',
+            ]),
+        ],
+        'mullet' => [
+            'front' => px_m(-1, -2, [
+                '....ooooo',
+                '...ohhhhh',
+                '..ohhhhhh',
+                '.ohhHhhhh',
+                '.ohHhhhhh',
+                '.ohhhh...',
+                '.oh......',
+                'ooh......',
+                'ohh......',
+                'ohh......',
+                'ohh......',
+                'ohhh.....',
+                'ohhh.....',
+                'oHho.....',
+                '.oo......',
+            ]),
+            'side' => px_l(-1, -2, [
+                '.....ooooooo.....',
+                '...oohhhhhhhoo...',
+                '..ohhhhhhhhhhhho.',
+                '.ohhhhhhhhhhhhhho',
+                '.ohhhhhhhhhhhhho.',
+                '.ohhhhhhhhhh.....',
+                '.ohhhhhh.........',
+                'ohhhhh...........',
+                'ohhhh............',
+                'ohhhh............',
+                'ohhhh............',
+                'ohhhho...........',
+                'ohHhho...........',
+                'ohhhho...........',
+                '.ohho............',
+                '..oo.............',
+            ]),
+        ],
+        'braids' => [
+            'front' => px_m(-1, -2, [
+                '...ooooo.',
+                '..ohhhhhh',
+                '.ohHhHhHh',
+                'ohHhHhHhH',
+                'ohhhhhhhh',
+                'ohHhH....',
+                'ohhh.....',
+                'oHhH.....',
+                'ohhh.....',
+                'oHhH.....',
+                'ohhh.....',
+                'oHhH.....',
+                'ohhh.....',
+                'oyoy.....',
+                '.o.o.....',
+            ]),
+            'side' => px_l(0, -2, [
+                '....ooooooo.....',
+                '..oohhhhhhhoo...',
+                '.ohHhHhHhHhHhho.',
+                'ohHhHhHhHhHhHhho',
+                'ohhhhhhhhhhhhho.',
+                'ohHhHhHhHhh.....',
+                'ohhhhhh.........',
+                'oHhHhh..........',
+                'ohhhhh..........',
+                'oHhHhh..........',
+                'ohhhhh..........',
+                'oHhHho..........',
+                'ohhhho..........',
+                'oyoyo...........',
+                '.o.o............',
+            ]),
+        ],
+        'mohawk' => [
+            'front' => px_m(0, -6, [
+                '......oo',
+                '.....ohh',
+                '.....ohh',
+                '.....ohH',
+                '.....ohh',
+                '.....ohh',
+                '....oohh',
+                '......hh',
+                '......hh',
+            ]),
+            'side' => px_l(0, -5, [
+                '......oooo......',
+                '....oohhhhoo....',
+                '...ohhhhhhhhoo..',
+                '..ohhHhhhhhhhho.',
+                '..ohhhhhhhhhhho.',
+                '...ohhhhhhhhh...',
+            ]),
+        ],
+    ];
+}
+
+/** Col copricapo i capelli alti non ci stanno sotto: restano quelli lunghi, il resto diventa un taglio corto. */
+function px_hair_under_hat(string $style): string
+{
+    return in_array($style, ['bald', 'buzz', 'long', 'mullet', 'braids', 'fade', 'classic', 'side'], true)
+        ? $style : ($style === 'mohawk' ? 'buzz' : 'classic');
+}
+
+/** Barbe (chiavi 'beard' di shop_items: none, stubble, moustache, goatee, captain, full). "1" è la barba di tre giorni. */
+function px_beards(): array
+{
+    static $b = null;
+    $moustache = ['front' => px_m(0, 8, ['.....hhh', '.....h.m']), 'side' => px_l(0, 8, ['..........hhhh..', '..........h.m...'])];
+    $goatee = ['front' => px_m(0, 10, ['......hh', '......hh', '......hh', '......oo']),
+        'side' => px_l(0, 10, ['...........hh...', '..........hhh...', '..........hhho..', '...........oo...'])];
+    return $b ??= [
+        'none' => [],
+        'stubble' => [
+            'front' => px_m(0, 8, ['..1.....', '.o11111m', '..o11111', '...oo111']),
+            'side' => px_l(0, 8, ['.......11111....', '..o111111111mo..', '..o1111111111o..', '...oo111111oo...']),
+        ],
+        'moustache' => $moustache,
+        'goatee' => $goatee,
+        'captain' => [
+            'front' => [0, 8, array_merge($moustache['front'][2], $goatee['front'][2])],
+            'side' => [0, 8, array_merge($moustache['side'][2], $goatee['side'][2])],
+        ],
+        'full' => [
+            'front' => px_m(0, 5, [
+                '........',
+                '.o......',
+                '.oh.....',
+                '.ohh....',
+                '.ohhhhhm',
+                '..ohhhhh',
+                '...ohhhh',
+                '.....ooo',
+            ]),
+            'side' => px_l(0, 5, [
+                '................',
+                '.........h......',
+                '........hh......',
+                '.......hhhhh....',
+                '..ohhhhhhhhhmo..',
+                '..ohhhhhhhhhho..',
+                '...oohhhhhhoo...',
+                '......oooooo....',
+            ]),
+        ],
+    ];
+}
+
+/** Occhiali (chiavi 'glasses': none, round, sun, sport, stars, hearts, monocle). */
+function px_glasses(): array
+{
+    static $g = null;
+    return $g ??= [
+        'none' => [],
+        'round' => [
+            'front' => px_m(0, 4, ['...oooo.', 'oooo..oo', '...o..o.', '...oooo.']),
+            'side' => px_l(0, 4, ['..........oooo..', '.....oooooo..o..', '..........o..o..', '..........oooo..']),
+        ],
+        'sun' => [
+            'front' => px_m(0, 4, ['........', 'oooooooo', '..oeeeoo', '...oeo..']),
+            'side' => px_l(0, 4, ['................', '.......ooooooooo', '..........oeeeo.', '...........oeo..']),
+        ],
+        'sport' => [
+            'front' => px_m(0, 4, ['.ooooooo', 'o333l333', '.o333333', '..oooooo']),
+            'side' => px_l(0, 4, ['.....ooooooooo..', '.....oo33l3333o.', '..........33333o', '..........ooooo.']),
+        ],
+        'stars' => [
+            'front' => px_m(0, 3, ['....o...', '...ogo..', 'ooogggoo', '...ogo..', '..o...o.']),
+            'side' => px_l(0, 3, ['...........o....', '..........ogo...', '.....ooooogggo..', '..........ogo...', '.........o...o..']),
+        ],
+        'hearts' => [
+            'front' => px_m(0, 4, ['..oo.oo.', 'oo44444o', '..o444o.', '...o4o..', '....o...']),
+            'side' => px_l(0, 4, ['..........oo.oo.', '.....oooo44444o.', '..........o444o.', '...........o4o..', '............o...']),
+        ],
+        'monocle' => [
+            'front' => px_l(0, 4, ['...oooo.........', '...o..o.........', '...o..o.........', '...oooo.........', '......g.........', '.......g........']),
+            'side' => px_l(0, 4, ['..........oooo..', '..........o..o..', '..........o..o..', '..........oooo..', '..........g.....', '.........g......']),
+        ],
+    ];
+}
+
+/**
+ * Copricapi pixel per modello (shop_items 'hat': tpl) coi tre colori del negozio in x, y, z. Di profilo, se manca una vista "side",
+ * si usa la stessa di fronte (i cappelli sono quasi tutti simmetrici).
+ */
+function px_hats(): array
+{
+    static $h = null;
+    if ($h !== null) {
+        return $h;
+    }
+    $h = [
+        'cap' => [
+            'front' => px_m(-1, -4, ['....ooooo', '..ooxxxxx', '.oxxxxxxx', '.oxXxxxxy', 'oxxxxxxxy', 'oxxxxxxxx', 'ooooooooo', '.oXXXXXXX', '..ooooooo']),
+            'side' => px_l(0, -4, ['....ooooooo.........', '..ooxxxxxxxoo.......', '.oxxxxxxxxxxxo......', 'oxxXxxxxxxxxxxo.....',
+                'oxxxxxxxxxxxxxxooooo', 'oxxxxxxxxxxxxxXXXXXo', 'oooooooooooooooooooo']),
+        ],
+        'visor' => [
+            'front' => px_m(-1, 0, ['..ooooooo', '.oxxxxxxx', 'oxxxxxxxx', 'oXXXXXXXX', '.oooooooo']),
+            'side' => px_l(0, 0, ['...ooooooooo......', '..oxxxxxxxxxoooooo', '..oXXXXXXXXXXXXXXo', '...ooooooooooooo..']),
+        ],
+        'beanie' => ['front' => px_m(-1, -5, ['.......oo', '......ozz', '....oooZz', '..ooxxxxx', '.oxxxXxxx', '.oxXxxxxx', 'oxxxxxxxx',
+            'oyyyyyyyy', 'oyyyyyyyy', 'ooooooooo'])],
+        'bandana' => ['front' => px_m(-1, 1, ['.oooooooo', 'oxxxxyxxx', 'oxxxxxxxx', 'ooooooooo'])],
+        'beret' => ['front' => px_l(-1, -3, ['.........o........', '....oooooxooooo...', '..ooxxxxxxxxxxxoo.', '.oxxxxxxxxxxxxxxxo',
+            'oxxXxxxxxxxxxxxxxo', 'oXXXXXXXXXXXXXXXo.', '.oooooooooooooooo.'])],
+        'bucket' => ['front' => px_m(-2, -3, ['.....ooooo', '....oxxxxx', '...oxxxxxx', '...oxxXxxx', '...oxxxxxx', '.ooooooooo', 'oyyyyyyyyy',
+            '.ooooooooo'])],
+        'pilot' => ['front' => px_m(-1, -2, ['....ooooo', '..ooxxxxx', '.oxxxxxxx', '.oxoooooo', 'oxoyyyyoo', 'oxooooooo', 'oxx......',
+            'oxx......', 'oxx......', 'oxx......', '.oo......'])],
+        'headphones' => ['front' => px_m(-1, -3, ['....ooooo', '..ooxxxxx', '.oxxooooo', '.oxo.....', 'oxo......', 'oxo......', 'oooo.....',
+            'oyyo.....', 'oyyo.....', 'oyyo.....', 'oooo.....'])],
+        'tophat' => ['front' => px_m(-2, -12, ['...ooooooo', '...oxxxxxx', '...oxXxxxx', '...oxxxxxx', '...oxxxxxx', '...oxxxxxx',
+            '...oyyyyyy', '...oyyyyyy', '.ooooooooo', 'oxxxxxxxxx', '.ooooooooo'])],
+        'bowler' => ['front' => px_m(-1, -6, ['.....oooo', '...ooxxxx', '..oxxxxxx', '..oxXxxxx', '..oxxxxxx', '..oyyyyyy', 'ooooooooo',
+            'oxxxxxxxx', '.oooooooo'])],
+        'fedora' => ['front' => px_m(-2, -6, ['.....ooooo', '....oxxxxX', '....oxxxxx', '....oxXxxx', '....oyyyyy', 'oooooooooo',
+            'oxxxxxxxxx', '.ooooooooo'])],
+        'cowboy' => ['front' => px_m(-4, -6, ['.......ooooo', '......oxxxxX', '......oxxxxx', '......oxXxxx', 'oo....oyyyyy',
+            'oxo..ooooooo', '.oxooxxxxxxx', '..oxxxxxxxxx', '...ooooooooo'])],
+        'sombrero' => ['front' => px_m(-6, -8, ['..........oooo', '.........oxxxx', '.........oxxxx', '........oxxXxx', '........ozzzzz',
+            '..ooooooozzzzz', '.oxxxxxxxxxxxx', 'oxxyxxyxxyxxyx', 'oxxxxxxxxxxxxx', '.ooooooooooooo'])],
+        'straw' => ['front' => px_m(-3, -5, ['......ooooo', '.....oxxxxx', '.....oxxXxx', '.....oyyyyy', 'ooooooooooo', 'oxxXxxxXxxx',
+            '.oooooooooo'])],
+        'party' => ['front' => px_m(3, -12, ['....o', '...oy', '...ox', '..oxx', '..oyy', '..oxx', '.oxxx', '.oyyy', '.oxxx', 'oxxxx',
+            'oyyyy', 'ooooo'])],
+        'wizard' => ['front' => px_l(-2, -14, ['............oo......', '..........ooxo......', '.........oxxo.......',
+            '........oxxo........', '........oxxxo.......', '.......oxxyxo.......', '.......oxxxxxo......', '......oxyxxxxo......',
+            '......oxxxxxyxo.....', '.....oxxxxxxxxo.....', '.....oxxxyxxxxxo....', '....ozzzzzzzzzzo....', 'oooozzzzzzzzzzzzoooo',
+            'oxxxxxxxxxxxxxxxxxxo', '.oooooooooooooooooo.'])],
+        'santa' => ['front' => px_l(-2, -8, ['.......oooooo.......', '.....ooxxxxxxoo.....', '....oxxxxxxxxxxo....',
+            '...oxxxxxxxxxxxxoo..', '..oxxXxxxxxxxxxxxxo.', '..oxxxxxxxxxxxxxoyyo', '..oxxxxxxxxxxxxxoyyo', '.oyyyyyyyyyyyyyyooo.',
+            'oyyyyyyyyyyyyyyyyo..', '.oooooooooooooooo...'])],
+        'jester' => ['front' => px_m(-3, -8, ['oo.........', 'ozo........', '.oxo.......', '.oxxoo.....', '..oxxxo..oo', '..oxxxxooyy',
+            '...oxxxxxyy', '...oxxxxyyy', '..ozzzzzzzz', '..ooooooooo'])],
+        'pumpkin' => ['front' => px_m(-1, -8, ['........o', '.......oy', '....ooooy', '..ooxxXxx', '.oxxxXxxx', 'oxxxXxxxX', 'oxxxXxxxX',
+            'oxxxXxxxX', '.oxxxXxxx', '..ooooooo'])],
+        'flowers' => ['front' => px_m(-1, -2, ['.oo..oo..', 'oxxooyyoo', 'oxzxoyzyo', '.oxooxyxo', '..oo.oxo.'])],
+        'laurel' => ['front' => px_m(-1, 0, ['...ox....', '..oxxo...', '.oxxo....', 'oxxo.....', 'oxo......', 'oxxo.....', '.oxo.....'])],
+        'crown' => ['front' => px_m(1, -6, ['.o...o.', 'oxo.oxo', 'oxxoxxx', 'oxxxxxx', 'oxzxxzx', 'oxxxxxx', 'ooooooo'])],
+        'halo' => ['front' => px_m(1, -8, ['..ooooo', '.oxxxxx', 'oxooooo', '.oxxxxx', '..ooooo'])],
+        'trophy' => ['front' => px_m(1, -13, ['..ooooo', 'oooxxxx', 'oxoxxxx', 'oxoxXxx', '.ooxxxx', '...oxxx', '....oxx', '.....ox',
+            '.....ox', '...oooo', '...oyyy', '..ooooo'])],
+        'ball' => ['front' => px_l(4, -7, ['..ooo..', '.olelo.', 'olleelo', 'oellleo', 'olleelo', '.olllo.', '..ooo..'])],
+        'flame' => ['front' => px_m(0, -9, ['......o.', '...o.oxo', '..oxoxxo', '..oxxxyx', '.oxxyxyx', '.oxyyyyy', 'oxxyyyyy', 'oxyyyyyy',
+            'oxxyyyyy'])],
+        'grad' => ['front' => px_m(-3, -5, ['....ooooooo', '.ooooxxxxxx', 'oxxxxxxxxxx', '.oooooooooo', '....oxxxxxx', '....oxxxxxx',
+            '....ooooooo'])],
+        'viking' => ['front' => px_m(-3, -7, ['o..........', 'zo.........', 'zzo...ooooo', '.zzoooxxxxx', '..ozzoxxXxx', '...oooxxxxx',
+            '....oxxxxxx', '....oyyyyyy', '....ooooooo'])],
+        'pirate' => ['front' => px_m(-3, -6, ['.......oooo', '.....ooxxxx', 'oo..oxxxxxx', 'oxxoxxxxxxy', '.oxxxxxxxxx', '..oyyyyyyyy',
+            '...oooooooo'])],
+        'chef' => ['front' => px_m(-1, -9, ['...oo.ooo', '..oxxoxxx', '.oxxxxxxx', '.oxxXxxxx', '.oxxxxxxx', '..oxxxxxx', '..oyyyyyy',
+            '..oyyyyyy', '..ooooooo'])],
+        'propeller' => ['front' => px_m(-1, -7, ['..oooooo.', '.oyyyyyyo', '..ooooooo', '.......oo', '...oooooo', '..oxxxxxx',
+            '.oxxXxxxx', '.oxxxxxxx', 'ooooooooo'])],
+        'military' => ['front' => px_m(-1, -4, ['....ooooo', '..ooxxxxx', '.oxxxxxxx', '.oxXxxxxx', 'oxxxxxxxx', 'oxxxxxxxx', 'oyyyyyyyy',
+            'ooooooooo'])],
+        'hardhat' => ['front' => px_m(-1, -4, ['....ooooo', '..ooxxxxy', '.oxxxxxxy', '.oxXxxxxy', '.oxxxxxxy', 'ooooooooo', 'oxxxxxxxx',
+            '.oooooooo'])],
+        'police' => ['front' => px_m(-1, -4, ['...oooooo', '.ooxxxxxx', 'oxxxxxxxx', 'oxxxxxxzz', 'oyyyyyyyy', 'ooooooooo', '.oyyyyyyy',
+            '..ooooooo'])],
+        'sailor' => ['front' => px_m(-1, -4, ['....ooooo', '..ooxxxxx', '.oxxxxxxx', 'oyyyyyyyy', 'oxxxxxxxx', 'ooooooooo'])],
+        'astronaut' => ['front' => px_m(-2, -3, ['.....ooooo', '...ooxxxxx', '..oxxooooo', '.oxol.....', '.oxo......', 'oxo.......',
+            'oxo.......', 'oxo.......', 'oxo.......', 'oxo.......', 'oxo.......', 'oxo.......', '.oxo......', '.oxxo.....', '..oyyyyyyy',
+            '..oooooooo'])],
+        'knight' => ['front' => px_m(-1, -6, ['......oo.', '.....oyyo', '.....oyyo', '...oooooo', '..oxxxxxx', '.oxxxxxxx', '.oxXxxxxx',
+            'oxxxxxxxx', 'oxxxxxxxx', 'oxxxxxxxx', 'oxxoooooo', 'oxxeeeeee', 'oxxxxxxxx', 'oxxxxxxxx', 'oxXxxxxxx', 'oxxxxxxxx',
+            '.oxxxxxxx', '..oxxxxxx', '...oooooo'])],
+        'turban' => ['front' => px_m(-1, -5, ['....ooooo', '..ooxxxxx', '.oxxXxxxx', 'oxxxxXxxx', 'oxXxxxXxx', 'oxxXxxxyy', 'oxxxXxxyy',
+            'ooooooooo'])],
+        'fez' => ['front' => px_m(3, -6, ['.oooo', 'oxxxx', 'oxxxx', 'oxXxx', 'oxxxx', 'ooooo'])],
+        'cone' => ['front' => px_m(3, -12, ['....o', '...ox', '...ol', '..oxx', '..oll', '..oxx', '.oxxx', '.olll', '.oxxx', 'oyyyy', 'ooooo'])],
+        'catears' => ['front' => px_m(0, -4, ['..o.....', '.oxo....', '.oyxo...', 'oyyxo...', 'oxxxo...'])],
+        'rabbit' => ['front' => px_m(0, -10, ['...oo...', '..oxxo..', '..oyxo..', '..oyxo..', '..oyxo..', '..oyxo..', '..oyxo..',
+            '..oxxo..', '...oxo..'])],
+        'bear' => ['front' => px_m(0, -3, ['.ooo....', 'oxxxo...', 'oxyxo...', '.oxo....'])],
+        'antlers' => ['front' => px_m(0, -8, ['o..o....', 'xo.xo...', 'oxoxo...', '.oxxo...', '..oxo...', '..oxo...', '...oo...'])],
+        'devil' => ['front' => px_m(0, -4, ['..o.....', '.oxo....', '.oxxo...', '..oxxo..'])],
+        'unicorn' => ['front' => px_m(3, -9, ['....o', '...ox', '...oy', '..oxx', '..oyy', '..oxx', '.oyyy', '.oxxx', 'ooooo'])],
+        'alien' => ['front' => px_m(0, -8, ['.ooo....', '.oxo....', '.ooo....', '...o....', '...o....', '....o...'])],
+        'mushroom' => ['front' => px_m(-2, -7, ['.....ooooo', '...ooxxxxx', '..oxxyyxxx', '.oxxxyyxxy', '.oxxxxxxxy', 'oxyyxxxxxx',
+            'oxyyxxxxxx', 'oooooooooo'])],
+        'icecream' => ['front' => px_m(3, -14, ['..ooo', '.oxxx', 'oxxXx', 'oxxxx', 'oxXxx', '.oooo', '.oyyy', '.oyyy', '..oyy', '..oyy',
+            '...oy', '...oo'])],
+    ];
+    $h['fireman'] = $h['hardhat'];
+    $h['captain'] = $h['police'];
+    return $h;
+}
+
+/** Pet a bordo campo (chiavi 'pet'): due fotogrammi (il secondo saltella), u = primo colore, i = secondo. */
+function px_pets(): array
+{
+    return [
+        'ball' => ['..ooo..', '.olelo.', 'olleelo', 'oellleo', 'olleelo', '.olllo.', '..ooo..'],
+        'chick' => ['...ooo...', '..ouuuo..', '.ouuueuo.', '.ouuuuiio', 'ouuuuuuo.', 'ouUuuuuo.', '.ouuuuo..', '..oioio..'],
+        'cat' => ['.o...o.....', 'ouo.ouo....', 'ouuuuuo....', 'oueuueo....', 'ouuiuuo..o.', '.ouuuo..ouo', '.ouiiuoouo.', '.ouiiuuuo..',
+            '.ouuouuo...', '..oo.oo....'],
+        'dog' => ['..oooo......', '.ouuuuo.....', 'oiueuuio....', 'oiuuuuio....', '.ouiieo.....', '.ouuuuo..o..', 'ouuiiuuoouo.',
+            'ouuiiuuuuo..', 'ouuouuouo...', '.oo.oo.o....'],
+        'penguin' => ['..ooooo..', '.ouuuuuo.', '.ouieieuo', '.ouiggiuo', 'ouuiiiuuo', 'ouiiiiiuo', 'ouiiiiiuo', '.ouiiiuo.', '..oiiio..',
+            '.oggoggo.'],
+    ];
+}
+
+/** Effetti e oggetti delle esultanze: [x, y, righe] in coordinate dello sprite. */
+function px_fx(): array
+{
+    return [
+        'd1' => [4, 52, ['........dd.......dd', '.......dqqd.....dqqd', '......dqqqqd...dqqqqd', '.......dddd.....dddd']],
+        'd2' => [0, 50, ['........dd.............dd', '.......dqqd...........dqqd', '.......dqqd...........dqqd',
+            '........dd.............dd', '...........d..........d']],
+        'd3' => [-3, 48, ['.......d...................d', '......dqd.................dqd', '.......d...................d']],
+        'heart' => [11, -4, ['.oo.oo.', 'orrorro', 'orrrrlo', '.orrro.', '..oro..', '...o...']],
+        'heart2' => [9, -8, ['..oo.oo..', '.orrorro.', 'orrrrrrlo', 'orrrrrrro', '.orrrrro.', '..orrro..', '...oro...', '....o....']],
+        'flash' => [-2, 8, ['..l..', '.lll.', 'lllll', '.lll.', '..l..']],
+        'muzzle1' => [30, 33, ['.g.g', 'gggg', '.gg.', 'g..g']],
+        'muzzle2' => [31, 34, ['g.g', '.g.', 'g.g']],
+        'bow' => [30, 19, ['.oo', 'obo', 'obo', '.obo', '.obo', '.obo', '.obo', '.obo', '.obo', '.obo', '.obo', '.obo', 'obo', 'obo', '.oo']],
+        'arrow1' => [14, 25, ['oooooooooooooooooo.', 'ovvvvvvvvvvvvvvvvvo', 'oooooooooooooooooo.']],
+        'arrow2' => [30, 21, ['oooooooo..', 'obbbbbbbvo', 'oooooooo..']],
+        'arrow3' => [36, 17, ['oooo', 'obbo', 'oooo']],
+        'phone' => [2, 12, ['oooo', 'oeeo', 'o3eo', 'oeeo', 'oooo']],
+        'flag' => [-7, 26, ['oooooo', 'orrrrlo', 'orrrrlo', 'orrrro.', 'ooooo..', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.',
+            'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'oo']],
+        'note' => [26, 6, ['...oo', '..ogo', '..oo.', '..o..', 'ooo..', 'ogo..', 'oo...']],
+        'z' => [24, 4, ['oooo', '..o.', '.o..', 'oooo']],
+    ];
+}
