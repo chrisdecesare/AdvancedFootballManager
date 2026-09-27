@@ -10,22 +10,21 @@
  * Il catalogo sta in lib/shop_items.php (nome, prezzo, obiettivo) e il disegno di sfondi e bordi in assets/style.css; nel database restano
  * solo gli acquisti (player_items) e cosa si indossa adesso (colonne bg_preset, border_key, nick_key, hat_key di players). Le chiavi degli
  * oggetti sono uniche in tutto il catalogo e lunghe al massimo 16 caratteri (finiscono anche nella mossa del portafoglio).
+ * Anche gli oggetti del Personaggio (avatar.php) stanno in questo catalogo e si comprano allo stesso modo: vedi lib/avatar.php.
  */
 
 require_once __DIR__ . '/hats.php';
 
+/** Tipi del Negozio del profilo (shop.php). Quelli del Personaggio sono in lib/avatar.php (avatar_kinds). */
 function shop_kinds(): array
 {
-    return ['hat' => 'Copricapi', 'border' => 'Bordi', 'bg' => 'Sfondi', 'nick' => 'Nickname',
-        'jersey' => 'Maglie', 'shorts' => 'Pantaloncini', 'shoes' => 'Scarpe', 'celebration' => 'Esultanze'];
+    return ['hat' => 'Copricapi', 'border' => 'Bordi', 'bg' => 'Sfondi', 'nick' => 'Nickname'];
 }
 
-/** Colonna di players dove si salva cosa si indossa, per tipo di oggetto. */
+/** Colonna di players dove si salva cosa si indossa, per i tipi del profilo (il Personaggio usa avatar_look, lib/avatar.php). */
 function shop_column(string $kind): string
 {
-    return ['bg' => 'bg_preset', 'nick' => 'nick_key', 'hat' => 'hat_key', 'border' => 'border_key',
-        'jersey' => 'equipped_jersey_key', 'shorts' => 'equipped_shorts_key', 'shoes' => 'equipped_shoes_key',
-        'celebration' => 'equipped_celebration_key'][$kind];
+    return ['bg' => 'bg_preset', 'nick' => 'nick_key', 'hat' => 'hat_key', 'border' => 'border_key'][$kind];
 }
 
 function shop_catalog(): array
@@ -35,7 +34,7 @@ function shop_catalog(): array
         return $c;
     }
     $src = require __DIR__ . '/shop_items.php';
-    $c = ['hat' => [], 'border' => [], 'bg' => [], 'nick' => [], 'jersey' => [], 'shorts' => [], 'shoes' => [], 'celebration' => []];
+    $c = [];
     foreach ($src['hat'] as [$k, $name, $price, $tpl, $a, $b, $col]) {
         $c['hat'][$k] = ['name' => $name, 'price' => $price, 'tpl' => $tpl, 'colors' => ['a' => $a, 'b' => $b, 'c' => $col]];
     }
@@ -47,21 +46,38 @@ function shop_catalog(): array
     foreach ($src['nick'] as $row) {
         $c['nick'][$row[0]] = ['name' => $row[1], 'price' => $row[2]] + (isset($row[3]) ? ['goal' => $row[3]] : []);
     }
-    foreach ($src['jersey'] as [$k, $name, $price, $kind, $a, $b]) {
-        $c['jersey'][$k] = ['name' => $name, 'price' => $price, 'kind' => $kind, 'colors' => ['a' => $a, 'b' => $b]];
+    // Personaggio (lib/avatar.php)
+    foreach ($src['hair'] as [$k, $name, $price, $style, $desc]) {
+        $c['hair'][$k] = ['name' => $name, 'price' => $price, 'style' => $style, 'desc' => $desc];
     }
-    foreach (['shorts', 'shoes'] as $kind) {
+    foreach (['hair_color', 'skin', 'shorts', 'shoes'] as $kind) {
         foreach ($src[$kind] as [$k, $name, $price, $color]) {
             $c[$kind][$k] = ['name' => $name, 'price' => $price, 'color' => $color];
         }
     }
+    foreach (['beard', 'glasses'] as $kind) {
+        foreach ($src[$kind] as [$k, $name, $price, $style]) {
+            $c[$kind][$k] = ['name' => $name, 'price' => $price, 'style' => $style];
+        }
+    }
+    foreach ($src['jersey'] as $row) {
+        $c['jersey'][$row[0]] = ['name' => $row[1], 'price' => $row[2], 'kind' => $row[3], 'colors' => ['a' => $row[4], 'b' => $row[5]],
+            'pattern' => $row[6] ?? 'solid'];
+    }
+    // le maglie create dai giocatori (jersey_creator.php): gratis, e solo di chi le ha create
+    foreach (q('SELECT id, player_id, name, primary_color, secondary_color, pattern_key FROM custom_jerseys ORDER BY id')->fetchAll() as $cj) {
+        $c['jersey']['cj' . $cj['id']] = ['name' => $cj['name'], 'price' => 0, 'kind' => 'custom',
+            'colors' => ['a' => $cj['primary_color'], 'b' => $cj['secondary_color']], 'pattern' => $cj['pattern_key'],
+            'owner_player_id' => (int) $cj['player_id']];
+    }
+    foreach ($src['pet'] as [$k, $name, $price, $style, $a, $b]) {
+        $c['pet'][$k] = ['name' => $name, 'price' => $price, 'style' => $style, 'colors' => ['a' => $a, 'b' => $b]];
+    }
+    foreach ($src['pose'] as [$k, $name, $price, $pose]) {
+        $c['pose'][$k] = ['name' => $name, 'price' => $price, 'pose' => $pose];
+    }
     foreach ($src['celebration'] as [$k, $name, $price, $anim]) {
         $c['celebration'][$k] = ['name' => $name, 'price' => $price, 'anim' => $anim];
-    }
-    // le maglie create dal giocatore stesso (jersey_creator.php) entrano nel suo catalogo personale, gratis e sue soltanto
-    foreach (q('SELECT id, player_id, name, primary_color, secondary_color FROM custom_jerseys')->fetchAll() as $cj) {
-        $c['jersey']['cj' . $cj['id']] = ['name' => $cj['name'], 'price' => 0, 'kind' => 'custom',
-            'colors' => ['a' => $cj['primary_color'], 'b' => $cj['secondary_color']], 'owner_player_id' => (int) $cj['player_id']];
     }
     return $c;
 }
@@ -104,7 +120,10 @@ function shop_goal_met(array $item, array $progress): bool
     return isset($item['goal']) && $progress[$item['goal'][0]] >= $item['goal'][1];
 }
 
-/** Oggetti che il giocatore possiede: comprati + nickname sbloccati con gli obiettivi. @return array<string, true> */
+/**
+ * Oggetti che il giocatore possiede: comprati, nickname sbloccati con gli obiettivi, oggetti del Personaggio gratis (inclusi per tutti)
+ * e maglie create da lui. @return array<string, true>
+ */
 function shop_owned(int $playerId): array
 {
     $owned = [];
@@ -120,10 +139,11 @@ function shop_owned(int $playerId): array
             }
         }
     }
-    // le maglie che il giocatore si è creato da solo (jersey_creator.php) sono sue di diritto, senza comprarle
-    foreach (shop_catalog()['jersey'] as $k => $item) {
-        if (($item['owner_player_id'] ?? null) === $playerId) {
-            $owned[$k] = true;
+    foreach (avatar_kinds() as $kind => $_) {
+        foreach (shop_catalog()[$kind] as $k => $item) {
+            if (isset($item['owner_player_id']) ? $item['owner_player_id'] === $playerId : $item['price'] === 0) {
+                $owned[$k] = true;
+            }
         }
     }
     return $owned;
@@ -144,6 +164,9 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
     if (isset($item['owner_player_id'])) {
         return 'Questa maglia l\'ha creata un altro giocatore: non si compra.';
     }
+    if ($item['price'] === 0) {
+        return 'È già tuo: è incluso per tutti.';
+    }
     return bet_atomic(function () use ($playerId, $key, $item) {
         q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due acquisti insieme non possono spendere due volte gli stessi gettoni
         if (q('SELECT 1 FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $key])->fetch()) {
@@ -162,10 +185,11 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
 /**
  * Indossa un oggetto (o lo toglie, con $key = null). Ritorna il messaggio d'errore oppure null.
  * Uno sfondo speciale sostituisce quello scelto con colore o immagine (che va rifatto da "Modifica profilo").
+ * Gli oggetti del Personaggio vanno in avatar_look (lib/avatar.php), tranne il copricapo che è lo stesso del profilo.
  */
 function shop_equip(int $playerId, string $kind, ?string $key): ?string
 {
-    if (!isset(shop_kinds()[$kind])) {
+    if (!isset(shop_kinds()[$kind]) && !isset(avatar_kinds()[$kind])) {
         return 'Tipo non valido.';
     }
     if ($key !== null) {
@@ -176,7 +200,9 @@ function shop_equip(int $playerId, string $kind, ?string $key): ?string
             return 'Non ce l\'hai ancora.';
         }
     }
-    if ($kind === 'bg' && $key !== null) {
+    if (!isset(shop_kinds()[$kind])) {
+        avatar_set($playerId, $kind, $key);
+    } elseif ($kind === 'bg' && $key !== null) {
         $old = q('SELECT bg_image FROM players WHERE id = ?', [$playerId])->fetchColumn();
         delete_photo_file($old ?: null);
         q('UPDATE players SET bg_preset = ?, bg_color = NULL, bg_image = NULL WHERE id = ?', [$key, $playerId]);

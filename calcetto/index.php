@@ -78,23 +78,16 @@ layout_start('Home', 'home');
       <?= availability_buttons($next, $myStatus, 'index.php') ?>
 
       <?php if ($hasTeams): ?>
-        <?php if (is_admin()): // avatar 3D (Personaggio) ancora in prova: il campo 3D resta nascosto finché non si apre a tutti ?>
+        <?php if (is_admin()): // Personaggi ancora in prova: la vista con i personaggi resta nascosta finché non si apre a tutti ?>
         <div class="sub-title-row">
           <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
           <div class="pitch-view-toggle" role="group" aria-label="Vista formazioni">
             <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-view-toggle="2d"><i class="ti ti-circles"></i> Cerchi</button>
-            <button type="button" class="btn btn-ghost btn-sm" data-pitch-view-toggle="3d"><i class="ti ti-3d-cube-sphere"></i> Campo 3D</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-pitch-view-toggle="fig"><i class="ti ti-users"></i> Personaggi</button>
           </div>
         </div>
         <div data-pitch-view="2d"><?= render_pitch($next, $roster) ?></div>
-        <div data-pitch-view="3d" hidden>
-          <div class="pitch3d-canvas" data-pitch3d="<?= h(json_encode(pitch3d_players($next, $roster), JSON_UNESCAPED_SLASHES)) ?>"></div>
-        </div>
-        <script type="importmap">
-        { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
-        </script>
-        <script type="module" src="assets/avatar3d.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar3d.js'), 0, 10)) ?>"></script>
+        <div data-pitch-view="fig" hidden><?= render_pitch_figures($next, $roster) ?></div>
         <script>
         document.querySelectorAll('[data-pitch-view-toggle]').forEach(btn => btn.addEventListener('click', () => {
           const view = btn.dataset.pitchViewToggle;
@@ -104,7 +97,7 @@ layout_start('Home', 'home');
         }));
         try {
           const saved = localStorage.getItem('pitchView');
-          if (saved === '3d') { document.querySelector('[data-pitch-view-toggle="3d"]')?.click(); }
+          if (saved === 'fig') { document.querySelector('[data-pitch-view-toggle="fig"]')?.click(); }
         } catch (e) {}
         </script>
         <?php else: ?>

@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 30;
+const SCHEMA_VERSION = 31;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -555,13 +555,7 @@ function ensure_schema(): void
         $add('players', 'injured', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
     }
     if ($v < 30) {
-        // avatar 3D del Personaggio (avatar.php): modello Ready Player Me collegato e cosa indossa adesso
-        // (stesso schema equip-by-column di hat_key/border_key, lib/shop.php)
-        $add('players', 'avatar_rpm_url', 'VARCHAR(255) NULL');
-        $add('players', 'equipped_jersey_key', 'VARCHAR(16) NULL');
-        $add('players', 'equipped_shorts_key', 'VARCHAR(16) NULL');
-        $add('players', 'equipped_shoes_key', 'VARCHAR(16) NULL');
-        $add('players', 'equipped_celebration_key', 'VARCHAR(16) NULL');
+        // maglie create dai giocatori per il Personaggio (jersey_creator.php)
         db()->exec('CREATE TABLE IF NOT EXISTS custom_jerseys (
             id INT AUTO_INCREMENT PRIMARY KEY,
             player_id INT NOT NULL,
@@ -573,6 +567,32 @@ function ensure_schema(): void
             INDEX (player_id),
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 31) {
+        // Personaggio disegnato in SVG (lib/avatar.php): cosa indossa sta tutto in avatar_look (JSON), il copricapo resta hat_key.
+        // Chi era alla v30 aveva le colonne della prima versione in 3D: si tiene quello che indossava e le si toglie.
+        $add('players', 'avatar_look', 'TEXT NULL');
+        $old = ['equipped_jersey_key' => 'jersey', 'equipped_shorts_key' => 'shorts', 'equipped_shoes_key' => 'shoes',
+            'equipped_celebration_key' => 'celebration'];
+        $have = array_values(array_filter(array_keys($old), fn($c) => (bool) q("SHOW COLUMNS FROM players LIKE '$c'")->fetch()));
+        if ($have) {
+            foreach (q('SELECT id, ' . implode(', ', $have) . ' FROM players')->fetchAll() as $p) {
+                $look = [];
+                foreach ($have as $c) {
+                    if ($p[$c]) {
+                        $look[$old[$c]] = $p[$c];
+                    }
+                }
+                if ($look) {
+                    q('UPDATE players SET avatar_look = ? WHERE id = ?', [json_encode($look), $p['id']]);
+                }
+            }
+        }
+        foreach (array_merge($have, ['avatar_rpm_url']) as $c) {
+            if (q("SHOW COLUMNS FROM players LIKE '$c'")->fetch()) {
+                db()->exec("ALTER TABLE players DROP COLUMN $c");
+            }
+        }
     }
     if ($v < 28) {
         // quote più alte per le prime partite (bet_boost in lib/bets.php): valgono per tutte le partite già in programma

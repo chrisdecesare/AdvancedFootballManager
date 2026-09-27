@@ -26,11 +26,7 @@ CREATE TABLE IF NOT EXISTS players (
   nick_key VARCHAR(16) NULL,                       -- nickname che porta adesso
   hat_key VARCHAR(16) NULL,                        -- copricapo che porta adesso
   border_key VARCHAR(16) NULL,                     -- bordo speciale che porta adesso
-  avatar_rpm_url VARCHAR(255) NULL,                -- modello 3D (Ready Player Me) dell'avatar del Personaggio (avatar.php)
-  equipped_jersey_key VARCHAR(16) NULL,            -- maglia che porta adesso sull'avatar 3D
-  equipped_shorts_key VARCHAR(16) NULL,            -- pantaloncini che porta adesso sull'avatar 3D
-  equipped_shoes_key VARCHAR(16) NULL,             -- scarpe che porta adesso sull'avatar 3D
-  equipped_celebration_key VARCHAR(16) NULL,       -- esultanza scelta per l'avatar 3D
+  avatar_look TEXT NULL,                           -- Personaggio (avatar.php): cosa indossa, JSON tipo => chiave del catalogo (lib/avatar.php)
   is_guest TINYINT(1) NOT NULL DEFAULT 0,          -- 1 = Ospite: gioca una partita sola, fuori da rosa e statistiche (lib/guests.php)
   guest_email VARCHAR(190) NULL,                   -- email dell'Ospite: se poi si iscrive con questa, la partita passa al suo profilo
   guest_match_id INT NULL,                         -- la partita a cui e' invitato

@@ -1,6 +1,7 @@
 <?php
 /*
- * Catalogo del negozio (lib/shop.php): copricapi, sfondi, bordi e nickname, un oggetto per riga. Si può modificare a mano:
+ * Catalogo del negozio (lib/shop.php): copricapi, sfondi, bordi e nickname del profilo, e in fondo gli oggetti del Personaggio
+ * (avatar.php), un oggetto per riga. Si può modificare a mano:
  *  - copricapi: [chiave, nome, prezzo, forma (lib/hats.php), colore a, b, c];
  *  - sfondi e bordi: [chiave, nome, prezzo] (il disegno sta in assets/style.css: classi bgp-<chiave> e brd-<chiave>);
  *  - nickname: [chiave, nome, prezzo] se si compra, oppure [chiave, nome, null, [statistica, soglia, descrizione]] se si sblocca con un obiettivo.
@@ -245,25 +246,99 @@ return [
         ['n_magnate', 'Il Magnate', null, ['coins', 1000, '1000 gettoni in portafoglio']],
         ['n_collezionista', 'Il Collezionista', null, ['items', 10, '10 oggetti comprati nel negozio']],
     ],
-    // maglie dell'avatar 3D (avatar.php): [chiave, nome, prezzo, tipo ('club'|'national'), colore primario, colore secondario]
-    // le maglie 'national' riprendono i colori delle divise più note, senza loghi federali (vedi lib/shop.php)
+    /*
+     * Personaggio (avatar.php, disegno in lib/avatar.php). Prezzo 0 = incluso per tutti, senza comprarlo.
+     * Carnagione e colori naturali dei capelli sono sempre gratis.
+     */
+    // capelli: [chiave, nome, prezzo, acconciatura (lib/avatar.php: avatar_hair_styles), descrizione]
+    'hair' => [
+        ['ha_classico', 'Taglio classico', 0, 'classic', 'Il primo taglio della tua carriera.'],
+        ['ha_rasato', 'Rasato', 0, 'buzz', 'Zero pensieri, zero pettine.'],
+        ['ha_pelato', 'Pelato', 0, 'bald', 'Aerodinamico: il pallone scivola meglio.'],
+        ['ha_riga', 'Riga di lato', 60, 'side', 'Pettinato per la foto di squadra.'],
+        ['ha_sfumato', 'Sfumatura', 90, 'fade', 'Appena uscito dal barbiere.'],
+        ['ha_spettinato', 'Spettinato', 90, 'spiky', 'Sveglia suonata cinque minuti prima della partita.'],
+        ['ha_ciuffo', 'Ciuffo', 150, 'quiff', 'Non si scompone neanche in rovesciata.'],
+        ['ha_ricci', 'Ricci', 150, 'curly', 'Volume da fuoriclasse.'],
+        ['ha_codino', 'Codino', 180, 'bun', 'Legati stretti prima del fischio d\'inizio.'],
+        ['ha_lunghi', 'Capelli lunghi', 180, 'long', 'Al vento sulla fascia.'],
+        ['ha_mullet', 'Mullet', 220, 'mullet', 'Anni \'80 davanti, festa dietro.'],
+        ['ha_treccine', 'Treccine', 240, 'braids', 'Ci vogliono ore, si vedono da tutto il campo.'],
+        ['ha_cresta', 'Cresta', 300, 'mohawk', 'Per chi entra in campo per farsi notare.'],
+    ],
+    // colore dei capelli (anche sopracciglia e barba): [chiave, nome, prezzo, colore]
+    'hair_color' => [
+        ['hc_nero', 'Nero', 0, '#231a17'],
+        ['hc_castano_s', 'Castano scuro', 0, '#4a2c1d'],
+        ['hc_castano', 'Castano', 0, '#7a4a2a'],
+        ['hc_rosso', 'Rosso', 0, '#b5471f'],
+        ['hc_biondo', 'Biondo', 0, '#e0b24f'],
+        ['hc_platino', 'Biondo platino', 0, '#f3e3b0'],
+        ['hc_grigio', 'Brizzolato', 0, '#9a9aa6'],
+        ['hc_blu', 'Blu elettrico', 120, '#3a63ff'],
+        ['hc_rosa', 'Rosa', 120, '#ff6bb5'],
+        ['hc_verde', 'Verde prato', 120, '#38d178'],
+        ['hc_viola', 'Viola', 120, '#8a5cf6'],
+        ['hc_oro', 'Oro', 300, '#ffc21a'],
+    ],
+    // carnagione: [chiave, nome, prezzo, colore]
+    'skin' => [
+        ['sk_1', 'Chiarissima', 0, '#ffe0c4'],
+        ['sk_2', 'Chiara', 0, '#f6c9a3'],
+        ['sk_3', 'Media', 0, '#e8b287'],
+        ['sk_4', 'Olivastra', 0, '#d09a6c'],
+        ['sk_5', 'Ambrata', 0, '#b07a4f'],
+        ['sk_6', 'Scura', 0, '#8a5a36'],
+        ['sk_7', 'Molto scura', 0, '#643f24'],
+    ],
+    // barba e baffi: [chiave, nome, prezzo, stile (lib/avatar.php: avatar_beards)]
+    'beard' => [
+        ['be_nessuna', 'Niente barba', 0, 'none'],
+        ['be_accenno', 'Barba di tre giorni', 0, 'stubble'],
+        ['be_baffi', 'Baffi', 80, 'moustache'],
+        ['be_pizzetto', 'Pizzetto', 80, 'goatee'],
+        ['be_capitano', 'Baffi e pizzetto', 120, 'captain'],
+        ['be_piena', 'Barba piena', 160, 'full'],
+    ],
+    // occhiali: [chiave, nome, prezzo, stile (lib/avatar.php: avatar_glasses)]
+    'glasses' => [
+        ['gl_nessuno', 'Niente occhiali', 0, 'none'],
+        ['gl_vista', 'Occhiali da vista', 60, 'round'],
+        ['gl_sole', 'Occhiali da sole', 120, 'sun'],
+        ['gl_sport', 'Occhiali sportivi', 150, 'sport'],
+        ['gl_stelle', 'Occhiali a stella', 220, 'stars'],
+        ['gl_cuore', 'Occhiali a cuore', 220, 'hearts'],
+        ['gl_monocolo', 'Monocolo', 300, 'monocle'],
+    ],
+    // maglie: [chiave, nome, prezzo, tipo ('club'|'national'), colore primario, colore secondario, motivo (lib/avatar.php: avatar_patterns)]
+    // le 'national' riprendono i colori delle divise più note, senza stemmi né loghi. Le maglie create dai giocatori stanno in custom_jerseys.
     'jersey' => [
         ['j_casa', 'Maglia da gioco', 0, 'club', '#2a3f9b', '#ffffff'],
         ['j_rossa', 'Maglia rossa', 40, 'club', '#c0392b', '#ffffff'],
         ['j_nera', 'Maglia nera', 40, 'club', '#1f1a2e', '#ffd23f'],
-        ['j_biancoceleste', 'Maglia biancoceleste', 40, 'club', '#a6e6ff', '#ffffff'],
+        ['j_biancoceleste', 'Maglia biancoceleste', 40, 'club', '#a6e6ff', '#ffffff', 'stripes_v'],
         ['j_giallorossa', 'Maglia giallorossa', 40, 'club', '#c0392b', '#ffd23f'],
         ['j_viola', 'Maglia viola', 50, 'club', '#7a4fd6', '#ffffff'],
         ['j_verdona', 'Maglia verdona', 50, 'club', '#1f8a4c', '#ffd23f'],
+        ['j_rossonera', 'Maglia rossonera', 70, 'club', '#c0392b', '#1f1a2e', 'stripes_v'],
+        ['j_nerazzurra', 'Maglia nerazzurra', 70, 'club', '#2a63c9', '#1f1a2e', 'stripes_v'],
+        ['j_bianconera', 'Maglia bianconera', 70, 'club', '#ffffff', '#1f1a2e', 'stripes_v'],
+        ['j_cerchiata', 'Maglia a cerchi', 70, 'club', '#1f8a4c', '#ffffff', 'stripes_h'],
+        ['j_fascia', 'Maglia con la fascia', 90, 'club', '#ffffff', '#c0392b', 'sash'],
+        ['j_meta', 'Maglia a metà', 90, 'club', '#ffd23f', '#2a3f9b', 'halves'],
+        ['j_retro', 'Maglia retrò', 110, 'club', '#1f8a4c', '#ffd23f', 'sleeves'],
         ['n_italia', 'Nazionale Italia', 90, 'national', '#2a3f9b', '#ffffff'],
         ['n_brasile', 'Nazionale Brasile', 90, 'national', '#ffd23f', '#1f8a4c'],
-        ['n_argentina', 'Nazionale Argentina', 90, 'national', '#a6e6ff', '#ffffff'],
+        ['n_argentina', 'Nazionale Argentina', 90, 'national', '#a6e6ff', '#ffffff', 'stripes_v'],
         ['n_francia', 'Nazionale Francia', 90, 'national', '#1f2a5c', '#ffffff'],
         ['n_germania', 'Nazionale Germania', 90, 'national', '#ffffff', '#1f1a2e'],
         ['n_spagna', 'Nazionale Spagna', 90, 'national', '#c0392b', '#ffd23f'],
         ['n_portogallo', 'Nazionale Portogallo', 90, 'national', '#c0392b', '#1f8a4c'],
         ['n_olanda', 'Nazionale Olanda', 90, 'national', '#ff8c42', '#ffffff'],
         ['n_inghilterra', 'Nazionale Inghilterra', 90, 'national', '#ffffff', '#2a3f9b'],
+        ['n_croazia', 'Nazionale Croazia', 110, 'national', '#ffffff', '#c0392b', 'halves'],
+        ['n_giappone', 'Nazionale Giappone', 90, 'national', '#1f2a5c', '#c0392b'],
+        ['n_messico', 'Nazionale Messico', 90, 'national', '#1f8a4c', '#ffffff'],
     ],
     // pantaloncini: [chiave, nome, prezzo, colore]
     'shorts' => [
@@ -271,23 +346,47 @@ return [
         ['p_neri', 'Pantaloncini neri', 25, '#1f1a2e'],
         ['p_blu', 'Pantaloncini blu', 25, '#2a3f9b'],
         ['p_rossi', 'Pantaloncini rossi', 25, '#c0392b'],
+        ['p_verdi', 'Pantaloncini verdi', 25, '#1f8a4c'],
+        ['p_azzurri', 'Pantaloncini azzurri', 25, '#53c8f5'],
         ['p_oro', 'Pantaloncini oro', 60, '#ffd23f'],
     ],
-    // scarpe: [chiave, nome, prezzo, colore]
+    // scarpette: [chiave, nome, prezzo, colore]
     'shoes' => [
-        ['s_nere', 'Scarpe nere', 0, '#1f1a2e'],
-        ['s_bianche', 'Scarpe bianche', 30, '#ffffff'],
-        ['s_fluo', 'Scarpe fluo', 55, '#38d178'],
-        ['s_rosa', 'Scarpe rosa', 55, '#ff8fbf'],
-        ['s_oro', 'Scarpe dorate', 120, '#ffd23f'],
+        ['s_nere', 'Scarpette nere', 0, '#1f1a2e'],
+        ['s_bianche', 'Scarpette bianche', 30, '#ffffff'],
+        ['s_rosse', 'Scarpette rosse', 40, '#ff5a5f'],
+        ['s_blu', 'Scarpette blu', 40, '#3a63ff'],
+        ['s_fluo', 'Scarpette fluo', 55, '#38d178'],
+        ['s_rosa', 'Scarpette rosa', 55, '#ff8fbf'],
+        ['s_arancio', 'Scarpette arancioni', 55, '#ff8c42'],
+        ['s_oro', 'Scarpette dorate', 120, '#ffd23f'],
     ],
-    // esultanze dell'avatar 3D: [chiave, nome, prezzo, animazione (assets/anims/<animazione>.glb, vedi assets/avatar3d.js)]
+    // pet: [chiave, nome, prezzo, animale (lib/avatar.php: avatar_pets), colore a, colore b]
+    'pet' => [
+        ['pe_nessuno', 'Nessun pet', 0, 'none', '', ''],
+        ['pe_pallino', 'Pallino', 120, 'ball', '', ''],
+        ['pe_pulcino', 'Pulcino', 150, 'chick', '#ffd23f', '#ffb000'],
+        ['pe_gatto', 'Gatto rosso', 220, 'cat', '#ff9a2e', '#ffffff'],
+        ['pe_gatto_nero', 'Gatto nero', 240, 'cat', '#3a3450', '#ffffff'],
+        ['pe_cane', 'Cane', 220, 'dog', '#c98a3b', '#fff3d6'],
+        ['pe_pinguino', 'Pinguino', 260, 'penguin', '#2b2540', '#ffffff'],
+    ],
+    // pose (come sta fermo il personaggio): [chiave, nome, prezzo, posa (lib/avatar.php: avatar_pose_angles)]
+    'pose' => [
+        ['po_riposo', 'Riposo', 0, 'rest'],
+        ['po_aperte', 'Braccia aperte', 40, 'open'],
+        ['po_saluto', 'Saluto', 60, 'wave'],
+        ['po_indica', 'Indica', 60, 'point'],
+        ['po_vittoria', 'Vittoria', 120, 'victory'],
+        ['po_cielo', 'Braccia al cielo', 160, 'up'],
+    ],
+    // esultanze: [chiave, nome, prezzo, animazione (classi .is-anim-<animazione> in assets/style.css)]
     'celebration' => [
         ['c_pugno', 'Pugno al cielo', 0, 'fist-pump'],
         ['c_esultanza', 'Esultanza classica', 45, 'celebration'],
-        ['c_backflip', 'Backflip', 160, 'backflip'],
-        ['c_danza', 'Balletto', 90, 'dance'],
-        ['c_inginocchio', 'In ginocchio', 70, 'kneel'],
         ['c_bacio', 'Bacio alla maglia', 55, 'shirt-kiss'],
+        ['c_inginocchio', 'In ginocchio', 70, 'kneel'],
+        ['c_danza', 'Balletto', 90, 'dance'],
+        ['c_backflip', 'Backflip', 160, 'backflip'],
     ],
 ];
