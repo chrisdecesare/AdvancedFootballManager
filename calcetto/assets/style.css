@@ -1343,8 +1343,13 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .av-panel-title { font: 400 1.1rem var(--font-d); display: inline-flex; align-items: center; gap: 6px; }
 .av-panel-btns { display: flex; gap: 6px; }
 .av-stage { position: relative; display: flex; justify-content: center; align-items: flex-end; height: 380px; padding-bottom: 12px; overflow: hidden; border-bottom: var(--b);
-  background: radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .75) 0 30%, transparent 30.5%),
+  background: radial-gradient(circle at 50% 44%, rgba(255, 255, 255, .8) 0 29%, rgba(255, 255, 255, .25) 29.5% 36%, transparent 36.5%),
     repeating-linear-gradient(90deg, #3fcf7a 0 28px, #36c270 28px 56px) bottom / 100% 26% no-repeat,
+    linear-gradient(var(--ink), var(--ink)) 0 74% / 100% 3px no-repeat,
+    radial-gradient(circle, #ffd23f 0 2.6px, transparent 3px) 0 58% / 16px 12px repeat-x,
+    radial-gradient(circle, #ff6b9a 0 2.6px, transparent 3px) 8px 64% / 16px 12px repeat-x,
+    radial-gradient(circle, #fff 0 2.6px, transparent 3px) 4px 70% / 16px 12px repeat-x,
+    linear-gradient(#4a4360, #4a4360) 0 64% / 100% 22% no-repeat,
     linear-gradient(#8fdcff, #d6f4ff); }
 .av-stage::before { content: ""; position: absolute; left: 50%; bottom: 16px; width: 190px; height: 42px; transform: translateX(-50%); border-radius: 50%;
   background: var(--paper-2); border: var(--b); box-shadow: 0 5px 0 var(--ink); }
