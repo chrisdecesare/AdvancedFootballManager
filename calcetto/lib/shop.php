@@ -28,6 +28,28 @@ function shop_column(string $kind): string
     return ['bg' => 'bg_preset', 'nick' => 'nick_key', 'hat' => 'hat_key', 'border' => 'border_key'][$kind];
 }
 
+/*
+ * Sconti del mercato: dal mercoledì pomeriggio (14:00) alla domenica sera i prezzi del Negozio tendono a scendere (shop_price(),
+ * fattore 'money': nel weekend girano più puntate e quindi più gettoni in circolo). Non è un prezzo fisso scontato, è lo stesso
+ * mercato di sempre: qui sta solo l'avviso che lo segnala ai giocatori.
+ */
+function promo_active(): bool
+{
+    $now = time();
+    $dow = (int) date('N', $now);   // 1 lun ... 7 dom
+    return $dow > 3 || ($dow === 3 && (int) date('G', $now) >= 14);
+}
+
+/** Prossimo inizio dello sconto (mercoledì alle 14): se è già iniziato non serve, vedi promo_active(). */
+function promo_next_at(): int
+{
+    $now = time();
+    if ((int) date('N', $now) === 3 && (int) date('G', $now) < 14) {
+        return strtotime('today 14:00', $now);
+    }
+    return strtotime('next wednesday 14:00', $now);
+}
+
 function shop_catalog(): array
 {
     static $c = null;

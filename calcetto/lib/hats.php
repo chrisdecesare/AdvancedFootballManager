@@ -69,6 +69,8 @@ function hat_templates(): array
         'alien' => '<path d="M32 62 C28 44 26 30 22 16 M68 62 C72 44 74 30 78 16" fill="none" stroke="#1f1a2e" stroke-width="3.4" stroke-linecap="round"/><circle cx="22" cy="14" r="8" fill="{a}" {S}/><circle cx="78" cy="14" r="8" fill="{a}" {S}/><path d="M12 68 C30 58 70 58 88 68" fill="none" stroke="#1f1a2e" stroke-width="9" stroke-linecap="round"/><path d="M12 68 C30 58 70 58 88 68" fill="none" stroke="{a}" stroke-width="4.5" stroke-linecap="round"/>',
         'mushroom' => '<path d="M8 60 C8 18 92 18 92 60 Z" fill="{a}" {S}/><path d="M8 60 H92 C92 70 8 70 8 60 Z" fill="#f4e3c1" {S}/><circle cx="30" cy="42" r="7" fill="{b}"/><circle cx="54" cy="32" r="8" fill="{b}"/><circle cx="74" cy="46" r="6" fill="{b}"/>',
         'icecream' => '<path d="M32 46 H68 L50 76 Z" fill="{b}" {S}/><path d="M38 52 L58 52 M42 60 L54 60" stroke="#8a5a2b" stroke-width="2" opacity=".6"/><circle cx="50" cy="32" r="20" fill="{a}" {S}/><circle cx="50" cy="12" r="5" fill="#ff5a5f" {S}/>',
+        // bandiera a tre strisce verticali su un'asta: colori a, b, c da sinistra a destra ({b} fa anche da sfondo/contorno del rettangolo)
+        'flag' => '<rect x="43" y="4" width="5" height="64" rx="1.5" fill="#8a5a2b" {S}/><path d="M48 8 H92 V38 H48 Z" fill="{b}" {S}/><rect x="48" y="8" width="14.7" height="30" fill="{a}"/><rect x="77.3" y="8" width="14.7" height="30" fill="{c}"/>',
     ];
     return $t;
 }

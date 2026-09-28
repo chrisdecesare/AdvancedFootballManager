@@ -315,6 +315,18 @@ function feet(): array
     return ['Destro', 'Sinistro', 'Ambidestro'];
 }
 
+/** Generi selezionabili nel profilo: chiave salvata in players.gender => etichetta mostrata. */
+function genders(): array
+{
+    return ['M' => 'Maschio', 'F' => 'Femmina', 'NB' => 'Non binario'];
+}
+
+/** Icona Tabler del genere, per il tag nel profilo. */
+function gender_icon(string $gender): string
+{
+    return ['M' => 'gender-male', 'F' => 'gender-female', 'NB' => 'gender-transgender'][$gender] ?? 'gender-male';
+}
+
 /** Nome della squadra: quello scelto per la partita, altrimenti quello di config.php. */
 function team_name(?string $t, ?array $match = null): string
 {

@@ -72,6 +72,7 @@ require __DIR__ . '/guests.php';
 require __DIR__ . '/live.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';
+require __DIR__ . '/guess.php';
 
 if (!defined('NO_CSRF')) {   // push.php la salta solo per il rinnovo dell'abbonamento, che non ha una sessione (vedi push.php)
     verify_csrf();
