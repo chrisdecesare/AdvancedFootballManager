@@ -109,15 +109,16 @@ return [
         ['h_fungo', 'Cappello di fungo', 115, 'mushroom', '#e63946', '#ffffff', ''],
         ['h_gelato', 'Gelato alla fragola', 115, 'icecream', '#ff8fbf', '#e0a458', ''],
         ['h_gelato_p', 'Gelato al pistacchio', 115, 'icecream', '#a8e6a3', '#e0a458', ''],
-        // bandierine su un'asta (forma 'flag'): tre colori a piacere, non stemmi ufficiali
-        ['f_italia', 'Bandiera Italia', 60, 'flag', '#1f8a4c', '#ffffff', '#c0392b'],
-        ['f_francia', 'Bandiera Francia', 60, 'flag', '#1f2a5c', '#ffffff', '#c0392b'],
-        ['f_brasile', 'Bandiera Brasile', 60, 'flag', '#ffd23f', '#1f8a4c', '#2a3f9b'],
-        ['f_argentina', 'Bandiera Argentina', 60, 'flag', '#a6e6ff', '#ffffff', '#a6e6ff'],
-        ['f_spagna', 'Bandiera Spagna', 60, 'flag', '#c0392b', '#ffd23f', '#c0392b'],
-        ['f_germania', 'Bandiera Germania', 60, 'flag', '#1f1a2e', '#c0392b', '#ffd23f'],
-        ['f_portogallo', 'Bandiera Portogallo', 60, 'flag', '#1f8a4c', '#c0392b', '#c0392b'],
-        ['f_olanda', 'Bandiera Olanda', 60, 'flag', '#c0392b', '#ffffff', '#2a3f9b'],
+        // bandierine su un'asta, colori il più possibile vicini a quelli veri: forma giusta per l'orientamento
+        // (verticale, orizzontale o quella apposta per il Brasile) e non stemmi/dettagli, come le maglie "nazionale"
+        ['f_italia', 'Bandiera Italia', 60, 'flag', '#008c45', '#ffffff', '#cd212a'],
+        ['f_francia', 'Bandiera Francia', 60, 'flag', '#0055a4', '#ffffff', '#ef4135'],
+        ['f_brasile', 'Bandiera Brasile', 60, 'flag_br', '#009739', '#fedd00', '#012169'],
+        ['f_argentina', 'Bandiera Argentina', 60, 'flag_h', '#74acdf', '#ffffff', '#74acdf'],
+        ['f_spagna', 'Bandiera Spagna', 60, 'flag_h2', '#aa151b', '#f1bf00', ''],
+        ['f_germania', 'Bandiera Germania', 60, 'flag_h', '#1f1a2e', '#dd0000', '#ffce00'],
+        ['f_portogallo', 'Bandiera Portogallo', 60, 'flag_pt', '#046a38', '#da291c', ''],
+        ['f_olanda', 'Bandiera Olanda', 60, 'flag_h', '#ae1c28', '#ffffff', '#21468b'],
     ],
     'bg' => [
         ['pois', 'Pois rosa', 80],
