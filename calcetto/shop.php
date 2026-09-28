@@ -119,6 +119,20 @@ layout_start('Negozio', 'shop');
 ?>
 <div class="page-head"><h1>Negozio <span class="muted small">personalizza il profilo</span></h1></div>
 
+<?php if (promo_active()): ?>
+<section class="card push-banner">
+  <i class="ti ti-discount-2 push-ic"></i>
+  <div class="push-txt"><strong>Sconti nel mercato!</strong>
+    <span class="muted small">Con più gettoni in circolo nel weekend, i prezzi tendono a scendere: è il momento migliore per comprare.</span></div>
+</section>
+<?php else: ?>
+<section class="card push-banner">
+  <i class="ti ti-discount-2 push-ic"></i>
+  <div class="push-txt"><strong>Da mercoledì pomeriggio, sconti nel mercato</strong>
+    <span class="muted small">I prezzi tendono a scendere nel weekend, quando girano più gettoni. <?= countdown_html(date('Y-m-d H:i:s', promo_next_at()), 'Iniziano tra ', 'Iniziano a momenti…', 0, false, 'clock') ?></span></div>
+</section>
+<?php endif; ?>
+
 <?php if ($mp): ?>
 <section class="card shop-bar" id="anteprima">
   <div class="shop-look role-<?= strtolower(position_abbr($mp['position'])) ?><?= bg_preset_class($mp) ?><?= border_class($mp) ?>" data-look>

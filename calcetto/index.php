@@ -200,6 +200,18 @@ layout_start('Home', 'home');
   </section>
   <?php endif; ?>
 
+  <section class="card drop-tease">
+    <div class="card-head">
+      <span class="eyebrow"><i class="ti ti-lock"></i> In arrivo</span>
+    </div>
+    <p><i class="ti ti-gift"></i> <?= guess_drop_passed()
+        ? 'Ci siamo quasi: la nuova funzionalità sta per uscire.'
+        : 'Giovedì esce una nuova funzionalità.' ?>
+      <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'Ci siamo!', 0, false, 'hourglass-high') ?></p>
+    <?php if (guess_teaser() !== ''): ?><p class="muted small">Indizio dell'admin: «<?= h(guess_teaser()) ?>»</p><?php endif; ?>
+    <a class="btn btn-ghost btn-sm" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà</a>
+  </section>
+
 </div>
 <?php
 layout_end();

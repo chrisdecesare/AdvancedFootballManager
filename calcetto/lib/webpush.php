@@ -346,6 +346,12 @@ function push_subs_of_users(array $userIds): array
     return q('SELECT id, user_id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id IN (' . implode(',', $userIds) . ')')->fetchAll();
 }
 
+/** Tutti gli account con almeno un dispositivo abbonato alle notifiche (su qualunque browser/telefono). */
+function push_all_subscribed_users(): array
+{
+    return q('SELECT DISTINCT user_id FROM push_subscriptions')->fetchAll(PDO::FETCH_COLUMN);
+}
+
 /** Account attivi collegati a questi giocatori. @return array<int, int> id giocatore => id account */
 function push_users_of_players(array $playerIds): array
 {

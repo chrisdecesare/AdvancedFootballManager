@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS players (
   position VARCHAR(20) NOT NULL DEFAULT 'Centrocampista',   -- posizione preferita (mai Jolly)
   position2 VARCHAR(20) NULL,                      -- seconda posizione (facoltativa)
   foot VARCHAR(12) NOT NULL DEFAULT 'Destro',
+  gender ENUM('M','F','NB') NOT NULL DEFAULT 'M',   -- Maschio, Femmina, Non binario (facoltativo, per l'aspetto del Personaggio)
   base_rating DECIMAL(3,1) NOT NULL DEFAULT 6.0,
   active TINYINT(1) NOT NULL DEFAULT 1,
   injured TINYINT(1) NOT NULL DEFAULT 0,           -- 1 = infortunato: non può confermare le partite (vedi player_set_injured in stats.php)
@@ -362,6 +363,19 @@ CREATE TABLE IF NOT EXISTS wishlist (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (player_id, item_key),
   INDEX (item_key),
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- "Indovina la funzionalità" (lib/guess.php): a ogni round i giocatori provano a indovinare la prossima novità del sito
+-- prima che esca il giovedì; l'admin premia con gettoni chi si è avvicinato di più (drops.php la mostra in Home col countdown)
+CREATE TABLE IF NOT EXISTS feature_guesses (
+  player_id INT NOT NULL,
+  round INT NOT NULL DEFAULT 1,
+  guess VARCHAR(300) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (player_id, round),
+  INDEX (round),
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
