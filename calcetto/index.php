@@ -45,6 +45,19 @@ layout_start('Home', 'home');
 <?= group_bar('index.php') ?>
 <div class="home">
 
+  <section class="card drop-hype">
+    <span class="drop-hype-tag"><i class="ti ti-eye-off"></i> Top secret</span>
+    <div class="drop-hype-row">
+      <i class="ti ti-gift drop-hype-icon" aria-hidden="true"></i>
+      <div class="drop-hype-txt">
+        <h2><?= guess_drop_passed() ? 'Ci siamo: sta per uscire!' : 'Giovedì cambia tutto.' ?></h2>
+        <p>Una novità è in arrivo e nessuno, tranne l'admin, sa cosa sia davvero.<?= guess_teaser() !== '' ? ' Indizio: «' . h(guess_teaser()) . '»' : '' ?></p>
+      </div>
+      <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'È il momento!', 0, false, 'hourglass-high', 'countdown-big drop-hype-count') ?>
+    </div>
+    <a class="btn btn-primary drop-hype-cta" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà: in palio dei gettoni</a>
+  </section>
+
   <?= push_card(true) ?>
 
   <?php if ($me && empty(current_user()['email'])): ?>
@@ -199,18 +212,6 @@ layout_start('Home', 'home');
     <?php if (count($facts) > 1): ?><div class="fact-timer" aria-hidden="true"><span data-fact-bar></span></div><?php endif; ?>
   </section>
   <?php endif; ?>
-
-  <section class="card drop-tease">
-    <div class="card-head">
-      <span class="eyebrow"><i class="ti ti-lock"></i> In arrivo</span>
-    </div>
-    <p><i class="ti ti-gift"></i> <?= guess_drop_passed()
-        ? 'Ci siamo quasi: la nuova funzionalità sta per uscire.'
-        : 'Giovedì esce una nuova funzionalità.' ?>
-      <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'Ci siamo!', 0, false, 'hourglass-high') ?></p>
-    <?php if (guess_teaser() !== ''): ?><p class="muted small">Indizio dell'admin: «<?= h(guess_teaser()) ?>»</p><?php endif; ?>
-    <a class="btn btn-ghost btn-sm" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà</a>
-  </section>
 
 </div>
 <?php
