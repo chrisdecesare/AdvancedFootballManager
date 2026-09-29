@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 34;
+const SCHEMA_VERSION = 35;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -650,6 +650,11 @@ function ensure_schema(): void
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 35) {
+        // fin dove il giocatore ha già visto i regali di gettoni dell'admin (lib/guess.php: coin_gifts_unseen): i regali vecchi non ricompaiono
+        $add('players', 'gift_seen_id', 'INT NOT NULL DEFAULT 0');
+        db()->exec('UPDATE players SET gift_seen_id = (SELECT COALESCE(MAX(id), 0) FROM wallet_moves)');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

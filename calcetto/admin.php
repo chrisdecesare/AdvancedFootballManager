@@ -138,6 +138,7 @@ if (is_post()) {
             } else {
                 q("INSERT INTO wallet_moves (player_id, delta, kind) VALUES (?, ?, 'regalo')", [$giftPlayer['id'], $giftAmount]);
                 log_activity('gettoni', 'regalo · ' . $giftAmount . ' a ' . $giftPlayer['name']);
+                coin_gift_notify((int) $giftPlayer['id'], $giftAmount);
                 flash('ok', 'Regalati ' . $giftAmount . ' gettoni a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id']) . '.');
             }
             break;
@@ -239,6 +240,7 @@ if (is_post()) {
                 $ins->execute([$gPid, $gAmount, $ref]);
                 if ($ins->rowCount()) {
                     log_activity('gettoni', 'premio indovina · ' . $gAmount . ' a ' . $gPlayer['name']);
+                    coin_gift_notify($gPid, $gAmount, 'per la tua idea su «Indovina la funzionalità»');
                     flash('ok', 'Premiato ' . $gPlayer['name'] . ' con ' . $gAmount . ' gettoni per il round ' . $gRound . '.');
                 } else {
                     flash('err', $gPlayer['name'] . ' ha già ricevuto un premio per questo round.');

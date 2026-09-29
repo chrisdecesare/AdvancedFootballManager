@@ -44,12 +44,11 @@ document.addEventListener('DOMContentLoaded', () => {
     timer = setInterval(tick, 1000);
   });
 
-  // conferma dei voti: sparisce da sola, oppure con un tocco
-  const voteDone = document.querySelector('[data-vote-done]');
-  if (voteDone) {
+  // conferma dei voti e regalo di gettoni: spariscono da sole, oppure con un tocco
+  document.querySelectorAll('[data-vote-done]').forEach(voteDone => {
     voteDone.addEventListener('click', () => voteDone.remove());
     voteDone.addEventListener('animationend', e => { if (e.target === voteDone) voteDone.remove(); });
-  }
+  });
 
   document.querySelectorAll('[data-confirm]').forEach(el => {
     el.addEventListener('click', e => {

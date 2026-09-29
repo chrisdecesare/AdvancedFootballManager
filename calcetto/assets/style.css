@@ -1471,3 +1471,10 @@ tr.is-new td { background: #fffbe6; }
 .fact-grid { align-items: stretch; }
 .fact-slides .fact-text:not(.is-open) { min-height: calc(3 * 1.45em); }
 .fact.is-paused .fact-timer span { animation-play-state: paused; }
+
+/* regalo di gettoni dall'admin: come la spunta dei voti, ma col gettone (lib/layout.php) */
+.coin-gift { animation-duration: 3.6s; }
+.cg-badge { display: grid; place-items: center; width: min(46vw, 170px); aspect-ratio: 1; border-radius: 50%; background: var(--yellow); border: 6px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--ink); font-size: min(30vw, 112px); color: var(--ink); animation: cg-spin .9s .15s cubic-bezier(.34, 1.56, .64, 1) both; }
+@keyframes cg-spin { from { transform: rotateY(180deg) scale(.6); opacity: 0; } to { transform: rotateY(0) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .cg-badge { animation: none; } }

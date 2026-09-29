@@ -137,6 +137,17 @@ function layout_start(string $title, string $active = ''): void
   <div class="flash flash-warn"><i class="ti ti-shield-lock"></i> <?= is_admin() ? 'Il tuo account gestisce tutto il sito' : 'Il tuo account gestisce una lega' ?>: proteggilo con la
     <a class="link" href="account.php#due-passaggi">verifica in due passaggi</a> (un codice dal telefono oltre alla password). Ci vuole un minuto.</div>
 <?php endif; ?>
+<?php if ($myId && ($gift = coin_gifts_unseen($myId))):   // regalo di gettoni dall'admin: sovraimpressione col gettone, una volta sola
+    [$giftTot, $giftN, $giftLast, $giftGuess] = $gift;
+    coin_gifts_seen($myId, $giftLast); ?>
+<div class="vote-done coin-gift" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>
+    <div class="vote-done-title">+<?= $giftTot ?> gettoni!</div>
+    <div class="vote-done-sub">L'admin ti ha regalato <?= $giftTot ?> gettoni<?= $giftGuess && $giftN === 1 ? ' per la tua idea su «Indovina la funzionalità»' : '' ?>.</div>
+  </div>
+</div>
+<?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
   <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>
 <?php endforeach;
