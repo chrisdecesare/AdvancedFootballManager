@@ -87,6 +87,9 @@ layout_start('Home', 'home');
     <a class="btn btn-primary drop-hype-cta" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà: in palio dei gettoni</a>
     <?php endif; ?>
 
+    <?php if (is_admin()): $newProposals = proposal_unread_count(); ?>
+    <a class="btn btn-ghost drop-hype-cta drop-hype-read" href="admin.php#proposte"><i class="ti ti-inbox"></i> Leggi le proposte dei giocatori<?= $newProposals ? ' (' . $newProposals . ' nuove)' : '' ?></a>
+    <?php endif; ?>
     <?php if (current_user() && !is_guest()): ?>
     <form method="post" class="form drop-hype-idea" id="proposte">
       <?= csrf_field() ?><input type="hidden" name="do" value="proposal">
