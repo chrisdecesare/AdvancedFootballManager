@@ -6,7 +6,7 @@ function h($s): string
 
 function redirect(string $url): void
 {
-    header('Location: ' . $url);
+    header('Location: ' . pretty_url($url));   // lib/routes.php: avatar.php -> personaggio
     exit;
 }
 
@@ -313,6 +313,18 @@ function role_lock_match(int $playerId): ?array
 function feet(): array
 {
     return ['Destro', 'Sinistro', 'Ambidestro'];
+}
+
+/** Generi selezionabili nel profilo: chiave salvata in players.gender => etichetta mostrata. */
+function genders(): array
+{
+    return ['M' => 'Maschio', 'F' => 'Femmina', 'NB' => 'Non binario'];
+}
+
+/** Icona Tabler del genere, per il tag nel profilo. */
+function gender_icon(string $gender): string
+{
+    return ['M' => 'gender-male', 'F' => 'gender-female', 'NB' => 'gender-transgender'][$gender] ?? 'gender-male';
 }
 
 /** Nome della squadra: quello scelto per la partita, altrimenti quello di config.php. */

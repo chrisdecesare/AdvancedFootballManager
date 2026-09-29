@@ -424,13 +424,77 @@ function px_hair(): array
                 '...ohhhhhhhhh...',
             ]),
         ],
+        // coda alta: come 'long', con una fascia (colore 'y', quello del copricapo anche a mani vuote) a legarla
+        'ponytail' => [
+            'front' => px_m(-1, -2, [
+                '...ooooo.',
+                '..ohhhhhh',
+                '.ohhhhhhh',
+                'ohhHhhhhh',
+                'ohhhhhhhh',
+                'ohhhhh...',
+                'ohhh.....',
+                'oyyy.....',
+                'ohhh.....',
+                'ohHh.....',
+                'ohhh.....',
+                'ohhh.....',
+                'ohhh.....',
+                '.oho.....',
+                '..o......',
+            ]),
+            'side' => px_l(0, -2, [
+                '....ooooooo.....',
+                '..oohhhhhhhoo...',
+                '.ohhhhhhhhhhhho.',
+                'ohhhhhhhhhhhhhho',
+                'ohhhhhhhhhhhhho.',
+                'ohhhhhhhhhh.....',
+                'ohhhhhh.........',
+                'oyyyyy..........',
+                'ohhhhh..........',
+                'ohhHhh..........',
+                'ohhhhh..........',
+                'ohhhho..........',
+                'ohhhho..........',
+                '.ohho...........',
+                '..oo............',
+            ]),
+        ],
+        // afro: un grande volume tondo, staccato dalla testa
+        'afro' => [
+            'front' => px_m(-2, -8, [
+                '....ooo',
+                '..oohhho',
+                '.ohhhhhho',
+                'ohhhHhhho',
+                'ohhhhhhho',
+                'ohhhHhhho',
+                'ohhhhhhho',
+                '.ohhhhho',
+                '..ohhho',
+                '...ooo',
+            ]),
+            'side' => px_l(-1, -8, [
+                '.......oooo......',
+                '.....oohhhhoo....',
+                '....ohhhhhhhhoo..',
+                '...ohhhhhhhhhhho.',
+                '..ohhhHhhhhhhhho.',
+                '..ohhhhhhhhhhhho.',
+                '...ohhhHhhhhhho..',
+                '....ohhhhhhhho...',
+                '.....oohhhhoo....',
+                '.......oooo......',
+            ]),
+        ],
     ];
 }
 
 /** Col copricapo i capelli alti non ci stanno sotto: restano quelli lunghi, il resto diventa un taglio corto. */
 function px_hair_under_hat(string $style): string
 {
-    return in_array($style, ['bald', 'buzz', 'long', 'mullet', 'braids', 'fade', 'classic', 'side'], true)
+    return in_array($style, ['bald', 'buzz', 'long', 'mullet', 'braids', 'fade', 'classic', 'side', 'ponytail'], true)
         ? $style : ($style === 'mohawk' ? 'buzz' : 'classic');
 }
 

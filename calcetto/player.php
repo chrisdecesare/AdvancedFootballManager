@@ -112,6 +112,7 @@ layout_start($p['name'], 'players');
       <span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>" title="Posizione preferita"><?= h($p['position']) ?></span>
       <?php if ($p['position2']): ?><span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>" title="Seconda scelta"><?= h($p['position2']) ?></span><?php endif; ?>
       <span class="tag"><i class="ti ti-shoe"></i> <?= h($p['foot']) ?></span>
+      <span class="tag" title="Genere"><i class="ti ti-<?= h(gender_icon($p['gender'] ?? 'M')) ?>"></i> <?= h(genders()[$p['gender'] ?? 'M'] ?? 'Maschio') ?></span>
       <?php if ($rankPts): ?><span class="tag"><i class="ti ti-trophy"></i> <?= $rankPts ?>° in classifica</span><?php endif; ?>
       <?php if ($rankGoals): ?><span class="tag"><i class="ti ti-ball-football"></i> <?= $rankGoals ?>° marcatore</span><?php endif; ?>
       <?= form_badge($s['form']) ?>
@@ -148,7 +149,7 @@ layout_start($p['name'], 'players');
     <ul class="fact-list">
     <?php foreach ($curiosities as $c): ?>
       <li>
-        <span><?= h($c['body']) ?></span>
+        <span class="fact-text" data-clamp><?= h($c['body']) ?></span>
         <?php if ($canEdit): ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="del_curiosity"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
             <button class="icon-btn" title="Elimina la curiosità" aria-label="Elimina la curiosità" data-confirm="Eliminare questa curiosità?"><i class="ti ti-trash"></i></button></form>

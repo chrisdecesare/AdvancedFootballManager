@@ -138,6 +138,7 @@ if (is_post()) {
             } else {
                 q("INSERT INTO wallet_moves (player_id, delta, kind) VALUES (?, ?, 'regalo')", [$giftPlayer['id'], $giftAmount]);
                 log_activity('gettoni', 'regalo · ' . $giftAmount . ' a ' . $giftPlayer['name']);
+                coin_gift_notify((int) $giftPlayer['id'], $giftAmount);
                 flash('ok', 'Regalati ' . $giftAmount . ' gettoni a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id']) . '.');
             }
             break;
@@ -193,8 +194,70 @@ if (is_post()) {
                 flash('ok', 'Account eliminato (il giocatore e le sue statistiche restano).');
             }
             break;
+        case 'guess_drop':
+            // sposta la data del drop (e/o l'indizio), restando nello stesso round: le idee già arrivate restano valide
+            $at = strtotime((string) ($_POST['drop_at'] ?? ''));
+            if (!$at) {
+                flash('err', 'Data non valida.');
+            } else {
+                guess_set_drop($at, trim((string) ($_POST['teaser'] ?? '')));
+                flash('ok', 'Drop aggiornato: esce il ' . date('d/m/Y \a\l\l\e H:i', $at) . '.');
+            }
+            break;
+        case 'guess_new_round':
+            // chiude il round («Indovina la funzionalità»): le vecchie idee restano in archivio, si riparte da zero con una nuova data
+            $at = strtotime((string) ($_POST['drop_at'] ?? '')) ?: guess_default_drop_at();
+            guess_new_round($at);
+            flash('ok', 'Nuovo round aperto: esce il ' . date('d/m/Y \a\l\l\e H:i', $at) . '.');
+            break;
+        case 'guess_notify':
+            // avviso push del countdown a chi ha le notifiche attive (qualunque account, non solo chi gioca in una lega di casa)
+            $users = push_all_subscribed_users();
+            if (!$users) {
+                flash('err', 'Nessuno ha ancora attivato le notifiche.');
+            } else {
+                push_notify_users($users, [
+                    'title' => 'Sta per uscire qualcosa di nuovo',
+                    'body' => (guess_teaser() !== '' ? guess_teaser() . ' ' : '') . 'Manca ' . push_when(date('Y-m-d H:i:s', guess_drop_at())) . '. Prova a indovinare cosa sarà!',
+                    'url' => 'guess.php', 'tag' => 'drop-' . guess_round(),
+                ], 'normal', 'drop');
+                flash('ok', 'Notifica mandata a ' . count($users) . ' account.');
+            }
+            break;
+        case 'guess_reward':
+            // regalo di gettoni a chi si è avvicinato di più: una volta sola per round e per giocatore (INSERT IGNORE con ref dedicato)
+            $gPid = (int) ($_POST['guess_player'] ?? 0);
+            $gAmount = (int) ($_POST['guess_amount'] ?? 0);
+            $gRound = (int) ($_POST['guess_round'] ?? 0);
+            $gPlayer = $gPid ? get_player($gPid) : null;
+            if (!$gPlayer || $gRound < 1) {
+                flash('err', 'Giocatore non valido.');
+            } elseif ($gAmount < 1 || $gAmount > 1000) {
+                flash('err', 'Il premio va da 1 a 1000 gettoni.');
+            } else {
+                $ref = 'guess-' . $gRound . '-' . $gPid;
+                $ins = db()->prepare("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'premio', ?)");
+                $ins->execute([$gPid, $gAmount, $ref]);
+                if ($ins->rowCount()) {
+                    log_activity('gettoni', 'premio indovina · ' . $gAmount . ' a ' . $gPlayer['name']);
+                    coin_gift_notify($gPid, $gAmount, 'per la tua idea su «Indovina la funzionalità»');
+                    flash('ok', 'Premiato ' . $gPlayer['name'] . ' con ' . $gAmount . ' gettoni per il round ' . $gRound . '.');
+                } else {
+                    flash('err', $gPlayer['name'] . ' ha già ricevuto un premio per questo round.');
+                }
+            }
+            break;
+        case 'proposal_read':
+            q('UPDATE proposals SET read_at = NOW() WHERE read_at IS NULL');
+            flash('ok', 'Proposte segnate come lette.');
+            break;
+        case 'proposal_delete':
+            q('DELETE FROM proposals WHERE id = ?', [(int) ($_POST['proposal_id'] ?? 0)]);
+            flash('ok', 'Proposta cancellata.');
+            break;
     }
-    redirect('admin.php');
+    redirect('admin.php' . (in_array($do, ['guess_drop', 'guess_new_round', 'guess_reward', 'guess_notify'], true) ? '#indovina'
+        : (in_array($do, ['proposal_read', 'proposal_delete'], true) ? '#proposte' : '')));
 }
 
 $users = q("SELECT u.*, p.name AS player_name, p.position, p.position2, p.foot, p.shirt_number
@@ -465,6 +528,90 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
     <label class="field"><span>Gettoni</span><input type="number" name="amount" min="1" max="1000" value="50" required inputmode="numeric"></label>
     <div><button class="btn btn-primary" data-confirm="Regalare questi gettoni?"><i class="ti ti-gift"></i> Regala</button></div>
   </form>
+</section>
+
+<?php $guessList = guess_all(guess_round()); ?>
+<section class="card" id="indovina">
+  <h2><i class="ti ti-help-circle"></i> Indovina la funzionalità</h2>
+  <p class="muted small">La card del countdown in Home (e la pagina segreta <a class="link" href="guess.php">guess.php</a>, non nel menu) invita i giocatori a indovinare la
+    prossima novità del sito. Qui vedi le idee del round attuale e regali gettoni a chi si è avvicinato di più; poi apri un nuovo round per quella successiva.</p>
+  <p class="small"><i class="ti ti-user-star"></i> <?= avatar_public()
+      ? 'Il Personaggio è aperto a tutti (dal round ' . avatar_launch_round() . '). Gli oggetti tenuti da parte li fai uscire da <a class="link" href="drops.php">Uscite</a> (pacchetti «Lancio: ...»).'
+      : 'Il Personaggio si apre a tutti da solo allo scadere di questo countdown, con solo una parte degli oggetti: gli altri restano «Coming soon» finché non li fai uscire da <a class="link" href="drops.php">Uscite</a>.' ?></p>
+
+  <form method="post" class="form form-grid form-grid-4">
+    <?= csrf_field() ?><input type="hidden" name="do" value="guess_drop">
+    <label class="field"><span>Esce il</span><input type="datetime-local" name="drop_at" value="<?= h(date('Y-m-d\TH:i', guess_drop_at())) ?>" required></label>
+    <label class="field span-2"><span>Indizio per i giocatori (facoltativo)</span><input name="teaser" maxlength="200" value="<?= h(guess_teaser()) ?>" placeholder="Es. C'entra il Negozio..."></label>
+    <div><button class="btn btn-ghost"><i class="ti ti-calendar-event"></i> Aggiorna</button></div>
+  </form>
+
+  <form method="post" class="btn-row">
+    <?= csrf_field() ?><input type="hidden" name="do" value="guess_notify">
+    <button class="btn btn-primary btn-sm" data-confirm="Mandare una notifica push del countdown a tutti quelli che le hanno attive?">
+      <i class="ti ti-bell-ringing"></i> Manda notifica push del countdown</button>
+  </form>
+
+  <h3>Round <?= guess_round() ?> <span class="muted small"><?= count($guessList) ?> <?= count($guessList) === 1 ? 'idea' : 'idee' ?></span></h3>
+  <?php if (!$guessList): ?>
+    <p class="muted small">Ancora nessuna idea per questo round.</p>
+  <?php else: ?>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Giocatore</th><th>Idea</th><th>Scritta/aggiornata</th><th>Premio</th></tr></thead>
+    <tbody>
+      <?php foreach ($guessList as $g): ?>
+      <tr>
+        <td><a class="link" href="player.php?id=<?= (int) $g['player_id'] ?>"><?= h($g['name']) ?></a></td>
+        <td><?= h($g['guess']) ?></td>
+        <td class="muted small"><?= h(push_when($g['updated_at'])) ?></td>
+        <td>
+          <form method="post" class="inline guess-reward"><?= csrf_field() ?><input type="hidden" name="do" value="guess_reward">
+            <input type="hidden" name="guess_player" value="<?= (int) $g['player_id'] ?>"><input type="hidden" name="guess_round" value="<?= guess_round() ?>">
+            <input type="number" class="mini-input" name="guess_amount" min="1" max="1000" value="50">
+            <button class="btn btn-ghost btn-sm" data-confirm="Regalare questi gettoni a <?= h($g['name']) ?> per l'idea di questo round?"><i class="ti ti-coin"></i> Premia</button>
+          </form>
+        </td>
+      </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table></div>
+  <?php endif; ?>
+
+  <form method="post" class="btn-row">
+    <?= csrf_field() ?><input type="hidden" name="do" value="guess_new_round">
+    <input type="hidden" name="drop_at" value="<?= h(date('Y-m-d\TH:i', guess_default_drop_at())) ?>">
+    <button class="btn btn-danger btn-sm" data-confirm="Chiudere il round <?= guess_round() ?> e aprirne uno nuovo (data: prossimo giovedì alle 20)? Le idee di questo round restano in archivio.">
+      <i class="ti ti-refresh"></i> Chiudi il round e aprine uno nuovo</button>
+  </form>
+</section>
+
+<?php $proposals = proposal_all(); $unread = proposal_unread_count(); ?>
+<section class="card" id="proposte">
+  <h2><i class="ti ti-bulb"></i> Proposte dei giocatori <?php if ($unread): ?><span class="count"><?= $unread ?> nuove</span><?php endif; ?></h2>
+  <p class="muted small">Arrivano dal campo di testo nella card del countdown in Home. Le vedi solo tu.</p>
+  <?php if (!$proposals): ?>
+    <p class="muted small">Ancora nessuna proposta.</p>
+  <?php else: ?>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Da</th><th>Proposta</th><th>Quando</th><th></th></tr></thead>
+    <tbody>
+      <?php foreach ($proposals as $pr): ?>
+      <tr<?= $pr['read_at'] ? '' : ' class="is-new"' ?>>
+        <td><?php if ($pr['player_id']): ?><a class="link" href="player.php?id=<?= (int) $pr['player_id'] ?>"><?= h($pr['name']) ?></a><?php else: ?><?= h($pr['username']) ?><?php endif; ?>
+          <?= $pr['read_at'] ? '' : ' <span class="tag tag-ok">nuova</span>' ?></td>
+        <td class="proposal-body"><?= nl2br(h($pr['body'])) ?></td>
+        <td class="muted small"><?= h(push_when($pr['created_at'])) ?></td>
+        <td><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="proposal_delete"><input type="hidden" name="proposal_id" value="<?= (int) $pr['id'] ?>">
+          <button class="btn btn-ghost btn-sm" data-confirm="Cancellare questa proposta?" aria-label="Cancella"><i class="ti ti-trash"></i></button></form></td>
+      </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table></div>
+  <?php if ($unread): ?>
+  <form method="post" class="btn-row"><?= csrf_field() ?><input type="hidden" name="do" value="proposal_read">
+    <button class="btn btn-ghost btn-sm"><i class="ti ti-checks"></i> Segna tutte come lette</button></form>
+  <?php endif; ?>
+  <?php endif; ?>
 </section>
 
 <section class="card" id="notifiche">

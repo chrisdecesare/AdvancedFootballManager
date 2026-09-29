@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 32;
+const SCHEMA_VERSION = 35;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -619,6 +619,42 @@ function ensure_schema(): void
         q("INSERT INTO meta (k, v) VALUES ('bet_boost_until', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [(string) $until]);
         [$s1, $s2, $s3] = bets_requote_open();
         meta_set('requote_v28', "singole $s1, multiple $s2, annullate $s3");
+    }
+    if ($v < 33) {
+        // genere nel profilo (facoltativo, per l'aspetto del Personaggio) e "Indovina la funzionalità": un round alla volta in cui
+        // si scommette (per finta, in un campo di testo) su quale sarà la prossima novità del sito prima che esca (vedi lib/guess.php)
+        $add('players', 'gender', "ENUM('M','F','NB') NOT NULL DEFAULT 'M' AFTER foot");
+        db()->exec('CREATE TABLE IF NOT EXISTS feature_guesses (
+            player_id INT NOT NULL,
+            round INT NOT NULL DEFAULT 1,
+            guess VARCHAR(300) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (player_id, round),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('drop_round', '1')");
+        db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('drop_at', '" . date('Y-m-d H:i:s', guess_default_drop_at()) . "')");
+        db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('drop_teaser', '')");
+    }
+    if ($v < 34) {
+        // proposte dei giocatori per il sito, dalla card del countdown in Home: le legge solo l'admin (lib/guess.php)
+        db()->exec('CREATE TABLE IF NOT EXISTS proposals (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            player_id INT NULL,
+            body VARCHAR(500) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            read_at DATETIME NULL,
+            INDEX (user_id, created_at),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 35) {
+        // fin dove il giocatore ha già visto i regali di gettoni dell'admin (lib/guess.php: coin_gifts_unseen): i regali vecchi non ricompaiono
+        $add('players', 'gift_seen_id', 'INT NOT NULL DEFAULT 0');
+        db()->exec('UPDATE players SET gift_seen_id = (SELECT COALESCE(MAX(id), 0) FROM wallet_moves)');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
