@@ -379,4 +379,17 @@ CREATE TABLE IF NOT EXISTS feature_guesses (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- proposte dei giocatori per il sito (card del countdown in Home, lib/guess.php): le legge solo l'admin in admin.php
+CREATE TABLE IF NOT EXISTS proposals (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  player_id INT NULL,
+  body VARCHAR(500) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  read_at DATETIME NULL,                           -- quando l'admin l'ha segnata come letta
+  INDEX (user_id, created_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO meta (k, v) VALUES ('schema', '20');

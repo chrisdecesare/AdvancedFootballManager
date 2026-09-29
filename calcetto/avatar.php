@@ -5,11 +5,12 @@
  * capelli sono gratis per tutti. I copricapi sono quelli del Negozio: comprati o indossati qui o là, si vedono in tutti e due i posti.
  *
  * Funziona anche senza JavaScript: «Prova» è un link che mostra l'oggetto addosso al personaggio (?try=chiave); lo script in fondo
- * fa lo stesso senza ricaricare e anima pose ed esultanze. Ancora in prova: la vede solo l'admin (lib/layout.php).
+ * fa lo stesso senza ricaricare e anima pose ed esultanze. Prima del lancio la vede solo l'admin; si apre a tutti alla scadenza del
+ * countdown in Home (lib/guess.php: avatar_public), con solo una parte degli oggetti: gli altri sono «in arrivo», senza nome.
  */
 require __DIR__ . '/lib/bootstrap.php';
 require_login();
-if (!is_admin()) {
+if (!avatar_visible() || is_guest()) {
     redirect('index.php');
 }
 
@@ -127,6 +128,15 @@ uasort($items, fn($a, $b) => [$a['out'], $sort === 'desc' ? -(int) $a['now'] : (
 $pages = max(1, (int) ceil(count($items) / AV_PER_PAGE));
 $page = min($page, $pages);
 $items = array_slice($items, ($page - 1) * AV_PER_PAGE, AV_PER_PAGE, true);
+// «in arrivo»: quanti oggetti di questa categoria non sono ancora usciti. Chi non è admin vede solo il numero, mai nomi o figure
+$soon = 0;
+if (!$admin && $view === 'shop') {
+    foreach ($catalog[$cat] as $k => $item) {
+        if (!isset($owned[$k]) && !isset($item['owner_player_id']) && !shop_released((string) $k, $item)) {
+            $soon++;
+        }
+    }
+}
 $presentRar = [];
 foreach ($itemsOf($cat) as $item) {
     $presentRar[avatar_rarity($item['price'])[0]] = true;
@@ -218,7 +228,7 @@ if (isset($_GET['fig'])) {
 
 layout_start('Personaggio', 'avatar');
 ?>
-<div class="page-head"><h1>Personaggio</h1><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span></div>
+<div class="page-head"><h1>Personaggio</h1><?php if (!avatar_public()): ?><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span><?php endif; ?></div>
 
 <div class="av-layout">
   <aside class="av-side" id="personaggio">
@@ -243,7 +253,7 @@ layout_start('Personaggio', 'avatar');
       <a href="<?= h($url(['v' => '', 'p' => ''])) ?>" class="<?= $view === 'shop' ? 'active' : '' ?>"><i class="ti ti-building-store"></i> Negozio <span class="count"><?= $totAll ?></span></a>
       <a href="<?= h($url(['v' => 'mine', 'p' => ''])) ?>" class="<?= $view === 'mine' ? 'active' : '' ?>"><i class="ti ti-hanger"></i> Guardaroba <span class="count"><?= $totMine ?></span></a>
       <a href="<?= h($url(['v' => 'wish', 'p' => ''])) ?>" class="<?= $view === 'wish' ? 'active' : '' ?>"><i class="ti ti-heart"></i> Obiettivi <span class="count"><?= count($wish) ?></span></a>
-      <a href="drops.php" class="av-drops"><i class="ti ti-rocket"></i> Uscite</a>
+      <?php if ($admin): ?><a href="drops.php" class="av-drops"><i class="ti ti-rocket"></i> Uscite</a><?php endif; ?>
       <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> gettoni</span>
     </nav>
 
@@ -269,7 +279,7 @@ layout_start('Personaggio', 'avatar');
     </div>
 
     <div class="av-grid">
-      <?php if ($cat === 'jersey' && $view === 'shop'): ?>
+      <?php if ($cat === 'jersey' && $view === 'shop' && $admin): // Crea la tua maglia: ancora in prova, solo admin ?>
       <a class="av-item av-item-new" href="jersey_creator.php">
         <span class="av-item-plus"><i class="ti ti-brush"></i></span>
         <span class="av-item-name">Crea la tua maglia</span>
@@ -297,8 +307,16 @@ layout_start('Personaggio', 'avatar');
         <template><?= $infoHtml($key, $item) ?></template>
       </article>
       <?php endforeach; ?>
+      <?php if ($soon && $page === $pages): ?>
+      <div class="av-item av-item-new av-item-soon" aria-label="Altri oggetti in arrivo">
+        <span class="av-item-plus"><i class="ti ti-lock"></i></span>
+        <span class="av-item-name">Coming soon</span>
+        <span class="av-item-state"><?= $soon === 1 ? 'Un altro oggetto è in arrivo' : 'Altri ' . $soon . ' oggetti in arrivo' ?>: usciranno un po' alla volta</span>
+        <span class="av-item-try"><i class="ti ti-hourglass"></i> In arrivo</span>
+      </div>
+      <?php endif; ?>
     </div>
-    <?php if (!$items): ?><p class="empty card"><?= $view === 'mine' ? 'Nel guardaroba non hai niente di questo tipo con questo filtro.' : ($view === 'wish' ? 'Nessun obiettivo di questo tipo: premi il cuoricino su un oggetto per aggiungerlo.' : 'Niente da mostrare con questo filtro.') ?></p><?php endif; ?>
+    <?php if (!$items && !$soon): ?><p class="empty card"><?= $view === 'mine' ? 'Nel guardaroba non hai niente di questo tipo con questo filtro.' : ($view === 'wish' ? 'Nessun obiettivo di questo tipo: premi il cuoricino su un oggetto per aggiungerlo.' : 'Niente da mostrare con questo filtro.') ?></p><?php endif; ?>
     <?php if ($pages > 1): ?>
     <nav class="pager" aria-label="Pagine">
       <?php if ($page > 1): ?><a class="btn btn-ghost btn-sm" href="<?= h($url(['p' => $page - 1 > 1 ? $page - 1 : ''])) ?>"><i class="ti ti-chevron-left"></i> Indietro</a><?php endif; ?>

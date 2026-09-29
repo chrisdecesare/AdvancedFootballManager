@@ -214,6 +214,28 @@ document.addEventListener('DOMContentLoaded', () => {
     box.addEventListener('bg:update', apply);
     apply();
   });
+  // curiosità tutte alte uguali: quelle lunghe finiscono con «…» (CSS .fact-text) e con un clic si leggono per intero
+  const clamps = [...document.querySelectorAll('[data-clamp]')];
+  const markClamped = () => clamps.forEach(el => {
+    if (el.classList.contains('is-open')) return;
+    const over = el.scrollHeight > el.clientHeight + 1;
+    el.classList.toggle('is-clamped', over);
+    if (over) { el.tabIndex = 0; el.setAttribute('role', 'button'); el.setAttribute('aria-expanded', 'false'); el.title = 'Leggi tutta'; }
+    else { el.removeAttribute('tabindex'); el.removeAttribute('role'); el.removeAttribute('aria-expanded'); el.removeAttribute('title'); }
+  });
+  const toggleClamp = el => {
+    const open = el.classList.toggle('is-open');
+    el.setAttribute('aria-expanded', open ? 'true' : 'false');
+    el.title = open ? 'Riduci' : 'Leggi tutta';
+    el.closest('[data-facts]')?.classList.toggle('is-paused', open);   // in Home la curiosità aperta resta ferma finché non la chiudi
+  };
+  clamps.forEach(el => {
+    el.addEventListener('click', () => { if (el.classList.contains('is-clamped')) toggleClamp(el); });
+    el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && el.classList.contains('is-clamped')) { e.preventDefault(); toggleClamp(el); } });
+  });
+  markClamped();
+  window.addEventListener('resize', markClamped);
+  document.fonts?.ready.then(markClamped);
   // curiosità in Home: cambiano da sole ogni data-seconds secondi (15), ferme se la pagina non si vede
   document.querySelectorAll('[data-facts]').forEach(box => {
     const slides = [...box.querySelectorAll('[data-fact]')];
@@ -223,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     box.style.setProperty('--fact-s', secs + 's');
     let i = 0;
     setInterval(() => {
-      if (document.hidden) return;
+      if (document.hidden || box.classList.contains('is-paused')) return;
       slides[i].classList.remove('is-active');
       i = (i + 1) % slides.length;
       slides[i].classList.add('is-active');

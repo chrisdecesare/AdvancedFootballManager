@@ -245,8 +245,17 @@ if (is_post()) {
                 }
             }
             break;
+        case 'proposal_read':
+            q('UPDATE proposals SET read_at = NOW() WHERE read_at IS NULL');
+            flash('ok', 'Proposte segnate come lette.');
+            break;
+        case 'proposal_delete':
+            q('DELETE FROM proposals WHERE id = ?', [(int) ($_POST['proposal_id'] ?? 0)]);
+            flash('ok', 'Proposta cancellata.');
+            break;
     }
-    redirect('admin.php' . (in_array($do, ['guess_drop', 'guess_new_round', 'guess_reward', 'guess_notify'], true) ? '#indovina' : ''));
+    redirect('admin.php' . (in_array($do, ['guess_drop', 'guess_new_round', 'guess_reward', 'guess_notify'], true) ? '#indovina'
+        : (in_array($do, ['proposal_read', 'proposal_delete'], true) ? '#proposte' : '')));
 }
 
 $users = q("SELECT u.*, p.name AS player_name, p.position, p.position2, p.foot, p.shirt_number
@@ -524,6 +533,9 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
   <h2><i class="ti ti-help-circle"></i> Indovina la funzionalità</h2>
   <p class="muted small">La card del countdown in Home (e la pagina segreta <a class="link" href="guess.php">guess.php</a>, non nel menu) invita i giocatori a indovinare la
     prossima novità del sito. Qui vedi le idee del round attuale e regali gettoni a chi si è avvicinato di più; poi apri un nuovo round per quella successiva.</p>
+  <p class="small"><i class="ti ti-user-star"></i> <?= avatar_public()
+      ? 'Il Personaggio è aperto a tutti (dal round ' . avatar_launch_round() . '). Gli oggetti tenuti da parte li fai uscire da <a class="link" href="drops.php">Uscite</a> (pacchetti «Lancio: ...»).'
+      : 'Il Personaggio si apre a tutti da solo allo scadere di questo countdown, con solo una parte degli oggetti: gli altri restano «Coming soon» finché non li fai uscire da <a class="link" href="drops.php">Uscite</a>.' ?></p>
 
   <form method="post" class="form form-grid form-grid-4">
     <?= csrf_field() ?><input type="hidden" name="do" value="guess_drop">
@@ -569,6 +581,35 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
     <button class="btn btn-danger btn-sm" data-confirm="Chiudere il round <?= guess_round() ?> e aprirne uno nuovo (data: prossimo giovedì alle 20)? Le idee di questo round restano in archivio.">
       <i class="ti ti-refresh"></i> Chiudi il round e aprine uno nuovo</button>
   </form>
+</section>
+
+<?php $proposals = proposal_all(); $unread = proposal_unread_count(); ?>
+<section class="card" id="proposte">
+  <h2><i class="ti ti-bulb"></i> Proposte dei giocatori <?php if ($unread): ?><span class="count"><?= $unread ?> nuove</span><?php endif; ?></h2>
+  <p class="muted small">Arrivano dal campo di testo nella card del countdown in Home. Le vedi solo tu.</p>
+  <?php if (!$proposals): ?>
+    <p class="muted small">Ancora nessuna proposta.</p>
+  <?php else: ?>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Da</th><th>Proposta</th><th>Quando</th><th></th></tr></thead>
+    <tbody>
+      <?php foreach ($proposals as $pr): ?>
+      <tr<?= $pr['read_at'] ? '' : ' class="is-new"' ?>>
+        <td><?php if ($pr['player_id']): ?><a class="link" href="player.php?id=<?= (int) $pr['player_id'] ?>"><?= h($pr['name']) ?></a><?php else: ?><?= h($pr['username']) ?><?php endif; ?>
+          <?= $pr['read_at'] ? '' : ' <span class="tag tag-ok">nuova</span>' ?></td>
+        <td class="proposal-body"><?= nl2br(h($pr['body'])) ?></td>
+        <td class="muted small"><?= h(push_when($pr['created_at'])) ?></td>
+        <td><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="proposal_delete"><input type="hidden" name="proposal_id" value="<?= (int) $pr['id'] ?>">
+          <button class="btn btn-ghost btn-sm" data-confirm="Cancellare questa proposta?" aria-label="Cancella"><i class="ti ti-trash"></i></button></form></td>
+      </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table></div>
+  <?php if ($unread): ?>
+  <form method="post" class="btn-row"><?= csrf_field() ?><input type="hidden" name="do" value="proposal_read">
+    <button class="btn btn-ghost btn-sm"><i class="ti ti-checks"></i> Segna tutte come lette</button></form>
+  <?php endif; ?>
+  <?php endif; ?>
 </section>
 
 <section class="card" id="notifiche">

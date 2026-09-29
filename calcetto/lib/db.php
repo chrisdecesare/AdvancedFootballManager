@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 33;
+const SCHEMA_VERSION = 34;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -636,6 +636,20 @@ function ensure_schema(): void
         db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('drop_round', '1')");
         db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('drop_at', '" . date('Y-m-d H:i:s', guess_default_drop_at()) . "')");
         db()->exec("INSERT IGNORE INTO meta (k, v) VALUES ('drop_teaser', '')");
+    }
+    if ($v < 34) {
+        // proposte dei giocatori per il sito, dalla card del countdown in Home: le legge solo l'admin (lib/guess.php)
+        db()->exec('CREATE TABLE IF NOT EXISTS proposals (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL,
+            player_id INT NULL,
+            body VARCHAR(500) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            read_at DATETIME NULL,
+            INDEX (user_id, created_at),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
