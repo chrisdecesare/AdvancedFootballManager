@@ -1424,3 +1424,12 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .drop-item-name { font-weight: 800; font-size: .88rem; }
 .drop-item.is-out .drop-item-state { color: var(--grass-d); }
 .drop-item.is-scheduled .drop-item-state { color: #b86e00; }
+
+/* partita: chi deve ancora votare e la campanella per ricordarglielo (solo admin e manager della lega) */
+.vote-missing { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.vote-missing p { margin: 0; }
+.vote-nopush { color: var(--red); font-size: .9em; }
+.vote-bell .ti-bell-ringing { color: #b86e00; }
+.vote-bell:not(:disabled):hover .ti-bell-ringing { animation: vote-bell .6s ease-in-out; }
+@keyframes vote-bell { 25% { transform: rotate(-18deg); } 50% { transform: rotate(14deg); } 75% { transform: rotate(-8deg); } }
+@media (prefers-reduced-motion: reduce) { .vote-bell .ti-bell-ringing { animation: none !important; } }
