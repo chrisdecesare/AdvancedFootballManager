@@ -35,7 +35,8 @@ function layout_start(string $title, string $active = ''): void
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
         $nav['platform'] = ['platform.php', 'Piattaforma', 'world'];
-        $pending = max(0, pending_for_me() - $pendingLeague);   // iscrizioni delle leghe storiche (quelle delle sue leghe sono sotto)
+        $pending = max(0, pending_for_me() - $pendingLeague);
+        $newProposals = proposal_unread_count();   // proposte dei giocatori ancora da leggere (Admin → Proposte)   // iscrizioni delle leghe storiche (quelle delle sue leghe sono sotto)
         if ($owned ?? []) {
             $nav['league'] = ['league.php', count($owned) > 1 ? 'Le mie leghe' : 'La mia lega', 'users-group'];
         }
@@ -95,7 +96,7 @@ function layout_start(string $title, string $active = ''): void
     <?php if ($u || PUBLIC_READ): ?>
     <nav class="nav" id="site-nav">
       <?php foreach ($nav as $key => [$href, $label, $icon]): ?>
-        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?></a>
+        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php elseif ($key === 'admin' && !empty($newProposals)): ?><span class="nav-badge" title="Proposte da leggere"><?= (int) $newProposals ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?></a>
       <?php endforeach; ?>
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>

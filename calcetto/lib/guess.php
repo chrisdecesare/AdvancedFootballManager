@@ -139,5 +139,13 @@ function proposal_all(int $limit = 200): array
 
 function proposal_unread_count(): int
 {
-    return (int) q('SELECT COUNT(*) FROM proposals WHERE read_at IS NULL')->fetchColumn();
+    static $n = null;
+    if ($n === null) {
+        try {
+            $n = (int) q('SELECT COUNT(*) FROM proposals WHERE read_at IS NULL')->fetchColumn();
+        } catch (Throwable $e) {
+            $n = 0;   // tabella non ancora creata (aggiornamento del database non riuscito): nessun pallino, il resto del sito funziona
+        }
+    }
+    return $n;
 }
