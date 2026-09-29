@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS players (
   position VARCHAR(20) NOT NULL DEFAULT 'Centrocampista',   -- posizione preferita (mai Jolly)
   position2 VARCHAR(20) NULL,                      -- seconda posizione (facoltativa)
   foot VARCHAR(12) NOT NULL DEFAULT 'Destro',
-  gender ENUM('M','F','NB') NOT NULL DEFAULT 'M',   -- Maschio, Femmina, Non binario (facoltativo, per l'aspetto del Personaggio)
+  gender ENUM('M','F','NB') NOT NULL DEFAULT 'M',
+  gift_seen_id INT NOT NULL DEFAULT 0,             -- ultimo regalo di gettoni dell'admin già mostrato (wallet_moves.id, vedi lib/guess.php)   -- Maschio, Femmina, Non binario (facoltativo, per l'aspetto del Personaggio)
   base_rating DECIMAL(3,1) NOT NULL DEFAULT 6.0,
   active TINYINT(1) NOT NULL DEFAULT 1,
   injured TINYINT(1) NOT NULL DEFAULT 0,           -- 1 = infortunato: non può confermare le partite (vedi player_set_injured in stats.php)

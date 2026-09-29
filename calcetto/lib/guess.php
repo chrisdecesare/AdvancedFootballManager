@@ -149,3 +149,45 @@ function proposal_unread_count(): int
     }
     return $n;
 }
+
+/* ---------------------------------------------------------------- regali di gettoni dell'admin */
+
+/*
+ * Quando l'admin regala gettoni (Admin → Regala gettoni, o il premio di «Indovina la funzionalità») il giocatore riceve una notifica push
+ * e, alla prima pagina che apre, una sovraimpressione col gettone (layout.php) come la spunta dei voti. players.gift_seen_id ricorda
+ * fin dove li ha già visti.
+ */
+/** Push al giocatore premiato (a fine richiesta, per non rallentare la pagina dell'admin). */
+function coin_gift_notify(int $playerId, int $amount, string $why = ''): void
+{
+    push_defer(function () use ($playerId, $amount, $why) {
+        $users = array_values(push_users_of_players([$playerId]));
+        if ($users) {
+            push_notify_users($users, [
+                'title' => 'Hai ricevuto ' . $amount . ' gettoni!',
+                'body' => 'L\'admin ti ha regalato ' . $amount . ' gettoni' . ($why !== '' ? ' ' . $why : '') . '.',
+                'url' => 'bets.php', 'tag' => 'gift-' . $playerId . '-' . time(),
+            ], 'normal', 'regalo');
+        }
+    });
+}
+
+/** Regali non ancora mostrati al giocatore: [totale, quanti, ultimo id, uno è un premio di «Indovina»?]. Null se non ce ne sono. */
+function coin_gifts_unseen(int $playerId): ?array
+{
+    try {
+        $r = q('SELECT COALESCE(SUM(w.delta), 0) AS tot, COUNT(*) AS n, MAX(w.id) AS last, MAX(w.kind = \'premio\') AS guess
+                FROM wallet_moves w JOIN players p ON p.id = w.player_id
+                WHERE w.player_id = ? AND w.id > p.gift_seen_id AND w.delta > 0
+                  AND (w.kind = \'regalo\' OR (w.kind = \'premio\' AND w.ref LIKE \'guess-%\'))',
+            [$playerId])->fetch();
+    } catch (Throwable $e) {
+        return null;   // colonna non ancora creata
+    }
+    return $r && (int) $r['n'] > 0 ? [(int) $r['tot'], (int) $r['n'], (int) $r['last'], (bool) $r['guess']] : null;
+}
+
+function coin_gifts_seen(int $playerId, int $lastId): void
+{
+    q('UPDATE players SET gift_seen_id = GREATEST(gift_seen_id, ?) WHERE id = ?', [$lastId, $playerId]);
+}
