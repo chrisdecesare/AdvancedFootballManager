@@ -534,6 +534,9 @@ function push_defer(callable $fn): void
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();      // senza questo la sessione resterebbe bloccata durante l'invio
         }
+        while (ob_get_level() > 0) {
+            ob_end_flush();             // la pagina nel buffer (lib/routes.php: pretty_filter) parte prima di chiudere la risposta
+        }
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
         }

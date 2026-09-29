@@ -15,6 +15,48 @@ AddType text/javascript .js
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 </IfModule>
 
+# Indirizzi leggibili (/personaggio, /partita-12): riscrittura interna verso il file PHP vero, il browser vede solo l'indirizzo bello.
+# PRETTY_URLS=1 dice a lib/routes.php che qui la riscrittura funziona: solo allora il sito usa i nuovi indirizzi (altrimenti resta sui .php).
+# Le regole vanno tenute uguali a pretty_routes() in lib/routes.php.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^ - [E=PRETTY_URLS:1]
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  RewriteRule ^partite$ matches.php [QSA,L]
+  RewriteRule ^partita-([0-9]+)$ match.php?id=$1 [QSA,L]
+  RewriteRule ^partita$ match.php [QSA,L]
+  RewriteRule ^rosa$ players.php [QSA,L]
+  RewriteRule ^giocatore-([0-9]+)$ player.php?id=$1 [QSA,L]
+  RewriteRule ^giocatore$ player.php [QSA,L]
+  RewriteRule ^modifica-giocatore-([0-9]+)$ player_edit.php?id=$1 [QSA,L]
+  RewriteRule ^modifica-giocatore$ player_edit.php [QSA,L]
+  RewriteRule ^classifica$ standings.php [QSA,L]
+  RewriteRule ^scommesse$ bets.php [QSA,L]
+  RewriteRule ^negozio$ shop.php [QSA,L]
+  RewriteRule ^personaggio$ avatar.php [QSA,L]
+  RewriteRule ^crea-maglia$ jersey_creator.php [QSA,L]
+  RewriteRule ^uscite$ drops.php [QSA,L]
+  RewriteRule ^curiosita$ curiosities.php [QSA,L]
+  RewriteRule ^indovina$ guess.php [QSA,L]
+  RewriteRule ^profilo$ profile.php [QSA,L]
+  RewriteRule ^sicurezza$ account.php [QSA,L]
+  RewriteRule ^pagamenti$ payments.php [QSA,L]
+  RewriteRule ^lega-([0-9]+)$ league.php?id=$1 [QSA,L]
+  RewriteRule ^lega$ league.php [QSA,L]
+  RewriteRule ^crea-lega$ create_league.php [QSA,L]
+  RewriteRule ^entra$ join.php [QSA,L]
+  RewriteRule ^admin$ admin.php [QSA,L]
+  RewriteRule ^piattaforma$ platform.php [QSA,L]
+  RewriteRule ^accedi$ login.php [QSA,L]
+  RewriteRule ^iscriviti$ register.php [QSA,L]
+  RewriteRule ^password-dimenticata$ forgot.php [QSA,L]
+  RewriteRule ^nuova-password$ reset.php [QSA,L]
+  RewriteRule ^conferma-password$ confirm.php [QSA,L]
+  RewriteRule ^conferma-email$ verify_email.php [QSA,L]
+</IfModule>
+
 # Non scaricabili dal browser: file nascosti (.git, .env...), dati e file di servizio, config.php
 <FilesMatch "(^\.|\.(sql|md|log|bak|old|orig|dist|ini|inc|sh|yml|yaml|lock|swp|zip|tar|gz|example)$|^config(\.local)?\.php$)">
   <IfModule mod_authz_core.c>
