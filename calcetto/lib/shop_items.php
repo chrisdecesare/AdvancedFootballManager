@@ -109,6 +109,16 @@ return [
         ['h_fungo', 'Cappello di fungo', 115, 'mushroom', '#e63946', '#ffffff', ''],
         ['h_gelato', 'Gelato alla fragola', 115, 'icecream', '#ff8fbf', '#e0a458', ''],
         ['h_gelato_p', 'Gelato al pistacchio', 115, 'icecream', '#a8e6a3', '#e0a458', ''],
+        // bandierine su un'asta, colori il più possibile vicini a quelli veri: forma giusta per l'orientamento
+        // (verticale, orizzontale o quella apposta per il Brasile) e non stemmi/dettagli, come le maglie "nazionale"
+        ['f_italia', 'Bandiera Italia', 60, 'flag', '#008c45', '#ffffff', '#cd212a'],
+        ['f_francia', 'Bandiera Francia', 60, 'flag', '#0055a4', '#ffffff', '#ef4135'],
+        ['f_brasile', 'Bandiera Brasile', 60, 'flag_br', '#009739', '#fedd00', '#012169'],
+        ['f_argentina', 'Bandiera Argentina', 60, 'flag_h', '#74acdf', '#ffffff', '#74acdf'],
+        ['f_spagna', 'Bandiera Spagna', 60, 'flag_h2', '#aa151b', '#f1bf00', ''],
+        ['f_germania', 'Bandiera Germania', 60, 'flag_h', '#1f1a2e', '#dd0000', '#ffce00'],
+        ['f_portogallo', 'Bandiera Portogallo', 60, 'flag_pt', '#046a38', '#da291c', ''],
+        ['f_olanda', 'Bandiera Olanda', 60, 'flag_h', '#ae1c28', '#ffffff', '#21468b'],
     ],
     'bg' => [
         ['pois', 'Pois rosa', 80],
@@ -265,6 +275,8 @@ return [
         ['ha_mullet', 'Mullet', 220, 'mullet', 'Anni \'80 davanti, festa dietro.'],
         ['ha_treccine', 'Treccine', 240, 'braids', 'Ci vogliono ore, si vedono da tutto il campo.'],
         ['ha_cresta', 'Cresta', 300, 'mohawk', 'Per chi entra in campo per farsi notare.'],
+        ['ha_coda_alta', 'Coda alta', 200, 'ponytail', 'Legata stretta, non si muove nemmeno in sprint.'],
+        ['ha_afro', 'Afro', 260, 'afro', 'Volume da fenomeno, si vede da tutta la tribuna.'],
     ],
     // colore dei capelli (anche sopracciglia e barba): [chiave, nome, prezzo, colore]
     'hair_color' => [
@@ -339,6 +351,13 @@ return [
         ['n_croazia', 'Nazionale Croazia', 110, 'national', '#ffffff', '#c0392b', 'halves'],
         ['n_giappone', 'Nazionale Giappone', 90, 'national', '#1f2a5c', '#c0392b'],
         ['n_messico', 'Nazionale Messico', 90, 'national', '#1f8a4c', '#ffffff'],
+        ['n_usa', 'Nazionale USA', 90, 'national', '#2a3f9b', '#ffffff', 'sash'],
+        ['n_svezia', 'Nazionale Svezia', 90, 'national', '#ffd23f', '#2a3f9b'],
+        ['n_norvegia', 'Nazionale Norvegia', 90, 'national', '#c0392b', '#ffffff'],
+        ['n_canada', 'Nazionale Canada', 90, 'national', '#c0392b', '#ffffff', 'sash'],
+        ['j_smeraldo', 'Maglia smeraldo', 60, 'club', '#1f8a4c', '#ffd23f', 'sleeves'],
+        ['j_corallo', 'Maglia corallo', 60, 'club', '#ff6b6b', '#ffffff', 'halves'],
+        ['j_notte', 'Maglia notte stellata', 130, 'club', '#1f1a2e', '#a6e6ff', 'stripes_v'],
     ],
     // pantaloncini: [chiave, nome, prezzo, colore]
     'shorts' => [
@@ -410,5 +429,14 @@ return [
         ['c_backflip', 'Backflip', 300, 'backflip'],
         ['c_siu', 'Siuuu (Cristiano Ronaldo)', 350, 'siu'],
         ['c_hernanes', 'Il salto di Hernanes', 600, 'hernanes'],
+        // esultanze ispirate a giocatrici famose (stessi motori di animazione, solo il nome cambia)
+        ['c_marta', 'Le dita al cielo di Marta', 90, 'skyfingers'],
+        ['c_putellas', 'Il cuore di Putellas', 180, 'heart'],
+        ['c_kerr', 'Il backflip di Sam Kerr', 300, 'backflip'],
+        ['c_girelli', 'La corsa di Girelli', 160, 'inzaghi'],
+        ['c_rapinoe', 'La posa di Rapinoe', 160, 'crossed'],
+        ['c_hegerberg', 'La calma di Hegerberg', 250, 'zen'],
+        ['c_gama', 'Il saluto della capitana Gama', 70, 'salute'],
+        ['c_bonansea', 'Il pugno di Bonansea', 45, 'fist-pump'],
     ],
 ];

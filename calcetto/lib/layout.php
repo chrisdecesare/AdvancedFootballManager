@@ -15,6 +15,10 @@ function layout_start(string $title, string $active = ''): void
     if ($guest) {
         $nav = ['match' => ['match.php?id=' . (int) guest_match_id(), 'La partita', 'calendar-event']];   // vede solo la sua partita
     }
+    if ($u && !$guest && avatar_visible()) {
+        // Personaggio (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
+        $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Personaggio', '3d-cube-sphere']] + $nav;
+    }
     $pendingLeague = 0;
     if ($u && !$guest) {
         $owned = my_owned_leagues();
@@ -28,12 +32,11 @@ function layout_start(string $title, string $active = ''): void
         }
     }
     if (is_admin()) {
-        // Personaggio (avatar 3D, avatar.php): ancora in prova, visibile solo all'admin finché non si apre a tutti
-        $nav['avatar'] = ['avatar.php', 'Personaggio', '3d-cube-sphere'];
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
         $nav['platform'] = ['platform.php', 'Piattaforma', 'world'];
-        $pending = max(0, pending_for_me() - $pendingLeague);   // iscrizioni delle leghe storiche (quelle delle sue leghe sono sotto)
+        $pending = max(0, pending_for_me() - $pendingLeague);
+        $newProposals = proposal_unread_count();   // proposte dei giocatori ancora da leggere (Admin → Proposte)   // iscrizioni delle leghe storiche (quelle delle sue leghe sono sotto)
         if ($owned ?? []) {
             $nav['league'] = ['league.php', count($owned) > 1 ? 'Le mie leghe' : 'La mia lega', 'users-group'];
         }
@@ -93,7 +96,7 @@ function layout_start(string $title, string $active = ''): void
     <?php if ($u || PUBLIC_READ): ?>
     <nav class="nav" id="site-nav">
       <?php foreach ($nav as $key => [$href, $label, $icon]): ?>
-        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?></a>
+        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php elseif ($key === 'admin' && !empty($newProposals)): ?><span class="nav-badge" title="Proposte da leggere"><?= (int) $newProposals ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?></a>
       <?php endforeach; ?>
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
@@ -133,6 +136,17 @@ function layout_start(string $title, string $active = ''): void
 <?php if ($u && !$guest && (is_admin() || my_owned_leagues()) && !totp_enabled_for((int) $u['id']) && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'account.php'): ?>
   <div class="flash flash-warn"><i class="ti ti-shield-lock"></i> <?= is_admin() ? 'Il tuo account gestisce tutto il sito' : 'Il tuo account gestisce una lega' ?>: proteggilo con la
     <a class="link" href="account.php#due-passaggi">verifica in due passaggi</a> (un codice dal telefono oltre alla password). Ci vuole un minuto.</div>
+<?php endif; ?>
+<?php if ($myId && ($gift = coin_gifts_unseen($myId))):   // regalo di gettoni dall'admin: sovraimpressione col gettone, una volta sola
+    [$giftTot, $giftN, $giftLast, $giftGuess] = $gift;
+    coin_gifts_seen($myId, $giftLast); ?>
+<div class="vote-done coin-gift" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>
+    <div class="vote-done-title">+<?= $giftTot ?> gettoni!</div>
+    <div class="vote-done-sub">L'admin ti ha regalato <?= $giftTot ?> gettoni<?= $giftGuess && $giftN === 1 ? ' per la tua idea su «Indovina la funzionalità»' : '' ?>.</div>
+  </div>
+</div>
 <?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
   <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>

@@ -51,6 +51,12 @@ if (defined('NO_SESSION')) {
 
 require __DIR__ . '/db.php';
 require __DIR__ . '/helpers.php';
+require __DIR__ . '/routes.php';
+// indirizzi leggibili (/personaggio, /partita-12): i vecchi .php vanno a quelli nuovi e i link della pagina si riscrivono in uscita
+pretty_boot();
+if (pretty_enabled()) {
+    ob_start('pretty_filter');
+}
 require __DIR__ . '/auth.php';
 require __DIR__ . '/security.php';
 require __DIR__ . '/groups.php';
@@ -72,6 +78,7 @@ require __DIR__ . '/guests.php';
 require __DIR__ . '/live.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';
+require __DIR__ . '/guess.php';
 
 if (!defined('NO_CSRF')) {   // push.php la salta solo per il rinnovo dell'abbonamento, che non ha una sessione (vedi push.php)
     verify_csrf();

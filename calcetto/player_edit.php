@@ -18,7 +18,7 @@ if ($isNew ? !$staff : (!$staff && my_player_id() !== $id)) {
     require_admin(); // mostra "accesso negato"
 }
 $p = $isNew ? [
-    'id' => 0, 'name' => '', 'photo' => null, 'bg_color' => null, 'bg_image' => null, 'shirt_number' => null, 'position' => 'Centrocampista', 'position2' => null, 'foot' => 'Destro',
+    'id' => 0, 'name' => '', 'photo' => null, 'bg_color' => null, 'bg_image' => null, 'shirt_number' => null, 'position' => 'Centrocampista', 'position2' => null, 'foot' => 'Destro', 'gender' => 'M',
     'base_rating' => '6.0', 'active' => 1, 'injured' => 0, 'adj_apps' => 0, 'adj_wins' => 0, 'adj_draws' => 0, 'adj_losses' => 0,
     'adj_goals' => 0, 'adj_assists' => 0, 'adj_own_goals' => 0, 'adj_mvp' => 0,
 ] : get_player($id);
@@ -67,6 +67,7 @@ if (is_post()) {
         [$pos, $pos2] = [$p['position'], $p['position2']];
     }
     $foot = in_array($_POST['foot'] ?? '', feet(), true) ? $_POST['foot'] : 'Destro';
+    $gender = array_key_exists($_POST['gender'] ?? '', genders()) ? $_POST['gender'] : 'M';
     if ($name === '' || mb_strlen($name) > 80) {
         $errors[] = 'Inserisci un nome (max 80 caratteri).';
     }
@@ -113,13 +114,13 @@ if (is_post()) {
     }
 
     if (!$errors) {
-        $vals = [$name, $num === '' ? null : (int) $num, $pos, $pos2, $foot];
+        $vals = [$name, $num === '' ? null : (int) $num, $pos, $pos2, $foot, $gender];
         if ($isNew) {
-            q('INSERT INTO players (name, shirt_number, position, position2, foot) VALUES (?, ?, ?, ?, ?)', $vals);
+            q('INSERT INTO players (name, shirt_number, position, position2, foot, gender) VALUES (?, ?, ?, ?, ?, ?)', $vals);
             $id = (int) db()->lastInsertId();
             set_player_groups($id, $groupIds);   // e con questo entra anche nelle partite già programmate del suo gruppo
         } else {
-            q('UPDATE players SET name = ?, shirt_number = ?, position = ?, position2 = ?, foot = ? WHERE id = ?', array_merge($vals, [$id]));
+            q('UPDATE players SET name = ?, shirt_number = ?, position = ?, position2 = ?, foot = ?, gender = ? WHERE id = ?', array_merge($vals, [$id]));
         }
 
         log_activity('giocatore', ($isNew ? 'creato · ' : 'modificato · ') . $name, $groupIds[0] ?? null);
@@ -294,6 +295,16 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
         <?php foreach (positions() as $o): ?><option <?= ($p['position2'] ?? '') === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
       <label class="field"><span>Piede preferito</span><select name="foot">
         <?php foreach (feet() as $o): ?><option <?= $p['foot'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
+      <div class="field span-2"><span>Genere</span>
+        <div class="gender-toggle" role="group" aria-label="Genere">
+          <?php foreach (genders() as $key => $label): ?>
+          <label class="gender-opt<?= ($p['gender'] ?? 'M') === $key ? ' is-on' : '' ?>">
+            <input type="radio" name="gender" value="<?= h($key) ?>" <?= ($p['gender'] ?? 'M') === $key ? 'checked' : '' ?>><span><?= h($label) ?></span>
+          </label>
+          <?php endforeach; ?>
+        </div>
+        <p class="muted small">Compare sul profilo e nella Rosa; capigliature, maglie, esultanze e tutto il resto del Personaggio restano scelte libere per chiunque, senza vincoli di genere.</p>
+      </div>
     </div>
   </section>
 

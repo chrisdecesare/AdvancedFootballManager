@@ -346,6 +346,12 @@ function push_subs_of_users(array $userIds): array
     return q('SELECT id, user_id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id IN (' . implode(',', $userIds) . ')')->fetchAll();
 }
 
+/** Tutti gli account con almeno un dispositivo abbonato alle notifiche (su qualunque browser/telefono). */
+function push_all_subscribed_users(): array
+{
+    return q('SELECT DISTINCT user_id FROM push_subscriptions')->fetchAll(PDO::FETCH_COLUMN);
+}
+
 /** Account attivi collegati a questi giocatori. @return array<int, int> id giocatore => id account */
 function push_users_of_players(array $playerIds): array
 {
@@ -527,6 +533,9 @@ function push_defer(callable $fn): void
         @set_time_limit(60);
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();      // senza questo la sessione resterebbe bloccata durante l'invio
+        }
+        while (ob_get_level() > 0) {
+            ob_end_flush();             // la pagina nel buffer (lib/routes.php: pretty_filter) parte prima di chiudere la risposta
         }
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();

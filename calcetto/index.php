@@ -6,6 +6,23 @@ if (!tables_exist()) {
 require_view();
 
 $me = my_player_id();
+
+// proposte per il sito dalla card del countdown: le legge solo l'admin (admin.php, lib/guess.php)
+if (is_post() && ($_POST['do'] ?? '') === 'proposal') {
+    require_login();
+    $text = trim(preg_replace('/[ \t]+/u', ' ', (string) ($_POST['proposal'] ?? '')));
+    if (is_guest()) {
+        flash('err', 'Gli ospiti non possono mandare proposte.');
+    } elseif ($text === '' || mb_strlen($text) > PROPOSAL_MAX) {
+        flash('err', 'Scrivi la tua proposta (max ' . PROPOSAL_MAX . ' caratteri).');
+    } elseif (proposal_recent_count((int) current_user()['id']) >= 10) {
+        flash('err', 'Hai già mandato tante proposte oggi: riprova domani.');
+    } else {
+        proposal_add((int) current_user()['id'], $me, $text);
+        flash('ok', 'Proposta inviata: la legge solo l\'admin. Grazie!');
+    }
+    redirect('index.php#proposte');
+}
 $players = all_players();
 
 $next = next_match();
@@ -45,6 +62,44 @@ layout_start('Home', 'home');
 <?= group_bar('index.php') ?>
 <div class="home">
 
+  <?php $launched = avatar_public() && avatar_launch_round() === guess_round(); // il round del countdown è quello che ha aperto il Personaggio ?>
+  <section class="card drop-hype<?= $launched ? ' is-launched' : '' ?>">
+    <?php if ($launched): ?>
+    <span class="drop-hype-tag"><i class="ti ti-sparkles"></i> Novità</span>
+    <div class="drop-hype-row">
+      <i class="ti ti-user-star drop-hype-icon" aria-hidden="true"></i>
+      <div class="drop-hype-txt">
+        <h2>È arrivato il Personaggio!</h2>
+        <p>Il tuo giocatore in pixel art: capelli, maglie, bandiere, pet ed esultanze da comprare con i gettoni. Altri oggetti sono in arrivo, un po' alla volta.</p>
+      </div>
+    </div>
+    <?php if ($me && !is_guest()): ?><a class="btn btn-primary drop-hype-cta" href="avatar.php"><i class="ti ti-user-star"></i> Crea il tuo personaggio</a><?php endif; ?>
+    <?php else: ?>
+    <span class="drop-hype-tag"><i class="ti ti-eye-off"></i> Top secret</span>
+    <div class="drop-hype-row">
+      <i class="ti ti-gift drop-hype-icon" aria-hidden="true"></i>
+      <div class="drop-hype-txt">
+        <h2><?= guess_drop_passed() ? 'Ci siamo: sta per uscire!' : 'Giovedì cambia tutto.' ?></h2>
+        <p>Una novità è in arrivo e nessuno, tranne l'admin, sa cosa sia davvero.<?= guess_teaser() !== '' ? ' Indizio: «' . h(guess_teaser()) . '»' : '' ?></p>
+      </div>
+      <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'È il momento!', 0, true, 'hourglass-high', 'countdown-big drop-hype-count') ?>
+    </div>
+    <a class="btn btn-primary drop-hype-cta" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà: in palio dei gettoni</a>
+    <?php endif; ?>
+
+    <?php if (is_admin()): $newProposals = proposal_unread_count(); ?>
+    <a class="btn btn-ghost drop-hype-cta drop-hype-read" href="admin.php#proposte"><i class="ti ti-inbox"></i> Leggi le proposte dei giocatori<?= $newProposals ? ' (' . $newProposals . ' nuove)' : '' ?></a>
+    <?php endif; ?>
+    <?php if (current_user() && !is_guest()): ?>
+    <form method="post" class="form drop-hype-idea" id="proposte">
+      <?= csrf_field() ?><input type="hidden" name="do" value="proposal">
+      <label class="field"><span><i class="ti ti-bulb"></i> Hai un'idea per il sito? Proponila: la legge solo l'admin</span>
+        <textarea name="proposal" maxlength="<?= PROPOSAL_MAX ?>" rows="2" required placeholder="Es. Un nuovo tipo di esultanza, una statistica che manca, un torneo..."></textarea></label>
+      <div class="btn-row"><button class="btn btn-ghost btn-sm"><i class="ti ti-send"></i> Invia proposta</button></div>
+    </form>
+    <?php endif; ?>
+  </section>
+
   <?= push_card(true) ?>
 
   <?php if ($me && empty(current_user()['email'])): ?>
@@ -78,7 +133,7 @@ layout_start('Home', 'home');
       <?= availability_buttons($next, $myStatus, 'index.php') ?>
 
       <?php if ($hasTeams): ?>
-        <?php if (is_admin()): // Personaggi ancora in prova: la vista con i personaggi resta nascosta finché non si apre a tutti ?>
+        <?php if (avatar_visible()): // la vista con i Personaggi si apre a tutti insieme al Personaggio (lib/guess.php: avatar_public) ?>
         <div class="sub-title-row">
           <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
           <div class="pitch-view-toggle" role="group" aria-label="Vista formazioni">
@@ -192,7 +247,7 @@ layout_start('Home', 'home');
       <div class="fact-body<?= $i === 0 ? ' is-active' : '' ?>" data-fact>
         <a href="player.php?id=<?= (int) $fact['player_id'] ?>" title="<?= h($fact['name']) ?>"><?= avatar($fact, 'md') ?></a>
         <div><a class="fact-who" href="player.php?id=<?= (int) $fact['player_id'] ?>"><?= h($fact['name']) ?></a>
-          <p><?= h($fact['body']) ?></p></div>
+          <p class="fact-text" data-clamp><?= h($fact['body']) ?></p></div>
       </div>
       <?php endforeach; ?>
     </div>

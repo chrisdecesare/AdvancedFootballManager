@@ -26,7 +26,7 @@ layout_start('Curiosità', 'curiosities');
         <?= avatar($c, 'md') ?>
         <span class="fact-who"><?= h($c['name']) ?></span>
       </a>
-      <p><?= h($c['body']) ?></p>
+      <p class="fact-text" data-clamp><?= h($c['body']) ?></p>
     </article>
   <?php endforeach; ?>
 </div>

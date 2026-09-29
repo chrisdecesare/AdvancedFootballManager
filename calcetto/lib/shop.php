@@ -28,6 +28,28 @@ function shop_column(string $kind): string
     return ['bg' => 'bg_preset', 'nick' => 'nick_key', 'hat' => 'hat_key', 'border' => 'border_key'][$kind];
 }
 
+/*
+ * Sconti del mercato: dal mercoledì pomeriggio (14:00) alla domenica sera i prezzi del Negozio tendono a scendere (shop_price(),
+ * fattore 'money': nel weekend girano più puntate e quindi più gettoni in circolo). Non è un prezzo fisso scontato, è lo stesso
+ * mercato di sempre: qui sta solo l'avviso che lo segnala ai giocatori.
+ */
+function promo_active(): bool
+{
+    $now = time();
+    $dow = (int) date('N', $now);   // 1 lun ... 7 dom
+    return $dow > 3 || ($dow === 3 && (int) date('G', $now) >= 14);
+}
+
+/** Prossimo inizio dello sconto (mercoledì alle 14): se è già iniziato non serve, vedi promo_active(). */
+function promo_next_at(): int
+{
+    $now = time();
+    if ((int) date('N', $now) === 3 && (int) date('G', $now) < 14) {
+        return strtotime('today 14:00', $now);
+    }
+    return strtotime('next wednesday 14:00', $now);
+}
+
 function shop_catalog(): array
 {
     static $c = null;
@@ -80,11 +102,65 @@ function shop_catalog(): array
     foreach ($src['celebration'] as [$k, $name, $price, $anim]) {
         $c['celebration'][$k] = ['name' => $name, 'price' => $price, 'anim' => $anim];
     }
+    // al lancio del Personaggio ne esce solo una parte: gli altri diventano un pacchetto «Lancio: ...» come quelli del catalogo esteso
+    $keep = shop_launch_keep();
+    foreach (shop_launch_kinds() as $kind => $_) {
+        $isFlag = $kind === 'flag';
+        foreach ($c[$isFlag ? 'hat' : $kind] as $k => $item) {
+            if (($isFlag && $item['tpl'] !== 'flag' && strncmp($item['tpl'], 'flag_', 5) !== 0) || $item['price'] === 0 || isset($keep[$k])) {
+                continue;
+            }
+            $c[$isFlag ? 'hat' : $kind][$k]['drop'] = 'l_' . $kind;
+        }
+    }
     // il catalogo esteso: esce a pacchetti quando lo decide l'admin (drops.php)
     foreach (shop_more_items($c) as $kind => $items) {
         $c[$kind] += $items;
     }
     return $c;
+}
+
+/**
+ * Lancio del Personaggio: dei tipi qui sotto (le bandiere sono copricapi) al lancio esce solo una parte degli oggetti di sempre,
+ * quelli gratis più quelli di shop_launch_keep(); gli altri restano «in arrivo» (senza nome) finché l'admin non li fa uscire da drops.php.
+ * I copricapi normali no: erano già nel Negozio del profilo.
+ */
+function shop_launch_kinds(): array
+{
+    return ['hair' => 'capelli', 'hair_color' => 'colori dei capelli', 'beard' => 'barba', 'glasses' => 'occhiali', 'jersey' => 'maglie',
+        'shorts' => 'pantaloncini', 'shoes' => 'scarpette', 'pet' => 'pet', 'pose' => 'pose', 'celebration' => 'esultanze', 'flag' => 'bandiere'];
+}
+
+/** Gli oggetti a pagamento che escono subito al lancio (chiave => true). */
+function shop_launch_keep(): array
+{
+    return array_fill_keys([
+        'ha_riga', 'ha_sfumato', 'ha_spettinato', 'ha_ricci', 'ha_lunghi', 'ha_coda_alta',
+        'hc_blu', 'hc_rosa',
+        'be_baffi', 'be_pizzetto',
+        'gl_vista', 'gl_sole',
+        'j_rossa', 'j_nera', 'j_biancoceleste', 'j_giallorossa', 'j_rossonera', 'j_nerazzurra', 'j_bianconera',
+        'n_italia', 'n_brasile', 'n_argentina', 'n_francia', 'n_spagna',
+        'p_neri', 'p_blu', 'p_rossi', 'p_verdi', 'p_azzurri',
+        's_bianche', 's_rosse', 's_blu', 's_fluo',
+        'pe_pallino', 'pe_pulcino', 'pe_cane',
+        'po_aperte', 'po_saluto', 'po_vittoria',
+        'c_esultanza', 'c_bacio', 'c_saluto', 'c_dita', 'c_inginocchio', 'c_danza', 'c_aeroplano', 'c_ciuccio', 'c_robot',
+        'c_marta', 'c_gama', 'c_bonansea',
+        'f_italia', 'f_brasile', 'f_argentina',
+    ], true);
+}
+
+/** Quanti oggetti di un tipo sono ancora «in arrivo» (non usciti): per il riquadro senza nomi di chi non è admin. */
+function shop_coming_count(string $kind): int
+{
+    $n = 0;
+    foreach (shop_catalog()[$kind] ?? [] as $k => $item) {
+        if (!shop_released((string) $k, $item)) {
+            $n++;
+        }
+    }
+    return $n;
 }
 
 function shop_item(string $kind, string $key): ?array

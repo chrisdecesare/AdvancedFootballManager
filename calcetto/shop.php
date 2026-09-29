@@ -119,6 +119,20 @@ layout_start('Negozio', 'shop');
 ?>
 <div class="page-head"><h1>Negozio <span class="muted small">personalizza il profilo</span></h1></div>
 
+<?php if (promo_active()): ?>
+<section class="card push-banner">
+  <i class="ti ti-discount-2 push-ic"></i>
+  <div class="push-txt"><strong>Sconti nel mercato!</strong>
+    <span class="muted small">Con più gettoni in circolo nel weekend, i prezzi tendono a scendere: è il momento migliore per comprare.</span></div>
+</section>
+<?php else: ?>
+<section class="card push-banner">
+  <i class="ti ti-discount-2 push-ic"></i>
+  <div class="push-txt"><strong>Da mercoledì pomeriggio, sconti nel mercato</strong>
+    <span class="muted small">I prezzi tendono a scendere nel weekend, quando girano più gettoni. <?= countdown_html(date('Y-m-d H:i:s', promo_next_at()), 'Iniziano tra ', 'Iniziano a momenti…', 0, false, 'clock') ?></span></div>
+</section>
+<?php endif; ?>
+
 <?php if ($mp): ?>
 <section class="card shop-bar" id="anteprima">
   <div class="shop-look role-<?= strtolower(position_abbr($mp['position'])) ?><?= bg_preset_class($mp) ?><?= border_class($mp) ?>" data-look>
@@ -154,10 +168,10 @@ layout_start('Negozio', 'shop');
 <p class="muted small shop-market"><i class="ti ti-chart-line"></i> I prezzi cambiano: salgono se un oggetto è tra gli obiettivi di tanti o ce l'hanno in molti,
   e seguono i gettoni in circolo e quelli che hai tu. Si paga il prezzo del momento.</p>
 
-<?php if ($tab === 'hat' && is_admin()): ?>
+<?php if ($tab === 'hat' && avatar_visible()): ?>
 <p class="muted small"><i class="ti ti-user-star"></i> I copricapi si vedono anche sul tuo <a class="link" href="avatar.php?c=hat">Personaggio</a>.</p>
 <?php endif; ?>
-<?php if (!$items): ?><p class="empty card">Niente da mostrare con questo filtro.</p><?php endif; ?>
+<?php if (!$items && ($admin || $filter !== 'all')): ?><p class="empty card">Niente da mostrare con questo filtro.</p><?php endif; ?>
 <div class="shop-grid">
   <?php foreach ($items as $key => $item):
       $has = $item['has'];
@@ -206,6 +220,14 @@ layout_start('Negozio', 'shop');
     <?php endif; ?>
   </article>
   <?php endforeach; ?>
+  <?php $soon = !$admin && $filter === 'all' && $page === $pages ? shop_coming_count($tab) - count(array_filter($catalog[$tab] ?? [], fn($i) => $i['out'])) : 0;
+  if ($soon > 0): // gli oggetti non ancora usciti: solo quanti sono, senza nomi (quelli già tuoi li vedi comunque) ?>
+  <article class="card shop-item shop-soon" aria-label="Altri oggetti in arrivo">
+    <div class="shop-thumb"><i class="ti ti-lock"></i></div>
+    <div class="shop-name">Coming soon</div>
+    <p class="muted small"><?= $soon === 1 ? 'Un altro oggetto è in arrivo' : 'Altri ' . $soon . ' oggetti in arrivo' ?>: usciranno un po' alla volta.</p>
+  </article>
+  <?php endif; ?>
 </div>
 <?php if ($pages > 1): ?>
 <nav class="pager" aria-label="Pagine">
