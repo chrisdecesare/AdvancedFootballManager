@@ -907,19 +907,28 @@ function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): 
     });
 }
 
-/** Minuti tra un promemoria dei voti e il successivo, per la stessa partita. */
-const PUSH_VOTE_REMIND_MINUTES = 30;
+/*
+ * Le campanelle di match.php (solo admin e manager della lega): un promemoria SOLO a chi non ha ancora fatto la sua parte,
+ * ricontrollato nel momento dell'invio e mai a chi lo manda.
+ *  - presenza: partita in programma, a chi non ha ancora detto se c'è o no;
+ *  - voti: votazioni aperte, a chi ha giocato e non ha ancora votato (gli ospiti non votano).
+ * Al massimo un promemoria ogni PUSH_NUDGE_MINUTES per partita e per tipo.
+ */
+const PUSH_NUDGE_MINUTES = 30;
 
 /**
- * Chi deve ancora votare una partita: giocatori scesi in campo (non ospiti) senza un voto MVP, letto dal database adesso.
+ * Chi manca, letto dal database adesso. $kind: 'presenza' o 'voti'.
  * @return array<int, bool> id giocatore => true se riceve le notifiche (account attivo con almeno un dispositivo iscritto)
  */
-function push_vote_missing(int $matchId): array
+function push_nudge_missing(int $matchId, string $kind): array
 {
-    $pids = array_map('intval', q('SELECT mp.player_id FROM match_players mp JOIN players p ON p.id = mp.player_id
-        WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0
-          AND NOT EXISTS (SELECT 1 FROM mvp_votes v WHERE v.match_id = mp.match_id AND v.voter_id = mp.player_id)', [$matchId])
-        ->fetchAll(PDO::FETCH_COLUMN));
+    $sql = $kind === 'voti'
+        ? 'SELECT mp.player_id FROM match_players mp JOIN players p ON p.id = mp.player_id
+           WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0
+             AND NOT EXISTS (SELECT 1 FROM mvp_votes v WHERE v.match_id = mp.match_id AND v.voter_id = mp.player_id)'
+        : "SELECT mp.player_id FROM match_players mp JOIN players p ON p.id = mp.player_id
+           WHERE mp.match_id = ? AND mp.availability = 'in_attesa' AND p.active = 1";
+    $pids = array_map('intval', q($sql, [$matchId])->fetchAll(PDO::FETCH_COLUMN));
     $users = push_users_of_players($pids);
     $withSub = $users ? array_flip(array_map('intval', q('SELECT DISTINCT user_id FROM push_subscriptions WHERE user_id IN ('
         . implode(',', $users) . ')')->fetchAll(PDO::FETCH_COLUMN))) : [];
@@ -930,49 +939,53 @@ function push_vote_missing(int $matchId): array
     return $out;
 }
 
-/** Quando è partito l'ultimo promemoria dei voti di una partita (timestamp, null se mai). */
-function push_vote_reminded_at(int $matchId): ?int
+/** Quando è partito l'ultimo promemoria di quel tipo per la partita (timestamp, null se mai). */
+function push_nudged_at(int $matchId, string $kind): ?int
 {
-    $v = meta_get('vote_remind_' . $matchId);
+    $v = meta_get(($kind === 'voti' ? 'vote_remind_' : 'att_remind_') . $matchId);
     return $v !== null ? (int) $v : null;
 }
 
 /**
- * La campanella «Ricorda di votare» (match.php, solo admin e manager della lega): una notifica SOLO a chi non ha ancora votato,
- * ricontrollato adesso; mai a chi la manda. Al massimo una ogni PUSH_VOTE_REMIND_MINUTES per partita.
- * @return array{0: ?string, 1: int, 2: int} [errore, giocatori avvisati, giocatori senza notifiche]
+ * Manda il promemoria. @return array{0: ?string, 1: int, 2: int} [errore, giocatori avvisati, giocatori senza notifiche]
  */
-function push_remind_voting(int $matchId, ?int $exceptUser = null): array
+function push_nudge(int $matchId, string $kind, ?int $exceptUser = null): array
 {
     $m = get_match($matchId);
-    if (!$m || $m['status'] !== 'giocata' || !$m['voting_open']) {
+    if ($kind === 'voti' && (!$m || $m['status'] !== 'giocata' || !$m['voting_open'])) {
         return ['Le votazioni di questa partita non sono aperte.', 0, 0];
     }
-    $last = push_vote_reminded_at($matchId);
-    $wait = $last !== null ? $last + PUSH_VOTE_REMIND_MINUTES * 60 - time() : 0;
+    if ($kind === 'presenza' && (!$m || $m['status'] !== 'programmata' || strtotime($m['match_date']) <= time())) {
+        return ['Si può chiedere la presenza solo per una partita in programma.', 0, 0];
+    }
+    $last = push_nudged_at($matchId, $kind);
+    $wait = $last !== null ? $last + PUSH_NUDGE_MINUTES * 60 - time() : 0;
     if ($wait > 0) {
         return ['Promemoria già mandato alle ' . date('H:i', $last) . ': puoi rimandarlo tra ' . max(1, (int) ceil($wait / 60)) . ' minuti.', 0, 0];
     }
-    $missing = push_vote_missing($matchId);
+    $missing = push_nudge_missing($matchId, $kind);
     if (!$missing) {
-        return ['Hanno già votato tutti.', 0, 0];
+        return [$kind === 'voti' ? 'Hanno già votato tutti.' : 'Hanno già risposto tutti.', 0, 0];
     }
     $users = push_users_of_players(array_keys(array_filter($missing)));
     if ($exceptUser !== null) {
         $users = array_filter($users, fn($uid) => $uid !== $exceptUser);
     }
-    $reached = 0;
-    if ($users) {
-        $msg = ['title' => 'Manca il tuo voto!',
+    $msg = $kind === 'voti'
+        ? ['title' => 'Manca il tuo voto!',
             'body' => team_name('A', $m) . ' ' . (int) $m['score_a'] . '–' . (int) $m['score_b'] . ' ' . team_name('B', $m)
                 . '. Vota i compagni e scegli l\'MVP' . ($m['voting_ends_at'] ? ': hai tempo fino a ' . push_when($m['voting_ends_at']) . '.' : '!'),
-            'url' => 'match.php?id=' . $matchId . '#voti', 'tag' => 'voting-' . $matchId];
-        if (push_queue_add(array_values($users), $msg, 'high', 'promemoria voti')) {
-            $reached = count($users);
-            push_defer('push_queue_run');   // la spedizione parte dopo aver risposto a chi ha premuto
-        }
+            'url' => 'match.php?id=' . $matchId . '#voti', 'tag' => 'voting-' . $matchId]
+        : ['title' => 'Ci sei alla partita?',
+            'body' => 'Si gioca ' . push_when($m['match_date']) . ($m['location'] !== '' ? ' · ' . $m['location'] : '')
+                . '. Non hai ancora detto se ci sei: rispondi ora.',
+            'url' => 'match.php?id=' . $matchId, 'tag' => 'match-' . $matchId];
+    $reached = 0;
+    if ($users && push_queue_add(array_values($users), $msg, 'high', $kind === 'voti' ? 'promemoria voti' : 'promemoria presenza')) {
+        $reached = count($users);
+        push_defer('push_queue_run');   // la spedizione parte dopo aver risposto a chi ha premuto
     }
-    meta_set('vote_remind_' . $matchId, (string) time());
+    meta_set(($kind === 'voti' ? 'vote_remind_' : 'att_remind_') . $matchId, (string) time());
     return [null, $reached, count($missing) - count(array_filter($missing))];
 }
 

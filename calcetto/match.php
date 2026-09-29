@@ -251,17 +251,20 @@ if (is_post()) {
                 . ($late ? ' A chi non ha votato (' . implode(', ', $late) . ') è stato dato ' . default_vote_label() . ' d\'ufficio a tutti gli altri.' : ''));
             break;
 
-        case 'remind_vote':
-            // la campanella: solo a chi non ha ancora votato (lib/webpush.php: push_remind_voting)
-            [$err, $sent, $unreachable] = push_remind_voting($id, $actor);
+        case 'nudge':
+            // le campanelle: solo a chi non ha ancora risposto sulla presenza, o non ha ancora votato (lib/webpush.php: push_nudge)
+            $kind = ($_POST['kind'] ?? '') === 'voti' ? 'voti' : 'presenza';
+            [$err, $sent, $unreachable] = push_nudge($id, $kind, $actor);
+            $anchor = $kind === 'voti' ? '#voti' : '#presenze';
             if ($err) {
                 flash('err', $err);
-                redirect($self . '#voti');
+                redirect($self . $anchor);
             }
-            flash('ok', ($sent ? 'Promemoria mandato a ' . $sent . ($sent === 1 ? ' giocatore che non ha' : ' giocatori che non hanno') . ' ancora votato.'
+            $what = $kind === 'voti' ? 'votato' : 'detto se c\'è';
+            flash('ok', ($sent ? 'Promemoria mandato a ' . $sent . ($sent === 1 ? ' giocatore che non ha' : ' giocatori che non hanno') . ' ancora ' . $what . '.'
                     : 'Nessuno di quelli che mancano riceve le notifiche.')
                 . ($unreachable ? ' ' . $unreachable . ($unreachable === 1 ? ' non ha le notifiche attive: avvisalo tu.' : ' non hanno le notifiche attive: avvisali tu.') : ''));
-            redirect($self . '#voti');
+            redirect($self . $anchor);
 
         case 'open_voting':
             q('UPDATE matches SET voting_open = 1, voting_ends_at = ? WHERE id = ?', [default_voting_end(), $id]);
@@ -446,6 +449,31 @@ $liveOn = live_is_on($match);
 $canLive = $hasTeams && live_can_edit($match, $me);
 $canInjury = $hasTeams && live_can_edit($match, $me, 'infortunio');
 
+/*
+ * Campanelle (solo admin e manager della lega): un promemoria soltanto a chi non ha ancora risposto sulla presenza o non ha
+ * ancora votato (lib/webpush.php: push_nudge). Accanto ai nomi, un'icona segna chi non riceve le notifiche e va avvisato a voce.
+ */
+$nudgeReach = [];
+$noPush = function (int $pid, string $kind) use ($canManage, $id, &$nudgeReach): string {
+    if (!$canManage) {
+        return '';
+    }
+    $nudgeReach[$kind] ??= push_nudge_missing($id, $kind);
+    return isset($nudgeReach[$kind][$pid]) && !$nudgeReach[$kind][$pid]
+        ? ' <i class="ti ti-bell-off vote-nopush" title="Non riceve le notifiche: avvisalo tu" aria-label="senza notifiche"></i>' : '';
+};
+$nudgeNames = fn(array $rows, string $kind) => implode(', ', array_map(fn($r) => h($r['name']) . $noPush((int) $r['player_id'], $kind), $rows));
+$nudgeBell = function (string $kind, string $label, string $title) use ($canManage, $id): string {
+    if (!$canManage) {
+        return '';
+    }
+    $last = push_nudged_at($id, $kind);
+    $cooling = $last !== null && $last + PUSH_NUDGE_MINUTES * 60 > time();
+    return '<form method="post" class="inline nudge-form">' . csrf_field() . '<input type="hidden" name="do" value="nudge"><input type="hidden" name="kind" value="' . $kind . '">'
+        . '<button class="btn btn-ghost btn-sm vote-bell"' . ($cooling ? ' disabled title="Già mandato alle ' . date('H:i', $last) . ': si può rimandare dopo '
+            . PUSH_NUDGE_MINUTES . ' minuti"' : ' title="' . h($title) . '"') . '><i class="ti ti-bell-ringing"></i> ' . h($label) . '</button></form>';
+};
+
 layout_start('Partita del ' . fmt_date_short($match['match_date']), 'matches');
 if (!empty($_SESSION['vote_done'])):
     unset($_SESSION['vote_done']); ?>
@@ -597,14 +625,19 @@ if (!empty($_SESSION['vote_done'])):
 
 <?php if (!$played): ?>
 <section class="card" id="presenze">
-  <h2>Presenze</h2>
+  <div class="card-head">
+    <h2>Presenze</h2>
+    <?php if ($byStatus['in_attesa'] && strtotime($match['match_date']) > time()): ?>
+      <?= $nudgeBell('presenza', 'Ricorda di rispondere', 'Manda una notifica solo a chi non ha ancora detto se c\'è') ?>
+    <?php endif; ?>
+  </div>
   <div class="avail-cols">
     <?php foreach (['confermato' => '<i class="ti ti-user-check"></i> Confermati', 'in_attesa' => '<i class="ti ti-user-question"></i> Da confermare', 'assente' => '<i class="ti ti-user-x"></i> Assenti'] as $st => $label): ?>
       <div class="avail-col">
         <h3><?= $label ?> <span class="count <?= $st === 'confermato' ? 'count-yes' : ($st === 'assente' ? 'count-no' : '') ?>"><?= count($byStatus[$st]) ?></span></h3>
         <?php foreach ($byStatus[$st] as $r): ?>
           <div class="pline-row">
-            <?= player_line($r) ?>
+            <?= player_line($r) ?><?= $st === 'in_attesa' ? $noPush((int) $r['player_id'], 'presenza') : '' ?>
             <?php if ($canManage): ?>
               <form method="post" class="inline">
                 <?= csrf_field() ?><input type="hidden" name="do" value="set_avail"><input type="hidden" name="player_id" value="<?= (int) $r['player_id'] ?>">
@@ -862,19 +895,10 @@ if (!empty($_SESSION['vote_done'])):
   <?php endif; ?>
 
   <?php $missing = array_filter($voteParticipants, fn($r) => !in_array((int) $r['player_id'], $voters, true)); ?>
-  <?php if ($missing && $votingOpen):
-      $reach = $canManage ? push_vote_missing($id) : [];   // chi riceve le notifiche, per la campanella ?>
+  <?php if ($missing && $votingOpen): ?>
   <div class="vote-missing">
-    <p class="small muted">Mancano: <?= implode(', ', array_map(fn($r) => h($r['name'])
-        . ($canManage && isset($reach[(int) $r['player_id']]) && !$reach[(int) $r['player_id']]
-            ? ' <i class="ti ti-bell-off vote-nopush" title="Non riceve le notifiche: avvisalo tu" aria-label="senza notifiche"></i>' : ''), $missing)) ?></p>
-    <?php if ($canManage):
-        $lastRemind = push_vote_reminded_at($id);
-        $cooling = $lastRemind !== null && $lastRemind + PUSH_VOTE_REMIND_MINUTES * 60 > time(); ?>
-    <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="remind_vote">
-      <button class="btn btn-ghost btn-sm vote-bell"<?= $cooling ? ' disabled title="Già mandato alle ' . date('H:i', $lastRemind) . ': si può rimandare dopo ' . PUSH_VOTE_REMIND_MINUTES . ' minuti"' : ' title="Manda una notifica solo a chi non ha ancora votato"' ?>>
-        <i class="ti ti-bell-ringing"></i> Ricorda di votare</button></form>
-    <?php endif; ?>
+    <p class="small muted">Mancano: <?= $nudgeNames($missing, 'voti') ?></p>
+    <?= $nudgeBell('voti', 'Ricorda di votare', 'Manda una notifica solo a chi non ha ancora votato') ?>
   </div>
   <?php endif; ?>
   <?php if ($missing && !$votingOpen): ?><p class="small muted"><i class="ti ti-info-circle"></i> Non hanno votato: <?= h(implode(', ', array_column($missing, 'name'))) ?> (a tutti gli altri è stato dato <?= default_vote_label() ?> d'ufficio).</p><?php endif; ?>
