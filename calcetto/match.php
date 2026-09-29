@@ -251,6 +251,18 @@ if (is_post()) {
                 . ($late ? ' A chi non ha votato (' . implode(', ', $late) . ') è stato dato ' . default_vote_label() . ' d\'ufficio a tutti gli altri.' : ''));
             break;
 
+        case 'remind_vote':
+            // la campanella: solo a chi non ha ancora votato (lib/webpush.php: push_remind_voting)
+            [$err, $sent, $unreachable] = push_remind_voting($id, $actor);
+            if ($err) {
+                flash('err', $err);
+                redirect($self . '#voti');
+            }
+            flash('ok', ($sent ? 'Promemoria mandato a ' . $sent . ($sent === 1 ? ' giocatore che non ha' : ' giocatori che non hanno') . ' ancora votato.'
+                    : 'Nessuno di quelli che mancano riceve le notifiche.')
+                . ($unreachable ? ' ' . $unreachable . ($unreachable === 1 ? ' non ha le notifiche attive: avvisalo tu.' : ' non hanno le notifiche attive: avvisali tu.') : ''));
+            redirect($self . '#voti');
+
         case 'open_voting':
             q('UPDATE matches SET voting_open = 1, voting_ends_at = ? WHERE id = ?', [default_voting_end(), $id]);
             q('DELETE FROM ratings WHERE match_id = ? AND is_auto = 1', [$id]);   // i voti d'ufficio si rifanno alla prossima chiusura
@@ -850,7 +862,21 @@ if (!empty($_SESSION['vote_done'])):
   <?php endif; ?>
 
   <?php $missing = array_filter($voteParticipants, fn($r) => !in_array((int) $r['player_id'], $voters, true)); ?>
-  <?php if ($missing && $votingOpen): ?><p class="small muted">Mancano: <?= h(implode(', ', array_column($missing, 'name'))) ?></p><?php endif; ?>
+  <?php if ($missing && $votingOpen):
+      $reach = $canManage ? push_vote_missing($id) : [];   // chi riceve le notifiche, per la campanella ?>
+  <div class="vote-missing">
+    <p class="small muted">Mancano: <?= implode(', ', array_map(fn($r) => h($r['name'])
+        . ($canManage && isset($reach[(int) $r['player_id']]) && !$reach[(int) $r['player_id']]
+            ? ' <i class="ti ti-bell-off vote-nopush" title="Non riceve le notifiche: avvisalo tu" aria-label="senza notifiche"></i>' : ''), $missing)) ?></p>
+    <?php if ($canManage):
+        $lastRemind = push_vote_reminded_at($id);
+        $cooling = $lastRemind !== null && $lastRemind + PUSH_VOTE_REMIND_MINUTES * 60 > time(); ?>
+    <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="remind_vote">
+      <button class="btn btn-ghost btn-sm vote-bell"<?= $cooling ? ' disabled title="Già mandato alle ' . date('H:i', $lastRemind) . ': si può rimandare dopo ' . PUSH_VOTE_REMIND_MINUTES . ' minuti"' : ' title="Manda una notifica solo a chi non ha ancora votato"' ?>>
+        <i class="ti ti-bell-ringing"></i> Ricorda di votare</button></form>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
   <?php if ($missing && !$votingOpen): ?><p class="small muted"><i class="ti ti-info-circle"></i> Non hanno votato: <?= h(implode(', ', array_column($missing, 'name'))) ?> (a tutti gli altri è stato dato <?= default_vote_label() ?> d'ufficio).</p><?php endif; ?>
 
   <?php if ($showVotes): ?>
