@@ -149,7 +149,7 @@ layout_start($p['name'], 'players');
     <ul class="fact-list">
     <?php foreach ($curiosities as $c): ?>
       <li>
-        <span><?= h($c['body']) ?></span>
+        <span class="fact-text" data-clamp><?= h($c['body']) ?></span>
         <?php if ($canEdit): ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="del_curiosity"><input type="hidden" name="id" value="<?= (int) $c['id'] ?>">
             <button class="icon-btn" title="Elimina la curiosità" aria-label="Elimina la curiosità" data-confirm="Eliminare questa curiosità?"><i class="ti ti-trash"></i></button></form>

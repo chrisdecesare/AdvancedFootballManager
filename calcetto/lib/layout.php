@@ -15,6 +15,10 @@ function layout_start(string $title, string $active = ''): void
     if ($guest) {
         $nav = ['match' => ['match.php?id=' . (int) guest_match_id(), 'La partita', 'calendar-event']];   // vede solo la sua partita
     }
+    if ($u && !$guest && avatar_visible()) {
+        // Personaggio (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
+        $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Personaggio', '3d-cube-sphere']] + $nav;
+    }
     $pendingLeague = 0;
     if ($u && !$guest) {
         $owned = my_owned_leagues();
@@ -28,8 +32,6 @@ function layout_start(string $title, string $active = ''): void
         }
     }
     if (is_admin()) {
-        // Personaggio (avatar 3D, avatar.php): ancora in prova, visibile solo all'admin finché non si apre a tutti
-        $nav['avatar'] = ['avatar.php', 'Personaggio', '3d-cube-sphere'];
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
         $nav['platform'] = ['platform.php', 'Piattaforma', 'world'];

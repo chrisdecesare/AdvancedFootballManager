@@ -359,6 +359,11 @@ form.inline { display: inline; margin: 0; }
 .drop-hype-count { flex: none; animation: brdPulse 1.6s ease-in-out infinite; }
 .drop-hype-cta { margin-top: 16px; }
 @media (max-width: 600px) { .drop-hype-row { flex-direction: column; align-items: flex-start; } }
+.drop-hype.is-launched { background: linear-gradient(135deg, var(--grass), var(--purple)); }
+/* proposte per il sito, dentro la card: le legge solo l'admin */
+.drop-hype-idea { margin-top: 16px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .92); border: var(--b2); display: grid; gap: 8px; }
+.drop-hype-idea .field > span { font-weight: 800; }
+.drop-hype-idea textarea { resize: vertical; min-height: 56px; }
 input, select, textarea {
   font: 700 1rem var(--font); color: var(--ink); background: var(--white); border: var(--b2);
   border-radius: 10px; padding: 8px 11px; width: 100%; min-width: 0;
@@ -1441,3 +1446,27 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .drop-item-name { font-weight: 800; font-size: .88rem; }
 .drop-item.is-out .drop-item-state { color: var(--grass-d); }
 .drop-item.is-scheduled .drop-item-state { color: #b86e00; }
+
+/* Personaggio e Negozio: il riquadro «Coming soon» con gli oggetti non ancora usciti (solo il numero, niente nomi) */
+.av-item-soon { cursor: default; opacity: .9; }
+.av-item-soon:hover { transform: none; box-shadow: var(--sh-sm); }
+.av-item-soon .av-item-plus { background: var(--paper-2); }
+.av-item-soon .av-item-name { font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.shop-soon { border-style: dashed; background: var(--paper); }
+.shop-soon .shop-thumb { display: grid; place-items: center; font-size: 2.4rem; min-height: 84px; }
+.shop-soon .shop-name { font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
+.proposal-body { max-width: 520px; overflow-wrap: anywhere; }
+tr.is-new td { background: #fffbe6; }
+
+/* curiosità tutte uguali: al massimo tre righe (due nella scheda del giocatore) con «…»; un clic le apre per intero (assets/app.js) */
+.fact-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; line-height: 1.45; }
+.fact-list .fact-text { -webkit-line-clamp: 2; line-clamp: 2; }
+.fact-text.is-clamped { cursor: pointer; }
+.fact-text.is-clamped:hover { color: var(--grass-d); }
+.fact-text.is-clamped:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; border-radius: 4px; }
+.fact-text.is-open { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+.fact-card { grid-template-rows: auto 1fr; }
+.fact-card .fact-text:not(.is-open) { min-height: calc(3 * 1.45em); }
+.fact-grid { align-items: stretch; }
+.fact-slides .fact-text:not(.is-open) { min-height: calc(3 * 1.45em); }
+.fact.is-paused .fact-timer span { animation-play-state: paused; }
