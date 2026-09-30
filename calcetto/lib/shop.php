@@ -194,7 +194,7 @@ function shop_progress(int $playerId): array
                                 WHERE mp.player_id = ? AND m.status = \'giocata\' AND mp.team IS NOT NULL', [$playerId])->fetchColumn(),
         'bets_won' => (int) q("SELECT COUNT(*) FROM bets WHERE player_id = ? AND status = 'vinta'", [$playerId])->fetchColumn()
             + (int) q("SELECT COUNT(*) FROM combo_bets WHERE player_id = ? AND status = 'vinta'", [$playerId])->fetchColumn(),
-        'coins' => wallet_balance($playerId) + wallet_in_play($playerId),
+        'coins' => wallet_total($playerId),
         'items' => (int) q('SELECT COUNT(*) FROM player_items WHERE player_id = ?', [$playerId])->fetchColumn(),
     ];
 }
@@ -265,27 +265,30 @@ function shop_released(string $key, array $item): bool
 const SHOP_PRICE_REF = 300;
 
 /**
- * Il mercato di adesso, una volta per richiesta: quante volte ogni oggetto è nella lista desideri, quanti lo possiedono,
- * i saldi di tutti i giocatori (chi ha almeno una mossa nel portafoglio) e la loro media.
+ * Il mercato di adesso di un'economia (lib/bets.php: current_eco), una volta per richiesta: quante volte ogni oggetto è nella lista
+ * desideri, quanti lo possiedono, i saldi dei giocatori e la loro media. Contano solo i giocatori che hanno un portafoglio in quella
+ * economia: chi gonfia i KOIN (o i desideri) nella propria lega non cambia i prezzi delle altre.
  */
-function shop_market(bool $fresh = false): array
+function shop_market(bool $fresh = false, ?int $eco = null): array
 {
-    static $m = null;
-    if ($m !== null && !$fresh) {
-        return $m;
+    static $cache = [];
+    $eco ??= current_eco();
+    if (isset($cache[$eco]) && !$fresh) {
+        return $cache[$eco];
     }
     $m = ['wish' => [], 'owners' => [], 'balances' => [], 'avg' => 0.0];
-    foreach (q('SELECT item_key, COUNT(*) n FROM wishlist GROUP BY item_key')->fetchAll() as $r) {
+    $inEco = 'EXISTS (SELECT 1 FROM wallet_moves em WHERE em.player_id = t.player_id AND em.eco = ?)';
+    foreach (q("SELECT t.item_key, COUNT(*) n FROM wishlist t WHERE $inEco GROUP BY t.item_key", [$eco])->fetchAll() as $r) {
         $m['wish'][$r['item_key']] = (int) $r['n'];
     }
-    foreach (q('SELECT item_key, COUNT(*) n FROM player_items GROUP BY item_key')->fetchAll() as $r) {
+    foreach (q("SELECT t.item_key, COUNT(*) n FROM player_items t WHERE $inEco GROUP BY t.item_key", [$eco])->fetchAll() as $r) {
         $m['owners'][$r['item_key']] = (int) $r['n'];
     }
-    foreach (q('SELECT player_id, SUM(delta) b FROM wallet_moves GROUP BY player_id')->fetchAll() as $r) {
+    foreach (q('SELECT player_id, SUM(delta) b FROM wallet_moves WHERE eco = ? GROUP BY player_id', [$eco])->fetchAll() as $r) {
         $m['balances'][(int) $r['player_id']] = (int) $r['b'];
     }
     $m['avg'] = $m['balances'] ? array_sum($m['balances']) / count($m['balances']) : 0.0;
-    return $m;
+    return $cache[$eco] = $m;
 }
 
 /**
@@ -296,13 +299,13 @@ function shop_market(bool $fresh = false): array
  *  - il portafoglio di chi compra: (il suo saldo / la media)^0,25, tra ×0,85 e ×1,3.
  * Gratis e nickname da sbloccare restano come sono. Arrotondato a 5, minimo 5.
  */
-function shop_price(string $key, array $item, ?int $buyerId): array
+function shop_price(string $key, array $item, ?int $buyerId, ?int $eco = null): array
 {
     $base = $item['price'];
     if ($base === null || $base === 0 || isset($item['owner_player_id'])) {
         return [$base, null];
     }
-    $m = shop_market();
+    $m = shop_market(false, $eco);
     $wish = $m['wish'][$key] ?? 0;
     $owners = $m['owners'][$key] ?? 0;
     $players = max(1, count($m['balances']));
@@ -504,9 +507,13 @@ function shop_news_notify_due(): void
 
 /* ---------------------------------------------------------------- acquisti */
 
-/** Compra un oggetto. Ritorna il messaggio d'errore oppure null se è andata. */
-function shop_buy(int $playerId, string $kind, string $key): ?string
+/** Compra un oggetto con i KOIN di un'economia (null = quella in uso adesso). Ritorna il messaggio d'errore oppure null se è andata. */
+function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null): ?string
 {
+    $eco ??= current_eco($playerId);
+    if (!in_array($eco, player_ecos($playerId), true)) {
+        return 'Non hai un portafoglio in questa lega.';
+    }
     $item = shop_item($kind, $key);
     if (!$item) {
         return 'Oggetto non trovato.';
@@ -526,19 +533,19 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
     if ($item['price'] === 0) {
         return 'È già tuo: è incluso per tutti.';
     }
-    return bet_atomic(function () use ($playerId, $key, $item) {
+    return bet_atomic(function () use ($playerId, $key, $item, $eco) {
         q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due acquisti insieme non possono spendere due volte gli stessi KOIN
         if (q('SELECT 1 FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $key])->fetch()) {
             return 'Ce l\'hai già.';
         }
-        shop_market(true);   // il prezzo di adesso, con desideri, possessori e saldi letti ora
-        [$price] = shop_price($key, $item, $playerId);
-        $left = wallet_balance($playerId);
+        shop_market(true, $eco);   // il prezzo di adesso, con desideri, possessori e saldi letti ora
+        [$price] = shop_price($key, $item, $playerId, $eco);
+        $left = wallet_balance($playerId, $eco);
         if ($left < $price) {
-            return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . '. Vai a scommettere!';
+            return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . ($eco ? ' in «' . eco_label($eco) . '»' : '') . '. Vai a scommettere!';
         }
         q('INSERT INTO player_items (player_id, item_key, price) VALUES (?, ?, ?)', [$playerId, $key, $price]);
-        q("INSERT INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'acquisto', ?)", [$playerId, -$price, 'buy-' . $key]);
+        q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'acquisto', ?)", [$playerId, $eco, -$price, 'buy-' . $key]);
         return null;
     });
 }

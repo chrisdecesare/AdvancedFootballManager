@@ -73,8 +73,21 @@
       // quota aggiornata da poco: freccia su/giù per qualche secondo
       const moved = leg.moved && Date.now() - (leg.movedAt || 0) < 15000 ? leg.moved : '';
       row.className = 'slip-leg' + (moved ? ' is-moved-' + moved : '');
-      row.innerHTML = '<span class="slip-leg-txt">' + leg.matchLabel + ': <b>' + leg.label + '</b> ×' + leg.odds.toFixed(2)
-        + (moved ? ' <span class="slip-move" title="Quota appena cambiata">' + (moved === 'up' ? '▲' : '▼') + '</span>' : '') + '</span>';
+      // nomi di giocatori e squadre li scrivono gli utenti: si mettono come testo, mai come HTML (altrimenti un nome con dentro
+      // del codice girerebbe nel browser di chi aggiunge quella scelta alla schedina)
+      const txt = document.createElement('span');
+      txt.className = 'slip-leg-txt';
+      const pick = document.createElement('b');
+      pick.textContent = String(leg.label ?? '');
+      txt.append(String(leg.matchLabel ?? '') + ': ', pick, ' ×' + (Number(leg.odds) || 1).toFixed(2));
+      if (moved) {
+        const mv = document.createElement('span');
+        mv.className = 'slip-move';
+        mv.title = 'Quota appena cambiata';
+        mv.textContent = moved === 'up' ? '▲' : '▼';
+        txt.append(' ', mv);
+      }
+      row.appendChild(txt);
 
       // scheda «Singole»: uno stake per selezione, aggiornato in tempo reale. La lista è fuori dal <form> (resta visibile
       // anche nella scheda Multipla), quindi questi campi si legano al form con l'attributo form="..." invece che con il nesting,
@@ -171,7 +184,9 @@
         b.dataset.pick = b.dataset.ouSide + line.toFixed(1);
         b.dataset.label = (over ? 'Over ' : 'Under ') + String(line).replace('.', ',') + ' gol';
         b.dataset.odds = o;
-        b.innerHTML = (over ? 'Over' : 'Under') + ' <b>×' + fmt(o) + '</b>';
+        const q = document.createElement('b');
+        q.textContent = '×' + fmt(o);
+        b.replaceChildren((over ? 'Over' : 'Under') + ' ', q);
       });
       box.querySelector('.ou-over-txt').textContent = Math.ceil(line) + ' o più gol';
       box.querySelector('.ou-under-txt').textContent = Math.floor(line) + ' o meno';

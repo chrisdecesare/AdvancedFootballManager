@@ -15,7 +15,13 @@ function trusted_base_url(): string
         return rtrim(SITE_URL, '/') . '/';
     }
     $saved = meta_get('base_url');
-    return $saved !== null && $saved !== '' ? $saved : site_base_url();
+    if ($saved !== null && $saved !== '') {
+        return $saved;
+    }
+    // nessun indirizzo fissato (né SITE_URL né un admin che ha già usato il sito): l'intestazione Host la sceglie chi manda la
+    // richiesta. Si usa solo per chi è collegato (è il suo browser); per le email che può far partire chiunque (password
+    // dimenticata, iscrizioni, tentativi di accesso) un Host falso porterebbe il link, con il codice dentro, su un altro sito
+    return current_user() ? site_base_url() : '';
 }
 
 /** Un admin che usa il sito (indirizzo affidabile) fissa l'indirizzo per i link delle email. */

@@ -1,5 +1,34 @@
 // Piccole interazioni: conferme, select che salvano da sole, voti, calcolo risultato, anteprima foto.
+
+// Uscita dall'account: è un POST con il codice CSRF (un link GET lo potrebbe far aprire qualunque sito). I link «Esci» restano
+// link (senza JavaScript portano a logout.php, che chiede conferma); qui diventano un modulo spedito al volo.
+window.calcettoLogout = () => {
+  const f = document.createElement('form');
+  f.method = 'post';
+  f.action = 'logout.php';
+  const t = document.createElement('input');
+  t.type = 'hidden';
+  t.name = 'csrf';
+  t.value = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+  f.appendChild(t);
+  document.body.appendChild(f);
+  f.submit();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
+  // push.js (caricato prima) gestisce da sé il clic quando deve prima togliere il dispositivo dalle notifiche: allora annulla l'evento
+  document.querySelectorAll('a[href="logout.php"]').forEach(a => a.addEventListener('click', e => {
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    window.calcettoLogout();
+  }));
+
+  // niente gestori scritti negli attributi HTML (onclick=...): la Content-Security-Policy li blocca tutti (lib/bootstrap.php)
+  document.querySelectorAll('[data-select-all]').forEach(i => i.addEventListener('click', () => i.select()));
+  document.querySelectorAll('[data-focus-mode]').forEach(i => i.addEventListener('focus', () => {
+    if (i.form && i.form.elements.mode) i.form.elements.mode.value = i.dataset.focusMode;
+  }));
+
   // invito ad aggiungere l'email: si può rimandare
   const emailBanner = document.querySelector('[data-email-banner]');
   if (emailBanner) {

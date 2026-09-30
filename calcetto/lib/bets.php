@@ -97,34 +97,160 @@ function bet_poisson_at_least(float $lam, int $k): float
     return max(0.0, 1 - $below);
 }
 
-/* ---------------------------------------------------------------- portafoglio */
+/* ---------------------------------------------------------------- economie */
 
-/** KOIN disponibili (le puntate in corso sono già scalate). */
-function wallet_balance(int $playerId): int
+/*
+ * Economie dei KOIN. Le leghe storiche (create dall'admin del sito, owner_user_id NULL) hanno un portafoglio in comune: l'economia 0.
+ * Ogni lega creata da un utente ha la sua economia, che ha come numero l'id della lega. Chi gestisce una lega decide i risultati
+ * delle sue partite: i KOIN che si vincono lì (scommesse, premi per gol e assist, Fanta) restano lì, e non si possono spendere
+ * né pesano (prezzi del Negozio, classifica dei ricchi) nelle altre leghe. Ogni movimento del portafoglio, ogni puntata e ogni
+ * multipla ha la sua economia (colonna eco); gli oggetti comprati invece sono del giocatore, ovunque giochi.
+ */
+
+/** Economia di una lega: 0 per le leghe storiche, l'id della lega per quelle create dagli utenti. */
+function eco_of_group(int $gid): int
 {
-    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ?', [$playerId])->fetchColumn();
+    $owners = groups_cache('owners');
+    if ($owners === null) {
+        $owners = [];
+        try {
+            foreach (q('SELECT id, owner_user_id FROM squad_groups')->fetchAll() as $r) {
+                $owners[(int) $r['id']] = $r['owner_user_id'] !== null;
+            }
+        } catch (PDOException $e) {   // database non ancora aggiornato: nessuna lega di utenti
+        }
+        groups_cache('owners', $owners);
+    }
+    return !empty($owners[$gid]) ? $gid : 0;
 }
 
-/** KOIN puntati su scommesse (singole e multiple) non ancora decise. */
-function wallet_in_play(int $playerId): int
+/** Economia di una partita (quella della sua lega). */
+function eco_of_match(array $match): int
 {
-    return (int) q("SELECT COALESCE(SUM(stake), 0) FROM bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn()
+    return eco_of_group((int) ($match['group_id'] ?? 0));
+}
+
+/**
+ * Economie in cui un giocatore ha un portafoglio: 0 se gioca in una lega storica (o ci ha già dei movimenti), più una per ogni
+ * lega creata da utenti di cui fa parte. In ordine, con lo 0 per primo.
+ * @return int[]
+ */
+function player_ecos(int $playerId): array
+{
+    if (($cached = groups_cache('ecos-' . $playerId)) !== null) {   // si azzera quando cambiano le leghe del giocatore
+        return $cached;
+    }
+    $ecos = [];
+    foreach (player_group_ids($playerId) as $gid) {
+        $ecos[eco_of_group($gid)] = true;
+    }
+    if (!isset($ecos[0]) && q('SELECT 1 FROM wallet_moves WHERE player_id = ? AND eco = 0 LIMIT 1', [$playerId])->fetch()) {
+        $ecos[0] = true;
+    }
+    $ecos = array_keys($ecos);
+    sort($ecos);
+    groups_cache('ecos-' . $playerId, $ecos);
+    return $ecos;
+}
+
+/**
+ * Economia che il giocatore sta usando adesso: quella della lega scelta con i pulsanti in alto, se ci ha un portafoglio;
+ * altrimenti la prima delle sue (le leghe storiche, se ne fa parte).
+ */
+function current_eco(?int $playerId = null): int
+{
+    $playerId ??= my_player_id();
+    $ecos = $playerId ? player_ecos($playerId) : [];
+    if (!$ecos) {
+        return 0;
+    }
+    $f = group_filter();
+    if ($f && in_array(eco_of_group($f), $ecos, true)) {
+        return eco_of_group($f);
+    }
+    return $ecos[0];
+}
+
+/** Nome di un'economia: la lega creata da un utente, oppure le leghe storiche. */
+function eco_label(int $eco): string
+{
+    if ($eco) {
+        return group_name($eco);
+    }
+    $names = [];
+    foreach (all_groups() as $gid => $name) {
+        if (!eco_of_group($gid)) {
+            $names[] = $name;
+        }
+    }
+    return $names ? implode(' · ', $names) : APP_NAME;
+}
+
+/**
+ * Pulsanti per scegliere con quali KOIN pagare/puntare, per chi ha più portafogli (gioca in leghe con economie diverse).
+ * Cambiano la lega guardata (group.php), da cui dipende current_eco(). Stringa vuota se il giocatore ha un portafoglio solo.
+ */
+function eco_switch(int $playerId, string $back): string
+{
+    $ecos = player_ecos($playerId);
+    if (count($ecos) < 2) {
+        return '';
+    }
+    $cur = current_eco($playerId);
+    $out = '<form method="post" action="group.php" class="group-bar eco-bar" aria-label="Portafoglio">' . csrf_field()
+        . '<input type="hidden" name="back" value="' . h($back) . '">'
+        . '<span class="group-bar-label"><i class="ti ti-coin"></i> KOIN di</span>';
+    foreach ($ecos as $eco) {
+        $on = $eco === $cur;
+        $out .= '<button class="gchip' . ($on ? ' is-on' : '') . '" name="g" value="' . $eco . '" aria-pressed="' . ($on ? 'true' : 'false') . '">'
+            . h(eco_label($eco)) . ' <b>' . wallet_balance($playerId, $eco) . '</b></button>';
+    }
+    return $out . '</form>';
+}
+
+/* ---------------------------------------------------------------- portafoglio */
+
+/** KOIN disponibili in un'economia (le puntate in corso sono già scalate). $eco null = quella in uso adesso (current_eco). */
+function wallet_balance(int $playerId, ?int $eco = null): int
+{
+    $eco ??= current_eco($playerId);
+    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND eco = ?', [$playerId, $eco])->fetchColumn();
+}
+
+/** KOIN puntati su scommesse (singole e multiple) non ancora decise, in un'economia. */
+function wallet_in_play(int $playerId, ?int $eco = null): int
+{
+    $eco ??= current_eco($playerId);
+    return (int) q("SELECT COALESCE(SUM(stake), 0) FROM bets WHERE player_id = ? AND eco = ? AND status = 'aperta'", [$playerId, $eco])->fetchColumn()
+        + (int) q("SELECT COALESCE(SUM(stake), 0) FROM combo_bets WHERE player_id = ? AND eco = ? AND status = 'aperta'", [$playerId, $eco])->fetchColumn();
+}
+
+/** KOIN di tutti i portafogli del giocatore, compresi quelli in gioco (solo per gli obiettivi dei nickname, che sono suoi e basta). */
+function wallet_total(int $playerId): int
+{
+    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ?', [$playerId])->fetchColumn()
+        + (int) q("SELECT COALESCE(SUM(stake), 0) FROM bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn()
         + (int) q("SELECT COALESCE(SUM(stake), 0) FROM combo_bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn();
 }
 
 /**
- * Apre il portafoglio (KOIN di benvenuto la prima volta) e dà il sussidio a chi è al verde: una volta a settimana,
- * solo se non ha nulla in gioco. Ritorna un messaggio da mostrare se è appena arrivato qualcosa.
+ * Apre il portafoglio di un'economia (KOIN di benvenuto la prima volta) e dà il sussidio a chi è al verde: una volta a settimana,
+ * solo se non ha nulla in gioco. Solo nelle economie delle leghe del giocatore. Ritorna un messaggio da mostrare se è appena arrivato qualcosa.
  */
-function wallet_open(int $playerId): ?string
+function wallet_open(int $playerId, ?int $eco = null): ?string
 {
+    $eco ??= current_eco($playerId);
+    if (!in_array($eco, player_ecos($playerId), true)) {
+        return null;
+    }
+    $where = $eco ? ' in «' . eco_label($eco) . '»' : '';
     $msg = null;
-    if (q("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'benvenuto', 'welcome')", [$playerId, BET_START])->rowCount()) {
-        $msg = 'Benvenuto al banco! Ti abbiamo regalato ' . BET_START . ' KOIN: spendili male.';
-    } elseif (wallet_balance($playerId) + wallet_in_play($playerId) < BET_DOLE_BELOW) {
+    if (q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'benvenuto', 'welcome')", [$playerId, $eco, BET_START])->rowCount()) {
+        $msg = 'Benvenuto al banco' . $where . '! Ti abbiamo regalato ' . BET_START . ' KOIN: spendili male.';
+    } elseif (wallet_balance($playerId, $eco) + wallet_in_play($playerId, $eco) < BET_DOLE_BELOW) {
         $ref = 'dole-' . date('o\WW');
-        if (q("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'sussidio', ?)", [$playerId, BET_DOLE, $ref])->rowCount()) {
-            $msg = 'Sei al verde: lo Stato del Calcetto ti passa il sussidio di ' . BET_DOLE . ' KOIN. Non farti riconoscere.';
+        if (q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'sussidio', ?)", [$playerId, $eco, BET_DOLE, $ref])->rowCount()) {
+            $msg = 'Sei al verde' . $where . ': lo Stato del Calcetto ti passa il sussidio di ' . BET_DOLE . ' KOIN. Non farti riconoscere.';
         }
     }
     return $msg;
@@ -142,20 +268,21 @@ function bet_title(int $balance): string
     return 'Lupo di Wall Street';
 }
 
-/** Classifica di chi ha un portafoglio: KOIN disponibili + in gioco (singole e multiple), dal più ricco. */
-function bet_leaderboard(): array
+/** Classifica di chi ha un portafoglio in un'economia: KOIN disponibili + in gioco (singole e multiple), dal più ricco. */
+function bet_leaderboard(?int $eco = null): array
 {
+    $eco ??= current_eco();
     return q('SELECT p.id, p.name, p.photo,
-                     (SELECT COALESCE(SUM(delta), 0) FROM wallet_moves w WHERE w.player_id = p.id) AS balance,
-                     (SELECT COALESCE(SUM(stake), 0) FROM bets b WHERE b.player_id = p.id AND b.status = \'aperta\')
-                       + (SELECT COALESCE(SUM(stake), 0) FROM combo_bets c WHERE c.player_id = p.id AND c.status = \'aperta\') AS in_play,
-                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.status = \'vinta\')
-                       + (SELECT COUNT(*) FROM combo_bets c WHERE c.player_id = p.id AND c.status = \'vinta\') AS wins,
-                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.status IN (\'vinta\', \'persa\'))
-                       + (SELECT COUNT(*) FROM combo_bets c WHERE c.player_id = p.id AND c.status IN (\'vinta\', \'persa\')) AS decided
+                     (SELECT COALESCE(SUM(delta), 0) FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = :e1) AS balance,
+                     (SELECT COALESCE(SUM(stake), 0) FROM bets b WHERE b.player_id = p.id AND b.eco = :e2 AND b.status = \'aperta\')
+                       + (SELECT COALESCE(SUM(stake), 0) FROM combo_bets c WHERE c.player_id = p.id AND c.eco = :e3 AND c.status = \'aperta\') AS in_play,
+                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.eco = :e4 AND b.status = \'vinta\')
+                       + (SELECT COUNT(*) FROM combo_bets c WHERE c.player_id = p.id AND c.eco = :e5 AND c.status = \'vinta\') AS wins,
+                     (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.eco = :e6 AND b.status IN (\'vinta\', \'persa\'))
+                       + (SELECT COUNT(*) FROM combo_bets c WHERE c.player_id = p.id AND c.eco = :e7 AND c.status IN (\'vinta\', \'persa\')) AS decided
               FROM players p
-              WHERE EXISTS (SELECT 1 FROM wallet_moves w WHERE w.player_id = p.id) AND ' . player_scope_sql('p.id') . '
-              ORDER BY (balance + in_play) DESC, p.name')->fetchAll();
+              WHERE EXISTS (SELECT 1 FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = :e8) AND ' . player_scope_sql('p.id') . '
+              ORDER BY (balance + in_play) DESC, p.name', array_fill_keys(['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'], $eco))->fetchAll();
 }
 
 /* ---------------------------------------------------------------- quote */
@@ -544,22 +671,27 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     if ($odds === null) {
         return 'Su questa scelta non ci sono quote.';
     }
+    $eco = eco_of_match($match);   // si punta con i KOIN della lega della partita, e lì si viene pagati
+    if (!in_array($eco, player_ecos($playerId), true)) {
+        return 'Puoi scommettere solo sulle partite delle tue leghe.';
+    }
+    wallet_open($playerId, $eco);
     try {
-        return bet_atomic(function () use ($match, $playerId, $market, $pick, $stake, $odds) {
+        return bet_atomic(function () use ($match, $playerId, $market, $pick, $stake, $odds, $eco) {
             q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due puntate insieme non possono spendere due volte gli stessi KOIN
             // si può avere una puntata aperta per scelta: su "chi segna" o "chi è MVP" si punta su più giocatori insieme, ognuno la sua;
             // ripuntare sulla STESSA scelta la sostituisce (cambia importo/quota) invece di sommarsi.
-            $old = q("SELECT id, stake FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
+            $old = q("SELECT id, stake, eco FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
                 [$match['id'], $playerId, $market, $pick])->fetch();
-            $available = wallet_balance($playerId) + ($old ? (int) $old['stake'] : 0);
+            $available = wallet_balance($playerId, $eco) + ($old && (int) $old['eco'] === $eco ? (int) $old['stake'] : 0);
             if ($stake > $available) {
-                return 'Non hai abbastanza KOIN: te ne restano ' . $available . '.';
+                return 'Non hai abbastanza KOIN' . ($eco ? ' in «' . eco_label($eco) . '»' : '') . ': te ne restano ' . $available . '.';
             }
             if ($old) {
                 q('DELETE FROM bets WHERE id = ?', [$old['id']]);   // le sue mosse spariscono con lei (rimborso)
             }
-            q('INSERT INTO bets (match_id, player_id, market, pick, stake, odds) VALUES (?, ?, ?, ?, ?, ?)', [$match['id'], $playerId, $market, $pick, $stake, $odds]);
-            q("INSERT INTO wallet_moves (player_id, bet_id, delta, kind) VALUES (?, ?, ?, 'puntata')", [$playerId, db()->lastInsertId(), -$stake]);
+            q('INSERT INTO bets (match_id, player_id, eco, market, pick, stake, odds) VALUES (?, ?, ?, ?, ?, ?, ?)', [$match['id'], $playerId, $eco, $market, $pick, $stake, $odds]);
+            q("INSERT INTO wallet_moves (player_id, eco, bet_id, delta, kind) VALUES (?, ?, ?, ?, 'puntata')", [$playerId, $eco, db()->lastInsertId(), -$stake]);
             return null;
         });
     } catch (PDOException $e) {
@@ -656,8 +788,8 @@ function bets_settle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'mvp
                     [$status, $pay, $kind] = ['persa', 0, null];
                 }
                 q('UPDATE bets SET status = ?, payout = ?, settled_at = NOW() WHERE id = ?', [$status, $pay, $b['id']]);
-                if ($kind) {
-                    q('INSERT INTO wallet_moves (player_id, bet_id, delta, kind) VALUES (?, ?, ?, ?)', [$b['player_id'], $b['id'], $pay, $kind]);
+                if ($kind) {   // si paga nella stessa economia da cui era partita la puntata
+                    q('INSERT INTO wallet_moves (player_id, eco, bet_id, delta, kind) VALUES (?, ?, ?, ?, ?)', [$b['player_id'], (int) $b['eco'], $b['id'], $pay, $kind]);
                 }
             }
         });
@@ -726,17 +858,21 @@ function match_rewards_sync(int $matchId): void
             $want[(int) $r['player_id']] = (int) $r['goals'] * BET_REWARD_GOAL + (int) $r['assists'] * BET_REWARD_ASSIST;
         }
     }
+    $eco = $m ? eco_of_match($m) : 0;   // i premi restano nei KOIN della lega della partita
     foreach ($want as $pid => $delta) {
-        q("INSERT INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'premio', ?) ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$pid, $delta, $ref]);
+        q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'premio', ?) ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$pid, $eco, $delta, $ref]);
     }
     $keep = array_keys($want);
-    q('DELETE FROM wallet_moves WHERE ref = ?' . ($keep ? ' AND player_id NOT IN (' . implode(',', array_map('intval', $keep)) . ')' : ''), [$ref]);
+    // via i premi di chi non li merita più, e quelli finiti in un'altra economia (partite pagate prima che le leghe avessero i propri KOIN)
+    q('DELETE FROM wallet_moves WHERE ref = ? AND (eco <> ?' . ($keep ? ' OR player_id NOT IN (' . implode(',', array_map('intval', $keep)) . ')' : ' OR 1=1') . ')', [$ref, $eco]);
 }
 
 /** KOIN vinti da un giocatore con gol e assist (premi di tutte le partite). */
-function player_rewards_total(int $playerId): int
+function player_rewards_total(int $playerId, ?int $eco = null): int
 {
-    return (int) q("SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND kind = 'premio'", [$playerId])->fetchColumn();
+    $eco ??= current_eco($playerId);
+    return (int) q("SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND eco = ? AND kind = 'premio' AND ref LIKE 'premio-m%'",
+        [$playerId, $eco])->fetchColumn();
 }
 
 /**
@@ -792,7 +928,7 @@ function bets_requote_open(): array
             $odds *= max(BET_MIN_ODDS, $o);
         }
         if ($changed) {
-            q('UPDATE combo_bets SET odds = ? WHERE id = ?', [round(max(BET_MIN_ODDS, $odds), 2), $cid]);
+            q('UPDATE combo_bets SET odds = ? WHERE id = ?', [round(min(COMBO_MAX_ODDS, max(BET_MIN_ODDS, $odds)), 2), $cid]);
             $combos++;
         }
     }
@@ -803,6 +939,7 @@ function bets_requote_open(): array
 
 const COMBO_MIN_LEGS = 2;    // sotto sono solo scommesse singole
 const COMBO_MAX_LEGS = 8;
+const COMBO_MAX_ODDS = 10000.0;   // tetto alla quota di una multipla, come nei bookmaker veri (e dentro la colonna DECIMAL(8,2))
 
 /**
  * Valida le selezioni di una multipla dal carrello (array di "match_id:market:pick") e calcola le rispettive quote.
@@ -877,6 +1014,11 @@ function combo_prepare(array $raw, int $playerId): array
     if (count($legs) < COMBO_MIN_LEGS) {
         return [null, 'Una multipla serve almeno ' . COMBO_MIN_LEGS . ' selezioni: per una sola, punta normale.'];
     }
+    // i KOIN di una lega creata da un utente valgono solo lì: una multipla non può mescolare partite di economie diverse
+    $ecos = array_unique(array_map(fn($l) => eco_of_match(get_match($l['match_id'])), $legs));
+    if (count($ecos) > 1) {
+        return [null, 'Nella stessa multipla metti solo partite della stessa lega: ogni lega creata da un utente ha i suoi KOIN.'];
+    }
     if (count($legs) > COMBO_MAX_LEGS) {
         return [null, 'Al massimo ' . COMBO_MAX_LEGS . ' selezioni in una multipla.'];
     }
@@ -890,7 +1032,7 @@ function combo_odds(array $legs): float
     foreach ($legs as $l) {
         $o *= max(BET_MIN_ODDS, (float) $l['odds']);
     }
-    return round(max(BET_MIN_ODDS, $o), 2);
+    return round(min(COMBO_MAX_ODDS, max(BET_MIN_ODDS, $o)), 2);
 }
 
 /** Fa una multipla. Ritorna il messaggio d'errore oppure null se è andata. */
@@ -903,20 +1045,26 @@ function combo_place(int $playerId, array $legs, int $stake): ?string
         return 'Punta almeno 1 KOIN.';
     }
     $odds = combo_odds($legs);
+    $ecos = array_unique(array_map(fn($l) => eco_of_match(get_match((int) $l['match_id']) ?: []), $legs));
+    $eco = (int) reset($ecos);
+    if (count($ecos) !== 1 || !in_array($eco, player_ecos($playerId), true)) {
+        return 'Nella stessa multipla metti solo partite di una delle tue leghe.';
+    }
+    wallet_open($playerId, $eco);
     try {
-        return bet_atomic(function () use ($playerId, $legs, $stake, $odds) {
+        return bet_atomic(function () use ($playerId, $legs, $stake, $odds, $eco) {
             q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);
-            $available = wallet_balance($playerId);
+            $available = wallet_balance($playerId, $eco);
             if ($stake > $available) {
-                return 'Non hai abbastanza KOIN: te ne restano ' . $available . '.';
+                return 'Non hai abbastanza KOIN' . ($eco ? ' in «' . eco_label($eco) . '»' : '') . ': te ne restano ' . $available . '.';
             }
-            q('INSERT INTO combo_bets (player_id, stake, odds) VALUES (?, ?, ?)', [$playerId, $stake, $odds]);
+            q('INSERT INTO combo_bets (player_id, eco, stake, odds) VALUES (?, ?, ?, ?)', [$playerId, $eco, $stake, $odds]);
             $comboId = (int) db()->lastInsertId();
             foreach ($legs as $l) {
                 q('INSERT INTO combo_legs (combo_id, match_id, market, pick, odds) VALUES (?, ?, ?, ?, ?)',
                     [$comboId, $l['match_id'], $l['market'], $l['pick'], $l['odds']]);
             }
-            q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'puntata')", [$playerId, $comboId, -$stake]);
+            q("INSERT INTO wallet_moves (player_id, eco, combo_id, delta, kind) VALUES (?, ?, ?, ?, 'puntata')", [$playerId, $eco, $comboId, -$stake]);
             return null;
         });
     } catch (PDOException $e) {
@@ -1070,7 +1218,7 @@ function combo_maybe_settle(int $comboId): void
         $won = array_filter($legs, fn($l) => $l['status'] === 'vinta');
         if (!$won) {   // tutte le gambe rimborsate (mancava sempre il dato): si riprendono i KOIN
             q("UPDATE combo_bets SET status = 'rimborsata', payout = ?, settled_at = NOW() WHERE id = ?", [(int) $combo['stake'], $comboId]);
-            q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'rimborso')", [$combo['player_id'], $comboId, (int) $combo['stake']]);
+            q("INSERT INTO wallet_moves (player_id, eco, combo_id, delta, kind) VALUES (?, ?, ?, ?, 'rimborso')", [$combo['player_id'], (int) $combo['eco'], $comboId, (int) $combo['stake']]);
             return;
         }
         // le gambe rimborsate escono dal conto (come i mercati saltati dai bookmaker veri): la quota resta quella delle altre
@@ -1078,9 +1226,9 @@ function combo_maybe_settle(int $comboId): void
         foreach ($won as $l) {
             $odds *= max(BET_MIN_ODDS, (float) $l['odds']);
         }
-        $pay = (int) floor((int) $combo['stake'] * $odds + 1e-9);
+        $pay = (int) floor((int) $combo['stake'] * min(COMBO_MAX_ODDS, $odds) + 1e-9);
         q("UPDATE combo_bets SET status = 'vinta', payout = ?, settled_at = NOW() WHERE id = ?", [$pay, $comboId]);
-        q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'vincita')", [$combo['player_id'], $comboId, $pay]);
+        q("INSERT INTO wallet_moves (player_id, eco, combo_id, delta, kind) VALUES (?, ?, ?, ?, 'vincita')", [$combo['player_id'], (int) $combo['eco'], $comboId, $pay]);
     });
 }
 

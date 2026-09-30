@@ -120,6 +120,7 @@ $tabUrl = fn(string $t, string $f = 'all', int $p = 1) => 'shop.php?s=' . $t . (
 layout_start('Negozio', 'shop');
 ?>
 <div class="page-head"><h1>Negozio <span class="muted small">personalizza il profilo</span></h1></div>
+<?= $me ? eco_switch($me, 'shop.php?s=' . $tab) : '' ?>
 
 <?php if (promo_active()): ?>
 <section class="card push-banner">

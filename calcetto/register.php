@@ -33,6 +33,7 @@ $open = $league && $league['join_mode'] === 'libero';   // lega ad ingresso libe
 $errors = [];
 $done = false;
 $matchName = null;
+$claim = false;
 $emailSent = false;
 $v = ['name' => '', 'username' => '', 'email' => '', 'shirt_number' => '', 'position' => 'Centrocampista', 'position2' => '', 'foot' => 'Destro'];
 
@@ -86,6 +87,13 @@ if (is_post()) {
         if ($matchId) {
             $matchName = (string) q('SELECT name FROM players WHERE id = ?', [$matchId])->fetchColumn();
         }
+        // lega ad ingresso libero, ma il nome è quello di un giocatore già in rosa: basta scrivere lo stesso nome per prenderne il
+        // posto (statistiche, KOIN, oggetti), quindi non si entra da soli. L'iscrizione aspetta un admin della lega, che conferma
+        // che è proprio lui (e collega l'account a quel giocatore) oppure no.
+        $claim = $open && $matchId;
+        if ($claim) {
+            $open = false;
+        }
         $data = [
             'shirt_number' => $v['shirt_number'] === '' ? null : (int) $v['shirt_number'],
             'position' => $v['position'],
@@ -129,10 +137,10 @@ layout_start('Iscriviti');
     <div class="login-ball"><i class="ti ti-shirt"></i></div>
     <?php if ($done): ?>
       <h1>Richiesta inviata!</h1>
-      <?php if ($matchName): ?>
-        <p><i class="ti ti-link"></i> Sei già in rosa come <strong><?= h($matchName) ?></strong>: il tuo account verrà collegato a quel giocatore.</p>
+      <?php if ($claim): ?>
+        <p><i class="ti ti-link"></i> Nella rosa c'è già un giocatore con il tuo nome: un admin della lega conferma che sei tu e collega il tuo account al suo profilo.</p>
       <?php else: ?>
-        <p><i class="ti ti-shirt"></i> Verrai aggiunto alla rosa come nuovo giocatore.</p>
+        <p><i class="ti ti-shirt"></i> Se sei già nella rosa, l'admin collega il tuo account al tuo profilo; altrimenti entri come nuovo giocatore.</p>
       <?php endif; ?>
       <p>Appena <?= $league ? 'un admin di <strong>' . h($league['name']) . '</strong>' : 'l\'admin' ?> approva la tua iscrizione potrai entrare con <strong><?= h($v['username']) ?></strong> e la tua password.</p>
       <?php if ($emailSent): ?><p><i class="ti ti-mail-check"></i> Ti abbiamo mandato un'email a <strong><?= h($v['email']) ?></strong>: apri il link per confermare l'indirizzo (controlla anche lo spam).</p><?php endif; ?>
@@ -141,7 +149,7 @@ layout_start('Iscriviti');
     <?php else: ?>
       <h1><?= $league ? 'Entra in ' . h($league['name']) : 'Iscriviti' ?></h1>
       <?php if ($league): ?>
-        <p class="muted"><?= $open ? 'Crea il tuo account: entri subito nella lega.' : 'Crea il tuo account: un admin della lega approva la richiesta e vede i dati che inserisci qui.' ?> Se sei già nella rosa della lega, verrai collegato al tuo profilo.</p>
+        <p class="muted"><?= $open ? 'Crea il tuo account: entri subito nella lega (se nella rosa c\'è già un giocatore con il tuo nome, un admin conferma prima che sei tu).' : 'Crea il tuo account: un admin della lega approva la richiesta e vede i dati che inserisci qui.' ?> Se sei già nella rosa della lega, verrai collegato al tuo profilo.</p>
       <?php else: ?>
         <p class="muted">L'admin approva le iscrizioni e vede i dati che inserisci qui. Se sei già in rosa, verrai collegato al tuo profilo.</p>
       <?php endif; ?>

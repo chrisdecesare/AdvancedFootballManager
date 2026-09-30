@@ -2,13 +2,17 @@
 /*
  * Promemoria "non hai ancora risposto" da un pianificatore esterno (facoltativo).
  * Senza cron partono comunque, ma solo quando qualcuno usa il sito: con un cron ogni 10-15 minuti sono puntuali.
- * Indirizzo (il codice lo trovi in Admin → Notifiche):  .../cron.php?key=CODICE
+ * Indirizzo .../cron.php con l'intestazione «X-Cron-Key: CODICE» (il codice lo trovi in Admin → Notifiche);
+ * per i pianificatori che non sanno mandare intestazioni va anche .../cron.php?key=CODICE.
  */
 define('NO_SESSION', true);
 require __DIR__ . '/lib/bootstrap.php';
 header('Content-Type: text/plain; charset=utf-8');
 
-if (!tables_exist() || !hash_equals(push_cron_key(), (string) ($_GET['key'] ?? ''))) {
+// il codice si manda meglio nell'intestazione X-Cron-Key: nell'indirizzo finisce nei log del server e del servizio di cron.
+// L'indirizzo con ?key= resta valido per i pianificatori già impostati.
+$key = $_SERVER['HTTP_X_CRON_KEY'] ?? $_GET['key'] ?? '';
+if (!tables_exist() || !is_string($key) || !hash_equals(push_cron_key(), $key)) {
     http_response_code(403);
     exit("Codice non valido.\n");
 }

@@ -53,6 +53,10 @@ if (is_post() && $keyOk) {
             [$username, password_hash($password, PASSWORD_DEFAULT), $playerId]);
         session_regenerate_id(true);
         $_SESSION['uid'] = (int) db()->lastInsertId();
+        // chi installa ha il codice di installazione: il suo indirizzo è quello vero del sito, da usare nei link delle email
+        if (($base = site_base_url()) !== '' && !str_contains($base, 'localhost')) {
+            meta_set('base_url', $base);
+        }
         if (@unlink(__FILE__)) {
             flash('ok', 'Installazione completata. install.php è stato cancellato.');
         } else {

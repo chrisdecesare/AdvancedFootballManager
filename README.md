@@ -130,10 +130,10 @@ Configurazione, una volta sola (repository → *Settings → Secrets and variabl
 | Secret | `FTP_SERVER` | `ftp.nomeutente.altervista.org` |
 | Secret | `FTP_USERNAME` | il tuo nome utente Altervista |
 | Secret | `FTP_PASSWORD` | la password FTP |
-| Variable (facoltativa) | `FTP_PROTOCOL` | `ftp` se Altervista rifiuta la connessione cifrata (predefinito: `ftps`) |
 | Variable (facoltativa) | `FTP_DIR` | cartella di destinazione sul server (predefinita: `./calcetto/`) |
 
 Da riga di comando: `gh secret set FTP_PASSWORD` (chiede il valore senza mostrarlo).
+Il caricamento è sempre cifrato (FTPS): l'FTP semplice manderebbe password e codice in chiaro, quindi non è più un'opzione.
 Il primo deploy si può lanciare anche a mano da *Actions → Deploy su Altervista → Run workflow*.
 
 ## Infortunati

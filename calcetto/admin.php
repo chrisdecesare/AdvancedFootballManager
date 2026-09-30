@@ -136,10 +136,10 @@ if (is_post()) {
             } elseif ($giftAmount < 1 || $giftAmount > 1000) {
                 flash('err', 'Il regalo va da 1 a 1000 KOIN.');
             } else {
-                q("INSERT INTO wallet_moves (player_id, delta, kind) VALUES (?, ?, 'regalo')", [$giftPlayer['id'], $giftAmount]);
+                q("INSERT INTO wallet_moves (player_id, eco, delta, kind) VALUES (?, 0, ?, 'regalo')", [$giftPlayer['id'], $giftAmount]);   // KOIN delle leghe storiche
                 log_activity('gettoni', 'regalo · ' . $giftAmount . ' a ' . $giftPlayer['name']);
                 coin_gift_notify((int) $giftPlayer['id'], $giftAmount);
-                flash('ok', 'Regalati ' . $giftAmount . ' KOIN a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id']) . '.');
+                flash('ok', 'Regalati ' . $giftAmount . ' KOIN a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id'], 0) . '.');
             }
             break;
         case 'mail_test':
@@ -240,7 +240,7 @@ if (is_post()) {
                 flash('err', 'Il premio va da 1 a 1000 KOIN.');
             } else {
                 $ref = 'guess-' . $gRound . '-' . $gPid;
-                $ins = db()->prepare("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'premio', ?)");
+                $ins = db()->prepare("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, 0, ?, 'premio', ?)");
                 $ins->execute([$gPid, $gAmount, $ref]);
                 if ($ins->rowCount()) {
                     log_activity('gettoni', 'premio indovina · ' . $gAmount . ' a ' . $gPlayer['name']);
@@ -517,7 +517,7 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
 </section>
 
 <?php
-$giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0) FROM wallet_moves w WHERE w.player_id = p.id) AS bal
+$giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0) FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = 0) AS bal
                   FROM players p JOIN player_groups pg ON pg.player_id = p.id
                   WHERE p.is_guest = 0 AND pg.group_id IN ($homeIn) ORDER BY p.name")->fetchAll();
 ?>
@@ -667,8 +667,11 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
   </details>
   <details class="collapsible">
     <summary><strong>Promemoria puntuali (facoltativo)</strong></summary>
-    <p class="muted small">I promemoria partono da soli quando qualcuno usa il sito. Per averli puntuali anche quando nessuno lo apre, fai chiamare questo indirizzo ogni 10-15 minuti da un pianificatore (cron del tuo hosting o un servizio gratuito come cron-job.org). Il codice nell'indirizzo è riservato: non condividerlo.</p>
-    <p><input type="text" readonly value="<?= h($cronUrl) ?>" class="mini-input" style="width:100%" onclick="this.select()" aria-label="Indirizzo per il cron"></p>
+    <p class="muted small">I promemoria partono da soli quando qualcuno usa il sito. Per averli puntuali anche quando nessuno lo apre, fai chiamare questo indirizzo ogni 10-15 minuti da un pianificatore (cron del tuo hosting o un servizio gratuito come cron-job.org),
+      aggiungendo l'intestazione qui sotto (su cron-job.org: <em>Advanced → Headers</em>). Il codice è riservato: non condividerlo.</p>
+    <p><input type="text" readonly value="<?= h(site_base_url() . 'cron.php') ?>" class="mini-input" style="width:100%" data-select-all aria-label="Indirizzo per il cron"></p>
+    <p><input type="text" readonly value="<?= h('X-Cron-Key: ' . push_cron_key()) ?>" class="mini-input" style="width:100%" data-select-all aria-label="Intestazione per il cron"></p>
+    <p class="muted small">Se il pianificatore non permette di aggiungere intestazioni, funziona anche il vecchio indirizzo con il codice dentro (finisce però nei log): <code><?= h($cronUrl) ?></code></p>
   </details>
 </section>
 

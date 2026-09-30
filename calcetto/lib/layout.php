@@ -56,7 +56,8 @@ function layout_start(string $title, string $active = ''): void
             flash('ok', $dole);
         }
     }
-    $coins = $myId ? wallet_balance($myId) : null;
+    $coins = $myId ? wallet_balance($myId) : null;   // i KOIN della lega che si sta guardando (lib/bets.php: current_eco)
+    $coinsWhere = $myId && count(player_ecos($myId)) > 1 ? ' di «' . eco_label(current_eco($myId)) . '»' : '';
     // versione = impronta del contenuto (non la data): se un upload FTP viene letto a metà, il browser non conserva
     // per 30 giorni un file troncato con lo stesso indirizzo di quello completo
     $ver = fn(string $f) => substr((string) @md5_file(__DIR__ . '/../assets/' . $f), 0, 10);
@@ -77,9 +78,9 @@ function layout_start(string $title, string $active = ''): void
 <?php if (($pushUid = push_account_id()) && push_supported() && ($pushKey = vapid_public_key()) !== ''): ?>
 <meta name="push-key" content="<?= h($pushKey) ?>">
 <meta name="push-user" content="<?= (int) $pushUid ?>">
-<meta name="csrf-token" content="<?= h(csrf_token()) ?>">
 <script src="assets/push.js?v=<?= h($ver('push.js')) ?>" defer></script>
 <?php endif; ?>
+<meta name="csrf-token" content="<?= h(csrf_token()) ?>">
 <title><?= h($title) ?> · <?= h(APP_NAME) ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -118,7 +119,7 @@ function layout_start(string $title, string $active = ''): void
           <span><?= h($u['player_name'] ?: $u['username']) ?></span>
           <?php if ($u['role'] !== 'player'): ?><span class="tag tag-admin"><?= h(strtolower(role_label($u['role']))) ?></span><?php endif; ?>
         </a>
-        <?php if ($coins !== null): ?><a href="shop.php" class="coin-pill" title="I tuoi KOIN: si spendono nel Negozio"><i class="ti ti-coin"></i> <?= $coins ?></a><?php endif; ?>
+        <?php if ($coins !== null): ?><a href="shop.php" class="coin-pill" title="I tuoi KOIN<?= h($coinsWhere) ?>: si spendono nel Negozio"><i class="ti ti-coin"></i> <?= $coins ?></a><?php endif; ?>
         <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a>
         <?php elseif ($pendingLeague): ?><a href="league.php" class="nav-badge pending-dot" title="Richieste da approvare nella tua lega" aria-label="<?= (int) $pendingLeague ?> richieste da approvare"><?= (int) $pendingLeague ?></a><?php endif; ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="btn btn-ghost btn-sm" data-push-bell title="Notifiche" aria-label="Notifiche"><i class="ti ti-bell"></i></a><?php endif; ?>

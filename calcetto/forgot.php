@@ -21,7 +21,9 @@ if (is_post()) {
         $error = 'Troppe richieste da questa connessione: riprova tra un\'ora.';
     } else {
         $u = q("SELECT id, email FROM users WHERE status = 'attivo' AND email IS NOT NULL AND (LOWER(username) = ? OR email = ?) LIMIT 1", [$who, $who])->fetch();
-        if ($u && rate_hit('__mail_reset_' . $u['id'], 3, 3600)) {
+        if (trusted_base_url() === '') {
+            error_log('forgot.php: indirizzo del sito non ancora fissato (SITE_URL o un accesso dell\'admin): link di recupero non spedito');
+        } elseif ($u && rate_hit('__mail_reset_' . $u['id'], 3, 3600)) {
             send_password_reset((int) $u['id'], $u['email']);
         }
         usleep(random_int(150000, 400000));    // tempi simili con o senza account

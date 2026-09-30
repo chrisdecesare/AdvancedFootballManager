@@ -144,7 +144,8 @@ function client_ip(): string
  */
 function login_blocked(string $username): bool
 {
-    if ($username !== '' && login_name_blocked($username)) {
+    // username sotto attacco da tante connessioni: si blocca, ma non il browser da cui il proprietario è già entrato (lib/security.php)
+    if ($username !== '' && login_name_blocked($username) && !device_trusted_for($username)) {
         notify_login_attack($username);
         return true;
     }
@@ -245,6 +246,8 @@ function remember_revoke(int $uid): void
 function security_reset_sessions(int $uid): void
 {
     q('UPDATE users SET session_version = session_version + 1 WHERE id = ?', [$uid]);
+    // anche i link "password dimenticata" già spediti smettono di valere: la password è appena cambiata
+    q("DELETE FROM mail_tokens WHERE user_id = ? AND purpose = 'reset'", [$uid]);
     if ($uid === (int) ($_SESSION['uid'] ?? 0) && !defined('NO_SESSION')) {
         $_SESSION['sv'] = (int) q('SELECT session_version FROM users WHERE id = ?', [$uid])->fetchColumn();
     }
