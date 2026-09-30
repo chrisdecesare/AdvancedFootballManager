@@ -1613,3 +1613,11 @@ tr.is-new td { background: #fffbe6; }
 /* admin → Indovina la funzionalità: sui telefoni un campo per riga, così date e testi non si tagliano */
 @media (max-width: 600px) { .drop-form { grid-template-columns: 1fr; } .drop-form > * { grid-column: auto !important; } }
 .drop-form + .btn-row { margin: 12px 0; }
+
+/* uscite (drops.php): un solo orario per tutte le uscite */
+.drops-time { display: grid; gap: 8px; margin-bottom: 16px; }
+.drops-time p { margin: 0; }
+.drops-time-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.05rem; }
+.drops-time-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.drops-time-opt { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
+.drops-time-opt input[type="datetime-local"] { max-width: 100%; }
