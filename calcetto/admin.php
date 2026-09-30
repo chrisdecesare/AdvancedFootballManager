@@ -543,13 +543,13 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
       ? 'Il Personaggio è aperto a tutti (dal round ' . avatar_launch_round() . '). Gli oggetti tenuti da parte li fai uscire da <a class="link" href="drops.php">Uscite</a> (pacchetti «Lancio: ...»).'
       : 'Il Personaggio si apre a tutti da solo allo scadere di questo countdown, con solo una parte degli oggetti: gli altri restano «Coming soon» finché non li fai uscire da <a class="link" href="drops.php">Uscite</a>.' ?></p>
 
-  <form method="post" class="form form-grid form-grid-4">
+  <form method="post" class="form form-grid form-grid-4 drop-form">
     <?= csrf_field() ?><input type="hidden" name="do" value="guess_drop">
     <label class="field"><span>Esce il</span><input type="datetime-local" name="drop_at" value="<?= h(date('Y-m-d\TH:i', guess_drop_at())) ?>" required></label>
     <label class="field span-2"><span>Indizio per i giocatori (facoltativo)</span><input name="teaser" maxlength="200" value="<?= h(guess_teaser()) ?>" placeholder="Es. C'entra il Negozio..."></label>
-    <div><button class="btn btn-ghost"><i class="ti ti-calendar-event"></i> Aggiorna</button></div>
     <label class="field"><span>Si svela il (facoltativo)</span><input type="datetime-local" name="reveal_at" value="<?= guess_reveal_at() ? h(date('Y-m-d\TH:i', guess_reveal_at())) : '' ?>"></label>
     <label class="field span-3"><span>Cosa si svela in Home a quell'ora (da lì niente più idee)</span><input name="reveal" maxlength="200" value="<?= h(guess_reveal_text()) ?>" placeholder="Es. È il Personaggio: il tuo giocatore in pixel art!"></label>
+    <div><button class="btn btn-ghost"><i class="ti ti-calendar-event"></i> Aggiorna</button></div>
   </form>
 
   <form method="post" class="btn-row">
