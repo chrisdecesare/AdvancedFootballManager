@@ -78,6 +78,8 @@ foreach (shop_catalog() as $k => $items) {
         }
     }
 }
+$unseen = shop_news_unseen();   // tipi con oggetti nuovi non ancora guardati (pallino rosso, per chi non ha le notifiche)
+shop_news_seen($tab);
 $worn = $mp ? shop_worn($mp, $tab) : null;
 
 $goalText = function (array $item) use ($progress): string {
@@ -153,7 +155,7 @@ layout_start('Negozio', 'shop');
 
 <nav class="shop-tabs" id="oggetti">
   <?php foreach ($kinds as $k => $title): ?>
-    <a href="<?= h($tabUrl($k)) ?>" class="<?= $k === $tab ? 'active' : '' ?>"><?= h($title) ?> <span class="count"><?= $count[$k]['mine'] ?>/<?= $count[$k]['tot'] ?></span></a>
+    <a href="<?= h($tabUrl($k)) ?>" class="<?= $k === $tab ? 'active' : '' ?>"><?= h($title) ?> <span class="count"><?= $count[$k]['mine'] ?>/<?= $count[$k]['tot'] ?></span><?php if (isset($unseen[$k]) && $k !== $tab): ?><span class="news-dot" title="Oggetti nuovi"></span><?php endif; ?></a>
   <?php endforeach; ?>
 </nav>
 <div class="sortbar shop-filters">
@@ -178,7 +180,7 @@ layout_start('Negozio', 'shop');
       $locked = $item['locked'];
       $isWorn = $worn === $key; ?>
   <article class="card shop-item<?= $isWorn ? ' is-worn' : '' ?><?= $locked ? ' is-locked' : '' ?><?= $item['out'] ? ' is-out' : '' ?>">
-    <?php if ($item['out']): ?><span class="tag tag-admin shop-out"><i class="ti ti-eye-off"></i> non ancora uscito</span><?php endif; ?>
+    <?php if ($item['out']): ?><span class="tag tag-admin shop-out"><i class="ti ti-eye-off"></i> non ancora uscito</span><?php elseif (shop_is_new((string) $key)): ?><span class="tag-new shop-new">Nuovo</span><?php endif; ?>
     <?php if ($me && !$locked): ?>
     <form method="post" class="wish-form"><?= csrf_field() ?><input type="hidden" name="do" value="wish"><input type="hidden" name="kind" value="<?= $tab ?>">
       <input type="hidden" name="key" value="<?= h($key) ?>"><input type="hidden" name="f" value="<?= h($filter) ?>"><input type="hidden" name="p" value="<?= $page ?>">

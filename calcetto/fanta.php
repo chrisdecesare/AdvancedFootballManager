@@ -10,7 +10,7 @@
  */
 require __DIR__ . '/lib/bootstrap.php';
 require_login();
-if (is_guest()) {
+if (is_guest() || !fanta_visible()) {
     redirect('index.php');
 }
 
@@ -44,7 +44,7 @@ if (is_post()) {
             $err = 'Solo chi amministra la lega apre e chiude le stagioni.';
         } elseif ($do === 'open') {
             $err = fanta_open_season($gid);
-            $ok = 'Stagione aperta: i prezzi delle figurine sono fissati, fate le vostre squadre!';
+            $ok = 'Stagione aperta: le quote di adesso sono le quote base, fate le vostre squadre!';
         } else {
             $err = fanta_close_season($gid);
             $ok = 'Stagione chiusa: i primi ' . FANTA_PRIZE_RANKS . ' hanno ricevuto i premi.';
@@ -60,8 +60,9 @@ if (is_post()) {
                 $ok = $name($pid) . ' è nella tua squadra!';
                 break;
             case 'sell':
+                $sold = fanta_price_list($gid)[$pid] ?? 1;
                 $err = fanta_sell($season, $me, $pid);
-                $ok = 'Hai venduto ' . $name($pid) . ': i crediti sono tornati nel budget.';
+                $ok = 'Hai venduto ' . $name($pid) . ' a ' . fanta_cr($sold) . '.';
                 break;
             case 'bench':
                 $err = fanta_set_bench($season, $me, $pid);
@@ -94,7 +95,8 @@ if (is_post()) {
 
 /* ---------------------------------------------------------------- dati */
 $cards = fanta_cards($gid);
-$prices = $season ? fanta_prices($season) : fanta_price_list($gid);
+$quotes = fanta_price_list($gid);                           // quota attuale (ultima prestazione): a questa si compra e si vende
+$prices = $season ? fanta_prices($season) : $quotes;       // quota base (all'apertura della stagione)
 $form = fanta_form($gid);
 $sid = $season ? (int) $season['id'] : 0;
 $playersById = $cards;
@@ -119,7 +121,7 @@ if ($season) {
 }
 $myRoster = $season && $canPlay ? fanta_roster($sid, $me) : [];
 $myIds = array_map(fn($r) => (int) $r['player_id'], $myRoster);
-$left = FANTA_BUDGET - array_sum(array_map(fn($r) => (int) $r['cost'], $myRoster));
+$left = $season && $canPlay ? fanta_credits_left($sid, $me) : FANTA_BUDGET;
 $myRank = null;
 foreach ($standings as $r) {
     if ($r['manager_id'] === $me) {
@@ -130,22 +132,29 @@ $next = q("SELECT * FROM matches WHERE group_id = ? AND status = 'programmata' A
 $trades = $season && $canPlay ? fanta_open_trades($sid, $me) : [];
 $incoming = count(array_filter($trades, fn($t) => (int) $t['to_id'] === $me));
 
-/** La figurina: il giocatore in pixel art, prezzo, nome, numeri; $extra sotto (pulsanti). */
-$card = function (int $pid, string $extra = '', array $o = []) use ($pl, $prices, $form, $seasonPts, $owners, $season): string {
+/** La figurina: il giocatore in pixel art, quota attuale (e base), nome, numeri; $extra sotto (pulsanti). 'cost' = quanto l'hai pagata. */
+$card = function (int $pid, string $extra = '', array $o = []) use ($pl, $prices, $quotes, $form, $seasonPts, $owners, $season): string {
     $p = $pl($pid);
     $f = $form[$pid] ?? ['avg' => 0, 'apps' => 0, 'rate' => 0];
-    $price = $o['cost'] ?? ($prices[$pid] ?? 1);
+    $price = $quotes[$pid] ?? 1;
+    $base = $prices[$pid] ?? $price;
+    $pct = (int) round($f['rate'] * 100);
+    $trend = $price <=> $base;
     $badge = !empty($o['captain']) ? '<span class="fz-badge fz-cap" title="Capitano: bonus e malus doppi">C</span>'
         : (!empty($o['bench']) ? '<span class="fz-badge fz-bench" title="In panchina: entra se un titolare non gioca">P</span>' : '');
     return '<article class="fz-card fz-p' . (int) $price . (!empty($o['mine']) ? ' is-mine' : '') . (!empty($o['bench']) ? ' is-bench' : '') . '">'
-        . '<span class="fz-price" title="' . (isset($o['cost']) ? 'Costo per te' : 'Prezzo') . '">' . (int) $price . '</span>' . $badge
+        . '<span class="fz-price" title="Quota attuale: si compra e si vende a questa">' . (int) $price . '</span>' . $badge
         . '<a class="fz-fig" href="player.php?id=' . $pid . '">' . avatar_figure(avatar_look($p), ['number' => $p['shirt_number'], 'label' => $p['name']]) . '</a>'
         . '<div class="fz-name">' . h($p['name']) . '</div>'
         . '<div class="fz-pos">' . h((string) ($p['position'] ?? '')) . '</div>'
+        . '<div class="fz-quote">' . ($season ? '<span title="Quota all\'apertura della stagione">base ' . (int) $base . '</span>' : '')
+        . ($trend ? ' <i class="ti ti-trending-' . ($trend > 0 ? 'up is-up' : 'down is-down') . '" title="' . ($trend > 0 ? 'In salita' : 'In discesa') . '"></i>' : '')
+        . (isset($o['cost']) ? ' <span title="Quanto l\'hai pagata">· pagata ' . (int) $o['cost'] . '</span>' : '') . '</div>'
         . '<dl class="fz-stats">'
         . ($season ? '<div><dt>Stagione</dt><dd>' . fanta_fmt((float) ($seasonPts[$pid] ?? 0)) . '</dd></div>' : '')
-        . '<div><dt title="Punti fanta a partita giocata, ultime ' . FANTA_PRICE_MATCHES . ' partite">Media</dt><dd>' . ($f['apps'] ? fanta_fmt($f['avg']) : '–') . '</dd></div>'
-        . '<div><dt title="Quante delle ultime partite della lega ha giocato">Presenze</dt><dd>' . round($f['rate'] * 100) . '%</dd></div>'
+        . '<div><dt title="Punti fanta a partita giocata, ultime ' . FANTA_FORM_MATCHES . ' partite">Media</dt><dd>' . ($f['apps'] ? fanta_fmt($f['avg']) : '–') . '</dd></div>'
+        . '<div class="fz-att"><span class="fz-pct is-' . ($pct >= FANTA_ATT_GOOD ? 'hi' : ($pct >= FANTA_ATT_OK ? 'mid' : 'lo')) . '" title="Presenze: ha giocato il ' . $pct
+        . '% delle ultime ' . FANTA_FORM_MATCHES . ' partite della lega">' . $pct . '%</span></div>'
         . ($season ? '<div><dt title="In quante squadre del Fanta c\'è">Rose</dt><dd>' . ($owners[$pid] ?? 0) . '</dd></div>' : '')
         . '</dl>' . $extra . '</article>';
 };
@@ -158,9 +167,10 @@ layout_start('Fanta', 'fanta');
 ?>
 <div class="page-head">
   <h1>Fanta <?php if ($season): ?><span class="muted small">stagione <?= (int) $season['n'] ?></span><?php endif; ?></h1>
+  <?php if (!fanta_public()): ?><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin fino a <?= h(fmt_date_long(FANTA_LAUNCH_AT)) ?> alle <?= fmt_time(FANTA_LAUNCH_AT) ?></span><?php endif; ?>
   <?php if ($season && $canPlay): ?>
   <div class="fz-head-info">
-    <span class="fz-budget" title="Crediti fanta (non sono KOIN)"><i class="ti ti-wallet"></i> <strong><?= $left ?></strong>/<?= FANTA_BUDGET ?> crediti</span>
+    <span class="fz-budget" title="Crediti fanta (non sono KOIN): si parte da <?= FANTA_BUDGET ?>, e comprando basso e rivendendo alto aumentano"><i class="ti ti-wallet"></i> <strong><?= $left ?></strong> <?= $left === 1 ? 'credito' : 'crediti' ?></span>
     <?php if ($myRank): ?><span class="fz-rank"><i class="ti ti-trophy"></i> <?= $myRank['rank'] ?>° · <?= fanta_fmt($myRank['total']) ?> pt</span><?php endif; ?>
   </div>
   <?php endif; ?>
@@ -183,7 +193,7 @@ if (count($bar) > 1): ?>
     <form method="post"><?= csrf_field() ?><input type="hidden" name="g" value="<?= $gid ?>"><input type="hidden" name="do" value="close">
       <button class="btn btn-sm" data-confirm="Chiudere la stagione e dare i premi? Non si torna indietro."><i class="ti ti-flag-checkered"></i> Chiudi la stagione e premia</button></form>
   <?php else: ?>
-    <p><i class="ti ti-settings"></i> Nessuna stagione aperta. Aprendola si fissano i prezzi delle figurine (quelli che vedi nel Mercato) e ognuno può fare la sua squadra.
+    <p><i class="ti ti-settings"></i> Nessuna stagione aperta. Aprendola, le quote di adesso (quelle del Mercato) diventano le quote base della stagione e ognuno può fare la sua squadra.
       Contano le partite che iniziano da quel momento.</p>
     <form method="post"><?= csrf_field() ?><input type="hidden" name="g" value="<?= $gid ?>"><input type="hidden" name="do" value="open">
       <button class="btn btn-primary btn-sm"><i class="ti ti-player-play"></i> Apri la stagione <?= (int) (fanta_last_season($gid)['n'] ?? 0) + 1 ?></button></form>
@@ -199,10 +209,38 @@ if (count($bar) > 1): ?>
 <p class="card fz-intro"><i class="ti ti-eye"></i> Stai guardando il Fanta di questa lega: per giocare serve un giocatore della lega collegato al tuo account.</p>
 <?php endif; ?>
 
+<?php
+// mini tutorial «Come si legge una figurina» (assets/app.js: startTour): da solo la prima volta che si apre il Mercato, poi dal pulsante
+$withCards = in_array($tab, ['mercato', 'squadra'], true) || ($tab === 'classifica' && !empty($_GET['m']));
+if ($withCards):
+    $miniTour = ['storeKey' => 'fanta-tour-figurina', 'auto' => $tab === 'mercato', 'steps' => [
+        ['sel' => null, 'icon' => 'cards', 'title' => 'Come si legge una figurina',
+            'text' => 'Ogni figurina è un giocatore della tua lega. In mezzo minuto ti spiego cosa vogliono dire i numeri.', 'bullets' => []],
+        ['sel' => '.fz-card .fz-price', 'icon' => 'coin', 'title' => 'Quota attuale',
+            'text' => 'Quanti crediti costa adesso: si compra e si vende sempre a questa. Cambia dopo ogni partita, quando si chiudono le votazioni.',
+            'bullets' => ['1: ha perso senza fare granché.', '2: una partita normale.', '3: una bella partita (un gol e la vittoria, un voto alto).', '4: una prestazione sontuosa.']],
+        ['sel' => '.fz-card .fz-quote', 'icon' => 'trending-up', 'title' => 'Base e andamento',
+            'text' => 'La base è la quota che aveva all\'inizio della stagione. La freccia verde vuol dire che è salita, quella rossa che è scesa.',
+            'bullets' => ['Nella tua squadra vedi anche quanto l\'hai pagata: se la quota è più alta, vendendola guadagni crediti.']],
+        ['sel' => '.fz-card .fz-pct', 'icon' => 'calendar-check', 'title' => 'Presenze',
+            'text' => 'La percentuale dice quante delle ultime ' . FANTA_FORM_MATCHES . ' partite della lega ha giocato. Chi non gioca fa 0 punti.',
+            'bullets' => ['Verde (da ' . FANTA_ATT_GOOD . '%): gioca quasi sempre.', 'Gialla (da ' . FANTA_ATT_OK . '%): ogni tanto salta.',
+                'Rossa: gioca poco, rischi che non ti porti punti.']],
+        ['sel' => '.fz-card .fz-stats', 'icon' => 'chart-bar', 'title' => 'Gli altri numeri',
+            'text' => 'Per capire chi rende di più.',
+            'bullets' => ['Stagione: i punti fanta fatti in questa stagione.', 'Media: i punti fanta a partita giocata.', 'Rose: in quante squadre del Fanta c\'è già.']],
+        ['sel' => '.fz-card .fz-badge', 'icon' => 'letter-c', 'title' => 'Capitano e panchina',
+            'text' => 'La C è il capitano: bonus e malus doppi. La P è la panchina: entra al posto del primo titolare che non gioca.', 'bullets' => []],
+        ['sel' => '.fz-card .fz-btns', 'icon' => 'hand-click', 'title' => 'Tocca a te',
+            'text' => 'Da qui compri, vendi, scegli il capitano e chi va in panchina. Buon Fanta!', 'bullets' => []],
+    ]]; ?>
+<script type="application/json" id="mini-tour-data"><?= json_encode($miniTour, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<?php endif; ?>
 <nav class="shop-tabs fz-tabs">
   <?php foreach ($tabs as $k => [$label, $icon]): ?>
     <a href="<?= h('fanta.php?t=' . $k . '&g=' . $gid) ?>" class="<?= $k === $tab ? 'active' : '' ?>"><i class="ti ti-<?= $icon ?>"></i> <?= $label ?><?php if ($k === 'scambi' && $incoming): ?> <span class="nav-badge"><?= $incoming ?></span><?php endif; ?></a>
   <?php endforeach; ?>
+  <?php if ($withCards): ?><button type="button" class="fz-help" data-mini-tour title="Come si legge una figurina"><i class="ti ti-help"></i><span> Come si legge una figurina</span></button><?php endif; ?>
 </nav>
 
 <?php if ($tab === 'squadra'): ?>
@@ -221,7 +259,7 @@ if (count($bar) > 1): ?>
           $btns = '<div class="fz-btns">'
               . (!(int) $r['captain'] ? $form_btn('captain', $pid, '<i class="ti ti-letter-c"></i> Capitano') : '')
               . (count($myRoster) >= FANTA_ROSTER ? $form_btn('bench', $pid, '<i class="ti ti-armchair"></i> In panchina') : '')
-              . $form_btn('sell', $pid, '<i class="ti ti-coin"></i> Vendi (+' . (int) $r['cost'] . ')', 'btn-ghost', 'Vendere ' . $pl($pid)['name'] . '?') . '</div>';
+              . $form_btn('sell', $pid, '<i class="ti ti-coin"></i> Vendi (+' . (int) ($quotes[$pid] ?? 1) . ')', 'btn-ghost', 'Vendere ' . $pl($pid)['name'] . '?') . '</div>';
           echo $card($pid, $btns, ['cost' => (int) $r['cost'], 'captain' => (int) $r['captain'], 'mine' => true]);
       endforeach; ?>
       <?php for ($i = count($starters); $i < FANTA_STARTERS; $i++): ?>
@@ -232,7 +270,7 @@ if (count($bar) > 1): ?>
     <div class="fz-grid">
       <?php if ($benchRow): $pid = (int) $benchRow['player_id'];
           echo $card($pid, '<p class="small muted fz-note">Entra al posto del primo titolare che non gioca. Per farlo titolare, manda in panchina un altro.</p><div class="fz-btns">'
-              . $form_btn('sell', $pid, '<i class="ti ti-coin"></i> Vendi (+' . (int) $benchRow['cost'] . ')', 'btn-ghost', 'Vendere ' . $pl($pid)['name'] . '?') . '</div>',
+              . $form_btn('sell', $pid, '<i class="ti ti-coin"></i> Vendi (+' . (int) ($quotes[$pid] ?? 1) . ')', 'btn-ghost', 'Vendere ' . $pl($pid)['name'] . '?') . '</div>',
               ['cost' => (int) $benchRow['cost'], 'bench' => true, 'mine' => true]);
       else: ?>
         <a class="fz-card fz-empty" href="<?= h('fanta.php?t=mercato&g=' . $gid) ?>"><i class="ti ti-armchair"></i><span><?= count($starters) < FANTA_STARTERS ? 'Prima completa i titolari' : 'Compra la riserva' ?></span></a>
@@ -269,22 +307,23 @@ if (count($bar) > 1): ?>
   <?php endif; ?>
 
 <?php elseif ($tab === 'mercato'): ?>
-  <p class="muted small"><i class="ti ti-scale"></i> I prezzi (da 1 a 4 crediti) vengono dal rendimento nelle ultime <?= FANTA_PRICE_MATCHES ?> partite della lega: punti fanta a partita per quanto spesso gioca.
-    <?= $season ? 'Restano questi per tutta la stagione.' : 'Si fissano quando si apre la stagione.' ?> Più squadre possono avere la stessa figurina.</p>
+  <p class="muted small"><i class="ti ti-scale"></i> La quota (da 1 a 4 crediti) la dà l'ultima partita giocata, appena si chiudono le votazioni: 1 a chi ha perso
+    senza fare granché, 2 a una partita normale, 3 a una bella partita, 4 a una prestazione sontuosa. Si compra e si vende alla quota attuale<?= $season ? '; la base è quella di inizio stagione' : '' ?>.
+    Più squadre possono avere la stessa figurina.</p>
   <?php
   $order = array_keys($cards);
-  usort($order, fn($a, $b) => [($prices[$b] ?? 1), $form[$b]['value'] ?? 0] <=> [($prices[$a] ?? 1), $form[$a]['value'] ?? 0]); ?>
+  usort($order, fn($a, $b) => [($quotes[$b] ?? 1), $form[$b]['avg'] ?? 0] <=> [($quotes[$a] ?? 1), $form[$a]['avg'] ?? 0]); ?>
   <div class="fz-grid fz-market">
     <?php foreach ($order as $pid):
         $extra = '';
         if ($season && $canPlay) {
-            $price = $prices[$pid] ?? 1;
+            $price = $quotes[$pid] ?? 1;
             if (in_array($pid, $myIds, true)) {
                 $extra = '<p class="fz-own"><i class="ti ti-check"></i> Nella tua squadra</p>';
             } elseif (count($myRoster) >= FANTA_ROSTER) {
                 $extra = '<p class="small muted fz-note">Rosa piena</p>';
             } elseif ($price > $left) {
-                $extra = '<p class="small av-short fz-note">Ti ' . ($price - $left === 1 ? 'manca ' : 'mancano ') . fanta_credits($price - $left) . '</p>';
+                $extra = '<p class="small av-short fz-note">Ti ' . ($price - $left === 1 ? 'manca ' : 'mancano ') . fanta_cr($price - $left) . '</p>';
             } else {
                 $extra = '<div class="fz-btns">' . $form_btn('buy', $pid, '<i class="ti ti-shopping-cart"></i> Compra', 'btn-primary') . '</div>';
             }
@@ -357,7 +396,7 @@ if (count($bar) > 1): ?>
 
     <section class="card">
       <h2 class="fz-h2">Proponi uno scambio</h2>
-      <p class="muted small">Una figurina tua per una sua, diverse tra loro: nessuno dei due può ritrovarsi due volte lo stesso giocatore. Ognuno tiene il costo della figurina che dà, così il budget non cambia; la figurina che arriva prende il posto (e la fascia) di quella che parte.</p>
+      <p class="muted small">Una figurina tua per una sua, diverse tra loro: nessuno dei due può ritrovarsi due volte lo stesso giocatore. I crediti non cambiano; la figurina che arriva prende il posto (e la fascia) di quella che parte.</p>
       <div class="sortbar">Con:
         <?php foreach ($managers as $mid): if ($mid === $me || !fanta_roster($sid, $mid)) continue; ?>
           <a href="<?= h('fanta.php?t=scambi&g=' . $gid . '&con=' . $mid) ?>" class="<?= $con === $mid ? 'active' : '' ?>"><?= h($pl($mid)['name']) ?></a>
@@ -375,14 +414,14 @@ if (count($bar) > 1): ?>
           <fieldset><legend>Dai</legend>
             <?php foreach ($canGive as $i => $r): $p = $pl((int) $r['player_id']); ?>
               <label class="fz-pick"><input type="radio" name="give" value="<?= (int) $r['player_id'] ?>" required<?= $i === array_key_first($canGive) ? ' checked' : '' ?>>
-                <?= avatar($p, 'xs') ?> <?= h($p['name']) ?> <span class="fz-mini-price"><?= (int) ($prices[(int) $r['player_id']] ?? 1) ?></span></label>
+                <?= avatar($p, 'xs') ?> <?= h($p['name']) ?> <span class="fz-mini-price" title="Quota attuale"><?= (int) ($quotes[(int) $r['player_id']] ?? 1) ?></span></label>
             <?php endforeach; ?>
           </fieldset>
           <i class="ti ti-arrows-exchange fz-swap"></i>
           <fieldset><legend>Chiedi a <?= h($pl($con)['name']) ?></legend>
             <?php foreach ($canWant as $i => $r): $p = $pl((int) $r['player_id']); ?>
               <label class="fz-pick"><input type="radio" name="want" value="<?= (int) $r['player_id'] ?>" required<?= $i === array_key_first($canWant) ? ' checked' : '' ?>>
-                <?= avatar($p, 'xs') ?> <?= h($p['name']) ?> <span class="fz-mini-price"><?= (int) ($prices[(int) $r['player_id']] ?? 1) ?></span></label>
+                <?= avatar($p, 'xs') ?> <?= h($p['name']) ?> <span class="fz-mini-price" title="Quota attuale"><?= (int) ($quotes[(int) $r['player_id']] ?? 1) ?></span></label>
             <?php endforeach; ?>
           </fieldset>
           <div><button class="btn btn-primary"><i class="ti ti-send"></i> Proponi</button></div>
@@ -399,7 +438,10 @@ if (count($bar) > 1): ?>
     <h2 class="fz-h2">Come si gioca</h2>
     <ul>
       <li><strong>Squadra:</strong> <?= FANTA_ROSTER ?> figurine dei giocatori della lega, <?= FANTA_STARTERS ?> titolari e una in panchina, con <?= FANTA_BUDGET ?> crediti (non sono i KOIN del portafoglio). Più squadre possono avere la stessa figurina.</li>
-      <li><strong>Mercato:</strong> compri e vendi quando vuoi; vendendo riprendi quello che l'hai pagata. Per ogni partita conta la squadra che hai al calcio d'inizio.</li>
+      <li><strong>Quote:</strong> ogni figurina vale da 1 a 4 crediti in base alla sua ultima partita (voto e bonus, appena si chiudono le votazioni): 1 a chi ha perso senza fare granché,
+        2 a una partita normale, 3 a una bella partita (per esempio un gol e la vittoria, o un voto da <?= fmt_num(FANTA_QUOTE_VOTE[3]) ?>), 4 a una prestazione sontuosa (una doppietta, l'MVP, un voto da <?= fmt_num(FANTA_QUOTE_VOTE[4]) ?>).
+        La quota base è quella che aveva all'apertura della stagione. Chi non ha ancora giocato vale 1.</li>
+      <li><strong>Mercato:</strong> compri e vendi quando vuoi, sempre alla quota attuale: se compri a 1 e rivendi a 4 hai 3 crediti in più da spendere. Per ogni partita conta la squadra che hai al calcio d'inizio.</li>
       <li><strong>Punti:</strong> media dei voti ricevuti in partita, più <?= FANTA_BONUS['goal'] ?> a gol, <?= FANTA_BONUS['assist'] ?> ad assist, <?= FANTA_BONUS['mvp'] ?> all'MVP, <?= FANTA_BONUS['win'] ?> se vince, <?= FANTA_BONUS['own_goal'] ?> ad autogol. Chi non gioca fa 0. Finché le votazioni sono aperte i punti sono provvisori (l'MVP conta alla chiusura).</li>
       <li><strong>Capitano:</strong> un titolare con bonus e malus doppi (un gol vale +<?= 2 * FANTA_BONUS['goal'] ?>, un autogol <?= 2 * FANTA_BONUS['own_goal'] ?>).</li>
       <li><strong>Panchina:</strong> entra al posto del primo titolare che non gioca (una sostituzione a partita).</li>
@@ -411,26 +453,40 @@ if (count($bar) > 1): ?>
   <p class="muted small">Non si comprano nel Negozio: si vincono solo qui. Chi arriva più in alto prende anche i premi dei posti sotto. Se un premio ce l'hai già, ricevi <?= FANTA_DUPLICATE_KOIN ?> KOIN al suo posto.</p>
   <?php
   $myLook = $me ? avatar_look(get_player($me)) : avatar_defaults() + ['hat' => null, 'height' => null, 'weight' => null];
-  $crop = ['hair' => 'head', 'hat' => 'head', 'jersey' => 'torso'];
-  $kindsAll = avatar_kinds() + shop_kinds(); ?>
-  <div class="fz-prizes">
+  $crop = ['hair' => 'head', 'hat' => 'head'];
+  $kindLabel = ['celebration' => 'Esultanza', 'hair' => 'Capelli', 'hat' => 'Copricapo', 'jersey' => 'Maglia', 'nick' => 'Nickname']; ?>
+  <div class="fz-tiers">
     <?php for ($rank = 1; $rank <= FANTA_PRIZE_RANKS; $rank++):
-        $only = array_filter(fanta_prizes_for($rank), fn($x) => $x[2]['fanta'] === $rank); ?>
-      <?php foreach ($only as [$kind, $key, $item]):
-          $l = $myLook;
-          if ($kind !== 'nick') {
-              $l[$kind] = $key;
-          } ?>
-      <article class="fz-prize rank-<?= $rank ?>">
-        <span class="fz-prize-rank"><?= $rank === 1 ? '1°' : 'Primi ' . $rank ?></span>
-        <div class="fz-prize-fig">
-          <?php if ($kind === 'nick'): ?><span class="nick nick-big">«<?= h($item['name']) ?>»</span>
-          <?php else: ?><?= avatar_figure($l, ['number' => $me ? get_player($me)['shirt_number'] : null] + (isset($crop[$kind]) ? ['crop' => $crop[$kind]] : []) + ($kind === 'celebration' ? ['hint' => $item['anim']] : [])) ?><?php endif; ?>
-        </div>
-        <div class="fz-prize-name"><?= h($item['name']) ?></div>
-        <div class="muted small"><?= h($kindsAll[$kind] ?? $kind) ?></div>
-      </article>
-      <?php endforeach; ?>
+        $only = array_filter(fanta_prizes_for($rank), fn($x) => $x[2]['fanta'] === $rank);
+        if (!$only) {
+            continue;
+        }
+        $who = $rank === 1 ? 'Solo il 1°' : ($rank === 2 ? 'Il 1° e il 2°' : 'Dal 1° al ' . $rank . '°'); ?>
+    <section class="card fz-tier fz-tier-<?= $rank ?>">
+      <header class="fz-tier-head">
+        <span class="fz-medal"><?= $rank ?>°</span>
+        <div><strong><?= $who ?></strong>
+          <span class="muted small"><?= $rank === 1 ? 'Oltre a tutti i premi qui sotto.' : ($rank === FANTA_PRIZE_RANKS ? 'Per tutti quelli che chiudono tra i primi ' . $rank . '.' : 'Più i premi dei posti sotto.') ?></span></div>
+      </header>
+      <div class="fz-tier-items">
+        <?php foreach ($only as [$kind, $key, $item]):
+            $l = $myLook;
+            if ($kind !== 'nick') {
+                $l[$kind] = $key;
+            }
+            $opts = ['number' => $me ? get_player($me)['shirt_number'] : null, 'label' => $item['name']]
+                + (isset($crop[$kind]) ? ['crop' => $crop[$kind]] : [])
+                + ($kind === 'celebration' ? ['hint' => $item['anim'], 'viewBox' => AVATAR_VIEWBOX] : []); ?>
+        <figure class="fz-prize">
+          <div class="fz-prize-fig<?= $kind === 'nick' ? ' is-nick' : '' ?>">
+            <?php if ($kind === 'nick'): ?><span class="nick nick-big">«<?= h($item['name']) ?>»</span>
+            <?php else: ?><?= avatar_figure($l, $opts) ?><?php endif; ?>
+          </div>
+          <figcaption><strong><?= h($item['name']) ?></strong><span><?= h($kindLabel[$kind] ?? $kind) ?></span></figcaption>
+        </figure>
+        <?php endforeach; ?>
+      </div>
+    </section>
     <?php endfor; ?>
   </div>
   <?php $hof = q('SELECT a.*, s.n FROM fanta_awards a JOIN fanta_seasons s ON s.id = a.season_id WHERE s.group_id = ? ORDER BY s.n DESC, a.rank_pos', [$gid])->fetchAll(); ?>

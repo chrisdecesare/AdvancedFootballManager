@@ -9,7 +9,7 @@ require_view();
 
 $me = my_player_id();
 $round = guess_round();
-$passed = guess_drop_passed();
+$passed = guess_closed();   // uscita o già svelata: niente più idee
 
 if (is_post()) {
     require_login();

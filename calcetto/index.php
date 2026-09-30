@@ -74,12 +74,22 @@ layout_start('Home', 'home');
       </div>
     </div>
     <?php if ($me && !is_guest()): ?><a class="btn btn-primary drop-hype-cta" href="avatar.php"><i class="ti ti-user-star"></i> Crea il tuo personaggio</a><?php endif; ?>
+    <?php elseif (guess_revealed() && !guess_drop_passed()): ?>
+    <span class="drop-hype-tag"><i class="ti ti-eye"></i> Svelato</span>
+    <div class="drop-hype-row">
+      <i class="ti ti-user-star drop-hype-icon" aria-hidden="true"></i>
+      <div class="drop-hype-txt">
+        <h2><?= h(guess_reveal_text()) ?></h2>
+        <p>Esce <?= h(fmt_date_long(date('Y-m-d H:i:s', guess_drop_at()))) ?> alle <?= date('H:i', guess_drop_at()) ?>. Chi aveva indovinato riceverà dei KOIN.</p>
+      </div>
+      <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'È il momento!', 0, true, 'hourglass-high', 'countdown-big drop-hype-count') ?>
+    </div>
     <?php else: ?>
     <span class="drop-hype-tag"><i class="ti ti-eye-off"></i> Top secret</span>
     <div class="drop-hype-row">
       <i class="ti ti-gift drop-hype-icon" aria-hidden="true"></i>
       <div class="drop-hype-txt">
-        <h2><?= guess_drop_passed() ? 'Ci siamo: sta per uscire!' : 'Giovedì cambia tutto.' ?></h2>
+        <h2><?= guess_drop_passed() ? 'Ci siamo: sta per uscire!' : (date('Y-m-d', guess_drop_at()) === date('Y-m-d') ? 'Oggi' : ucfirst(GIORNI[(int) date('w', guess_drop_at())])) . ' cambia tutto.' ?></h2>
         <p>Una novità è in arrivo e nessuno, tranne l'admin, sa cosa sia davvero.<?= guess_teaser() !== '' ? ' Indizio: «' . h(guess_teaser()) . '»' : '' ?></p>
       </div>
       <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'È il momento!', 0, true, 'hourglass-high', 'countdown-big drop-hype-count') ?>

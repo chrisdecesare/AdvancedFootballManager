@@ -371,6 +371,137 @@ function shop_kind_of(string $key): ?string
     return null;
 }
 
+/* ---------------------------------------------------------------- oggetti nuovi */
+
+/*
+ * Quando escono oggetti (drops.php, subito o a una data), alla prima richiesta dopo l'uscita parte una notifica push a chi le ha
+ * attive (shop_news_notify_due, anche da cron.php). Chi non le ha attive vede invece un pallino rosso sulla scheda del menu
+ * (Personaggio o Negozio) e sulla categoria, finché non la apre. Per SHOP_NEW_DAYS giorni gli oggetti usciti hanno l'etichetta «Nuovo».
+ * Gli oggetti del Personaggio usciti prima del suo lancio non si annunciano: sarebbe uno spoiler.
+ */
+const SHOP_NEW_DAYS = 7;
+
+/** Oggetti usciti negli ultimi SHOP_NEW_DAYS giorni: chiave => quando sono usciti (timestamp). */
+function shop_new_items(): array
+{
+    static $new = null;
+    if ($new === null) {
+        $new = [];
+        $from = time() - SHOP_NEW_DAYS * 86400;
+        foreach (shop_release_map() as $k => $at) {
+            if ($at <= time() && $at > $from) {
+                $new[$k] = $at;
+            }
+        }
+    }
+    return $new;
+}
+
+function shop_is_new(string $key): bool
+{
+    return isset(shop_new_items()[$key]);
+}
+
+/** Il Personaggio o il Negozio del profilo: la scheda del menu di un tipo. */
+function shop_news_section(string $kind): string
+{
+    return isset(avatar_kinds()[$kind]) && $kind !== 'hat' ? 'avatar' : 'shop';
+}
+
+/**
+ * Tipi con oggetti nuovi che l'utente non ha ancora guardato: tipo => true. Vuoto per chi ha le notifiche attive (a loro arriva
+ * la notifica) e per chi non può vederli (il Personaggio prima del lancio).
+ */
+function shop_news_unseen(): array
+{
+    static $out = null;
+    if ($out !== null) {
+        return $out;
+    }
+    $out = [];
+    $u = current_user();
+    if (!$u || is_guest() || !shop_new_items() || push_subs_of_users([(int) $u['id']])) {
+        return $out;
+    }
+    $seen = json_decode((string) (q('SELECT news_seen FROM users WHERE id = ?', [$u['id']])->fetchColumn() ?: ''), true);
+    $seen = is_array($seen) ? $seen : [];
+    foreach (shop_new_items() as $k => $at) {
+        $kind = shop_kind_of((string) $k);
+        if ($kind === null || (shop_news_section($kind) === 'avatar' && !avatar_visible())) {
+            continue;
+        }
+        if ($at > (int) ($seen[$kind] ?? 0)) {
+            $out[$kind] = true;
+        }
+    }
+    return $out;
+}
+
+/** Ha guardato un tipo: il pallino se ne va (anche quello della scheda, se era l'ultimo). */
+function shop_news_seen(string $kind): void
+{
+    $u = current_user();
+    if (!$u || !isset(shop_news_unseen()[$kind])) {
+        return;
+    }
+    $seen = json_decode((string) (q('SELECT news_seen FROM users WHERE id = ?', [$u['id']])->fetchColumn() ?: ''), true);
+    $seen = is_array($seen) ? $seen : [];
+    $seen[$kind] = time();
+    q('UPDATE users SET news_seen = ? WHERE id = ?', [json_encode($seen), $u['id']]);
+}
+
+/** Le schede del menu col pallino: 'avatar' / 'shop' => true. */
+function shop_news_sections(): array
+{
+    $out = [];
+    foreach (shop_news_unseen() as $kind => $_) {
+        $out[shop_news_section($kind)] = true;
+        if ($kind === 'hat' && avatar_visible()) {   // i copricapi stanno in tutte e due le schede
+            $out['avatar'] = true;
+        }
+    }
+    return $out;
+}
+
+/** Annuncia con una notifica push gli oggetti usciti dall'ultima volta (una volta sola, anche con più richieste insieme). */
+function shop_news_notify_due(): void
+{
+    $last = meta_get('news_notified_at');
+    $now = date('Y-m-d H:i:s');
+    if ($last === null) {   // la prima volta si parte da adesso: le uscite vecchie non si annunciano
+        meta_set('news_notified_at', $now);
+        return;
+    }
+    $keys = q('SELECT item_key FROM shop_releases WHERE release_at > ? AND release_at <= ?', [$last, $now])->fetchAll(PDO::FETCH_COLUMN);
+    if (!$keys || !q("UPDATE meta SET v = ? WHERE k = 'news_notified_at' AND v = ?", [$now, $last])->rowCount()) {
+        return;
+    }
+    $byKind = [];
+    foreach ($keys as $k) {
+        $kind = shop_kind_of((string) $k);
+        if ($kind !== null && (shop_news_section($kind) === 'shop' || avatar_public())) {
+            $byKind[$kind] = ($byKind[$kind] ?? 0) + 1;
+        }
+    }
+    if (!$byKind) {
+        return;
+    }
+    arsort($byKind);
+    $labels = avatar_kinds() + shop_kinds();
+    $n = array_sum($byKind);
+    $top = array_key_first($byKind);
+    $parts = array_map(fn($kind, $c) => $c . ' ' . mb_strtolower($labels[$kind] ?? $kind), array_keys($byKind), $byKind);
+    $msg = ['title' => $n === 1 ? 'È uscito un oggetto nuovo!' : 'Sono usciti ' . $n . ' oggetti nuovi!',
+        'body' => implode(', ', array_slice($parts, 0, 4)) . (count($parts) > 4 ? ' e altro' : '') . '. Corri a vederli prima che li prendano tutti.',
+        'url' => shop_news_section($top) === 'avatar' && avatar_public() ? 'avatar.php?c=' . $top : 'shop.php?s=' . $top,
+        'tag' => 'news-' . date('YmdHi')];
+    push_defer(function () use ($msg) {
+        if ($users = push_all_subscribed_users()) {
+            push_notify_users($users, $msg, 'normal', 'uscite');
+        }
+    });
+}
+
 /* ---------------------------------------------------------------- acquisti */
 
 /** Compra un oggetto. Ritorna il messaggio d'errore oppure null se è andata. */

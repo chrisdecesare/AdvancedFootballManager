@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 36;
+const SCHEMA_VERSION = 38;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -732,6 +732,27 @@ function ensure_schema(): void
             rank_pos TINYINT UNSIGNED NOT NULL,
             points DECIMAL(7,1) NOT NULL,
             prizes VARCHAR(500) NOT NULL DEFAULT \'\',
+            PRIMARY KEY (season_id, manager_id),
+            FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+            FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 37) {
+        // oggetti nuovi del negozio (lib/shop.php: shop_news_*): quando ognuno ha guardato l'ultima volta ogni tipo, per il pallino rosso
+        $add('users', 'news_seen', 'TEXT NULL');
+        // uscita del Personaggio anticipata a giovedì 1 ottobre 2026 alle 16, svelata alle 15 (solo se non è già uscito)
+        if (meta_get('avatar_launch_round') === null) {
+            meta_set('drop_at', '2026-10-01 16:00:00');
+            meta_set('drop_reveal_at', '2026-10-01 15:00:00');
+            meta_set('drop_reveal', 'È il Personaggio: il tuo giocatore in pixel art, da vestire come vuoi!');
+        }
+    }
+    if ($v < 38) {
+        // Fanta: i crediti di ogni squadra (si compra e si vende alla quota attuale, quindi non sono più «budget meno il costo della rosa»)
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_teams (
+            season_id INT NOT NULL,
+            manager_id INT NOT NULL,
+            credits SMALLINT NOT NULL,
             PRIMARY KEY (season_id, manager_id),
             FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
             FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE

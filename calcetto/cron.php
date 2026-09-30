@@ -15,6 +15,7 @@ if (!tables_exist() || !hash_equals(push_cron_key(), (string) ($_GET['key'] ?? '
 meta_set('push_last_run', (string) time());   // così non parte anche il controllo "al volo" degli utenti
 close_due_votings();
 fanta_snapshot_due();         // Fanta: formazioni al calcio d'inizio (lib/fanta.php)
+shop_news_notify_due();       // oggetti appena usciti nel negozio: notifica push (lib/shop.php)
 $due = push_run_due();          // promemoria "non hai ancora risposto", scommesse aperte e ultima ora: finiscono in coda come le altre
 $sent = push_queue_run(200);    // spedisce la coda: notifiche nuove e riprove di quelle non riuscite
 push_queue_cleanup();           // il registro tiene un mese

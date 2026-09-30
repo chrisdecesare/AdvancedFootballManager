@@ -201,7 +201,11 @@ if (is_post()) {
                 flash('err', 'Data non valida.');
             } else {
                 guess_set_drop($at, trim((string) ($_POST['teaser'] ?? '')));
-                flash('ok', 'Drop aggiornato: esce il ' . date('d/m/Y \a\l\l\e H:i', $at) . '.');
+                $revealAt = strtotime((string) ($_POST['reveal_at'] ?? '')) ?: null;
+                $reveal = mb_substr(trim((string) ($_POST['reveal'] ?? '')), 0, 200);
+                guess_set_reveal($reveal !== '' ? $revealAt : null, $revealAt ? $reveal : '');
+                flash('ok', 'Drop aggiornato: esce il ' . date('d/m/Y \a\l\l\e H:i', $at) . '.'
+                    . (guess_reveal_at() ? ' Si svela il ' . date('d/m/Y \a\l\l\e H:i', guess_reveal_at()) . '.' : ''));
             }
             break;
         case 'guess_new_round':
@@ -544,6 +548,8 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
     <label class="field"><span>Esce il</span><input type="datetime-local" name="drop_at" value="<?= h(date('Y-m-d\TH:i', guess_drop_at())) ?>" required></label>
     <label class="field span-2"><span>Indizio per i giocatori (facoltativo)</span><input name="teaser" maxlength="200" value="<?= h(guess_teaser()) ?>" placeholder="Es. C'entra il Negozio..."></label>
     <div><button class="btn btn-ghost"><i class="ti ti-calendar-event"></i> Aggiorna</button></div>
+    <label class="field"><span>Si svela il (facoltativo)</span><input type="datetime-local" name="reveal_at" value="<?= guess_reveal_at() ? h(date('Y-m-d\TH:i', guess_reveal_at())) : '' ?>"></label>
+    <label class="field span-3"><span>Cosa si svela in Home a quell'ora (da lì niente più idee)</span><input name="reveal" maxlength="200" value="<?= h(guess_reveal_text()) ?>" placeholder="Es. È il Personaggio: il tuo giocatore in pixel art!"></label>
   </form>
 
   <form method="post" class="btn-row">
