@@ -97,18 +97,22 @@ layout_start('Home', 'home');
     <a class="btn btn-primary drop-hype-cta" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà: in palio dei KOIN</a>
     <?php endif; ?>
 
-    <?php if (is_admin()): $newProposals = proposal_unread_count(); ?>
-    <a class="btn btn-ghost drop-hype-cta drop-hype-read" href="admin.php#proposte"><i class="ti ti-inbox"></i> Leggi le proposte dei giocatori<?= $newProposals ? ' (' . $newProposals . ' nuove)' : '' ?></a>
-    <?php endif; ?>
-    <?php if (current_user() && !is_guest()): ?>
-    <form method="post" class="form drop-hype-idea" id="proposte">
+  </section>
+
+  <?php if (current_user() && !is_guest()): // proposte per il sito: una card a parte, accanto al countdown (sotto, sui telefoni) ?>
+  <section class="card ideas-card" id="proposte">
+    <h2><i class="ti ti-bulb"></i> Hai un'idea per il sito?</h2>
+    <p class="muted small">Una funzione nuova, un'esultanza, una statistica che manca, un torneo... Proponila: la legge solo l'admin.</p>
+    <form method="post" class="form ideas-form">
       <?= csrf_field() ?><input type="hidden" name="do" value="proposal">
-      <label class="field"><span><i class="ti ti-bulb"></i> Hai un'idea per il sito? Proponila: la legge solo l'admin</span>
-        <textarea name="proposal" maxlength="<?= PROPOSAL_MAX ?>" rows="2" required placeholder="Es. Un nuovo tipo di esultanza, una statistica che manca, un torneo..."></textarea></label>
-      <div class="btn-row"><button class="btn btn-ghost btn-sm"><i class="ti ti-send"></i> Invia proposta</button></div>
+      <textarea name="proposal" maxlength="<?= PROPOSAL_MAX ?>" rows="3" required aria-label="La tua proposta" placeholder="Es. Un nuovo tipo di esultanza, una statistica che manca, un torneo..."></textarea>
+      <div class="btn-row"><button class="btn btn-primary btn-sm"><i class="ti ti-send"></i> Invia proposta</button></div>
     </form>
+    <?php if (is_admin()): $newProposals = proposal_unread_count(); ?>
+    <a class="btn btn-ghost btn-sm ideas-read" href="admin.php#proposte"><i class="ti ti-inbox"></i> Leggi le proposte dei giocatori<?= $newProposals ? ' (' . $newProposals . ' nuove)' : '' ?></a>
     <?php endif; ?>
   </section>
+  <?php endif; ?>
 
   <?= push_card(true) ?>
 

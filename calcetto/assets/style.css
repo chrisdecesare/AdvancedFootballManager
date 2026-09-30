@@ -358,13 +358,19 @@ form.inline { display: inline; margin: 0; }
 .drop-hype-txt p { margin: 0; color: var(--white); font-weight: 700; }
 .drop-hype-count { flex: none; animation: brdPulse 1.6s ease-in-out infinite; }
 .drop-hype-cta { margin-top: 16px; }
-@media (max-width: 600px) { .drop-hype-row { flex-direction: column; align-items: flex-start; } }
+@media (max-width: 600px) { .drop-hype-row { flex-direction: column; align-items: flex-start; } .drop-hype-txt { flex: none; min-width: 0; padding-right: 40px; } }
+/* in Home il countdown sta sotto al testo, così non finisce sotto l'etichetta «Top secret» in diagonale */
+.home > .drop-hype .drop-hype-txt { flex: 1 1 calc(100% - 80px); padding-right: 40px; }
 .drop-hype.is-launched { background: linear-gradient(135deg, var(--grass), var(--purple)); }
 /* proposte per il sito, dentro la card: le legge solo l'admin */
-.drop-hype-idea { margin-top: 16px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .92); border: var(--b2); display: grid; gap: 8px; }
-.drop-hype-idea .field > span { font-weight: 800; }
-.drop-hype-idea textarea { resize: vertical; min-height: 56px; }
-.drop-hype-read { background: var(--white); }
+/* proposte per il sito: card a parte accanto al countdown (index.php) */
+.home > .drop-hype, .home > .ideas-card { align-self: stretch; }
+.ideas-card { display: flex; flex-direction: column; gap: 8px; background: var(--paper-2); }
+.ideas-card h2 { margin: 0; font: 400 1.35rem var(--font-d); display: flex; align-items: center; gap: 6px; }
+.ideas-card p { margin: 0; }
+.ideas-form { display: grid; gap: 8px; margin: 0; }
+.ideas-form textarea { resize: vertical; min-height: 72px; width: 100%; }
+.ideas-read { align-self: flex-start; background: var(--white); }
 input, select, textarea {
   font: 700 1rem var(--font); color: var(--ink); background: var(--white); border: var(--b2);
   border-radius: 10px; padding: 8px 11px; width: 100%; min-width: 0;
@@ -1347,11 +1353,12 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .av-sort { display: inline-flex; align-items: center; gap: 4px; }
 
 .rar { display: inline-block; font: 900 .66rem/1.5 var(--font); letter-spacing: .07em; text-transform: uppercase; padding: 0 8px; border-radius: 999px; border: 2px solid var(--ink); }
-.rar-base { background: var(--paper-2); }
-.rar-comune { background: var(--grass); }
-.rar-raro { background: var(--sky); }
-.rar-epico { background: var(--purple); color: var(--white); }
-.rar-leggendario { background: linear-gradient(135deg, var(--yellow), var(--orange)); }
+/* i colori valgono solo per l'etichetta: la card dell'oggetto (.av-item.rar-...) ha la stessa classe, e col testo bianco il nome spariva */
+.rar.rar-base { background: var(--paper-2); }
+.rar.rar-comune { background: var(--grass); }
+.rar.rar-raro { background: var(--sky); }
+.rar.rar-epico { background: var(--purple); color: var(--white); }
+.rar.rar-leggendario { background: linear-gradient(135deg, var(--yellow), var(--orange)); }
 
 .av-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 16px; }
 .av-item { position: relative; display: grid; grid-template-rows: 1fr auto; background: var(--white); border: var(--b); border-radius: 16px; box-shadow: var(--sh-sm);
@@ -1366,7 +1373,10 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .av-item-fig { display: flex; justify-content: center; align-items: flex-end; height: 140px; margin: 4px 0; border-radius: 12px; overflow: hidden;
   background: radial-gradient(ellipse at 50% 100%, var(--paper-2) 0 55%, transparent 56%); }
 .av-item-fig .avf { height: 140px; width: auto; max-width: 100%; overflow: hidden; }
-.av-item-name { font: 400 1.05rem/1.15 var(--font-d); }
+.av-item-name { font: 400 1.05rem/1.15 var(--font-d); color: var(--ink); }
+/* epici e leggendari si riconoscono anche dallo sfondo della figura */
+.av-item.rar-epico .av-item-fig { background: radial-gradient(ellipse at 50% 100%, #e3d4ff 0 55%, transparent 56%), linear-gradient(#f6f0ff, #f6f0ff); }
+.av-item.rar-leggendario .av-item-fig { background: radial-gradient(ellipse at 50% 100%, #ffe08a 0 55%, transparent 56%), linear-gradient(#fff8e0, #fff8e0); }
 .av-item-state { font-weight: 900; font-size: .82rem; color: var(--ink-2); min-height: 1.3em; }
 .av-cost { display: inline-flex; align-items: center; gap: 3px; font: 400 1.05rem var(--font-d); color: var(--ink); }
 .av-cost.is-short { color: var(--red); }
@@ -1600,3 +1610,6 @@ tr.is-new td { background: #fffbe6; }
 .fz-help { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 5px 12px; border: var(--b2); border-radius: 999px; background: var(--paper);
   font: 800 .85rem var(--font); cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
 @media (max-width: 599px) { .fz-help span { display: none; } }
+/* admin → Indovina la funzionalità: sui telefoni un campo per riga, così date e testi non si tagliano */
+@media (max-width: 600px) { .drop-form { grid-template-columns: 1fr; } .drop-form > * { grid-column: auto !important; } }
+.drop-form + .btn-row { margin: 12px 0; }
