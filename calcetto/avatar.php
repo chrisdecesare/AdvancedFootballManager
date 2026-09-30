@@ -38,6 +38,15 @@ $url = function (array $set = []) use ($cat, $view, $rar, $sort, $page): string 
 };
 
 /* ---------------------------------------------------------------- azioni */
+if (is_post() && ($_POST['do'] ?? '') === 'figure') {
+    // figura del personaggio: è il genere del profilo (lo stesso di Modifica profilo)
+    $g = (string) ($_POST['gender'] ?? '');
+    if (isset(genders()[$g])) {
+        q('UPDATE players SET gender = ? WHERE id = ?', [$g, $me]);
+        flash('ok', 'Figura aggiornata: ' . mb_strtolower(genders()[$g]) . '.');
+    }
+    redirect($url() . '#personaggio');
+}
 if (is_post() && ($_POST['do'] ?? '') === 'body') {
     // corporatura: altezza e peso, gratis; «Non dirlo» torna alle misure del disegno di base
     $clear = isset($_POST['clear']);
@@ -264,6 +273,14 @@ layout_start('Personaggio', 'avatar');
         <?= avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'Il personaggio di ' . $mp['name']]) ?>
       </div>
       <div class="av-who"><strong><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
+      <form method="post" class="av-figure" aria-label="Figura">
+        <?= csrf_field() ?><input type="hidden" name="do" value="figure">
+        <span class="av-figure-label"><i class="ti ti-user"></i> Figura</span>
+        <?php foreach (genders() as $g => $gl): ?>
+        <button class="av-figure-opt<?= $look['figure'] === $g ? ' is-on' : '' ?>" name="gender" value="<?= h($g) ?>" aria-pressed="<?= $look['figure'] === $g ? 'true' : 'false' ?>">
+          <i class="ti ti-<?= h(gender_icon($g)) ?>"></i> <?= h($gl) ?></button>
+        <?php endforeach; ?>
+      </form>
       <details class="av-body">
         <summary><i class="ti ti-ruler-measure"></i> Corporatura
           <span class="av-body-now"><?= $look['height'] || $look['weight']

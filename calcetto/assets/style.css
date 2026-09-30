@@ -1621,3 +1621,10 @@ tr.is-new td { background: #fffbe6; }
 .drops-time-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .drops-time-opt { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
 .drops-time-opt input[type="datetime-local"] { max-width: 100%; }
+
+/* Personaggio: figura (è il genere del profilo) */
+.av-figure { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 10px 16px 0; }
+.av-figure-label { font-weight: 900; margin-right: 2px; display: inline-flex; align-items: center; gap: 4px; }
+.av-figure-opt { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: var(--b2); border-radius: 999px; background: var(--white);
+  font: 800 .85rem var(--font); cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
+.av-figure-opt.is-on { background: var(--ink); color: var(--yellow); }
