@@ -38,6 +38,14 @@ $url = function (array $set = []) use ($cat, $view, $rar, $sort, $page): string 
 };
 
 /* ---------------------------------------------------------------- azioni */
+if (is_post() && ($_POST['do'] ?? '') === 'body') {
+    // corporatura: altezza e peso, gratis; «Non dirlo» torna alle misure del disegno di base
+    $clear = isset($_POST['clear']);
+    $num = fn(string $k) => !$clear && is_numeric($_POST[$k] ?? null) ? (int) round((float) $_POST[$k]) : null;
+    $err = avatar_set_body($me, $num('height'), $num('weight'));
+    flash($err ? 'err' : 'ok', $err ?: ($clear ? 'Il personaggio è tornato alle misure di base.' : 'Corporatura salvata: il personaggio ha le tue proporzioni.'));
+    redirect($url() . '#personaggio');
+}
 if (is_post()) {
     $kind = (string) ($_POST['kind'] ?? '');
     $key = (string) ($_POST['key'] ?? '');
@@ -220,8 +228,14 @@ $crop = ['hair' => 'head', 'hair_color' => 'head', 'beard' => 'head', 'glasses' 
     'shorts' => 'legs', 'shoes' => 'feet'][$cat] ?? '';
 $stageLook = $lookWith($selected);
 
-// «Prova» dal catalogo: la pagina chiede solo il personaggio del palco (avatar_px.js lo mette al posto di quello di prima)
+// «Prova» dal catalogo: la pagina chiede solo il personaggio del palco (avatar_px.js lo mette al posto di quello di prima);
+// con bh/bw (cursori della corporatura) lo si vede con quell'altezza e quel peso prima di salvarli
 if (isset($_GET['fig'])) {
+    foreach (['bh' => 'height', 'bw' => 'weight'] as $q => $k) {
+        if (is_numeric($_GET[$q] ?? null)) {
+            $stageLook[$k] = max(AVATAR_BODY[$k][0], min(AVATAR_BODY[$k][1], (int) $_GET[$q]));
+        }
+    }
     echo avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'Il personaggio di ' . $mp['name']]);
     exit;
 }
@@ -244,6 +258,27 @@ layout_start('Personaggio', 'avatar');
         <?= avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'Il personaggio di ' . $mp['name']]) ?>
       </div>
       <div class="av-who"><strong><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
+      <details class="av-body">
+        <summary><i class="ti ti-ruler-measure"></i> Corporatura
+          <span class="av-body-now"><?= $look['height'] || $look['weight']
+              ? h(trim(($look['height'] ? number_format($look['height'] / 100, 2, ',', '') . ' m' : '') . ($look['height'] && $look['weight'] ? ' · ' : '') . ($look['weight'] ? $look['weight'] . ' kg' : '')))
+              : 'misure di base' ?></span></summary>
+        <form method="post" class="av-body-form" data-av-body>
+          <?= csrf_field() ?><input type="hidden" name="do" value="body">
+          <p class="small">Altezza e peso danno le proporzioni al tuo personaggio: più alto o più basso, più robusto o più snello. Sono gratis e le puoi cambiare quando vuoi.</p>
+          <?php foreach (['height' => ['Altezza', 'cm'], 'weight' => ['Peso', 'kg']] as $k => [$lbl, $unit]): [$min, $max, $def] = AVATAR_BODY[$k]; ?>
+          <label class="av-body-row">
+            <span><?= $lbl ?></span>
+            <input type="range" name="<?= $k ?>" min="<?= $min ?>" max="<?= $max ?>" step="1" value="<?= (int) ($look[$k] ?? $def) ?>" data-unit="<?= $unit ?>">
+            <output><?= (int) ($look[$k] ?? $def) ?> <?= $unit ?></output>
+          </label>
+          <?php endforeach; ?>
+          <div class="av-body-btns">
+            <button class="btn btn-primary btn-sm"><i class="ti ti-check"></i> Salva</button>
+            <?php if ($look['height'] || $look['weight']): ?><button class="btn btn-ghost btn-sm" name="clear" value="1"><i class="ti ti-arrow-back-up"></i> Non dirlo</button><?php endif; ?>
+          </div>
+        </form>
+      </details>
       <div class="av-info" data-av-info aria-live="polite"><?= $infoHtml($selected, $itemsOf($cat)[$selected]) ?></div>
     </section>
   </aside>
@@ -389,6 +424,30 @@ layout_start('Personaggio', 'avatar');
     } catch (err) { location.href = href; }
   }));
   if (stage.dataset.autoplay) play();
+
+  // corporatura: il personaggio sul palco cambia mentre si muovono i cursori (si salva solo con «Salva»)
+  const body = document.querySelector('[data-av-body]');
+  let bodyReq = 0, bodyT = 0;
+  if (body) body.addEventListener('input', e => {
+    if (e.target.type !== 'range') return;
+    e.target.nextElementSibling.textContent = e.target.value + ' ' + e.target.dataset.unit;
+    clearTimeout(bodyT);
+    bodyT = setTimeout(async () => {
+      const mine = ++bodyReq;
+      const href = location.pathname + location.search;
+      try {
+        const res = await fetch(href + (href.includes('?') ? '&' : '?') + 'fig=1&bh=' + body.elements.height.value + '&bw=' + body.elements.weight.value, { credentials: 'same-origin' });
+        if (!res.ok || mine !== bodyReq) return;
+        const html = await res.text();
+        if (mine !== bodyReq) return;
+        const old = svg();
+        if (old) P.stop(old);
+        stage.querySelectorAll('.avf').forEach(n => n.remove());
+        stage.insertAdjacentHTML('afterbegin', html);
+        P.idle(svg());
+      } catch (err) { /* resta il personaggio di prima */ }
+    }, 120);
+  });
 })();
 </script>
 <?php

@@ -6,6 +6,8 @@
  * Cosa indossa sta nella colonna players.avatar_look (JSON: una chiave del catalogo per tipo, vedi avatar_defaults()); il copricapo è
  * invece quello del profilo (players.hat_key), così comprato o indossato qui o nel Negozio si vede in tutti e due i posti: in testa
  * al personaggio va la sua versione pixel (px_hats(), per modello). Catalogo e prezzi in lib/shop_items.php, acquisti in lib/shop.php.
+ * Nello stesso JSON anche altezza e peso ('height' in cm, 'weight' in kg, gratis e facoltativi): danno le proporzioni al disegno
+ * (lib/avatar_pixel.php: px_body_shape); senza, il personaggio ha le misure del disegno di base (1,75 m, corporatura media).
  */
 
 function avatar_kinds(): array
@@ -52,7 +54,31 @@ function avatar_look(array $p): array
         $look[$kind] = shop_item($kind, $k) ? $k : $def;
     }
     $look['hat'] = shop_worn($p, 'hat');
+    foreach (AVATAR_BODY as $k => [$min, $max]) {
+        $v = is_array($saved) ? ($saved[$k] ?? null) : null;
+        $look[$k] = is_int($v) && $v >= $min && $v <= $max ? $v : null;
+    }
     return $look;
+}
+
+/** Altezza (cm) e peso (kg) che si possono scegliere: [minimo, massimo, valore del disegno di base]. */
+const AVATAR_BODY = ['height' => [140, 215, 175], 'weight' => [40, 160, 72]];
+
+/** Salva altezza e peso del personaggio (null = non detto: torna alle misure del disegno di base). Restituisce l'errore, se c'è. */
+function avatar_set_body(int $playerId, ?int $cm, ?int $kg): ?string
+{
+    foreach (['height' => $cm, 'weight' => $kg] as $k => $v) {
+        if ($v !== null && ($v < AVATAR_BODY[$k][0] || $v > AVATAR_BODY[$k][1])) {
+            return $k === 'height' ? 'L\'altezza va da ' . AVATAR_BODY['height'][0] . ' a ' . AVATAR_BODY['height'][1] . ' cm.'
+                : 'Il peso va da ' . AVATAR_BODY['weight'][0] . ' a ' . AVATAR_BODY['weight'][1] . ' kg.';
+        }
+    }
+    $saved = json_decode((string) q('SELECT avatar_look FROM players WHERE id = ?', [$playerId])->fetchColumn(), true);
+    $saved = is_array($saved) ? $saved : [];
+    unset($saved['height'], $saved['weight']);
+    $saved += array_filter(['height' => $cm, 'weight' => $kg], fn($v) => $v !== null);
+    q('UPDATE players SET avatar_look = ? WHERE id = ?', [$saved ? json_encode($saved) : null, $playerId]);
+    return null;
 }
 
 /** Indossa (o, con $key = null, torna al valore di base) un oggetto del personaggio. Il copricapo va in hat_key come nel Negozio. */
@@ -96,7 +122,8 @@ function avatar_px_look(array $look, ?array $jersey = null): array
         'hat' => $hat ? array_values($hat['colors']) : [], 'pet' => array_values($pet['colors'] ?? []),
     ];
     $parts = ['hair' => $it('hair')['style'], 'beard' => $it('beard')['style'], 'glasses' => $it('glasses')['style'],
-        'hat' => $hat && isset(px_hats()[$hat['tpl']]) ? $hat['tpl'] : null, 'number' => ''];
+        'hat' => $hat && isset(px_hats()[$hat['tpl']]) ? $hat['tpl'] : null, 'number' => '',
+        'shape' => implode(',', px_body_shape($look['height'] ?? null, $look['weight'] ?? null))];
     return [$colors, $parts, $pattern, $pet['style'] ?? 'none', $it('pose')['pose'] ?? 'rest', $it('celebration')['anim'] ?? 'fist-pump'];
 }
 
@@ -188,6 +215,13 @@ function avatar_figure(array $look, array $o = []): string
         : '<ellipse cx="16" cy="55.6" rx="9" ry="1.5" fill="#1f1a2e" opacity=".22" data-shadow/>';
     $petSvg = empty($o['ring']) && empty($o['crop']) ? px_pet_svg($pet, $pal) : '';
     $vb = AVATAR_CROPS[$o['crop'] ?? ''] ?? ($o['viewBox'] ?? (!empty($o['stage']) ? AVATAR_VIEWBOX : (!empty($o['ring']) ? AVATAR_VIEWBOX_PITCH : AVATAR_VIEWBOX_FIG)));
+    if (isset(AVATAR_CROPS[$o['crop'] ?? ''])) {   // miniature: l'inquadratura segue la corporatura (testa più su o più giù, fianchi più larghi)
+        [$legs, $torso, $dw] = px_shape($parts);
+        [$x, $y, $w, $hh] = array_map('intval', explode(' ', $vb));
+        $up = ['head' => $legs + $torso, 'torso' => $legs + $torso, 'legs' => $legs, 'feet' => 0][$o['crop']];
+        $wide = max(0, $dw) * ($o['crop'] === 'head' ? 0 : 2);
+        $vb = ($x - $wide) . ' ' . ($y - $up) . ' ' . ($w + 2 * $wide) . ' ' . ($hh + ($o['crop'] === 'torso' ? $torso : 0) + ($o['crop'] === 'legs' ? $legs : 0));
+    }
     $steps = fn(array $list, bool $withFx) => h(json_encode(array_map(
         fn($s) => $withFx ? [$s[0], $s[1], px_step_transform($s), $s[5] ?? ''] : [$s[0], $s[1], ''], $list)));
     $label = isset($o['label']) ? ' role="img" aria-label="' . h($o['label']) . '"' : ' aria-hidden="true"';
