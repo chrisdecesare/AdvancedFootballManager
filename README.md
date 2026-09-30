@@ -289,24 +289,33 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
 **Regalare KOIN:** in *Admin → Regala KOIN* l'admin sceglie un giocatore delle sue leghe e una cifra (da 1 a 1000): si aggiunge una mossa `regalo` al
 portafoglio, visibile subito nel saldo, in classifica e nel Negozio. Ogni regalo finisce nel registro delle operazioni.
 
+**Oggetti nuovi:** quando escono oggetti da *Uscite* (subito o a una data), alla prima richiesta dopo l'uscita (o da `cron.php`) parte una notifica push
+a chi le ha attive, con quanti oggetti e di che tipo. Chi non ha le notifiche vede un pallino rosso sulla scheda del menu (Personaggio o Negozio) e sulla
+categoria, finché non la apre. Per 7 giorni gli oggetti usciti hanno l'etichetta «Nuovo» (`SHOP_NEW_DAYS`, logica in `lib/shop.php`: `shop_news_*`).
+Gli oggetti del Personaggio usciti prima del suo lancio non si annunciano.
+
+**Rivelazione del countdown:** in *Admin → Indovina la funzionalità*, oltre alla data di uscita, si può scegliere un'ora in cui la card in Home smette di essere
+«top secret» e dice cos'è la novità (il countdown continua fino all'uscita); da quel momento non si mandano più idee.
+
 ## Fanta (fantacalcio della lega)
 
 La scheda **Fanta** (`fanta.php`, indirizzo `/fantacalcio`, logica in `calcetto/lib/fanta.php`) è il fantacalcio della lega: ogni giocatore con un
 account è anche fantallenatore e si compra le **figurine** dei compagni. Più squadre possono avere la stessa figurina.
 
-- **Stagioni:** le apre e le chiude chi amministra la lega, dalla pagina stessa. All'apertura si fissano i prezzi (tabella `fanta_prices`), che restano quelli
-  per tutta la stagione; contano le partite che iniziano dopo l'apertura.
-- **Prezzi calibrati (1-4 crediti):** dal rendimento nelle ultime 12 partite della lega, cioè punti fanta a partita per quanto spesso gioca (chi ha giocato
-  poco viene avvicinato alla media). Il 10% più forte costa 4, il successivo 15% costa 3, il 25% dopo costa 2, gli altri 1. Chi ha lo stesso rendimento costa
-  uguale (a lega appena nata, senza partite, costano tutti 1).
-- **Rosa:** 6 figurine (5 titolari e 1 in panchina) con un budget di 10 crediti fanta, separati dai KOIN. Si compra e si vende quando si vuole; vendendo si
-  riprende quello che è costata. Tra i titolari c'è un **capitano**, che raddoppia bonus e malus (un gol vale +6).
+- **Lancio:** fino a `FANTA_LAUNCH_AT` (venerdì 2 ottobre 2026 alle 16, in cima a `lib/fanta.php`) lo vede solo l'admin del sito, senza indizi per gli altri.
+- **Stagioni:** le apre e le chiude chi amministra la lega, dalla pagina stessa; contano le partite che iniziano dopo l'apertura.
+- **Quote (1-4 crediti):** la **quota attuale** di una figurina la dà la sua ultima partita, appena si chiudono le votazioni, dai punti fanta
+  della partita (voto + bonus): 1 sotto 6,5 punti (ha perso senza fare granché), 2 fino a 9,5 (una partita normale), 3 fino a 13 o con voto da 7,5
+  (una bella partita), 4 da 13 in su o con voto da 8,5 (una prestazione sontuosa). Chi non ha ancora giocato vale 1. La **quota base** è la quota attuale
+  all'apertura della stagione (`fanta_prices`). Soglie in cima a `lib/fanta.php` (`FANTA_QUOTE_PTS`, `FANTA_QUOTE_VOTE`).
+- **Rosa:** 6 figurine (5 titolari e 1 in panchina) con 10 crediti fanta di partenza, separati dai KOIN (salvati in `fanta_teams`). Si compra e si vende
+  quando si vuole, sempre alla quota attuale: chi compra a 1 e rivende a 4 guadagna 3 crediti. Tra i titolari c'è un **capitano**, che raddoppia bonus e malus (un gol vale +6).
 - **Punti di una figurina in una partita:** media dei voti ricevuti + 3 a gol, +1 ad assist, +3 all'MVP, +1 se la squadra vince, −2 ad autogol; chi non
   gioca fa 0. La **panchina** entra al posto del primo titolare che non gioca. Finché le votazioni sono aperte i punti sono provvisori.
 - **Formazione al calcio d'inizio:** per ogni partita conta la rosa com'era al fischio d'inizio (tabella `fanta_lineups`): la «foto» si scatta alla prima
   richiesta dopo il calcio d'inizio (e da `cron.php`), e sempre prima di qualsiasi cambio di rosa, così i cambi fatti dopo non toccano quella partita.
 - **Scambi:** un fantallenatore propone «ti do X, mi dai Y» a un altro, che accetta o rifiuta (notifica push a tutti e due). Le figurine devono essere
-  diverse e nessuno può ritrovarsi due volte lo stesso giocatore. Ognuno tiene il costo, il posto (titolare/panchina) e la fascia della figurina che dà.
+  diverse e nessuno può ritrovarsi due volte lo stesso giocatore. I crediti non cambiano; la figurina che arriva prende il posto (titolare/panchina) e la fascia di quella che parte.
 - **Classifica:** tutti contro tutti, somma dei punti della stagione (a pari punti conta la partita migliore).
 - **Premi:** alla chiusura i primi 5 ricevono oggetti che nel Negozio non si comprano e non si vedono (`fanta_reward_items()`, con `'fanta' => N` = va ai primi N):
   esultanze *Pioggia di KOIN*, *Giro d'onore* e *Alza la coppa*, creste *Cresta ribelle* e *Cresta d'oro*, *Alloro* e *Corona del Fanta*,

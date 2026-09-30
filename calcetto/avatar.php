@@ -229,6 +229,11 @@ $crop = ['hair' => 'head', 'hair_color' => 'head', 'beard' => 'head', 'glasses' 
     'shorts' => 'legs', 'shoes' => 'feet'][$cat] ?? '';
 $stageLook = $lookWith($selected);
 
+$unseen = shop_news_unseen();   // tipi con oggetti nuovi non ancora guardati (pallino rosso, per chi non ha le notifiche)
+if (!isset($_GET['fig'])) {
+    shop_news_seen($cat);
+}
+
 // «Prova» dal catalogo: la pagina chiede solo il personaggio del palco (avatar_px.js lo mette al posto di quello di prima);
 // con bh/bw (cursori della corporatura) lo si vede con quell'altezza e quel peso prima di salvarli
 if (isset($_GET['fig'])) {
@@ -296,7 +301,7 @@ layout_start('Personaggio', 'avatar');
     <nav class="av-cats" aria-label="Categorie">
       <?php $i = 0; foreach ($kinds as $k => $label): $i++; ?>
       <a href="<?= h($url(['c' => $k, 'r' => '', 'p' => ''])) ?>" class="av-cat<?= $k === $cat ? ' active' : '' ?>"<?= $k === $cat ? ' aria-current="page"' : '' ?>>
-        <span class="av-cat-n"><?= sprintf('%02d', $i) ?> <i class="ti ti-<?= $catIcons[$k] ?>"></i></span>
+        <span class="av-cat-n"><?= sprintf('%02d', $i) ?> <i class="ti ti-<?= $catIcons[$k] ?>"></i><?php if (isset($unseen[$k]) && $k !== $cat): ?><span class="news-dot" title="Oggetti nuovi"></span><?php endif; ?></span>
         <span class="av-cat-l"><?= h($label) ?></span>
         <span class="av-cat-c"><?= $count[$k][1] ?>/<?= $count[$k][0] ?></span>
       </a>
@@ -330,7 +335,7 @@ layout_start('Personaggio', 'avatar');
           $pl = $lookWith($key); ?>
       <article class="av-item rar-<?= $rk ?><?= $state === 'worn' ? ' is-worn' : '' ?><?= $key === $selected ? ' is-trying' : '' ?><?= $item['out'] ? ' is-out' : '' ?>" data-av-item data-kind="<?= h($cat) ?>">
         <a class="av-item-link" href="<?= h($url(['try' => $key])) ?>#personaggio" data-av-try>
-          <span class="av-item-top"><span class="rar rar-<?= $rk ?>"><?= $item['out'] ? 'Non uscito' : $rl ?></span><?php if (isset($wish[$key])): ?><i class="ti ti-heart-filled av-item-wish" title="Tra i tuoi obiettivi"></i><?php endif; ?>
+          <span class="av-item-top"><span class="rar rar-<?= $rk ?>"><?= $item['out'] ? 'Non uscito' : $rl ?></span><?php if (!$item['out'] && shop_is_new($key)): ?><span class="tag-new">Nuovo</span><?php endif; ?><?php if (isset($wish[$key])): ?><i class="ti ti-heart-filled av-item-wish" title="Tra i tuoi obiettivi"></i><?php endif; ?>
             <span class="av-item-mark" title="<?= ['worn' => 'Indossato', 'owned' => 'Nel guardaroba', 'free' => 'Incluso', 'buy' => 'Da comprare'][$state] ?>"><i class="ti ti-<?= ['worn' => 'check', 'owned' => 'hanger', 'free' => 'gift', 'buy' => 'plus'][$state] ?>"></i></span></span>
           <span class="av-item-fig"><?= avatar_figure($pl, ['number' => $number, 'crop' => $crop] + ($cat === 'celebration' ? ['hint' => $item['anim']] : [])) ?></span>
           <span class="av-item-name"><?= h($item['name']) ?></span>

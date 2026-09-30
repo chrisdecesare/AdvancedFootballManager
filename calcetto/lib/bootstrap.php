@@ -95,6 +95,7 @@ if (tables_exist()) {
     close_due_votings();   // votazioni arrivate all'orario di fine: si chiudono da sole
     bets_settle_pending();  // scommesse rimaste da pagare (di solito nessuna)
     fanta_snapshot_due();   // Fanta: formazioni «fotografate» al calcio d'inizio (lib/fanta.php)
+    shop_news_notify_due(); // oggetti appena usciti nel negozio: notifica push (lib/shop.php)
     // a risposta già inviata: prima si spediscono le notifiche in coda (e si riprovano quelle non riuscite),
     // poi, per chi è collegato, parte l'eventuale promemoria "non hai ancora risposto"
     push_defer('push_queue_kick');

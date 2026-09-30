@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS users (
   pending_email VARCHAR(190) NULL,                 -- email indicata ma non ancora confermata
   session_version INT NOT NULL DEFAULT 0,          -- cresce quando cambia la password: le sessioni con un numero diverso decadono
   player_id INT NULL UNIQUE,
+  news_seen TEXT NULL,                             -- oggetti nuovi del negozio: JSON tipo => quando l'ha guardato l'ultima volta (pallino rosso)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE INDEX uq_users_email (email),
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
@@ -405,7 +406,7 @@ CREATE TABLE IF NOT EXISTS fanta_seasons (
   FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- prezzo di ogni figurina (crediti fanta, 1-4), fissato all'apertura della stagione
+-- quota base di ogni figurina (1-4): la sua quota attuale all'apertura della stagione
 CREATE TABLE IF NOT EXISTS fanta_prices (
   season_id INT NOT NULL,
   player_id INT NOT NULL,
@@ -420,7 +421,7 @@ CREATE TABLE IF NOT EXISTS fanta_picks (
   season_id INT NOT NULL,
   manager_id INT NOT NULL,
   player_id INT NOT NULL,
-  cost TINYINT UNSIGNED NOT NULL,                  -- crediti che conta nel budget (e che tornano vendendola)
+  cost TINYINT UNSIGNED NOT NULL,                  -- crediti pagati (si vende alla quota attuale)
   role CHAR(1) NOT NULL DEFAULT 'T',
   captain TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -429,6 +430,16 @@ CREATE TABLE IF NOT EXISTS fanta_picks (
   FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
   FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE,
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- crediti fanta di ogni squadra (si parte da 10; comprando si pagano e vendendo si incassano alla quota attuale)
+CREATE TABLE IF NOT EXISTS fanta_teams (
+  season_id INT NOT NULL,
+  manager_id INT NOT NULL,
+  credits SMALLINT NOT NULL,
+  PRIMARY KEY (season_id, manager_id),
+  FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+  FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- partite di cui si è già fatta la foto delle formazioni (al calcio d'inizio)

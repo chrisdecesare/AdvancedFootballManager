@@ -349,6 +349,24 @@ document.addEventListener('DOMContentLoaded', () => {
     try { cfg = JSON.parse(tourData.textContent); } catch (e) { /* dati non validi: niente tutorial */ }
     if (cfg && Array.isArray(cfg.steps) && cfg.steps.length) startTour(cfg);
   }
+
+  // mini tutorial di una pagina (es. «Come si legge una figurina» nel Fanta): parte da solo la prima volta su questo dispositivo
+  // se cfg.auto, e ogni volta dai pulsanti [data-mini-tour]; i passi il cui elemento non c'è nella pagina si saltano
+  const miniData = document.getElementById('mini-tour-data');
+  if (miniData) {
+    let cfg = null;
+    try { cfg = JSON.parse(miniData.textContent); } catch (e) { /* dati non validi: niente tutorial */ }
+    if (cfg && Array.isArray(cfg.steps)) {
+      const run = () => {
+        const steps = cfg.steps.filter(s => !s.sel || document.querySelector(s.sel));
+        if (steps.length && !document.querySelector('.tour')) startTour(Object.assign({}, cfg, { steps }));
+      };
+      document.querySelectorAll('[data-mini-tour]').forEach(b => b.addEventListener('click', run));
+      let seen = false;
+      try { seen = !!localStorage.getItem(cfg.storeKey); } catch (e) { seen = true; /* senza memoria del browser non parte da solo */ }
+      if (cfg.auto && !seen && !tourData) run();
+    }
+  }
 });
 
 /* Tutorial: evidenzia una scheda alla volta (spot) e la spiega in una card. Finire o saltare lo segna come visto. */
@@ -454,6 +472,10 @@ function startTour(cfg) {
     document.documentElement.classList.remove('tour-open');
     document.dispatchEvent(new CustomEvent('menu:set', { detail: false }));
     root.remove();
+    if (cfg.storeKey) {   // mini tutorial: basta ricordarlo su questo dispositivo
+      try { localStorage.setItem(cfg.storeKey, '1'); } catch (e) { /* niente memoria: pazienza */ }
+    }
+    if (!cfg.endpoint) return;
     const fd = new FormData();
     fd.append('do', 'done');
     fd.append('csrf', cfg.csrf);

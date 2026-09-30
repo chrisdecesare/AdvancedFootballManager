@@ -40,6 +40,41 @@ function guess_teaser(): string
     return (string) (meta_get('drop_teaser') ?? '');
 }
 
+/*
+ * Rivelazione: a un'ora scelta dall'admin (prima dell'uscita) la card in Home smette di essere «top secret» e dice cos'è la novità,
+ * con il countdown che continua fino all'uscita. Da quel momento non si mandano più idee: il round è chiuso.
+ */
+function guess_reveal_at(): ?int
+{
+    $v = meta_get('drop_reveal_at');
+    return $v ? (int) strtotime($v) : null;
+}
+
+/** Cosa si svela (es. «È il Personaggio: ...»); vuoto = nessuna rivelazione. */
+function guess_reveal_text(): string
+{
+    return (string) (meta_get('drop_reveal') ?? '');
+}
+
+/** La novità è già stata svelata (ma magari non è ancora uscita)? */
+function guess_revealed(): bool
+{
+    $at = guess_reveal_at();
+    return guess_reveal_text() !== '' && $at !== null && $at <= time();
+}
+
+/** Round chiuso: niente più idee, perché la novità è uscita o è stata svelata. */
+function guess_closed(): bool
+{
+    return guess_drop_passed() || guess_revealed();
+}
+
+function guess_set_reveal(?int $at, string $text): void
+{
+    meta_set('drop_reveal_at', $at ? date('Y-m-d H:i:s', $at) : '');
+    meta_set('drop_reveal', $text);
+}
+
 /** L'idea del giocatore per il round attuale (null se non ha ancora provato). */
 function guess_mine(int $playerId): ?string
 {
@@ -80,6 +115,7 @@ function guess_new_round(int $at): void
     meta_set('drop_round', (string) (guess_round() + 1));
     meta_set('drop_at', date('Y-m-d H:i:s', $at));
     meta_set('drop_teaser', '');
+    guess_set_reveal(null, '');
 }
 
 /*

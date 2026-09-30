@@ -3,13 +3,15 @@
  * Fantacalcio della lega (fanta.php): ogni giocatore con un account è anche un fantallenatore e si compra le «figurine» dei
  * giocatori della sua lega. Più fantallenatori possono avere la stessa figurina.
  *
- *  - Stagioni: le apre e le chiude chi amministra la lega. All'apertura si fissano i prezzi delle figurine (fanta_prices), che
- *    restano quelli per tutta la stagione; alla chiusura i primi FANTA_PRIZE_RANKS della classifica ricevono i premi.
- *  - Rosa: FANTA_ROSTER figurine (FANTA_STARTERS titolari e una in panchina) con un budget di FANTA_BUDGET crediti fanta
- *    (separati dai KOIN del portafoglio). Si compra e si vende quando si vuole: chi vende riprende quello che la figurina gli
- *    è costata. Tra i titolari si sceglie un capitano, che raddoppia bonus e malus.
+ *  - Stagioni: le apre e le chiude chi amministra la lega; alla chiusura i primi FANTA_PRIZE_RANKS della classifica ricevono i premi.
+ *  - Quote (1-4): la quota attuale di una figurina è quella della sua ultima prestazione a votazioni chiuse (fanta_quote_of: 1 chi
+ *    ha perso senza fare granché, 4 una prestazione sontuosa); la quota base è quella che aveva all'apertura della stagione
+ *    (fanta_prices), il punto di partenza per vedere quanto è salita o scesa.
+ *  - Rosa: FANTA_ROSTER figurine (FANTA_STARTERS titolari e una in panchina) con FANTA_BUDGET crediti fanta di partenza
+ *    (separati dai KOIN del portafoglio, salvati in fanta_teams). Si compra e si vende quando si vuole, sempre alla quota attuale:
+ *    chi compra basso e rivende alto guadagna crediti. Tra i titolari si sceglie un capitano, che raddoppia bonus e malus.
  *  - Scambi: un fantallenatore propone «ti do X, mi dai Y» a un altro, che accetta o rifiuta. Nessuno dei due può ritrovarsi
- *    due volte la stessa figurina. Ognuno tiene il costo della figurina che ha dato (così il budget di tutti e due non cambia).
+ *    due volte la stessa figurina. I crediti non cambiano: ognuno tiene i suoi.
  *  - Formazioni: al calcio d'inizio di ogni partita della lega la rosa di ognuno si «fotografa» (fanta_lineups) e per quella
  *    partita contano solo quelle figurine, anche se dopo si cambia. La foto si scatta alla prima richiesta dopo il calcio
  *    d'inizio, e sempre prima di qualsiasi cambio di rosa: così è identica alla rosa che c'era al fischio d'inizio.
@@ -19,6 +21,7 @@
  *    un oggetto con 'fanta' => N va a chi arriva tra i primi N. Chi ce l'ha già riceve FANTA_DUPLICATE_KOIN al suo posto.
  */
 
+const FANTA_LAUNCH_AT = '2026-10-02 16:00:00';   // prima di allora il Fanta lo vede solo l'admin del sito (nessun indizio agli altri)
 const FANTA_BUDGET = 10;
 const FANTA_ROSTER = 6;
 const FANTA_STARTERS = 5;
@@ -26,10 +29,24 @@ const FANTA_BONUS = ['goal' => 3, 'assist' => 1, 'mvp' => 3, 'win' => 1, 'own_go
 const FANTA_PRIZE_RANKS = 5;
 const FANTA_DUPLICATE_KOIN = 60;   // premio già vinto in una stagione precedente: al suo posto questi KOIN
 const FANTA_MAX_OPEN_TRADES = 5;   // proposte di scambio in attesa per fantallenatore
-// prezzi: la parte della lega (dal più forte in giù) che costa 4, 3 e 2 crediti; gli altri costano 1
-const FANTA_PRICE_TIERS = [4 => .10, 3 => .25, 2 => .50];
-const FANTA_PRICE_MATCHES = 12;    // i prezzi guardano le ultime partite della lega...
-const FANTA_PRICE_PRIOR = 3;       // ...e chi ne ha giocate poche viene avvicinato alla media della lega
+// quote (fanta_quote_of): punti fanta della partita da cui si vale 2, 3 e 4 (sotto il primo si vale 1)...
+const FANTA_QUOTE_PTS = [6.5, 9.5, 13.0];
+const FANTA_QUOTE_VOTE = [3 => 7.5, 4 => 8.5];   // ...oppure il voto da cui si vale almeno 3 e 4
+const FANTA_FORM_MATCHES = 12;     // media e presenze nelle schede del Mercato: ultime partite della lega
+const FANTA_ATT_GOOD = 70;         // presenze (%) da cui la percentuale è verde...
+const FANTA_ATT_OK = 40;           // ...e gialla (sotto è rossa)
+
+/** Il Fanta è uscito per tutti? */
+function fanta_public(): bool
+{
+    return time() >= strtotime(FANTA_LAUNCH_AT);
+}
+
+/** Chi lo vede adesso: tutti dopo il lancio, prima solo l'admin del sito. */
+function fanta_visible(): bool
+{
+    return is_admin() || fanta_public();
+}
 
 /* ---------------------------------------------------------------- premi */
 
@@ -93,7 +110,7 @@ function fanta_last_season(int $gid): ?array
     return $s ?: null;
 }
 
-/** Apre una stagione nuova e ne fissa i prezzi. Ritorna l'errore, se c'è. */
+/** Apre una stagione nuova e ne fissa le quote base (le quote attuali di adesso). Ritorna l'errore, se c'è. */
 function fanta_open_season(int $gid): ?string
 {
     if (fanta_season($gid)) {
@@ -179,13 +196,12 @@ function fanta_can_play(?int $playerId, int $gid): bool
 }
 
 /**
- * Rendimento delle figurine per fissare i prezzi: punti fanta attesi a partita della lega, cioè la media dei punti nelle partite
- * giocate (avvicinata alla media della lega per chi ne ha giocate poche) per quanto spesso gioca, sulle ultime FANTA_PRICE_MATCHES.
- * @return array<int, array{avg: float, apps: int, rate: float, value: float}>
+ * Rendimento delle figurine nelle ultime FANTA_FORM_MATCHES partite della lega (per le schede del Mercato): punti fanta a partita
+ * giocata e quante partite ha giocato. @return array<int, array{avg: float, apps: int, rate: float}>
  */
 function fanta_form(int $gid): array
 {
-    $mids = array_map('intval', q("SELECT id FROM matches WHERE group_id = ? AND status = 'giocata' ORDER BY match_date DESC LIMIT " . FANTA_PRICE_MATCHES,
+    $mids = array_map('intval', q("SELECT id FROM matches WHERE group_id = ? AND status = 'giocata' ORDER BY match_date DESC LIMIT " . FANTA_FORM_MATCHES,
         [$gid])->fetchAll(PDO::FETCH_COLUMN));
     $sum = $apps = [];
     foreach ($mids as $mid) {
@@ -194,51 +210,65 @@ function fanta_form(int $gid): array
             $apps[$pid] = ($apps[$pid] ?? 0) + 1;
         }
     }
-    $all = array_sum($apps);
-    $mean = $all ? array_sum($sum) / $all : DEFAULT_VOTE;
-    $rateMean = $mids && $sum ? $all / (count($mids) * max(1, count($sum))) : .5;
     $out = [];
     foreach (fanta_cards($gid) as $pid => $_) {
         $n = $apps[$pid] ?? 0;
-        $avg = ($sum[$pid] ?? 0) / max(1, $n);
-        $shrunkAvg = (($sum[$pid] ?? 0) + FANTA_PRICE_PRIOR * $mean) / ($n + FANTA_PRICE_PRIOR);
-        $rate = $mids ? ($n + FANTA_PRICE_PRIOR * $rateMean) / (count($mids) + FANTA_PRICE_PRIOR) : $rateMean;
-        $out[$pid] = ['avg' => $n ? $avg : 0.0, 'apps' => $n, 'rate' => $mids ? $n / count($mids) : 0.0, 'value' => $shrunkAvg * $rate];
+        $out[$pid] = ['avg' => $n ? $sum[$pid] / $n : 0.0, 'apps' => $n, 'rate' => $mids ? $n / count($mids) : 0.0];
     }
     return $out;
 }
 
-/** Prezzo di ogni figurina (1-4) dal rendimento: i più forti costano di più (FANTA_PRICE_TIERS). [id => prezzo] */
-function fanta_price_list(int $gid): array
+/**
+ * Quota (1-4) di una prestazione, dai punti fanta della partita (voto + bonus):
+ *  1 = ha perso (o pareggiato) senza fare granché; 2 = una partita normale, vinta o giocata bene;
+ *  3 = una bella partita (un gol e la vittoria, un voto alto); 4 = una prestazione sontuosa (doppietta, MVP, voto altissimo).
+ */
+function fanta_quote_of(array $pt): int
 {
-    $form = fanta_form($gid);
-    uasort($form, fn($a, $b) => $b['value'] <=> $a['value']);
-    $n = count($form);
-    // dove sta in classifica (0 = il migliore, 1 = l'ultimo); chi ha lo stesso rendimento sta nello stesso punto (la media dei
-    // posti che occupano insieme), così a lega appena nata, senza partite, costano tutti uguale
-    $ties = [];
-    $i = 0;
-    foreach ($form as $pid => $f) {
-        $ties[sprintf('%.3f', $f['value'])][] = [$pid, $i++];
+    [$q2, $q3, $q4] = FANTA_QUOTE_PTS;
+    return match (true) {
+        $pt['pts'] >= $q4 || $pt['vote'] >= FANTA_QUOTE_VOTE[4] => 4,
+        $pt['pts'] >= $q3 || $pt['vote'] >= FANTA_QUOTE_VOTE[3] => 3,
+        $pt['pts'] >= $q2 => 2,
+        default => 1,
+    };
+}
+
+/**
+ * Quota attuale delle figurine della lega: quella della loro ultima partita giocata nella lega con le votazioni chiuse (voti e MVP
+ * definitivi). Chi non ha ancora giocato vale 1. @return array<int, array{quote: int, match_id: ?int}>
+ */
+function fanta_quotes(int $gid): array
+{
+    static $cache = [];
+    if (isset($cache[$gid])) {
+        return $cache[$gid];
     }
-    $out = [];
-    foreach ($ties as $group) {
-        $share = (array_sum(array_column($group, 1)) / count($group) + .5) / max(1, $n);
-        $price = 1;
-        foreach (FANTA_PRICE_TIERS as $p => $upTo) {
-            if ($share < $upTo) {
-                $price = $p;
-                break;
+    $cards = fanta_cards($gid);
+    $out = array_map(fn() => ['quote' => 1, 'match_id' => null], $cards);
+    $todo = $cards;
+    $mids = q("SELECT id FROM matches WHERE group_id = ? AND status = 'giocata' AND voting_open = 0 ORDER BY match_date DESC LIMIT 60", [$gid])->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($mids as $mid) {
+        foreach (fanta_match_points((int) $mid) as $pid => $pt) {
+            if (isset($todo[$pid])) {
+                $out[$pid] = ['quote' => fanta_quote_of($pt), 'match_id' => (int) $mid];
+                unset($todo[$pid]);
             }
         }
-        foreach ($group as [$pid]) {
-            $out[$pid] = $price;
+        if (!$todo) {
+            break;
         }
     }
-    return $out;
+    return $cache[$gid] = $out;
 }
 
-/** Prezzi della stagione: [id => prezzo]. Chi è entrato nella lega a stagione iniziata prende il prezzo di adesso (e lo tiene). */
+/** Quota attuale di ogni figurina della lega: [id => 1-4]. */
+function fanta_price_list(int $gid): array
+{
+    return array_map(fn($q) => $q['quote'], fanta_quotes($gid));
+}
+
+/** Quote base della stagione (quelle che avevano all'apertura): [id => prezzo]. Chi entra nella lega dopo prende la quota di adesso. */
 function fanta_prices(array $season): array
 {
     $sid = (int) $season['id'];
@@ -432,6 +462,19 @@ function fanta_spent(int $seasonId, int $managerId): int
     return (int) q('SELECT COALESCE(SUM(cost), 0) FROM fanta_picks WHERE season_id = ? AND manager_id = ?', [$seasonId, $managerId])->fetchColumn();
 }
 
+/** Crediti rimasti. Le squadre fatte prima che i crediti si salvassero: budget meno quello che è costata la rosa di adesso. */
+function fanta_credits_left(int $seasonId, int $managerId): int
+{
+    $c = q('SELECT credits FROM fanta_teams WHERE season_id = ? AND manager_id = ?', [$seasonId, $managerId])->fetchColumn();
+    return $c === false ? FANTA_BUDGET - fanta_spent($seasonId, $managerId) : (int) $c;
+}
+
+function fanta_credits_set(int $seasonId, int $managerId, int $credits): void
+{
+    q('INSERT INTO fanta_teams (season_id, manager_id, credits) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE credits = VALUES(credits)',
+        [$seasonId, $managerId, $credits]);
+}
+
 /** Rimette a posto ruoli e capitano: fino a FANTA_STARTERS titolari, il resto in panchina; un capitano tra i titolari. */
 function fanta_fix_roles(int $seasonId, int $managerId): void
 {
@@ -465,7 +508,7 @@ function fanta_buy(array $season, int $managerId, int $playerId): ?string
 {
     fanta_snapshot_due();
     $sid = (int) $season['id'];
-    $prices = fanta_prices($season);
+    $prices = fanta_price_list((int) $season['group_id']);   // si compra alla quota attuale
     if (!isset($prices[$playerId], fanta_cards((int) $season['group_id'])[$playerId])) {
         return 'Questa figurina non è della tua lega.';
     }
@@ -478,28 +521,32 @@ function fanta_buy(array $season, int $managerId, int $playerId): ?string
         if (count($rows) >= FANTA_ROSTER) {
             return 'La rosa è piena (' . FANTA_ROSTER . ' figurine): prima vendine una.';
         }
-        $left = FANTA_BUDGET - fanta_spent($sid, $managerId);
+        $left = fanta_credits_left($sid, $managerId);
         if ($prices[$playerId] > $left) {
-            return 'Costa ' . fanta_credits($prices[$playerId]) . ' e ne hai ' . $left . '.';
+            return 'Costa ' . fanta_cr($prices[$playerId]) . ' e ne hai ' . $left . '.';
         }
         $starters = count(array_filter($rows, fn($r) => $r['role'] === 'T'));
         q('INSERT INTO fanta_picks (season_id, manager_id, player_id, cost, role, captain) VALUES (?, ?, ?, ?, ?, 0)',
             [$sid, $managerId, $playerId, $prices[$playerId], $starters < FANTA_STARTERS ? 'T' : 'P']);
+        fanta_credits_set($sid, $managerId, $left - $prices[$playerId]);
         fanta_fix_roles($sid, $managerId);
         return null;
     });
 }
 
-/** Vende una figurina: si riprendono i crediti che è costata. */
+/** Vende una figurina alla sua quota attuale (può valere più o meno di quanto l'hai pagata). */
 function fanta_sell(array $season, int $managerId, int $playerId): ?string
 {
     fanta_snapshot_due();
     $sid = (int) $season['id'];
-    return bet_atomic(function () use ($sid, $managerId, $playerId) {
+    $quote = fanta_price_list((int) $season['group_id'])[$playerId] ?? 1;
+    return bet_atomic(function () use ($sid, $managerId, $playerId, $quote) {
         fanta_lock($managerId);
+        $left = fanta_credits_left($sid, $managerId);   // prima di togliere la figurina (per le squadre di prima dei crediti salvati)
         if (!q('DELETE FROM fanta_picks WHERE season_id = ? AND manager_id = ? AND player_id = ?', [$sid, $managerId, $playerId])->rowCount()) {
             return 'Non ce l\'hai in rosa.';
         }
+        fanta_credits_set($sid, $managerId, $left + $quote);
         fanta_fix_roles($sid, $managerId);
         return null;
     });
@@ -681,7 +728,7 @@ function fanta_notify(array $playerIds, array $msg): void
 }
 
 /** "1 credito", "3 crediti". */
-function fanta_credits(int $n): string
+function fanta_cr(int $n): string
 {
     return $n . ($n === 1 ? ' credito' : ' crediti');
 }

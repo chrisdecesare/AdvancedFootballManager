@@ -8,13 +8,16 @@ function layout_start(string $title, string $active = ''): void
         'players' => ['players.php', 'Rosa', 'shirt'],
         'standings' => ['standings.php', 'Classifica', 'trophy'],
         'bets' => ['bets.php', 'Scommesse', 'coin'],
-        'fanta' => ['fanta.php', 'Fanta', 'cards'],
         'shop' => ['shop.php', 'Negozio', 'shopping-bag'],
         'curiosities' => ['curiosities.php', 'Curiosità', 'bulb'],
     ];
     $guest = is_guest();
     if ($guest) {
         $nav = ['match' => ['match.php?id=' . (int) guest_match_id(), 'La partita', 'calendar-event']];   // vede solo la sua partita
+    }
+    if ($u && !$guest && fanta_visible()) {
+        // Fanta (fanta.php): prima di FANTA_LAUNCH_AT lo vede solo l'admin (lib/fanta.php)
+        $nav = array_slice($nav, 0, 5, true) + ['fanta' => ['fanta.php', 'Fanta', 'cards']] + $nav;
     }
     if ($u && !$guest && avatar_visible()) {
         // Personaggio (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
@@ -43,6 +46,7 @@ function layout_start(string $title, string $active = ''): void
         }
     }
     // pulsante con la campanella: attiva/disattiva le notifiche (o porta alla scheda che le spiega)
+    $newsDots = $u && !$guest ? shop_news_sections() : [];   // oggetti nuovi non ancora visti, per chi non ha le notifiche (lib/shop.php)
     $notifHref = ($u && !$guest && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
     // KOIN delle scommesse: sempre visibili accanto al profilo, non solo nella pagina Scommesse
     $myId = $guest ? null : my_player_id();   // un ospite non ha KOIN
@@ -91,13 +95,13 @@ function layout_start(string $title, string $active = ''): void
 <header class="topbar<?= count($nav) > 6 ? ' nav-many' : '' ?>">
   <div class="topbar-inner">
     <?php if ($u || PUBLIC_READ): ?>
-    <button type="button" class="nav-toggle" aria-label="Apri il menu" aria-expanded="false" aria-controls="site-nav"><i class="ti ti-menu-2"></i></button>
+    <button type="button" class="nav-toggle" aria-label="Apri il menu" aria-expanded="false" aria-controls="site-nav"><i class="ti ti-menu-2"></i><?php if ($newsDots): ?><span class="news-dot" aria-hidden="true"></span><?php endif; ?></button>
     <?php endif; ?>
     <a class="brand" href="index.php"><span class="brand-ball"><i class="ti ti-ball-football"></i></span><?= h(APP_NAME) ?></a>
     <?php if ($u || PUBLIC_READ): ?>
     <nav class="nav" id="site-nav">
       <?php foreach ($nav as $key => [$href, $label, $icon]): ?>
-        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php elseif ($key === 'admin' && !empty($newProposals)): ?><span class="nav-badge" title="Proposte da leggere"><?= (int) $newProposals ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?></a>
+        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php elseif ($key === 'admin' && !empty($newProposals)): ?><span class="nav-badge" title="Proposte da leggere"><?= (int) $newProposals ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?><?php if (isset($newsDots[$key])): ?><span class="news-dot" title="Oggetti nuovi" aria-label="Oggetti nuovi"></span><?php endif; ?></a>
       <?php endforeach; ?>
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
