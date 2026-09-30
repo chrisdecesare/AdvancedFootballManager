@@ -304,6 +304,7 @@ function px_blank(): array
 function px_letters(string $name, array $parts): array
 {
     static $cache = [];
+    static $nums = [];   // dove va il numero di maglia in ogni fotogramma già composto (con la corporatura può salire o scendere)
     $ck = $name . '|' . implode('|', array_map(fn($v) => (string) $v, $parts));
     if (isset($cache[$ck])) {
         return $cache[$ck];
@@ -315,8 +316,12 @@ function px_letters(string $name, array $parts): array
     }
     if (str_ends_with($name, '<')) {   // girato verso sinistra (il numero si rimette dopo, se no si leggerebbe al contrario)
         $base = substr($name, 0, -1);
-        $g = array_map('array_reverse', px_letters($base, ['number' => ''] + $parts));
-        $num = str_contains($name, '@') ? null : (px_frames()[rtrim($name, '<')]['num'] ?? null);
+        $inner = ['number' => ''] + $parts;
+        $g = array_map('array_reverse', px_letters($base, $inner));
+        if (!str_contains($name, '@')) {
+            px_letters(rtrim($name, '<'), $inner);   // per sapere dove sta il numero nel fotogramma di partenza
+        }
+        $num = str_contains($name, '@') ? null : ($nums[rtrim($name, '<') . '|' . implode('|', array_map(fn($v) => (string) $v, $inner))] ?? null);
         if ($num && $parts['number'] !== '') {   // girato un numero dispari di volte: il numero va dall'altra parte
             px_number($g, (string) $parts['number'], substr_count($name, '<') % 2 ? 32 - $num[0] : $num[0], $num[1]);
         }
@@ -326,7 +331,7 @@ function px_letters(string $name, array $parts): array
     $view = $f['view'];
     $g = px_blank();
     [$hx, $hy] = $f['head'];
-    $piece = function (?array $def) use (&$g, $view, $hx, $hy) {
+    $piece = function (?array $def) use (&$g, &$hy, $view, $hx) {
         $d = $def[$view] ?? ($def['front'] ?? null);
         if ($d) {
             px_paint($g, $d[2], $hx + $d[0], $hy + $d[1]);
@@ -341,6 +346,24 @@ function px_letters(string $name, array $parts): array
         }
         px_paint($g, $l[0], $l[1], $l[2]);
     }
+    $num = $f['num'] ?? null;
+    $shape = px_shape($parts);
+    if ($shape !== [0, 0, 0]) {
+        // corporatura: si allunga/accorcia e si allarga/stringe il corpo (braccia comprese, davanti o dietro la testa), la testa resta com'è
+        $og = px_blank();
+        foreach ($over as $l) {
+            px_paint($og, $l[0], $l[1], $l[2]);
+        }
+        [$rows, $cols, $lift] = px_body_maps($g, $og, $f, $shape);
+        $g = px_remap($g, $rows, $cols);
+        $og = px_remap($og, $rows, $cols);
+        $hy -= $lift($hy);
+        if ($num) {
+            $num[1] -= $lift($num[1]);
+        }
+        $over = [[$og]];
+    }
+    $nums[$ck] = $num;
     $head = px_heads()[$view];
     foreach ((px_faces()[$f['face'] ?? ''] ?? [])[$view] ?? [] as [$r, $col, $px]) {
         $head[$r] = substr_replace($head[$r], $px, $col, strlen($px));
@@ -353,12 +376,168 @@ function px_letters(string $name, array $parts): array
         $piece(px_hats()[$parts['hat']] ?? null);
     }
     foreach ($over as $l) {
+        if (count($l) === 1) {   // livello già sulla griglia (corporatura): si copia sopra
+            foreach ($l[0] as $gy => $row) {
+                foreach ($row as $gx => $ch) {
+                    if ($ch !== '.') {
+                        $g[$gy][$gx] = $ch;
+                    }
+                }
+            }
+            continue;
+        }
         px_paint($g, $l[0], $l[1], $l[2]);
     }
-    if (isset($f['num']) && $parts['number'] !== '') {
-        px_number($g, (string) $parts['number'], $f['num'][0], $f['num'][1]);
+    if ($num && $parts['number'] !== '') {
+        px_number($g, (string) $parts['number'], $num[0], $num[1]);
     }
     return $cache[$ck] = $g;
+}
+
+/* ---------------------------------------------------------------- corporatura (altezza e peso) */
+
+/** Corporatura da altezza (cm) e peso (kg): [righe in più alle gambe, righe in più al busto, colonne in più per lato]; 0 = come il disegno. */
+function px_body_shape(?int $cm, ?int $kg): array
+{
+    $dh = $cm ? max(-5, min(5, (int) round(($cm - 175) / 5))) : 0;   // il disegno è alto 1,75 m: un pixel ogni 5 cm
+    $legs = $dh >= 0 ? (int) ceil($dh * .6) : -(int) ceil(-$dh * .6);   // le gambe prendono un po' più del busto
+    $dw = 0;
+    if ($cm && $kg) {
+        $bmi = $kg / (($cm / 100) ** 2);
+        $dw = match (true) {
+            $bmi < 18.5 => -1,
+            $bmi < 25 => 0,
+            $bmi < 29 => 1,
+            default => 2,
+        };
+    }
+    return [$legs, $dh - $legs, $dw];
+}
+
+/** La corporatura dai pezzi del look ('shape' => "gambe,busto,lati"). */
+function px_shape(array $parts): array
+{
+    $s = array_map('intval', explode(',', (string) ($parts['shape'] ?? '')));
+    return [$s[0] ?? 0, $s[1] ?? 0, $s[2] ?? 0];
+}
+
+/**
+ * Dove allungare e allargare un fotogramma: [sorgente di ogni riga, sorgente di ogni colonna, di quanto sale una riga (y dello sprite)].
+ * Le righe si duplicano (o si tolgono) nel busto e nelle gambe, scegliendo quella più simile alla precedente così i contorni non si
+ * spezzano; i piedi restano a terra e tutto quello che sta sopra sale. Le colonne si duplicano (o si tolgono) una per lato attorno al
+ * centro del corpo, così il numero di maglia e la testa restano in mezzo.
+ */
+function px_body_maps(array $g, array $og, array $f, array $shape): array
+{
+    [$legs, $torso, $dw] = $shape;
+    $all = $g;
+    foreach ($og as $gy => $row) {
+        foreach ($row as $gx => $ch) {
+            if ($ch !== '.') {
+                $all[$gy][$gx] = $ch;
+            }
+        }
+    }
+    $filled = array_keys(array_filter($all, fn($r) => count(array_unique($r)) > 1 || $r[0] !== '.'));
+    $bottom = $filled ? max($filled) : PX_H - 1;
+    $neck = $f['head'][1] + 13 + PX_OY;
+    // righe candidate di una fascia, dalla più simile alla precedente (a pari merito la più vicina al centro della fascia)
+    $pick = function (int $from, int $to) use ($all): array {
+        $c = [];
+        for ($r = max(1, $from); $r <= min(PX_H - 1, $to); $r++) {
+            $c[$r] = [count(array_diff_assoc($all[$r], $all[$r - 1])), abs($r - ($from + $to) / 2)];
+        }
+        uasort($c, fn($a, $b) => $a <=> $b);
+        return array_keys($c);
+    };
+    $count = array_fill(0, PX_H, 1);
+    foreach ([[$torso, $neck + 3, min($neck + 10, $bottom - 11)], [$legs, max($neck + 11, $bottom - 10), $bottom - 3]] as [$n, $from, $to]) {
+        $cand = $n ? $pick($from, $to) : [];
+        if (!$cand) {
+            continue;
+        }
+        if ($n > 0) {
+            $count[$cand[0]] += $n;
+        } else {
+            foreach (array_slice($cand, 0, -$n) as $r) {
+                $count[$r] = 0;
+            }
+        }
+    }
+    $rows = [];
+    foreach ($count as $r => $k) {
+        array_push($rows, ...array_fill(0, $k, $r));
+    }
+    $rows = count($rows) >= PX_H ? array_slice($rows, count($rows) - PX_H) : array_merge(array_fill(0, PX_H - count($rows), -1), $rows);
+    $lift = function (int $y) use ($count): int {   // quante righe in più ci sono dalla riga $y in giù
+        $n = 0;
+        for ($r = $y + PX_OY; $r < PX_H; $r++) {
+            $n += $count[$r] - 1;
+        }
+        return $n;
+    };
+
+    // colonne: per lato quella più simile alla vicina verso il centro, evitando di raddoppiare i contorni verticali (che
+    // diventerebbero una macchia nera); a pari merito la più vicina a 4 pixel dal centro
+    $best = function (int $from, int $to, int $toward, int $pref) use ($all): int {
+        $c = [];
+        for ($x = $from; $x <= $to; $x++) {
+            $bad = 0;
+            foreach ($all as $row) {
+                if ($row[$x] !== $row[$x + $toward]) {
+                    $bad += $row[$x] === 'o' ? 4 : 1;
+                }
+            }
+            $c[$x] = [$bad, abs($x - $pref)];
+        }
+        uasort($c, fn($a, $b) => $a <=> $b);
+        return array_key_first($c);
+    };
+    $c0 = $f['c'][0] + PX_OX;
+    $cL = $dw ? $best($c0 - 6, $c0 - 2, 1, $c0 - 4) : 0;
+    $cR = $dw ? $best($c0 + 1, $c0 + 5, -1, $c0 + 3) : PX_W;
+    // le colonne aggiunte sono copie di quella scelta: dove lì c'è un contorno la copia prende il colore del vicino (prima quello
+    // verso l'esterno), così un contorno di traverso non diventa una macchia nera
+    $cols = [];
+    for ($x = 0; $x < PX_W; $x++) {
+        $cols[$x] = $dw === 0 ? $x : match (true) {
+            $x < $cL - $dw && $dw > 0, $x <= $cL && $dw < 0 => $x + $dw,
+            $x < $cL => [$cL, $cL - 1, $cL + 1],
+            $x > $cR + $dw && $dw > 0, $x >= $cR && $dw < 0 => $x - $dw,
+            $x > $cR => [$cR, $cR + 1, $cR - 1],
+            default => $x,
+        };
+    }
+    return [$rows, $cols, $lift];
+}
+
+/** La griglia rifatta prendendo ogni riga e colonna dalla sua sorgente (-1 o fuori griglia = vuoto; [colonna, vicini] = copia). */
+function px_remap(array $g, array $rows, array $cols): array
+{
+    $out = px_blank();
+    foreach ($rows as $y => $sy) {
+        if ($sy < 0) {
+            continue;
+        }
+        $row = $g[$sy];
+        foreach ($cols as $x => $sx) {
+            if (is_array($sx)) {
+                $ch = $row[$sx[0]];
+                if ($ch === 'o') {
+                    foreach ([$sx[1], $sx[2]] as $n) {
+                        if (($row[$n] ?? '.') !== '.' && $row[$n] !== 'o') {
+                            $ch = $row[$n];
+                            break;
+                        }
+                    }
+                }
+                $out[$y][$x] = $ch;
+            } elseif ($sx >= 0 && $sx < PX_W) {
+                $out[$y][$x] = $row[$sx];
+            }
+        }
+    }
+    return $out;
 }
 
 /**
