@@ -251,7 +251,7 @@ layout_start($league['name'] . ' · gestione', 'league');
   <p class="muted small">Manda questo link nel gruppo WhatsApp della squadra: chi lo apre crea il suo account (o entra con quello che ha) e
     <?= $league['join_mode'] === 'libero' ? '<strong>entra subito</strong> nella lega.' : '<strong>chiede di entrare</strong>: lo approvi qui sotto.' ?></p>
   <div class="invite-row">
-    <input type="text" readonly value="<?= h($inviteUrl) ?>" class="mini-input invite-url" id="invite-url" aria-label="Link d'invito" onclick="this.select()">
+    <input type="text" readonly value="<?= h($inviteUrl) ?>" class="mini-input invite-url" id="invite-url" aria-label="Link d'invito" data-select-all>
     <button type="button" class="btn btn-primary btn-sm" data-copy="#invite-url"><i class="ti ti-copy"></i> Copia</button>
     <a class="btn btn-ghost btn-sm" href="https://wa.me/?text=<?= h(rawurlencode('Entra nella lega «' . $league['name'] . '» per il calcetto: ' . $inviteUrl)) ?>" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-whatsapp"></i> WhatsApp</a>
   </div>

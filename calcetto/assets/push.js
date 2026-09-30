@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const sub = await Promise.race([currentSub(), new Promise(r => setTimeout(() => r(null), 1500))]);
       if (sub) await Promise.race([post({ do: 'unsubscribe', endpoint: sub.endpoint }), new Promise(r => setTimeout(r, 2000))]);
     } catch (err) { /* si esce lo stesso */ }
-    window.location.href = a.href;
+    if (window.calcettoLogout) window.calcettoLogout(); else window.location.href = a.href;   // l'uscita è un POST (assets/app.js)
   }));
 
   (async () => {

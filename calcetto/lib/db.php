@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 38;
+const SCHEMA_VERSION = 40;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -481,6 +481,7 @@ function ensure_schema(): void
         // si riprezzano le puntate ancora aperte e si annullano (rimborsandole) quelle su se stessi. E i premi per gol e assist
         // (lib/bets.php, match_rewards_sync) valgono anche per le partite già giocate.
         [$s1, $s2, $s3] = bets_requote_open();
+        $add('wallet_moves', 'eco', 'INT NOT NULL DEFAULT 0 AFTER player_id');   // match_rewards_sync la usa già (migrazione 39)
         foreach (q("SELECT id FROM matches WHERE status = 'giocata'")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
             match_rewards_sync((int) $mid);
         }
@@ -757,6 +758,32 @@ function ensure_schema(): void
             FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
             FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 39) {
+        // KOIN separati per le leghe create dagli utenti (lib/bets.php: economie): ogni movimento, puntata e multipla ha la sua
+        // economia (0 = leghe storiche, altrimenti l'id della lega). Tutto quello che c'era resta nelle leghe storiche.
+        $add('wallet_moves', 'eco', 'INT NOT NULL DEFAULT 0 AFTER player_id');
+        $add('bets', 'eco', 'INT NOT NULL DEFAULT 0 AFTER player_id');
+        $add('combo_bets', 'eco', 'INT NOT NULL DEFAULT 0 AFTER player_id');
+        // benvenuto e sussidio una volta per economia: il vincolo unico diventa (giocatore, economia, ref). Prima il nuovo e poi
+        // via il vecchio, che regge la chiave esterna su player_id (vedi la migrazione 20)
+        if (!q("SHOW KEYS FROM wallet_moves WHERE Key_name = 'uq_ref_eco'")->fetch()) {
+            db()->exec('ALTER TABLE wallet_moves ADD UNIQUE KEY uq_ref_eco (player_id, eco, ref)');
+        }
+        if (q("SHOW KEYS FROM wallet_moves WHERE Key_name = 'uq_ref'")->fetch()) {
+            db()->exec('ALTER TABLE wallet_moves DROP INDEX uq_ref');
+        }
+    }
+    if ($v < 40) {
+        // le foto originali degli sfondi caricate finora erano state tenute con i loro metadati (EXIF: anche dove sono state
+        // scattate) e si scaricano da uploads/: si ripuliscono una volta, senza ricomprimerle (lib/helpers.php: jpeg_strip_metadata)
+        foreach (glob(__DIR__ . '/../uploads/players/*.jpg') ?: [] as $f) {
+            $jpg = @file_get_contents($f);
+            $clean = $jpg !== false ? jpeg_strip_metadata($jpg) : null;
+            if ($clean !== null && strlen($clean) < strlen($jpg)) {
+                @file_put_contents($f, $clean, LOCK_EX);
+            }
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

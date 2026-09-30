@@ -228,6 +228,7 @@ layout_start('Scommesse', 'bets');
 <?= group_bar('bets.php') ?>
 
 <section class="card wallet">
+  <?= $me ? eco_switch($me, 'bets.php' . ($tab !== 'partite' ? '?t=' . $tab : '')) : '' ?>
   <?php if ($me): $mp = get_player($me); ?>
     <div class="wallet-who"><?= avatar($mp, 'lg') ?>
       <div><strong class="wallet-name"><?= h($mp['name']) ?></strong>
@@ -240,7 +241,8 @@ layout_start('Scommesse', 'bets');
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
     Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN e ogni assist <?= BET_REWARD_ASSIST ?>, appena viene salvato il risultato. Su te stesso (chi segna, doppietta, tripletta, autogol, MVP) non si scommette.
-    I tuoi KOIN si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> KOIN a settimana.</p>
+    I tuoi KOIN si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> KOIN a settimana.
+    Ogni lega creata da un utente ha i suoi KOIN: si puntano e si vincono solo sulle sue partite, e non si mescolano con quelli delle altre leghe.</p>
 </section>
 
 <nav class="shop-tabs">
@@ -403,7 +405,7 @@ layout_start('Scommesse', 'bets');
 
 <?php else: ?>
 
-<h2 class="section-title">Classifica dei ricchi</h2>
+<h2 class="section-title">Classifica dei ricchi<?php if ($me && count(player_ecos($me)) > 1): ?> <span class="muted small">KOIN di «<?= h(eco_label(current_eco($me))) ?>»</span><?php endif; ?></h2>
 <?php if (!$board): ?><p class="empty card">Nessuno ha ancora aperto il portafoglio.</p><?php else: ?>
 <div class="card table-card"><div class="table-wrap"><table class="table">
   <thead><tr><th>#</th><th>Giocatore</th><th class="bet-col-title">Titolo</th><th>KOIN</th><th title="Puntate (singole e multiple) vinte su decise">Vinte</th></tr></thead><tbody>

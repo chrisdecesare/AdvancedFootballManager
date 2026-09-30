@@ -17,15 +17,16 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # azioni fissate al commit (non al tag, che chi le pubblica può spostare): il deploy riceve la password FTP
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
 
       - name: Carica via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65   # v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}        # es. ftp.nomeutente.altervista.org
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}   # se Altervista rifiuta la connessione cifrata: variabile FTP_PROTOCOL = ftp
+          protocol: ftps   # sempre cifrato: con l'FTP semplice password e codice viaggerebbero in chiaro
           local-dir: ./calcetto/
           server-dir: ${{ vars.FTP_DIR || './calcetto/' }}  # su Altervista l'FTP parte da wp-content/: il sito sta in wp-content/calcetto/
           exclude: |
@@ -38,11 +39,11 @@ jobs:
       # Solo su Altervista/WordPress: fa aprire il gestionale dall'indirizzo principale del sito.
       # Finisce in wp-content/mu-plugins/ (WordPress lo carica da solo, senza attivarlo).
       - name: Carica il redirect della home (mu-plugin)
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65   # v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          protocol: ftps
           local-dir: ./wordpress/mu-plugins/
           server-dir: ./mu-plugins/

@@ -258,6 +258,7 @@ if (isset($_GET['fig'])) {
 layout_start('Personaggio', 'avatar');
 ?>
 <div class="page-head"><h1>Personaggio</h1><?php if (!avatar_public()): ?><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span><?php endif; ?></div>
+<?= $me ? eco_switch($me, 'avatar.php') : '' ?>
 
 <div class="av-layout">
   <aside class="av-side" id="personaggio">

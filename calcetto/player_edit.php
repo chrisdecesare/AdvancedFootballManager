@@ -35,6 +35,10 @@ $errors = [];
 // e chi amministra la sua lega (ma non sul proprio profilo)
 $roleLock = $isNew ? null : role_lock_match($id);
 $roleLocked = $roleLock && !$admin && !($staff && my_player_id() !== $id);
+// il giocatore gioca anche in leghe che chi modifica non amministra: nome, foto, sfondo, rating, correzioni e stato valgono
+// anche lì, quindi li cambiano solo lui e l'admin del sito. Chi amministra una delle sue leghe qui cambia solo le proprie leghe.
+$sharedLock = !$admin && !$isNew && my_player_id() !== $id
+    && (bool) array_diff(player_group_ids($id), array_keys($editableGroups));
 
 if (is_post()) {
     $do = $_POST['do'] ?? 'save';
@@ -47,6 +51,17 @@ if (is_post()) {
         q('DELETE FROM players WHERE id = ?', [$id]);
         flash('ok', 'Giocatore eliminato.');
         redirect('players.php');
+    }
+    if ($sharedLock) {
+        if ($do === 'save') {
+            $keep = array_values(array_diff(player_group_ids($id), array_keys($shownGroups)));
+            $mine = count($shownGroups) === 1 ? array_keys($shownGroups)
+                : array_values(array_intersect(array_map('intval', (array) ($_POST['groups'] ?? [])), array_keys($shownGroups)));
+            set_player_groups($id, array_values(array_unique(array_merge($keep, $mine))));
+            log_activity('giocatore', 'leghe modificate · ' . $p['name'], $mine[0] ?? null);
+            flash('ok', 'Leghe aggiornate. Il resto della scheda lo cambia ' . $p['name'] . ' (gioca anche in altre leghe).');
+        }
+        redirect('player.php?id=' . $id);
     }
     if ($do === 'remove_photo' && !$isNew) {
         delete_photo_file($p['photo']);
@@ -224,6 +239,11 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
 
 <form method="post" enctype="multipart/form-data" class="form">
   <?= csrf_field() ?><input type="hidden" name="do" value="save">
+  <?php if ($sharedLock): ?>
+    <p class="flash flash-warn"><i class="ti ti-lock"></i> <?= h($p['name']) ?> gioca anche in leghe che non amministri: la scheda (nome, foto, rating, correzioni)
+      vale anche lì, quindi la cambia solo lui o l'admin del sito. Qui puoi cambiare solo le tue leghe.</p>
+  <?php endif; ?>
+  <fieldset <?= $sharedLock ? 'disabled' : '' ?> style="border:0;padding:0;margin:0;min-width:0">
 
   <section class="card">
     <h2>Profilo</h2>
@@ -307,6 +327,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
       </div>
     </div>
   </section>
+  </fieldset>
 
   <section class="card">
     <h2>Account</h2>
@@ -340,6 +361,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
         <p class="muted small">Il giocatore vede solo giocatori e partite dei suoi gruppi e può partecipare solo alle partite di quei gruppi.
           <?= count($allGroups) === 1 && $admin ? 'Esiste un solo gruppo: creane un altro da <a class="link" href="admin.php#gruppi">Admin → Gruppi</a> per poter scegliere.' : '' ?></p>
       </fieldset>
+    <fieldset <?= $sharedLock ? 'disabled' : '' ?> style="border:0;padding:0;margin:0;min-width:0">
     <div class="form-grid">
       <label class="field"><span>Rating base (1-10)</span><input name="base_rating" inputmode="decimal" value="<?= h(str_replace('.', ',', (string) $p['base_rating'])) ?>"></label>
       <label class="field check"><input type="checkbox" name="active" value="1" <?= $p['active'] ? 'checked' : '' ?>><span>Attivo (compare nelle nuove partite)</span></label>
@@ -353,6 +375,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
         <label class="field"><span><?= $l ?></span><input type="number" name="<?= $f ?>" value="<?= (int) $p[$f] ?>"></label>
       <?php endforeach; ?>
     </div>
+    </fieldset>
   </section>
   <?php endif; ?>
 
@@ -368,7 +391,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
 
 <?php if (!$isNew): ?>
   <div class="btn-row danger-zone">
-    <?php if ($p['photo']): ?>
+    <?php if ($p['photo'] && !$sharedLock): ?>
       <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="remove_photo">
         <button class="btn btn-ghost btn-sm">Rimuovi foto</button></form>
     <?php endif; ?>

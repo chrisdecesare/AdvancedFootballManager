@@ -13,12 +13,14 @@ $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 
 header_remove('X-Powered-By');
 
-// Header di sicurezza. La CSP non limita gli script/immagini di proposito: Altervista
-// inietta da sé il proprio banner pubblicitario e una CSP più stretta lo romperebbe.
+// Header di sicurezza. La CSP non limita da dove arrivano script e immagini, di proposito: Altervista inietta da sé il proprio
+// banner pubblicitario e una CSP più stretta lo romperebbe. Blocca però i gestori scritti negli attributi HTML (onclick=, onerror=...):
+// il sito non ne usa (assets/app.js), mentre sono il modo classico di far girare codice infilato in un testo (un nome, un titolo).
+// Se un giorno il banner di Altervista smettesse di funzionare, è da qui: si toglie «script-src-attr 'none'».
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'");
+header("Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src-attr 'none'");
 header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()');
 header('Cross-Origin-Opener-Policy: same-origin');        // un'altra finestra aperta da un sito esterno non può toccare questa
 header('Cross-Origin-Resource-Policy: same-origin');      // le risposte del sito non si incorporano da altri siti

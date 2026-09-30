@@ -481,7 +481,9 @@ function save_player_image(array $file, int $player_id, ?string &$error, string 
         }
     }
     $path = 'uploads/players/' . $base . '.' . $types[$info[2]];
-    if (!move_uploaded_file($file['tmp_name'], __DIR__ . '/../' . $path)) {
+    // senza GD il file resta com'è: a un JPEG si tolgono almeno i metadati (posizione GPS, telefono...)
+    $clean = $info[2] === IMAGETYPE_JPEG ? jpeg_strip_metadata((string) @file_get_contents($file['tmp_name'])) : null;
+    if ($clean !== null ? file_put_contents(__DIR__ . '/../' . $path, $clean) === false : !move_uploaded_file($file['tmp_name'], __DIR__ . '/../' . $path)) {
         $error = "Impossibile salvare l'immagine (permessi della cartella uploads?).";
         return null;
     }
@@ -627,9 +629,12 @@ function save_profile_bg_set(array $file, ?string $srcPath, ?string $rawH, ?stri
         $sh = imagesy($src);
         $info = @getimagesize($file['tmp_name']);
         $rot = $info && $info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data') ? ((@exif_read_data($file['tmp_name']) ?: [])['Orientation'] ?? 1) : 1;
-        if ($info && $info[2] === IMAGETYPE_JPEG && max($sw, $sh) <= BG_SRC_MAX && in_array((int) $rot, [0, 1], true)) {
-            // JPEG già della misura giusta e dritto: si tiene il file così com'è, senza ricomprimerlo (ogni passaggio perde qualità)
-            if (!move_uploaded_file($file['tmp_name'], __DIR__ . '/../' . $srcPath) && !copy($file['tmp_name'], __DIR__ . '/../' . $srcPath)) {
+        // JPEG già della misura giusta e dritto: si tiene l'immagine così com'è, senza ricomprimerla (ogni passaggio perde qualità),
+        // ma senza i metadati: l'originale si scarica da uploads/ e l'EXIF delle foto dei telefoni contiene anche dove sono state scattate
+        $clean = $info && $info[2] === IMAGETYPE_JPEG && max($sw, $sh) <= BG_SRC_MAX && in_array((int) $rot, [0, 1], true)
+            ? jpeg_strip_metadata((string) @file_get_contents($file['tmp_name'])) : null;
+        if ($clean !== null) {
+            if (file_put_contents(__DIR__ . '/../' . $srcPath, $clean) === false) {
                 $error = "Impossibile salvare l'immagine (permessi della cartella uploads?).";
                 return null;
             }
@@ -711,6 +716,49 @@ function profile_bg_style(array $p): string
         return '--pc: ' . $c . '; --pc2: ' . lighten_hex($c) . ';';
     }
     return '';
+}
+
+/**
+ * Toglie da un JPEG i metadati (EXIF con posizione GPS, modello del telefono e data; XMP; IPTC; commenti) senza ricomprimere
+ * l'immagine: si copiano solo i segmenti che servono a disegnarla, più il profilo colore (APP2) e il segmento Adobe (APP14).
+ * Null se i dati non sono un JPEG leggibile.
+ */
+function jpeg_strip_metadata(string $jpg): ?string
+{
+    $len = strlen($jpg);
+    if ($len < 4 || substr($jpg, 0, 2) !== chr(0xFF) . chr(0xD8)) {
+        return null;
+    }
+    $out = chr(0xFF) . chr(0xD8);
+    $pos = 2;
+    while ($pos + 4 <= $len) {
+        if ($jpg[$pos] !== chr(0xFF)) {
+            return null;
+        }
+        $marker = ord($jpg[$pos + 1]);
+        if ($marker === 0xFF) {   // byte di riempimento tra un segmento e l'altro
+            $pos++;
+            continue;
+        }
+        if ($marker === 0xDA) {   // inizio dei dati dell'immagine: da qui in poi si copia tutto così com'è
+            return $out . substr($jpg, $pos);
+        }
+        if ($marker === 0x01 || ($marker >= 0xD0 && $marker <= 0xD7)) {   // marcatori senza lunghezza
+            $out .= substr($jpg, $pos, 2);
+            $pos += 2;
+            continue;
+        }
+        $seg = (ord($jpg[$pos + 2]) << 8) | ord($jpg[$pos + 3]);
+        if ($seg < 2 || $pos + 2 + $seg > $len) {
+            return null;
+        }
+        $drop = ($marker >= 0xE1 && $marker <= 0xEF && $marker !== 0xE2 && $marker !== 0xEE) || $marker === 0xFE;
+        if (!$drop) {
+            $out .= substr($jpg, $pos, 2 + $seg);
+        }
+        $pos += 2 + $seg;
+    }
+    return null;
 }
 
 function delete_photo_file(?string $path): void

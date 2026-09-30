@@ -62,8 +62,10 @@ if ($do === 'subscribe') {
         push_reply(['ok' => false, 'error' => $err], 422);
     }
     // l'indirizzo del sito serve a firmare le notifiche anche quando parte il cron (senza una richiesta del browser)
+    // (solo dall'admin, o la prima volta: l'intestazione Host la sceglie il browser, e un utente qualsiasi non deve poterla cambiare)
     $base = site_base_url();
-    if (str_starts_with($base, 'https://') && meta_get('site_url') !== $base) {
+    $known = meta_get('site_url');
+    if (str_starts_with($base, 'https://') && $known !== $base && (is_admin() || $known === null || $known === '')) {
         meta_set('site_url', $base);
     }
     push_reply(['ok' => true]);

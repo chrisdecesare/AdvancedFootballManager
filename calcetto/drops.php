@@ -134,7 +134,7 @@ layout_start('Uscite del negozio', 'shop');
   <div class="drops-time-row">
     <label class="drops-time-opt"><input type="radio" name="mode" value="now"<?= $dropsAt ? '' : ' checked' ?>> Subito</label>
     <label class="drops-time-opt"><input type="radio" name="mode" value="at"<?= $dropsAt ? ' checked' : '' ?>> Il
-      <input type="datetime-local" name="at" value="<?= $dropsAt ? h(date('Y-m-d\TH:i', $dropsAt)) : '' ?>" onfocus="this.form.mode.value='at'"></label>
+      <input type="datetime-local" name="at" value="<?= $dropsAt ? h(date('Y-m-d\TH:i', $dropsAt)) : '' ?>" data-focus-mode="at"></label>
     <button class="btn btn-primary btn-sm" name="do" value="set_time"><i class="ti ti-check"></i> Salva orario</button>
     <?php if ($scheduled): ?><button class="btn btn-ghost btn-sm" name="do" value="reschedule" data-confirm="Spostare a quest'orario anche le <?= $scheduled ?> uscite già programmate?"><i class="ti ti-calendar-repeat"></i> Sposta qui anche le <?= $scheduled ?> già programmate</button><?php endif; ?>
   </div>

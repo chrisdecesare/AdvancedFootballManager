@@ -131,8 +131,9 @@ function totp_verify_user(int $uid, string $input): ?string
         return null;
     }
     if (($step = totp_match($r['totp_secret'], $input, (int) $r['totp_last_step'])) !== null) {
-        q('UPDATE users SET totp_last_step = ? WHERE id = ?', [$step, $uid]);   // lo stesso codice non si riusa
-        return 'ok';
+        // lo stesso codice non si riusa: il controllo e il consumo sono una sola UPDATE condizionata, così due richieste
+        // mandate insieme con lo stesso codice non passano entrambe (solo una trova totp_last_step ancora più basso)
+        return q('UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?', [$step, $uid, $step])->rowCount() === 1 ? 'ok' : null;
     }
     $plain = strtolower(preg_replace('/[^A-Za-z0-9]/', '', $input));
     if (strlen($plain) === 10) {
@@ -140,8 +141,10 @@ function totp_verify_user(int $uid, string $input): ?string
         foreach ($codes as $i => $hash) {
             if (password_verify($plain, $hash)) {
                 unset($codes[$i]);
-                q('UPDATE users SET totp_recovery = ? WHERE id = ?', [json_encode(array_values($codes)), $uid]);
-                return 'recovery';
+                // idem per i codici di recupero: vale solo se l'elenco è ancora quello letto (nessun'altra richiesta l'ha già usato)
+                $n = q('UPDATE users SET totp_recovery = ? WHERE id = ? AND totp_recovery = ?',
+                    [json_encode(array_values($codes)), $uid, (string) $r['totp_recovery']])->rowCount();
+                return $n === 1 ? 'recovery' : null;
             }
         }
     }
@@ -162,6 +165,7 @@ function complete_login(int $uid, string $username = ''): void
     mark_authenticated();
     session_bind_browser();
     remember_issue($uid);
+    device_trust_set($uid);
     log_activity('accesso', '', null, $uid);
     device_check($uid);
 }
@@ -272,6 +276,47 @@ function login_name_blocked(string $username): bool
 {
     $since = date('Y-m-d H:i:s', time() - LOGIN_WINDOW_MIN * 60);
     return (int) q('SELECT COUNT(*) FROM login_attempts WHERE username = ? AND created_at > ?', [$username, $since])->fetchColumn() >= LOGIN_MAX_PER_NAME;
+}
+
+/*
+ * Dispositivo "fidato": dopo un accesso riuscito il browser riceve un cookie firmato con l'account (vale un anno, resta anche
+ * dopo l'uscita). Il blocco dello username sotto attacco (login_name_blocked) non vale per chi ce l'ha: altrimenti basterebbero
+ * 15 password sbagliate da qualunque connessione per chiudere fuori il proprietario (o l'admin) ogni quarto d'ora, all'infinito.
+ * Chi entra da un dispositivo fidato resta comunque soggetto ai limiti per connessione di login_blocked().
+ */
+const DEVICE_TRUST_DAYS = 365;
+
+function device_cookie_name(): string
+{
+    return 'wordpress_logged_in_' . md5('calcetto-manager-device');   // il prefisso passa la cache di Altervista (vedi bootstrap.php)
+}
+
+function device_trust_mac(int $uid, int $exp): string
+{
+    return hash_hmac('sha256', 'device|' . $uid . '|' . $exp, form_secret());
+}
+
+/** Segna questo browser come fidato per l'account (dopo password ed eventuale codice giusti). */
+function device_trust_set(int $uid): void
+{
+    $exp = time() + DEVICE_TRUST_DAYS * 86400;
+    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    if (!headers_sent()) {
+        setcookie(device_cookie_name(), $uid . '.' . $exp . '.' . device_trust_mac($uid, $exp),
+            ['expires' => $exp, 'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
+    }
+}
+
+/** Questo browser è già entrato (con successo) nell'account con questo username? */
+function device_trusted_for(string $username): bool
+{
+    $c = $_COOKIE[device_cookie_name()] ?? '';
+    if (!is_string($c) || !preg_match('/^(\d{1,10})\.(\d{9,11})\.([0-9a-f]{64})$/', $c, $m) || (int) $m[2] < time()
+        || !hash_equals(device_trust_mac((int) $m[1], (int) $m[2]), $m[3])) {
+        return false;
+    }
+    $name = q('SELECT username FROM users WHERE id = ?', [(int) $m[1]])->fetchColumn();
+    return $name !== false && mb_strtolower((string) $name) === mb_strtolower($username);
 }
 
 /** Avvisa (al massimo una volta all'ora) il proprietario di uno username sotto attacco. */

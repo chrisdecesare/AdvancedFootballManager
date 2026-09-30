@@ -151,8 +151,8 @@ function fanta_close_season(int $gid): ?string
             if (q('INSERT IGNORE INTO player_items (player_id, item_key, price) VALUES (?, ?, 0)', [$r['manager_id'], $key])->rowCount()) {
                 $won[] = $item['name'];
             } else {
-                q("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'fanta', ?)",
-                    [$r['manager_id'], FANTA_DUPLICATE_KOIN, 'fs' . $s['id'] . '-' . substr(md5($key), 0, 10)]);
+                q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'fanta', ?)",   // nei KOIN della lega del Fanta
+                    [$r['manager_id'], eco_of_group($gid), FANTA_DUPLICATE_KOIN, 'fs' . $s['id'] . '-' . substr(md5($key), 0, 10)]);
                 $won[] = FANTA_DUPLICATE_KOIN . ' KOIN (al posto di «' . $item['name'] . '», che avevi già)';
             }
         }
