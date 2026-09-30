@@ -69,7 +69,7 @@ layout_start($league ? 'Invito in ' . $league['name'] : 'Invito non valido');
             <button class="btn btn-primary btn-block"><i class="ti ti-login-2"></i> <?= $league['join_mode'] === 'libero' ? 'Entra nella lega' : 'Chiedi di entrare' ?></button></form>
         <?php endif; ?>
       <?php else: ?>
-        <p>Sei stato invitato a giocare in questa lega: presenze, squadre bilanciate, voti, classifica e scommesse a gettoni finti.</p>
+        <p>Sei stato invitato a giocare in questa lega: presenze, squadre bilanciate, voti, classifica e scommesse a KOIN finti.</p>
         <div class="btn-col">
           <a class="btn btn-primary btn-block" href="register.php?c=<?= h(urlencode($league['invite_code'])) ?>"><i class="ti ti-user-plus"></i> Crea un account</a>
           <a class="btn btn-ghost btn-block" href="login.php?next=<?= h(urlencode('join.php?c=' . $league['invite_code'])) ?>"><i class="ti ti-login"></i> Ho già un account</a>

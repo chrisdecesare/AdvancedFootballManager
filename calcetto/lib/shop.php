@@ -1,6 +1,6 @@
 <?php
 /*
- * Negozio delle personalizzazioni del profilo: si pagano con i gettoni delle scommesse (lib/bets.php).
+ * Negozio delle personalizzazioni del profilo: si pagano con i KOIN delle scommesse (lib/bets.php).
  *
  *  - copricapi: un cappello simpatico in diagonale su un angolo del riquadro (disegni in lib/hats.php);
  *  - bordi: un anello colorato (o luminoso, o animato) attorno al riquadro del profilo e alla carta nella Rosa;
@@ -30,7 +30,7 @@ function shop_column(string $kind): string
 
 /*
  * Sconti del mercato: dal mercoledì pomeriggio (14:00) alla domenica sera i prezzi del Negozio tendono a scendere (shop_price(),
- * fattore 'money': nel weekend girano più puntate e quindi più gettoni in circolo). Non è un prezzo fisso scontato, è lo stesso
+ * fattore 'money': nel weekend girano più puntate e quindi più KOIN in circolo). Non è un prezzo fisso scontato, è lo stesso
  * mercato di sempre: qui sta solo l'avviso che lo segnala ai giocatori.
  */
 function promo_active(): bool
@@ -115,6 +115,10 @@ function shop_catalog(): array
     }
     // il catalogo esteso: esce a pacchetti quando lo decide l'admin (drops.php)
     foreach (shop_more_items($c) as $kind => $items) {
+        $c[$kind] += $items;
+    }
+    // i premi del Fanta (lib/fanta.php): non si comprano e si vedono solo da chi li ha vinti
+    foreach (fanta_reward_items() as $kind => $items) {
         $c[$kind] += $items;
     }
     return $c;
@@ -257,7 +261,7 @@ function shop_released(string $key, array $item): bool
 
 /* ---------------------------------------------------------------- prezzi */
 
-/** Saldo medio di riferimento: con questa media di gettoni a testa i prezzi restano quelli del catalogo. */
+/** Saldo medio di riferimento: con questa media di KOIN a testa i prezzi restano quelli del catalogo. */
 const SHOP_PRICE_REF = 300;
 
 /**
@@ -288,7 +292,7 @@ function shop_market(bool $fresh = false): array
  * Prezzo di adesso di un oggetto per chi lo compra: [prezzo, dettaglio]. Parte dal prezzo del catalogo e lo moltiplica per
  *  - desiderato: +8% per ogni giocatore che l'ha tra gli obiettivi (fino a +80%);
  *  - moda: da -10% (non ce l'ha nessuno) a +50% (ce l'hanno tutti);
- *  - gettoni in circolo: saldo medio / SHOP_PRICE_REF, tra ×0,8 e ×1,6;
+ *  - KOIN in circolo: saldo medio / SHOP_PRICE_REF, tra ×0,8 e ×1,6;
  *  - il portafoglio di chi compra: (il suo saldo / la media)^0,25, tra ×0,85 e ×1,3.
  * Gratis e nickname da sbloccare restano come sono. Arrotondato a 5, minimo 5.
  */
@@ -327,7 +331,7 @@ function shop_price_note(?array $d): string
     $parts[] = $d['wish_n'] ? 'obiettivo di ' . $d['wish_n'] . ' ' . ($d['wish_n'] === 1 ? 'giocatore' : 'giocatori') . ' ' . $pct($d['wish'])
         : 'nessuno lo desidera';
     $parts[] = ($d['owners_n'] ? 'ce l\'hanno in ' . $d['owners_n'] : 'non ce l\'ha nessuno') . ' ' . $pct($d['owners']);
-    $parts[] = 'gettoni in circolo ' . $pct($d['money']);
+    $parts[] = 'KOIN in circolo ' . $pct($d['money']);
     if (abs($d['mine'] - 1) >= .005) {
         $parts[] = 'il tuo portafoglio ' . $pct($d['mine']);
     }
@@ -379,6 +383,9 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
     if ($item['price'] === null) {
         return 'Questo non si compra: si sblocca con un obiettivo.';
     }
+    if (isset($item['fanta'])) {
+        return 'Questo non si compra: è un premio del Fanta.';
+    }
     if (isset($item['owner_player_id'])) {
         return 'Questa maglia l\'ha creata un altro giocatore: non si compra.';
     }
@@ -389,7 +396,7 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
         return 'È già tuo: è incluso per tutti.';
     }
     return bet_atomic(function () use ($playerId, $key, $item) {
-        q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due acquisti insieme non possono spendere due volte gli stessi gettoni
+        q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due acquisti insieme non possono spendere due volte gli stessi KOIN
         if (q('SELECT 1 FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $key])->fetch()) {
             return 'Ce l\'hai già.';
         }
@@ -397,7 +404,7 @@ function shop_buy(int $playerId, string $kind, string $key): ?string
         [$price] = shop_price($key, $item, $playerId);
         $left = wallet_balance($playerId);
         if ($left < $price) {
-            return 'Ti servono ' . $price . ' gettoni, ne hai ' . $left . '. Vai a scommettere!';
+            return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . '. Vai a scommettere!';
         }
         q('INSERT INTO player_items (player_id, item_key, price) VALUES (?, ?, ?)', [$playerId, $key, $price]);
         q("INSERT INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'acquisto', ?)", [$playerId, -$price, 'buy-' . $key]);

@@ -406,7 +406,7 @@ function activity_labels(): array
         'lega_eliminata' => 'Lega eliminata',
         'partita_creata' => 'Partita creata', 'partita' => 'Gestione partita', 'presenza' => 'Presenza', 'voto' => 'Voto',
         'puntata' => 'Scommessa', 'multipla' => 'Multipla', 'puntata_ritirata' => 'Scommessa ritirata',
-        'negozio' => 'Negozio', 'giocatore' => 'Scheda giocatore', 'pagamenti' => 'Pagamenti',
+        'negozio' => 'Negozio', 'fanta' => 'Fanta', 'giocatore' => 'Scheda giocatore', 'pagamenti' => 'Pagamenti',
         'account' => 'Account', 'admin' => 'Admin del sito',
         // eventi di sicurezza (lib/security.php)
         'sicurezza_login_fallito' => 'Login fallito', 'sicurezza_login_bloccato' => 'Login bloccato',

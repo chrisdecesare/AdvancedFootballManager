@@ -36,6 +36,7 @@ AddType text/javascript .js
   RewriteRule ^scommesse$ bets.php [QSA,L]
   RewriteRule ^negozio$ shop.php [QSA,L]
   RewriteRule ^personaggio$ avatar.php [QSA,L]
+  RewriteRule ^fantacalcio$ fanta.php [QSA,L]
   RewriteRule ^crea-maglia$ jersey_creator.php [QSA,L]
   RewriteRule ^uscite$ drops.php [QSA,L]
   RewriteRule ^curiosita$ curiosities.php [QSA,L]

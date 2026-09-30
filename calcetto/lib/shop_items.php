@@ -252,8 +252,8 @@ return [
         ['n_autorete', 'Re dell\'Autogol', null, ['own_goals', 5, '5 autogol']],
         ['veggente', 'Il Veggente', null, ['bets_won', 5, '5 scommesse vinte']],
         ['n_indovino', 'L\'Indovino', null, ['bets_won', 15, '15 scommesse vinte']],
-        ['riccone', 'Il Riccone', null, ['coins', 500, '500 gettoni in portafoglio']],
-        ['n_magnate', 'Il Magnate', null, ['coins', 1000, '1000 gettoni in portafoglio']],
+        ['riccone', 'Il Riccone', null, ['coins', 500, '500 KOIN in portafoglio']],
+        ['n_magnate', 'Il Magnate', null, ['coins', 1000, '1000 KOIN in portafoglio']],
         ['n_collezionista', 'Il Collezionista', null, ['items', 10, '10 oggetti comprati nel negozio']],
     ],
     /*

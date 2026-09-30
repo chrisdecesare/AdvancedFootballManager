@@ -70,7 +70,7 @@ function tour_steps(array $u): array
         [
             'sel' => '.nav a[href="bets.php"]', 'icon' => 'coin',
             'title' => 'Scommesse',
-            'text' => 'Punta sulle partite con gettoni finti (nessun euro): li vedi sempre in alto accanto al tuo profilo.',
+            'text' => 'Punta sulle partite con KOIN finti (nessun euro): li vedi sempre in alto accanto al tuo profilo.',
             'bullets' => [
                 'Chi vince, chi segna, doppiette, triplette, over/under e MVP: ogni scelta ha la sua quota e si punta fino al calcio d\'inizio.',
                 'Tocca una quota per aggiungerla alla schedina (anche da partite diverse): da lì punti ogni scelta da sola, o le combini in una multipla dove le quote si moltiplicano (basta sbagliarne una per perdere tutto).',
@@ -80,7 +80,7 @@ function tour_steps(array $u): array
         [
             'sel' => '.nav a[href="shop.php"]', 'icon' => 'shopping-bag',
             'title' => 'Negozio',
-            'text' => 'Spendi i gettoni delle scommesse per personalizzare il profilo.',
+            'text' => 'Spendi i KOIN delle scommesse per personalizzare il profilo.',
             'bullets' => [
                 '100 copricapi, 30 bordi, 50 sfondi e 50 nickname (33 si sbloccano con gol, assist, MVP e altri obiettivi).',
                 'Premi «Prova» su un oggetto per vederlo addosso a te prima di comprarlo.',

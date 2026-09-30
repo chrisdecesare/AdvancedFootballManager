@@ -1,16 +1,16 @@
 <?php
 /*
- * Scommesse goliardiche sulle partite: si punta con gettoni finti (nessun euro), per l'onore e per sfottere gli amici.
- * I gettoni servono poi per le personalizzazioni del profilo (vedi lib/shop.php).
+ * Scommesse goliardiche sulle partite: si punta con KOIN finti (nessun euro), per l'onore e per sfottere gli amici.
+ * I KOIN servono poi per le personalizzazioni del profilo (vedi lib/shop.php).
  *
  * Quote calcolate come le fanno i bookmaker: si stimano le probabilità dei risultati con un modello statistico (gol come
  * distribuzione di Poisson) e la quota "di apertura" è 1 / (probabilità x (1 + margine)). Il margine (in gergo "overround") è il
  * guadagno del banco: per questo la somma delle probabilità implicite (1 / quota) di tutti gli esiti di un mercato supera il 100%.
- * Poi, sempre come nella vita reale, la quota si abbassa un po' per ogni gettone già puntato su quella stessa scelta in quella
+ * Poi, sempre come nella vita reale, la quota si abbassa un po' per ogni KOIN già puntato su quella stessa scelta in quella
  * partita (bet_demand_shorten): chi punta per primo su una scelta prende la quota piena, chi arriva dopo su una scelta già
  * affollata ne prende una più bassa (il banco si protegge, non paga tutti alla stessa quota). La quota si salva con la
  * puntata: vincita = puntata x quota, chi sbaglia perde la puntata. Se manca il dato (per esempio nessuno ha votato l'MVP) tutti
- * riprendono i propri gettoni.
+ * riprendono i propri KOIN.
  *
  * Il portafoglio non è un numero salvato ma la somma delle mosse (tabella wallet_moves): puntata, vincita, rimborso, acquisto...
  * Così annullare una puntata, cancellare una partita o rifare un pagamento significa solo togliere delle mosse.
@@ -25,7 +25,7 @@
  *  - mvp: chi sarà l'MVP, si paga alla chiusura delle votazioni.
  */
 
-const BET_START = 100;       // gettoni di benvenuto
+const BET_START = 100;       // KOIN di benvenuto
 const BET_DOLE_BELOW = 20;   // chi scende sotto questa cifra (e non ha puntate in corso)...
 const BET_DOLE = 30;         // ...riceve il "sussidio" (una volta a settimana)
 const BET_MARGIN = ['esito' => 0.06, 'gol' => 0.12, 'doppietta' => 0.15, 'tripletta' => 0.18, 'autogol' => 0.20, 'overunder' => 0.06, 'mvp' => 0.15];   // margine del banco (overround) per mercato, come nei bookmaker veri
@@ -34,13 +34,13 @@ const BET_FORM = ['hot' => 1.12, 'ok' => 1.0, 'cold' => 0.88, 'none' => 1.0];   
 const BET_DRAW_BOOST = 1.15;     // i pareggi sono più frequenti di quanto dica Poisson puro (correzione tipo Dixon-Coles)
 const BET_PRIOR_GOALS = 4.0;     // gol a squadra per partita finché il gruppo ha giocato poco...
 const BET_PRIOR_MATCHES = 3;     // ...pesano come tante partite
-const BET_DEMAND_K = 0.5;        // forza con cui la quota si abbassa in base ai gettoni già puntati sulla stessa scelta
-const BET_DEMAND_REF = 120.0;    // scala di riferimento (gettoni): con questa cifra già puntata la quota scende di circa un terzo
+const BET_DEMAND_K = 0.5;        // forza con cui la quota si abbassa in base ai KOIN già puntati sulla stessa scelta
+const BET_DEMAND_REF = 120.0;    // scala di riferimento (KOIN): con questa cifra già puntata la quota scende di circa un terzo
 const BET_DEMAND_FLOOR = 0.55;   // la domanda da sola non può mai abbassare una quota sotto il 55% di quella "di apertura"
 const BET_MIN_ODDS = 1.01;       // nessuna quota scende mai sotto ×1,01: chi indovina deve sempre guadagnare almeno qualcosa
 const BET_FLATTEN = 0.3;         // quanto i gol attesi dei giocatori vengono avvicinati alla media della partita (0 = niente, 1 = tutti uguali):
                                  // a calcetto (portieri volanti) tutti prima o poi tirano, le differenze non devono essere estreme
-const BET_REWARD_GOAL = 25;      // gettoni a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
+const BET_REWARD_GOAL = 25;      // KOIN a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
 const BET_REWARD_ASSIST = 10;    // e per ogni assist
 const BET_BOOST_MULT = 1.17;     // prime partite (più incertezza): quota finale = quota x 1,17 + c...
 const BET_BOOST_C = [0.2, 0.5];  // ...con c tra 0,2 e 0,5, diverso per ogni scelta (vedi bet_boost)
@@ -99,13 +99,13 @@ function bet_poisson_at_least(float $lam, int $k): float
 
 /* ---------------------------------------------------------------- portafoglio */
 
-/** Gettoni disponibili (le puntate in corso sono già scalate). */
+/** KOIN disponibili (le puntate in corso sono già scalate). */
 function wallet_balance(int $playerId): int
 {
     return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ?', [$playerId])->fetchColumn();
 }
 
-/** Gettoni puntati su scommesse (singole e multiple) non ancora decise. */
+/** KOIN puntati su scommesse (singole e multiple) non ancora decise. */
 function wallet_in_play(int $playerId): int
 {
     return (int) q("SELECT COALESCE(SUM(stake), 0) FROM bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn()
@@ -113,24 +113,24 @@ function wallet_in_play(int $playerId): int
 }
 
 /**
- * Apre il portafoglio (gettoni di benvenuto la prima volta) e dà il sussidio a chi è al verde: una volta a settimana,
+ * Apre il portafoglio (KOIN di benvenuto la prima volta) e dà il sussidio a chi è al verde: una volta a settimana,
  * solo se non ha nulla in gioco. Ritorna un messaggio da mostrare se è appena arrivato qualcosa.
  */
 function wallet_open(int $playerId): ?string
 {
     $msg = null;
     if (q("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'benvenuto', 'welcome')", [$playerId, BET_START])->rowCount()) {
-        $msg = 'Benvenuto al banco! Ti abbiamo regalato ' . BET_START . ' gettoni: spendili male.';
+        $msg = 'Benvenuto al banco! Ti abbiamo regalato ' . BET_START . ' KOIN: spendili male.';
     } elseif (wallet_balance($playerId) + wallet_in_play($playerId) < BET_DOLE_BELOW) {
         $ref = 'dole-' . date('o\WW');
         if (q("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'sussidio', ?)", [$playerId, BET_DOLE, $ref])->rowCount()) {
-            $msg = 'Sei al verde: lo Stato del Calcetto ti passa il sussidio di ' . BET_DOLE . ' gettoni. Non farti riconoscere.';
+            $msg = 'Sei al verde: lo Stato del Calcetto ti passa il sussidio di ' . BET_DOLE . ' KOIN. Non farti riconoscere.';
         }
     }
     return $msg;
 }
 
-/** Titolo goliardico in base ai gettoni. */
+/** Titolo goliardico in base ai KOIN. */
 function bet_title(int $balance): string
 {
     foreach ([10 => 'Nullatenente', 50 => 'Squattrinato', 100 => 'Scommettitore della domenica', 200 => 'Habitué del bar sport',
@@ -142,7 +142,7 @@ function bet_title(int $balance): string
     return 'Lupo di Wall Street';
 }
 
-/** Classifica di chi ha un portafoglio: gettoni disponibili + in gioco (singole e multiple), dal più ricco. */
+/** Classifica di chi ha un portafoglio: KOIN disponibili + in gioco (singole e multiple), dal più ricco. */
 function bet_leaderboard(): array
 {
     return q('SELECT p.id, p.name, p.photo,
@@ -352,7 +352,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $out['mvp'][$pid] = bet_odds($x / $tot, 'mvp', 1.10, 40);
     }
 
-    // il banco si protegge: la quota di ogni scelta scende un po' per ogni gettone già puntato su di lei in questa partita
+    // il banco si protegge: la quota di ogni scelta scende un po' per ogni KOIN già puntato su di lei in questa partita
     // (tranne la propria puntata aperta, se si sta cambiando: cambiare idea non deve penalizzare la nuova quota)
     $demand = bet_market_demand($id, $excludePlayerId);
     foreach ($out as $mk => $picks) {
@@ -395,7 +395,7 @@ function bet_boost(array $quotes, int $matchId): array
 }
 
 /**
- * Gettoni già puntati (scommesse aperte, singole e dentro le multiple) su ogni scelta di una partita, per mercato:
+ * KOIN già puntati (scommesse aperte, singole e dentro le multiple) su ogni scelta di una partita, per mercato:
  * ['esito' => ['A' => 40, ...], 'gol' => [...], 'mvp' => [...]]. Di una multipla conta l'intera puntata su ogni sua gamba
  * (se quella gamba perde, il banco tiene comunque tutta la puntata): è una stima prudente dell'esposizione, non un conto esatto.
  * $excludePlayerId esclude le puntate singole aperte di quel giocatore (per non penalizzare chi sta solo cambiando la sua).
@@ -421,8 +421,8 @@ function bet_market_demand(int $matchId, ?int $excludePlayerId = null): array
 }
 
 /**
- * Abbassa le quote di un mercato in base a quanto è già puntato su ogni scelta: quota_finale = quota / (1 + K x gettoni / riferimento),
- * mai sotto BET_DEMAND_FLOOR della quota di apertura. Chi punta per primo su una scelta (0 gettoni già sopra) prende la quota piena.
+ * Abbassa le quote di un mercato in base a quanto è già puntato su ogni scelta: quota_finale = quota / (1 + K x KOIN / riferimento),
+ * mai sotto BET_DEMAND_FLOOR della quota di apertura. Chi punta per primo su una scelta (0 KOIN già sopra) prende la quota piena.
  */
 function bet_demand_shorten(array $odds, array $demand): array
 {
@@ -437,7 +437,7 @@ function bet_demand_shorten(array $odds, array $demand): array
     return $odds;
 }
 
-/** Vincita di una puntata (comprende i gettoni puntati). */
+/** Vincita di una puntata (comprende i KOIN puntati). */
 function bet_payout(int $stake, $odds): int
 {
     return (int) floor($stake * (float) $odds + 1e-9);
@@ -538,7 +538,7 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
         }
     }
     if ($stake < 1) {
-        return 'Punta almeno 1 gettone.';
+        return 'Punta almeno 1 KOIN.';
     }
     $odds = bet_quotes($match, $playerId)[$market][$pick] ?? null;   // la quota la decide il sito, non chi punta
     if ($odds === null) {
@@ -546,14 +546,14 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     }
     try {
         return bet_atomic(function () use ($match, $playerId, $market, $pick, $stake, $odds) {
-            q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due puntate insieme non possono spendere due volte gli stessi gettoni
+            q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due puntate insieme non possono spendere due volte gli stessi KOIN
             // si può avere una puntata aperta per scelta: su "chi segna" o "chi è MVP" si punta su più giocatori insieme, ognuno la sua;
             // ripuntare sulla STESSA scelta la sostituisce (cambia importo/quota) invece di sommarsi.
             $old = q("SELECT id, stake FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
                 [$match['id'], $playerId, $market, $pick])->fetch();
             $available = wallet_balance($playerId) + ($old ? (int) $old['stake'] : 0);
             if ($stake > $available) {
-                return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
+                return 'Non hai abbastanza KOIN: te ne restano ' . $available . '.';
             }
             if ($old) {
                 q('DELETE FROM bets WHERE id = ?', [$old['id']]);   // le sue mosse spariscono con lei (rimborso)
@@ -571,7 +571,7 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
     }
 }
 
-/** Ritira una puntata (una precisa scelta di un mercato) prima del fischio d'inizio (i gettoni tornano). Ritorna il messaggio d'errore oppure null. */
+/** Ritira una puntata (una precisa scelta di un mercato) prima del fischio d'inizio (i KOIN tornano). Ritorna il messaggio d'errore oppure null. */
 function bet_cancel(array $match, int $playerId, string $market, string $pick): ?string
 {
     if (!bets_before_kickoff($match)) {
@@ -586,7 +586,7 @@ function bet_cancel(array $match, int $playerId, string $market, string $pick): 
 
 /**
  * Cosa ha vinto in un mercato: elenco delle scelte vincenti (anche vuoto), null se ancora non si può decidere,
- * false se il mercato è da annullare (mancano i dati: tutti riprendono i gettoni).
+ * false se il mercato è da annullare (mancano i dati: tutti riprendono i KOIN).
  * @return string[]|false|null
  */
 function bet_winning_picks(array $match, string $market): array|false|null
@@ -711,7 +711,7 @@ function bets_resettle_result(int $matchId): void
 }
 
 /**
- * Premi della partita: BET_REWARD_GOAL gettoni per ogni gol e BET_REWARD_ASSIST per ogni assist, a chi li ha fatti (ospiti esclusi).
+ * Premi della partita: BET_REWARD_GOAL KOIN per ogni gol e BET_REWARD_ASSIST per ogni assist, a chi li ha fatti (ospiti esclusi).
  * Una mossa del portafoglio per giocatore e partita (ref "premio-m<id>"), che si aggiorna se il risultato viene corretto e sparisce
  * se la partita torna "programmata" o viene eliminata. Si può richiamare quante volte si vuole.
  */
@@ -733,7 +733,7 @@ function match_rewards_sync(int $matchId): void
     q('DELETE FROM wallet_moves WHERE ref = ?' . ($keep ? ' AND player_id NOT IN (' . implode(',', array_map('intval', $keep)) . ')' : ''), [$ref]);
 }
 
-/** Gettoni vinti da un giocatore con gol e assist (premi di tutte le partite). */
+/** KOIN vinti da un giocatore con gol e assist (premi di tutte le partite). */
 function player_rewards_total(int $playerId): int
 {
     return (int) q("SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND kind = 'premio'", [$playerId])->fetchColumn();
@@ -757,7 +757,7 @@ function bets_requote_open(): array
         return $cache[$k];
     };
     $singles = $combos = $cancelled = 0;
-    // prima via le puntate su se stessi (singole e multiple che ne contengono una): i gettoni tornano indietro
+    // prima via le puntate su se stessi (singole e multiple che ne contengono una): i KOIN tornano indietro
     foreach (q("SELECT id FROM bets WHERE status = 'aperta' AND market IN ('" . implode("','", BET_PLAYER_MARKETS) . "') AND pick = CAST(player_id AS CHAR)")->fetchAll(PDO::FETCH_COLUMN) as $id) {
         q('DELETE FROM bets WHERE id = ?', [$id]);
         $cancelled++;
@@ -900,7 +900,7 @@ function combo_place(int $playerId, array $legs, int $stake): ?string
         return 'Gli ospiti non possono scommettere.';
     }
     if ($stake < 1) {
-        return 'Punta almeno 1 gettone.';
+        return 'Punta almeno 1 KOIN.';
     }
     $odds = combo_odds($legs);
     try {
@@ -908,7 +908,7 @@ function combo_place(int $playerId, array $legs, int $stake): ?string
             q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);
             $available = wallet_balance($playerId);
             if ($stake > $available) {
-                return 'Non hai abbastanza gettoni: te ne restano ' . $available . '.';
+                return 'Non hai abbastanza KOIN: te ne restano ' . $available . '.';
             }
             q('INSERT INTO combo_bets (player_id, stake, odds) VALUES (?, ?, ?)', [$playerId, $stake, $odds]);
             $comboId = (int) db()->lastInsertId();
@@ -928,7 +928,7 @@ function combo_place(int $playerId, array $legs, int $stake): ?string
     }
 }
 
-/** Ritira una multipla, se nessuna delle sue partite è ancora iniziata (i gettoni tornano). */
+/** Ritira una multipla, se nessuna delle sue partite è ancora iniziata (i KOIN tornano). */
 function combo_cancel(int $comboId, int $playerId): ?string
 {
     $combo = q('SELECT * FROM combo_bets WHERE id = ? AND player_id = ?', [$comboId, $playerId])->fetch();
@@ -950,9 +950,9 @@ function combo_cancel(int $comboId, int $playerId): ?string
 
 /**
  * Un giocatore si ritira da una partita («Non ci sono»): le scommesse SU di lui non hanno più senso e vanno tolte.
- *  - puntate singole aperte su di lui (chi segna, doppietta, tripletta, autogol, MVP): cancellate, i gettoni tornano a chi aveva puntato;
+ *  - puntate singole aperte su di lui (chi segna, doppietta, tripletta, autogol, MVP): cancellate, i KOIN tornano a chi aveva puntato;
  *  - selezioni di multiple aperte su di lui: si toglie SOLO quella selezione, la multipla resta con le altre e la quota si ricalcola
- *    (prodotto delle quote rimaste). Se non ne resta nessuna la multipla sparisce e i gettoni tornano.
+ *    (prodotto delle quote rimaste). Se non ne resta nessuna la multipla sparisce e i KOIN tornano.
  * Quello che riguarda la partita nel suo insieme (chi vince, over/under) e le scommesse degli altri giocatori non si tocca.
  * Si può richiamare senza danni (la seconda volta non trova più nulla).
  * @return array{0: int, 1: int, 2: int} puntate singole cancellate, selezioni tolte da multiple, multiple sparite del tutto
@@ -980,7 +980,7 @@ function bets_void_for_player(int $matchId, int $playerId): array
         foreach (array_keys($touched) as $cid) {
             $left = q('SELECT odds FROM combo_legs WHERE combo_id = ?', [$cid])->fetchAll();
             if (!$left) {
-                q('DELETE FROM combo_bets WHERE id = ?', [$cid]);   // nessuna selezione rimasta: i gettoni tornano (la mossa sparisce con lei)
+                q('DELETE FROM combo_bets WHERE id = ?', [$cid]);   // nessuna selezione rimasta: i KOIN tornano (la mossa sparisce con lei)
                 $combosGone++;
                 unset($touched[$cid]);
             } else {
@@ -1068,7 +1068,7 @@ function combo_maybe_settle(int $comboId): void
             return;   // qualche partita non è ancora decisa: si aspetta
         }
         $won = array_filter($legs, fn($l) => $l['status'] === 'vinta');
-        if (!$won) {   // tutte le gambe rimborsate (mancava sempre il dato): si riprendono i gettoni
+        if (!$won) {   // tutte le gambe rimborsate (mancava sempre il dato): si riprendono i KOIN
             q("UPDATE combo_bets SET status = 'rimborsata', payout = ?, settled_at = NOW() WHERE id = ?", [(int) $combo['stake'], $comboId]);
             q("INSERT INTO wallet_moves (player_id, combo_id, delta, kind) VALUES (?, ?, ?, 'rimborso')", [$combo['player_id'], $comboId, (int) $combo['stake']]);
             return;

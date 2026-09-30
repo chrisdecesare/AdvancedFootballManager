@@ -3,7 +3,7 @@
  * "Indovina la funzionalità": una sezione segreta (guess.php, non in menu, si arriva dalla card del countdown in Home) dove
  * ogni giocatore scrive, in un campo di testo, la sua idea su quale sarà la prossima novità del sito. Un round alla volta,
  * un'idea sola a testa (la può cambiare finché non scade). Quando arriva l'uscita, l'admin legge le idee (admin.php) e
- * regala gettoni a chi si è avvicinato di più: un premio goliardico, non una scommessa vera con quote.
+ * regala KOIN a chi si è avvicinato di più: un premio goliardico, non una scommessa vera con quote.
  */
 
 /** Se non c'è ancora una data impostata: il prossimo giovedì alle 20, oppure tra 7 giorni se oggi è già giovedì dopo le 20. */
@@ -150,11 +150,11 @@ function proposal_unread_count(): int
     return $n;
 }
 
-/* ---------------------------------------------------------------- regali di gettoni dell'admin */
+/* ---------------------------------------------------------------- regali di KOIN dell'admin */
 
 /*
- * Quando l'admin regala gettoni (Admin → Regala gettoni, o il premio di «Indovina la funzionalità») il giocatore riceve una notifica push
- * e, alla prima pagina che apre, una sovraimpressione col gettone (layout.php) come la spunta dei voti. players.gift_seen_id ricorda
+ * Quando l'admin regala KOIN (Admin → Regala KOIN, o il premio di «Indovina la funzionalità») il giocatore riceve una notifica push
+ * e, alla prima pagina che apre, una sovraimpressione col KOIN (layout.php) come la spunta dei voti. players.gift_seen_id ricorda
  * fin dove li ha già visti.
  */
 /** Push al giocatore premiato (a fine richiesta, per non rallentare la pagina dell'admin). */
@@ -164,8 +164,8 @@ function coin_gift_notify(int $playerId, int $amount, string $why = ''): void
         $users = array_values(push_users_of_players([$playerId]));
         if ($users) {
             push_notify_users($users, [
-                'title' => 'Hai ricevuto ' . $amount . ' gettoni!',
-                'body' => 'L\'admin ti ha regalato ' . $amount . ' gettoni' . ($why !== '' ? ' ' . $why : '') . '.',
+                'title' => 'Hai ricevuto ' . $amount . ' KOIN!',
+                'body' => 'L\'admin ti ha regalato ' . $amount . ' KOIN' . ($why !== '' ? ' ' . $why : '') . '.',
                 'url' => 'bets.php', 'tag' => 'gift-' . $playerId . '-' . time(),
             ], 'normal', 'regalo');
         }

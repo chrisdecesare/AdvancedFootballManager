@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 35;
+const SCHEMA_VERSION = 36;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -247,7 +247,7 @@ function ensure_schema(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     if ($v < 14) {
-        // scommesse goliardiche con gettoni finti (vedi lib/bets.php)
+        // scommesse goliardiche con KOIN finti (vedi lib/bets.php)
         db()->exec("CREATE TABLE IF NOT EXISTS bets (
             id INT AUTO_INCREMENT PRIMARY KEY,
             match_id INT NOT NULL,
@@ -298,7 +298,7 @@ function ensure_schema(): void
         $add('players', 'border_key', 'VARCHAR(16) NULL');
     }
     if ($v < 17) {
-        // regalo una tantum: 60 gettoni al giocatore dell'admin (il codice 'gift-adm-60' impedisce di darli due volte)
+        // regalo una tantum: 60 KOIN al giocatore dell'admin (il codice 'gift-adm-60' impedisce di darli due volte)
         db()->exec("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref)
                     SELECT player_id, 60, 'regalo', 'gift-adm-60' FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL");
     }
@@ -596,7 +596,7 @@ function ensure_schema(): void
     }
     if ($v < 32) {
         // negozio: gli oggetti del catalogo esteso escono quando lo decide l'admin (drops.php), e ogni giocatore ha la sua lista
-        // desideri ("obiettivi"), che insieme a possessori e gettoni in circolo muove i prezzi (lib/shop.php: shop_price)
+        // desideri ("obiettivi"), che insieme a possessori e KOIN in circolo muove i prezzi (lib/shop.php: shop_price)
         db()->exec('CREATE TABLE IF NOT EXISTS shop_releases (
             item_key VARCHAR(16) NOT NULL PRIMARY KEY,
             release_at DATETIME NOT NULL,
@@ -652,9 +652,90 @@ function ensure_schema(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     if ($v < 35) {
-        // fin dove il giocatore ha già visto i regali di gettoni dell'admin (lib/guess.php: coin_gifts_unseen): i regali vecchi non ricompaiono
+        // fin dove il giocatore ha già visto i regali di KOIN dell'admin (lib/guess.php: coin_gifts_unseen): i regali vecchi non ricompaiono
         $add('players', 'gift_seen_id', 'INT NOT NULL DEFAULT 0');
         db()->exec('UPDATE players SET gift_seen_id = (SELECT COALESCE(MAX(id), 0) FROM wallet_moves)');
+    }
+    if ($v < 36) {
+        // Fantacalcio della lega (lib/fanta.php): stagioni, prezzi delle figurine, rose, formazioni al calcio d'inizio, scambi e premi
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_seasons (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            group_id INT NOT NULL,
+            n INT NOT NULL DEFAULT 1,
+            status ENUM(\'aperta\',\'chiusa\') NOT NULL DEFAULT \'aperta\',
+            started_at DATETIME NOT NULL,
+            closed_at DATETIME NULL,
+            INDEX (group_id, status),
+            FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_prices (
+            season_id INT NOT NULL,
+            player_id INT NOT NULL,
+            price TINYINT UNSIGNED NOT NULL,
+            PRIMARY KEY (season_id, player_id),
+            FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_picks (
+            season_id INT NOT NULL,
+            manager_id INT NOT NULL,
+            player_id INT NOT NULL,
+            cost TINYINT UNSIGNED NOT NULL,
+            role CHAR(1) NOT NULL DEFAULT \'T\',
+            captain TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (season_id, manager_id, player_id),
+            INDEX (season_id, player_id),
+            FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+            FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_snapshots (
+            match_id INT NOT NULL PRIMARY KEY,
+            season_id INT NOT NULL,
+            taken_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX (season_id),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_lineups (
+            match_id INT NOT NULL,
+            manager_id INT NOT NULL,
+            player_id INT NOT NULL,
+            role CHAR(1) NOT NULL,
+            captain TINYINT(1) NOT NULL DEFAULT 0,
+            PRIMARY KEY (match_id, manager_id, player_id),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_trades (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            season_id INT NOT NULL,
+            from_id INT NOT NULL,
+            to_id INT NOT NULL,
+            give_id INT NOT NULL,
+            want_id INT NOT NULL,
+            status ENUM(\'proposto\',\'accettato\',\'rifiutato\',\'ritirato\',\'scaduto\') NOT NULL DEFAULT \'proposto\',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            decided_at DATETIME NULL,
+            INDEX (season_id, status),
+            FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+            FOREIGN KEY (from_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (to_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (give_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (want_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_awards (
+            season_id INT NOT NULL,
+            manager_id INT NOT NULL,
+            rank_pos TINYINT UNSIGNED NOT NULL,
+            points DECIMAL(7,1) NOT NULL,
+            prizes VARCHAR(500) NOT NULL DEFAULT \'\',
+            PRIMARY KEY (season_id, manager_id),
+            FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+            FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

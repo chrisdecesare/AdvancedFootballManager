@@ -201,8 +201,8 @@ delle schede (con «Rivedi il tutorial» ed «Esci») e il profilo a destra, con
 
 ## Scommesse e Negozio (goliardici)
 
-La scheda **Scommesse** (`bets.php`, logica in `lib/bets.php`) fa puntare sulle partite in programma con **gettoni finti**: nessun euro in gioco.
-Ognuno parte con 100 gettoni. Per ogni partita si può fare una puntata per mercato:
+La scheda **Scommesse** (`bets.php`, logica in `lib/bets.php`) fa puntare sulle partite in programma con **KOIN finti**: nessun euro in gioco.
+Ognuno parte con 100 KOIN. Per ogni partita si può fare una puntata per mercato:
 
 - **Chi vince?** (squadra 1, pareggio, squadra 2): si paga quando l'admin/manager chiude la partita col risultato;
 - **Chi segna?** (un giocatore segna almeno un gol): si paga alla chiusura della partita;
@@ -236,13 +236,13 @@ viene creata a meno di 48 ore, sono aperte subito) e si chiudono al calcio d'ini
 l'inizio, anche se nessuno la chiude) un giocatore non può cambiarsi posizione preferita e seconda posizione da *Modifica profilo*: c'era chi si segnava portiere
 per alzare la quota «chi segna», puntava e poi tornava attaccante, falsando le quote e la generazione delle squadre. L'admin può comunque correggere il ruolo di chiunque.
 
-Chi resta al verde (meno di 20 gettoni e nulla in gioco)
-riceve un sussidio di 30 gettoni a settimana. Ci sono titoli goliardici in base ai gettoni e la classifica dei più ricchi.
+Chi resta al verde (meno di 20 KOIN e nulla in gioco)
+riceve un sussidio di 30 KOIN a settimana. Ci sono titoli goliardici in base ai KOIN e la classifica dei più ricchi.
 
 Il portafoglio non è un numero salvato ma la somma delle mosse (`wallet_moves`), quindi correggere un risultato, riaprire una partita o riaprire le votazioni
-rifà i pagamenti da solo, e cancellare una partita restituisce i gettoni. Le costanti (gettoni iniziali, soglia e importo del sussidio, margine) sono in cima a `lib/bets.php`.
+rifà i pagamenti da solo, e cancellare una partita restituisce i KOIN. Le costanti (KOIN iniziali, soglia e importo del sussidio, margine) sono in cima a `lib/bets.php`.
 
-**Negozio** (`shop.php`, logica in `lib/shop.php`, catalogo in `lib/shop_items.php`): i gettoni si spendono per personalizzare il profilo, e le personalizzazioni si vedono sul profilo e nella Rosa.
+**Negozio** (`shop.php`, logica in `lib/shop.php`, catalogo in `lib/shop_items.php`): i KOIN si spendono per personalizzare il profilo, e le personalizzazioni si vedono sul profilo e nella Rosa.
 Quattro schede, con filtro «che posso comprare / miei» e un pulsante **Prova** che mette l'oggetto addosso all'anteprima fissa in alto, prima di comprarlo:
 
 - **Copricapi (100)**, in diagonale su un angolo del riquadro: cappellini, berretti, cowboy, cuoco, mago, pirata, vichingo, corone, elmetti, orecchie da gatto, gelato, zucca, coppa... Sono disegni SVG in stile
@@ -251,7 +251,7 @@ Quattro schede, con filtro «che posso comprare / miei» e un pulsante **Prova**
   animazioni si fermano a chi ha attivo «riduci movimento»);
 - **Sfondi (50)** al posto delle strisce del ruolo (prato, aurora boreale, tigre, marmo, fibra di carbonio, rubino...); sostituiscono il colore o l'immagine scelti da *Modifica profilo* (e viceversa);
 - **Nickname (50)** sotto il nome: 17 si comprano, 33 **si sbloccano da soli** con un obiettivo: gol (5, 10, 25, 50; 3 o 4 in una partita), assist (3, 10, 25, 50), gol + assist, premi MVP (1, 3, 5, 10, 20),
-  presenze (1, 15, 30, 60), vittorie (10, 25, 5 di fila), media voto (7,5 o 8), autogol, sconfitte, scommesse vinte, gettoni e oggetti comprati.
+  presenze (1, 15, 30, 60), vittorie (10, 25, 5 di fila), media voto (7,5 o 8), autogol, sconfitte, scommesse vinte, KOIN e oggetti comprati.
 
 Prezzi e obiettivi si cambiano in `lib/shop_items.php` (una riga per oggetto); il disegno di sfondi e bordi sta in `assets/style.css` (classi `bgp-<chiave>` e `brd-<chiave>`). Gli acquisti stanno in `player_items`,
 cosa si indossa adesso nelle colonne `bg_preset`, `border_key`, `nick_key`, `hat_key` di `players`.
@@ -278,16 +278,40 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   tutto il gruppo (`BET_OG_PRIOR`, `BET_OG_PRIOR_APPS`, `BET_OG_OWN_APPS` in `lib/bets.php`). Nella multipla si possono mettere più giocatori, e lo stesso
   giocatore può stare anche in «segna»: fare gol e fare autogol non si comprendono a vicenda.
 - **Chi si ritira porta via le sue scommesse** (`bets_void_for_player`): quando un giocatore si segna «Non ci sono» (da sé, o lo fa chi gestisce la partita),
-  le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, autogol, MVP) vengono cancellate e i gettoni tornano; nelle
-  multiple si toglie **solo quella selezione**, la multipla resta con le altre e la quota si ricalcola (se non ne restano, sparisce e i gettoni tornano).
+  le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, autogol, MVP) vengono cancellate e i KOIN tornano; nelle
+  multiple si toglie **solo quella selezione**, la multipla resta con le altre e la quota si ricalcola (se non ne restano, sparisce e i KOIN tornano).
   Chi vince, over/under e le scommesse sugli altri giocatori non si toccano.
-- **Premi per gol e assist**: 25 gettoni per ogni gol e 10 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`) a chi li ha fatti, appena
+- **Premi per gol e assist**: 25 KOIN per ogni gol e 10 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`) a chi li ha fatti, appena
   il risultato viene salvato; se viene corretto il premio si aggiorna, se la partita torna «programmata» o viene eliminata sparisce. Una mossa
   del portafoglio per giocatore e partita (`kind = 'premio'`). Il totale si vede nella scheda «Scommesse».
 - Al passaggio al nuovo modello (migrazione v26) le puntate ancora aperte sono state riprezzate, quelle su se stessi annullate e rimborsate, e i
   premi assegnati anche per le partite già giocate.
-**Regalare gettoni:** in *Admin → Regala gettoni* l'admin sceglie un giocatore delle sue leghe e una cifra (da 1 a 1000): si aggiunge una mossa `regalo` al
+**Regalare KOIN:** in *Admin → Regala KOIN* l'admin sceglie un giocatore delle sue leghe e una cifra (da 1 a 1000): si aggiunge una mossa `regalo` al
 portafoglio, visibile subito nel saldo, in classifica e nel Negozio. Ogni regalo finisce nel registro delle operazioni.
+
+## Fanta (fantacalcio della lega)
+
+La scheda **Fanta** (`fanta.php`, indirizzo `/fantacalcio`, logica in `calcetto/lib/fanta.php`) è il fantacalcio della lega: ogni giocatore con un
+account è anche fantallenatore e si compra le **figurine** dei compagni. Più squadre possono avere la stessa figurina.
+
+- **Stagioni:** le apre e le chiude chi amministra la lega, dalla pagina stessa. All'apertura si fissano i prezzi (tabella `fanta_prices`), che restano quelli
+  per tutta la stagione; contano le partite che iniziano dopo l'apertura.
+- **Prezzi calibrati (1-4 crediti):** dal rendimento nelle ultime 12 partite della lega, cioè punti fanta a partita per quanto spesso gioca (chi ha giocato
+  poco viene avvicinato alla media). Il 10% più forte costa 4, il successivo 15% costa 3, il 25% dopo costa 2, gli altri 1. Chi ha lo stesso rendimento costa
+  uguale (a lega appena nata, senza partite, costano tutti 1).
+- **Rosa:** 6 figurine (5 titolari e 1 in panchina) con un budget di 10 crediti fanta, separati dai KOIN. Si compra e si vende quando si vuole; vendendo si
+  riprende quello che è costata. Tra i titolari c'è un **capitano**, che raddoppia bonus e malus (un gol vale +6).
+- **Punti di una figurina in una partita:** media dei voti ricevuti + 3 a gol, +1 ad assist, +3 all'MVP, +1 se la squadra vince, −2 ad autogol; chi non
+  gioca fa 0. La **panchina** entra al posto del primo titolare che non gioca. Finché le votazioni sono aperte i punti sono provvisori.
+- **Formazione al calcio d'inizio:** per ogni partita conta la rosa com'era al fischio d'inizio (tabella `fanta_lineups`): la «foto» si scatta alla prima
+  richiesta dopo il calcio d'inizio (e da `cron.php`), e sempre prima di qualsiasi cambio di rosa, così i cambi fatti dopo non toccano quella partita.
+- **Scambi:** un fantallenatore propone «ti do X, mi dai Y» a un altro, che accetta o rifiuta (notifica push a tutti e due). Le figurine devono essere
+  diverse e nessuno può ritrovarsi due volte lo stesso giocatore. Ognuno tiene il costo, il posto (titolare/panchina) e la fascia della figurina che dà.
+- **Classifica:** tutti contro tutti, somma dei punti della stagione (a pari punti conta la partita migliore).
+- **Premi:** alla chiusura i primi 5 ricevono oggetti che nel Negozio non si comprano e non si vedono (`fanta_reward_items()`, con `'fanta' => N` = va ai primi N):
+  esultanze *Pioggia di KOIN*, *Giro d'onore* e *Alza la coppa*, creste *Cresta ribelle* e *Cresta d'oro*, *Alloro* e *Corona del Fanta*,
+  *Maglia del Campione* e il nickname *Re del Fanta*. Chi arriva più in alto prende anche i premi dei posti sotto; un premio già vinto diventa 60 KOIN.
+  I piazzamenti restano nell'albo d'oro (`fanta_awards`).
 
 ## Notifiche push
 

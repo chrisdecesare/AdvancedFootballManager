@@ -831,6 +831,15 @@ function px_celebrations(): array
             range(0, 8)), [['open', 700, 0, 0, 0, '']])],
         'sky-kneel' => ['hint' => 7, 'steps' => array_merge($run(-12, 's_run1s', 's_run2s'), [['s_kneel', 100, -3, 0, 0, 'd1'],
             ['s_kneel', 100, 0, 0, 0, 'd2'], ['s_kneel', 500, 1, 0, 0, 'd3'], ['sky', 900, 1, 0, 0, '']])],
+        // premi del Fanta (lib/fanta.php): non si comprano
+        'koin-rain' => ['hint' => 3, 'steps' => array_merge([['rest', 200, 0, 0, 0, '']],
+            array_map(fn($i) => [$i % 2 ? 'pump_down' : 'pump_up', 170, 0, 0, 0, ['co1', 'co2', 'co3'][$i % 3]], range(0, 8)),
+            [['pump_sky', 900, 0, 0, 0, 'co3']])],
+        'honour-lap' => ['hint' => 8, 'steps' => array_merge($run(-14, 's_run1', 's_run2', 9, 3, 95),
+            array_map(fn($i) => [$i % 2 ? 'wave_b' : 'wave_a', 230, 13, 0, 0, $i % 2 ? 'fw2' : 'fw1'], range(0, 5)), [['open', 800, 13, 0, 0, 'fw3']])],
+        'cup-lift' => ['hint' => 5, 'steps' => [['rest', 200, 0, 0, 0, ''], ['crouch_f', 160, 0, 0, 0, ''], ['up', 140, 0, -4, 0, 'd1+cup'],
+            ['up_shout', 500, 0, 0, 0, 'cup'], ['up_shout', 260, 0, -1, 0, 'cup2+fw1'], ['up_shout', 260, 0, 0, 0, 'cup+fw2'],
+            ['up_shout', 260, 0, -1, 0, 'cup2+fw3'], ['up_shout', 900, 0, 0, 0, 'cup+st2']]],
         'robot-dance' => ['hint' => 4, 'steps' => array_merge($alt(['robot_a', 'robot_b', 'robot_c', 'robot_c<', 'dance_a', 'dance_a<'], 12, 170, [0, -1]),
             [['victory', 600, 0, 0, 0, '']])],
     ];
@@ -872,7 +881,7 @@ function px_celebration_mods(): array
         'fw' => ['con fuochi d\'artificio', ['fw1', 'fw2', 'fw3']],
         'st' => ['stellare', ['st1', 'st2']],
         'bo' => ['col fulmine', ['bo1', 'bo2']],
-        'co' => ['con pioggia di gettoni', ['co1', 'co2', 'co3']],
+        'co' => ['con pioggia di KOIN', ['co1', 'co2', 'co3']],
         'he' => ['con cuori', ['he1', 'he2']],
     ];
 }

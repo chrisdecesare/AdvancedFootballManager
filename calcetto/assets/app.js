@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     timer = setInterval(tick, 1000);
   });
 
-  // conferma dei voti e regalo di gettoni: spariscono da sole, oppure con un tocco
+  // conferma dei voti e regalo di KOIN: spariscono da sole, oppure con un tocco
   document.querySelectorAll('[data-vote-done]').forEach(voteDone => {
     voteDone.addEventListener('click', () => voteDone.remove());
     voteDone.addEventListener('animationend', e => { if (e.target === voteDone) voteDone.remove(); });

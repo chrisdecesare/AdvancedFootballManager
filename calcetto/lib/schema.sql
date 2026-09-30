@@ -393,4 +393,96 @@ CREATE TABLE IF NOT EXISTS proposals (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Fantacalcio della lega (lib/fanta.php, fanta.php): stagioni aperte e chiuse da chi amministra la lega
+CREATE TABLE IF NOT EXISTS fanta_seasons (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  group_id INT NOT NULL,
+  n INT NOT NULL DEFAULT 1,                        -- numero della stagione nella lega
+  status ENUM('aperta','chiusa') NOT NULL DEFAULT 'aperta',
+  started_at DATETIME NOT NULL,                    -- contano le partite dal calcio d'inizio dopo questo momento
+  closed_at DATETIME NULL,
+  INDEX (group_id, status),
+  FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- prezzo di ogni figurina (crediti fanta, 1-4), fissato all'apertura della stagione
+CREATE TABLE IF NOT EXISTS fanta_prices (
+  season_id INT NOT NULL,
+  player_id INT NOT NULL,
+  price TINYINT UNSIGNED NOT NULL,
+  PRIMARY KEY (season_id, player_id),
+  FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- la rosa di adesso di ogni fantallenatore (manager_id = il suo giocatore): T titolare, P panchina
+CREATE TABLE IF NOT EXISTS fanta_picks (
+  season_id INT NOT NULL,
+  manager_id INT NOT NULL,
+  player_id INT NOT NULL,
+  cost TINYINT UNSIGNED NOT NULL,                  -- crediti che conta nel budget (e che tornano vendendola)
+  role CHAR(1) NOT NULL DEFAULT 'T',
+  captain TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (season_id, manager_id, player_id),
+  INDEX (season_id, player_id),
+  FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+  FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- partite di cui si è già fatta la foto delle formazioni (al calcio d'inizio)
+CREATE TABLE IF NOT EXISTS fanta_snapshots (
+  match_id INT NOT NULL PRIMARY KEY,
+  season_id INT NOT NULL,
+  taken_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX (season_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- la rosa di ognuno com'era al calcio d'inizio di una partita: per quella partita contano queste figurine
+CREATE TABLE IF NOT EXISTS fanta_lineups (
+  match_id INT NOT NULL,
+  manager_id INT NOT NULL,
+  player_id INT NOT NULL,
+  role CHAR(1) NOT NULL,
+  captain TINYINT(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (match_id, manager_id, player_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- scambi tra fantallenatori: from_id dà give_id e riceve want_id da to_id
+CREATE TABLE IF NOT EXISTS fanta_trades (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  season_id INT NOT NULL,
+  from_id INT NOT NULL,
+  to_id INT NOT NULL,
+  give_id INT NOT NULL,
+  want_id INT NOT NULL,
+  status ENUM('proposto','accettato','rifiutato','ritirato','scaduto') NOT NULL DEFAULT 'proposto',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  decided_at DATETIME NULL,
+  INDEX (season_id, status),
+  FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+  FOREIGN KEY (from_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (to_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (give_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (want_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- albo d'oro: chi è arrivato nei primi posti di una stagione chiusa e cosa ha vinto
+CREATE TABLE IF NOT EXISTS fanta_awards (
+  season_id INT NOT NULL,
+  manager_id INT NOT NULL,
+  rank_pos TINYINT UNSIGNED NOT NULL,
+  points DECIMAL(7,1) NOT NULL,
+  prizes VARCHAR(500) NOT NULL DEFAULT '',
+  PRIMARY KEY (season_id, manager_id),
+  FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+  FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT IGNORE INTO meta (k, v) VALUES ('schema', '20');
