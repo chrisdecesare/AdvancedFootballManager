@@ -12,8 +12,8 @@
  *    chi compra basso e rivende alto guadagna crediti. Tra i titolari si sceglie un capitano, che raddoppia bonus e malus.
  *  - Scambi: un fantallenatore propone «ti do X, mi dai Y» a un altro, che accetta o rifiuta. Nessuno dei due può ritrovarsi
  *    due volte la stessa figurina. I crediti non cambiano: ognuno tiene i suoi.
- *  - Formazioni: al calcio d'inizio di ogni partita della lega la rosa di ognuno si «fotografa» (fanta_lineups) e per quella
- *    partita contano solo quelle figurine, anche se dopo si cambia. La foto si scatta alla prima richiesta dopo il calcio
+ *  - Formazioni: al calcio d'inizio di ogni partita della lega (o quando si inserisce il risultato, se succede prima dell'orario
+ *    in calendario) la rosa di ognuno si «fotografa» (fanta_lineups) e per quella partita contano solo quelle figurine, anche se dopo si cambia. La foto si scatta alla prima richiesta dopo il calcio
  *    d'inizio, e sempre prima di qualsiasi cambio di rosa: così è identica alla rosa che c'era al fischio d'inizio.
  *  - Punti di una figurina in una partita (fanta_match_points): media dei voti ricevuti + bonus (FANTA_BONUS). Chi non ha
  *    giocato fa 0; se un titolare non ha giocato entra quello in panchina, se ha giocato. L'MVP conta a votazioni chiuse.
@@ -428,14 +428,15 @@ function fanta_standings(int $seasonId): array
 /* ---------------------------------------------------------------- foto delle formazioni */
 
 /**
- * Per ogni partita di una lega con la stagione aperta arrivata al calcio d'inizio e non ancora fotografata: salva la rosa di
- * ognuno. Si chiama a ogni richiesta (lib/bootstrap.php), da cron.php e prima di ogni cambio di rosa.
+ * Per ogni partita di una lega con la stagione aperta arrivata al calcio d'inizio (o già conclusa, se il risultato è stato inserito
+ * prima dell'orario in calendario) e non ancora fotografata: salva la rosa di ognuno. Si chiama a ogni richiesta
+ * (lib/bootstrap.php), da cron.php e prima di ogni cambio di rosa.
  */
 function fanta_snapshot_due(): void
 {
     $due = q("SELECT m.id, s.id AS sid FROM matches m JOIN fanta_seasons s ON s.group_id = m.group_id AND s.status = 'aperta'
               LEFT JOIN fanta_snapshots x ON x.match_id = m.id
-              WHERE x.match_id IS NULL AND m.match_date <= ? AND m.match_date >= s.started_at", [date('Y-m-d H:i:s')])->fetchAll();
+              WHERE x.match_id IS NULL AND (m.match_date <= ? OR m.status = 'giocata') AND m.match_date >= s.started_at", [date('Y-m-d H:i:s')])->fetchAll();
     foreach ($due as $d) {
         bet_atomic(function () use ($d) {
             if (!q('INSERT IGNORE INTO fanta_snapshots (match_id, season_id) VALUES (?, ?)', [$d['id'], $d['sid']])->rowCount()) {
