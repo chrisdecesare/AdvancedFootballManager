@@ -6,6 +6,7 @@
  * Cosa indossa sta nella colonna players.avatar_look (JSON: una chiave del catalogo per tipo, vedi avatar_defaults()); il copricapo è
  * invece quello del profilo (players.hat_key), così comprato o indossato qui o nel Negozio si vede in tutti e due i posti: in testa
  * al personaggio va la sua versione pixel (px_hats(), per modello). Catalogo e prezzi in lib/shop_items.php, acquisti in lib/shop.php.
+ * La figura (maschile, femminile, non binaria) è il genere del profilo, players.gender: si sceglie qui o in Modifica profilo.
  * Nello stesso JSON anche altezza e peso ('height' in cm, 'weight' in kg, gratis e facoltativi): danno le proporzioni al disegno
  * (lib/avatar_pixel.php: px_body_shape); senza, il personaggio ha le misure del disegno di base (1,75 m, corporatura media).
  */
@@ -58,6 +59,7 @@ function avatar_look(array $p): array
         $v = is_array($saved) ? ($saved[$k] ?? null) : null;
         $look[$k] = is_int($v) && $v >= $min && $v <= $max ? $v : null;
     }
+    $look['figure'] = isset(genders()[$p['gender'] ?? '']) ? $p['gender'] : 'M';   // è il genere del profilo (players.gender)
     return $look;
 }
 
@@ -123,7 +125,8 @@ function avatar_px_look(array $look, ?array $jersey = null): array
     ];
     $parts = ['hair' => $it('hair')['style'], 'beard' => $it('beard')['style'], 'glasses' => $it('glasses')['style'],
         'hat' => $hat && isset(px_hats()[$hat['tpl']]) ? $hat['tpl'] : null, 'number' => '',
-        'shape' => implode(',', px_body_shape($look['height'] ?? null, $look['weight'] ?? null))];
+        'shape' => implode(',', px_body_shape($look['height'] ?? null, $look['weight'] ?? null)),
+        'figure' => ($look['figure'] ?? 'M') === 'F' ? 'F' : ''];   // femminile: fianchi un po' più larghi e seno accennato (px_front_torso_f)
     return [$colors, $parts, $pattern, $pet['style'] ?? 'none', $it('pose')['pose'] ?? 'rest', $it('celebration')['anim'] ?? 'fist-pump'];
 }
 

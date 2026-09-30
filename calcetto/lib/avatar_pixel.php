@@ -95,6 +95,35 @@ function px_front_torso(): array
     ];
 }
 
+/**
+ * Busto di fronte della figura femminile (px_letters lo mette al posto di px_front_torso): vita un pixel più stretta, fianchi un
+ * pixel più larghi e il seno appena accennato da due piccole ombre sulla maglia. Poco marcato di proposito.
+ */
+function px_front_torso_f(): array
+{
+    return [
+        '............ooss',
+        '........ooooookk',
+        '........oajjjkss',
+        '.........ojjjjkk',
+        '.........ojjjjjj',
+        '.........ojJJJjj',
+        '.........ojjjjjj',
+        '.........ojjjjjj',
+        '..........ojjjjj',
+        '..........ojjjjj',
+        '..........oJjjjj',
+        '.........oJjjjjj',
+        '.........oJJjjjj',
+        '........oppppppp',
+        '........oppppppp',
+        '........oppppppp',
+        '........oppppppp',
+        '........oppppppo',
+        '........oooooooo',
+    ];
+}
+
 /** Gamba sinistra in piedi (dalla riga 42 al terreno). */
 function px_front_leg(): array
 {
@@ -172,7 +201,7 @@ function px_front(string $l, string $r, string $legs = 'stand', string $face = '
     [$x, $rows] = px_flip_layer($x, $rows);
     $layers[] = [$rows, $x, $y, false];
     $dy = $drop + $breath;
-    $layers[] = [px_rows(px_front_torso(), true), 0, 23 + $dy, false];
+    $layers[] = [px_rows(px_front_torso(), true), 0, 23 + $dy, false, 'torso'];   // 'torso': la figura femminile lo cambia
     [$x, $y, $rows, $over] = px_arm($l);
     $layers[] = [$rows, $x, $y + $dy, $over];
     [$x, $y, $rows, $over] = px_arm($r);
@@ -340,6 +369,9 @@ function px_letters(string $name, array $parts): array
     $style = $parts['hat'] ? px_hair_under_hat($parts['hair']) : $parts['hair'];
     $over = [];
     foreach ($f['layers'] as $l) {
+        if (($l[4] ?? '') === 'torso' && ($parts['figure'] ?? '') === 'F') {
+            $l[0] = px_rows(px_front_torso_f(), true);
+        }
         if (!empty($l[3])) {
             $over[] = $l;
             continue;
@@ -347,6 +379,9 @@ function px_letters(string $name, array $parts): array
         px_paint($g, $l[0], $l[1], $l[2]);
     }
     $num = $f['num'] ?? null;
+    if ($num && ($parts['figure'] ?? '') === 'F') {
+        $num[1] += 2;   // figura femminile: il numero un po' più in basso, sotto le ombre del seno
+    }
     $shape = px_shape($parts);
     if ($shape !== [0, 0, 0]) {
         // corporatura: si allunga/accorcia e si allarga/stringe il corpo (braccia comprese, davanti o dietro la testa), la testa resta com'è
