@@ -2,7 +2,7 @@
 /*
  * "Indovina la funzionalità": sezione segreta (non è nel menu, si arriva dalla card del countdown in Home) dove ogni giocatore
  * scrive la sua idea su quale sarà la prossima novità del sito. Le idee degli altri restano segrete: si vede solo quante sono
- * arrivate. Quando esce la novità, l'admin le legge (admin.php) e regala gettoni a chi si è avvicinato di più.
+ * arrivate. Quando esce la novità, l'admin le legge (admin.php) e regala KOIN a chi si è avvicinato di più.
  */
 require __DIR__ . '/lib/bootstrap.php';
 require_view();
@@ -41,7 +41,7 @@ layout_start('Indovina la funzionalità', '');
   <p><i class="ti ti-gift"></i> <?= $passed ? 'Ci siamo quasi: la nuova funzionalità sta per uscire.' : 'Giovedì esce una nuova funzionalità.' ?>
     <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'Ci siamo!', 0, false, 'hourglass-high') ?></p>
   <?php if (guess_teaser() !== ''): ?><p class="muted small">Indizio dell'admin: «<?= h(guess_teaser()) ?>»</p><?php endif; ?>
-  <p class="muted small">Scrivi la tua idea su cosa sarà: resta segreta, solo l'admin la legge. Quando esce la novità, chi si è avvicinato di più riceve dei gettoni in regalo.
+  <p class="muted small">Scrivi la tua idea su cosa sarà: resta segreta, solo l'admin la legge. Quando esce la novità, chi si è avvicinato di più riceve dei KOIN in regalo.
     <?= $count ? ($count === 1 ? 'Per ora è arrivata 1 idea.' : 'Per ora sono arrivate ' . $count . ' idee.') : 'Nessuno ha ancora provato: sii il primo!' ?></p>
 </section>
 

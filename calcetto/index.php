@@ -70,7 +70,7 @@ layout_start('Home', 'home');
       <i class="ti ti-user-star drop-hype-icon" aria-hidden="true"></i>
       <div class="drop-hype-txt">
         <h2>È arrivato il Personaggio!</h2>
-        <p>Il tuo giocatore in pixel art: capelli, maglie, bandiere, pet ed esultanze da comprare con i gettoni. Altri oggetti sono in arrivo, un po' alla volta.</p>
+        <p>Il tuo giocatore in pixel art: capelli, maglie, bandiere, pet ed esultanze da comprare con i KOIN. Altri oggetti sono in arrivo, un po' alla volta.</p>
       </div>
     </div>
     <?php if ($me && !is_guest()): ?><a class="btn btn-primary drop-hype-cta" href="avatar.php"><i class="ti ti-user-star"></i> Crea il tuo personaggio</a><?php endif; ?>
@@ -84,7 +84,7 @@ layout_start('Home', 'home');
       </div>
       <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'È il momento!', 0, true, 'hourglass-high', 'countdown-big drop-hype-count') ?>
     </div>
-    <a class="btn btn-primary drop-hype-cta" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà: in palio dei gettoni</a>
+    <a class="btn btn-primary drop-hype-cta" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà: in palio dei KOIN</a>
     <?php endif; ?>
 
     <?php if (is_admin()): $newProposals = proposal_unread_count(); ?>

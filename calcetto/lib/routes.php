@@ -30,6 +30,7 @@ function pretty_routes(): array
         'bets' => ['scommesse', null],
         'shop' => ['negozio', null],
         'avatar' => ['personaggio', null],
+        'fanta' => ['fantacalcio', null],
         'jersey_creator' => ['crea-maglia', null],
         'drops' => ['uscite', null],
         'curiosities' => ['curiosita', null],

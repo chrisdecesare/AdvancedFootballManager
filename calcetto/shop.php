@@ -1,5 +1,5 @@
 <?php
-/* Negozio delle personalizzazioni del profilo (copricapi, bordi, sfondi, nickname), pagate con i gettoni delle scommesse: vedi lib/shop.php. */
+/* Negozio delle personalizzazioni del profilo (copricapi, bordi, sfondi, nickname), pagate con i KOIN delle scommesse: vedi lib/shop.php. */
 require __DIR__ . '/lib/bootstrap.php';
 require_view();
 
@@ -73,7 +73,7 @@ foreach (shop_catalog() as $k => $items) {
     }
     foreach ($items as $key => $item) {
         $out = !shop_released((string) $key, $item);
-        if (!$out || $admin || isset($owned[$key])) {
+        if ((!$out || $admin || isset($owned[$key])) && (!isset($item['fanta']) || isset($owned[$key]))) {
             $catalog[$k][$key] = $item + ['out' => $out];
         }
     }
@@ -123,13 +123,13 @@ layout_start('Negozio', 'shop');
 <section class="card push-banner">
   <i class="ti ti-discount-2 push-ic"></i>
   <div class="push-txt"><strong>Sconti nel mercato!</strong>
-    <span class="muted small">Con più gettoni in circolo nel weekend, i prezzi tendono a scendere: è il momento migliore per comprare.</span></div>
+    <span class="muted small">Con più KOIN in circolo nel weekend, i prezzi tendono a scendere: è il momento migliore per comprare.</span></div>
 </section>
 <?php else: ?>
 <section class="card push-banner">
   <i class="ti ti-discount-2 push-ic"></i>
   <div class="push-txt"><strong>Da mercoledì pomeriggio, sconti nel mercato</strong>
-    <span class="muted small">I prezzi tendono a scendere nel weekend, quando girano più gettoni. <?= countdown_html(date('Y-m-d H:i:s', promo_next_at()), 'Iniziano tra ', 'Iniziano a momenti…', 0, false, 'clock') ?></span></div>
+    <span class="muted small">I prezzi tendono a scendere nel weekend, quando girano più KOIN. <?= countdown_html(date('Y-m-d H:i:s', promo_next_at()), 'Iniziano tra ', 'Iniziano a momenti…', 0, false, 'clock') ?></span></div>
 </section>
 <?php endif; ?>
 
@@ -141,11 +141,11 @@ layout_start('Negozio', 'shop');
     <div data-look-name><strong class="wallet-name"><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
   </div>
   <div class="shop-bar-info">
-    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>gettoni</span><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
+    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>KOIN</span><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
     <p class="muted small">Premi <b>Prova</b> su un oggetto per vederlo qui addosso a te prima di comprarlo.</p>
   </div>
 </section>
-<p class="muted small">I gettoni si guadagnano <a class="link" href="bets.php">scommettendo sulle partite</a>. Quello che indossi si vede sul tuo profilo e nella Rosa. Alcuni nickname non si comprano:
+<p class="muted small">I KOIN si guadagnano <a class="link" href="bets.php">scommettendo sulle partite</a>. Quello che indossi si vede sul tuo profilo e nella Rosa. Alcuni nickname non si comprano:
   si sbloccano da soli raggiungendo un obiettivo (gol, assist, MVP, presenze...).</p>
 <?php else: ?>
 <p class="empty card">Il tuo account non è collegato a un giocatore: puoi guardare il negozio ma non comprare.</p>
@@ -166,7 +166,7 @@ layout_start('Negozio', 'shop');
   <?php if ($admin): ?><a href="drops.php" class="shop-drops"><i class="ti ti-rocket"></i> Uscite</a><?php endif; ?>
 </div>
 <p class="muted small shop-market"><i class="ti ti-chart-line"></i> I prezzi cambiano: salgono se un oggetto è tra gli obiettivi di tanti o ce l'hanno in molti,
-  e seguono i gettoni in circolo e quelli che hai tu. Si paga il prezzo del momento.</p>
+  e seguono i KOIN in circolo e quelli che hai tu. Si paga il prezzo del momento.</p>
 
 <?php if ($tab === 'hat' && avatar_visible()): ?>
 <p class="muted small"><i class="ti ti-user-star"></i> I copricapi si vedono anche sul tuo <a class="link" href="avatar.php?c=hat">Personaggio</a>.</p>
@@ -213,7 +213,7 @@ layout_start('Negozio', 'shop');
           <button class="btn btn-primary btn-sm"<?= $tab === 'bg' && ($mp['bg_image'] || $mp['bg_color']) ? ' data-confirm="Lo sfondo speciale sostituisce quello che hai scelto con colore o immagine. Continuare?"' : '' ?>>Indossa</button>
         <?php elseif (!$locked && !$item['out']): ?>
           <input type="hidden" name="do" value="buy"><input type="hidden" name="p" value="<?= $page ?>">
-          <button class="btn btn-primary btn-sm"<?= $balance < $item['now'] ? ' title="Non hai abbastanza gettoni"' : '' ?>>Compra</button>
+          <button class="btn btn-primary btn-sm"<?= $balance < $item['now'] ? ' title="Non hai abbastanza KOIN"' : '' ?>>Compra</button>
         <?php endif; ?>
       </form>
     </div>

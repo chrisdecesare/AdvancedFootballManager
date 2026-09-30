@@ -424,6 +424,57 @@ function px_hair(): array
                 '...ohhhhhhhhh...',
             ]),
         ],
+        // premi del Fanta (lib/fanta.php): non si comprano, si vincono arrivando nei primi della classifica
+        // cresta ribelle: più alta della cresta normale, a tre punte
+        'crest_punk' => [
+            'front' => px_m(0, -10, [
+                '......oo',
+                '.....ohh',
+                '......oh',
+                '.....ohh',
+                '....ohhh',
+                '.....ohh',
+                '....ohhH',
+                '....ohhh',
+                '...oohhh',
+                '.....ohh',
+                '.....ohh',
+                '......hh',
+                '......hh',
+            ]),
+            'side' => px_l(0, -6, [
+                '....o...o...o...',
+                '...oho.oho.oho..',
+                '...ohhoohhoohho.',
+                '..ohhhhhhhhhhho.',
+                '..ohhHhhhhhhhho.',
+                '..ohhhhhhhhhhho.',
+                '...ohhhhhhhhh...',
+            ]),
+        ],
+        // cresta d'oro: la cresta con le punte dorate (g/G sono l'oro, non il colore dei capelli)
+        'crest_gold' => [
+            'front' => px_m(0, -7, [
+                '......oo',
+                '.....ogg',
+                '.....ogG',
+                '.....ogg',
+                '.....ohg',
+                '.....ohh',
+                '.....ohh',
+                '....oohh',
+                '......hh',
+                '......hh',
+            ]),
+            'side' => px_l(0, -6, [
+                '......oooo......',
+                '....oogggGoo....',
+                '...ohhggggghoo..',
+                '..ohhHhhhhhhhho.',
+                '..ohhhhhhhhhhho.',
+                '...ohhhhhhhhh...',
+            ]),
+        ],
         // coda alta: come 'long', con una fascia (colore 'y', quello del copricapo anche a mani vuote) a legarla
         'ponytail' => [
             'front' => px_m(-1, -2, [
@@ -495,7 +546,7 @@ function px_hair(): array
 function px_hair_under_hat(string $style): string
 {
     return in_array($style, ['bald', 'buzz', 'long', 'mullet', 'braids', 'fade', 'classic', 'side', 'ponytail'], true)
-        ? $style : ($style === 'mohawk' ? 'buzz' : 'classic');
+        ? $style : (in_array($style, ['mohawk', 'crest_punk', 'crest_gold'], true) ? 'buzz' : 'classic');
 }
 
 /** Barbe (chiavi 'beard' di shop_items: none, stubble, moustache, goatee, captain, full). "1" è la barba di tre giorni. */
@@ -720,7 +771,38 @@ function px_fx(): array
         'phone' => [2, 12, ['oooo', 'oeeo', 'o3eo', 'oeeo', 'oooo']],
         'flag' => [-7, 26, ['oooooo', 'orrrrlo', 'orrrrlo', 'orrrro.', 'ooooo..', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.',
             'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'o.', 'oo']],
-        // effetti delle varianti (px_celebration_mods): fuochi d'artificio, stelle, fulmini, gettoni, cuori
+        // premi del Fanta: la coppa alzata sopra la testa (esultanza «Alza la coppa»)
+        'cup' => [9, -12, [
+            '..oooooooooooo..',
+            '.oggggggggggggGo',
+            'oooggglgggggGooo',
+            'ogoggglggggggoGo',
+            'ogoogglgggggGoGo',
+            '.ooogggggggGooo.',
+            '...oogggggGGo...',
+            '.....ogggGo.....',
+            '......oggo......',
+            '......oGGo......',
+            '....ooggggoo....',
+            '....obbbbbbo....',
+            '....oooooooo....',
+        ]],
+        'cup2' => [9, -14, [
+            '..oooooooooooo..',
+            '.oggggggggggggGo',
+            'oooggglgggggGooo',
+            'ogoggglggggggoGo',
+            'ogoogglgggggGoGo',
+            '.ooogggggggGooo.',
+            '...oogggggGGo...',
+            '.....ogggGo.....',
+            '......oggo......',
+            '......oGGo......',
+            '....ooggggoo....',
+            '....obbbbbbo....',
+            '....oooooooo....',
+        ]],
+        // effetti delle varianti (px_celebration_mods): fuochi d'artificio, stelle, fulmini, KOIN, cuori
         'fw1' => [-6, -8, [
             '..........................................',
             '....g..........................r..........',

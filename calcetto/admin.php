@@ -126,7 +126,7 @@ if (is_post()) {
             }
             break;
         case 'gift_coins':
-            // regalo di gettoni a un giocatore delle leghe di casa: una mossa «regalo» nel portafoglio (si vede nel saldo e in classifica)
+            // regalo di KOIN a un giocatore delle leghe di casa: una mossa «regalo» nel portafoglio (si vede nel saldo e in classifica)
             $giftId = (int) ($_POST['gift_player'] ?? 0);
             $giftAmount = (int) ($_POST['amount'] ?? 0);
             $giftPlayer = $giftId ? q("SELECT p.id, p.name FROM players p WHERE p.id = ? AND p.is_guest = 0
@@ -134,12 +134,12 @@ if (is_post()) {
             if (!$giftPlayer) {
                 flash('err', 'Scegli un giocatore.');
             } elseif ($giftAmount < 1 || $giftAmount > 1000) {
-                flash('err', 'Il regalo va da 1 a 1000 gettoni.');
+                flash('err', 'Il regalo va da 1 a 1000 KOIN.');
             } else {
                 q("INSERT INTO wallet_moves (player_id, delta, kind) VALUES (?, ?, 'regalo')", [$giftPlayer['id'], $giftAmount]);
                 log_activity('gettoni', 'regalo · ' . $giftAmount . ' a ' . $giftPlayer['name']);
                 coin_gift_notify((int) $giftPlayer['id'], $giftAmount);
-                flash('ok', 'Regalati ' . $giftAmount . ' gettoni a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id']) . '.');
+                flash('ok', 'Regalati ' . $giftAmount . ' KOIN a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id']) . '.');
             }
             break;
         case 'mail_test':
@@ -225,7 +225,7 @@ if (is_post()) {
             }
             break;
         case 'guess_reward':
-            // regalo di gettoni a chi si è avvicinato di più: una volta sola per round e per giocatore (INSERT IGNORE con ref dedicato)
+            // regalo di KOIN a chi si è avvicinato di più: una volta sola per round e per giocatore (INSERT IGNORE con ref dedicato)
             $gPid = (int) ($_POST['guess_player'] ?? 0);
             $gAmount = (int) ($_POST['guess_amount'] ?? 0);
             $gRound = (int) ($_POST['guess_round'] ?? 0);
@@ -233,7 +233,7 @@ if (is_post()) {
             if (!$gPlayer || $gRound < 1) {
                 flash('err', 'Giocatore non valido.');
             } elseif ($gAmount < 1 || $gAmount > 1000) {
-                flash('err', 'Il premio va da 1 a 1000 gettoni.');
+                flash('err', 'Il premio va da 1 a 1000 KOIN.');
             } else {
                 $ref = 'guess-' . $gRound . '-' . $gPid;
                 $ins = db()->prepare("INSERT IGNORE INTO wallet_moves (player_id, delta, kind, ref) VALUES (?, ?, 'premio', ?)");
@@ -241,7 +241,7 @@ if (is_post()) {
                 if ($ins->rowCount()) {
                     log_activity('gettoni', 'premio indovina · ' . $gAmount . ' a ' . $gPlayer['name']);
                     coin_gift_notify($gPid, $gAmount, 'per la tua idea su «Indovina la funzionalità»');
-                    flash('ok', 'Premiato ' . $gPlayer['name'] . ' con ' . $gAmount . ' gettoni per il round ' . $gRound . '.');
+                    flash('ok', 'Premiato ' . $gPlayer['name'] . ' con ' . $gAmount . ' KOIN per il round ' . $gRound . '.');
                 } else {
                     flash('err', $gPlayer['name'] . ' ha già ricevuto un premio per questo round.');
                 }
@@ -517,16 +517,16 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
                   FROM players p JOIN player_groups pg ON pg.player_id = p.id
                   WHERE p.is_guest = 0 AND pg.group_id IN ($homeIn) ORDER BY p.name")->fetchAll();
 ?>
-<section class="card" id="gettoni">
-  <h2><i class="ti ti-coin"></i> Regala gettoni</h2>
-  <p class="muted small">Aggiunge gettoni al portafoglio di un giocatore (da 1 a 1000 per volta): si vedono subito nel suo saldo, in classifica e nel Negozio.</p>
+<section class="card" id="koin">
+  <h2><i class="ti ti-coin"></i> Regala KOIN</h2>
+  <p class="muted small">Aggiunge KOIN al portafoglio di un giocatore (da 1 a 1000 per volta): si vedono subito nel suo saldo, in classifica e nel Negozio.</p>
   <form method="post" class="form form-grid form-grid-4">
     <?= csrf_field() ?><input type="hidden" name="do" value="gift_coins">
     <label class="field"><span>Giocatore</span><select name="gift_player" required>
       <option value="">— scegli —</option>
-      <?php foreach ($giftPlayers as $gp): ?><option value="<?= (int) $gp['id'] ?>"><?= h($gp['name']) ?> (<?= (int) $gp['bal'] ?> gettoni)</option><?php endforeach; ?></select></label>
-    <label class="field"><span>Gettoni</span><input type="number" name="amount" min="1" max="1000" value="50" required inputmode="numeric"></label>
-    <div><button class="btn btn-primary" data-confirm="Regalare questi gettoni?"><i class="ti ti-gift"></i> Regala</button></div>
+      <?php foreach ($giftPlayers as $gp): ?><option value="<?= (int) $gp['id'] ?>"><?= h($gp['name']) ?> (<?= (int) $gp['bal'] ?> KOIN)</option><?php endforeach; ?></select></label>
+    <label class="field"><span>KOIN</span><input type="number" name="amount" min="1" max="1000" value="50" required inputmode="numeric"></label>
+    <div><button class="btn btn-primary" data-confirm="Regalare questi KOIN?"><i class="ti ti-gift"></i> Regala</button></div>
   </form>
 </section>
 
@@ -534,7 +534,7 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
 <section class="card" id="indovina">
   <h2><i class="ti ti-help-circle"></i> Indovina la funzionalità</h2>
   <p class="muted small">La card del countdown in Home (e la pagina segreta <a class="link" href="guess.php">guess.php</a>, non nel menu) invita i giocatori a indovinare la
-    prossima novità del sito. Qui vedi le idee del round attuale e regali gettoni a chi si è avvicinato di più; poi apri un nuovo round per quella successiva.</p>
+    prossima novità del sito. Qui vedi le idee del round attuale e regali KOIN a chi si è avvicinato di più; poi apri un nuovo round per quella successiva.</p>
   <p class="small"><i class="ti ti-user-star"></i> <?= avatar_public()
       ? 'Il Personaggio è aperto a tutti (dal round ' . avatar_launch_round() . '). Gli oggetti tenuti da parte li fai uscire da <a class="link" href="drops.php">Uscite</a> (pacchetti «Lancio: ...»).'
       : 'Il Personaggio si apre a tutti da solo allo scadere di questo countdown, con solo una parte degli oggetti: gli altri restano «Coming soon» finché non li fai uscire da <a class="link" href="drops.php">Uscite</a>.' ?></p>
@@ -568,7 +568,7 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
           <form method="post" class="inline guess-reward"><?= csrf_field() ?><input type="hidden" name="do" value="guess_reward">
             <input type="hidden" name="guess_player" value="<?= (int) $g['player_id'] ?>"><input type="hidden" name="guess_round" value="<?= guess_round() ?>">
             <input type="number" class="mini-input" name="guess_amount" min="1" max="1000" value="50">
-            <button class="btn btn-ghost btn-sm" data-confirm="Regalare questi gettoni a <?= h($g['name']) ?> per l'idea di questo round?"><i class="ti ti-coin"></i> Premia</button>
+            <button class="btn btn-ghost btn-sm" data-confirm="Regalare questi KOIN a <?= h($g['name']) ?> per l'idea di questo round?"><i class="ti ti-coin"></i> Premia</button>
           </form>
         </td>
       </tr>

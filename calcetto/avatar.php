@@ -1,6 +1,6 @@
 <?php
 /*
- * Personaggio: il giocatore a figura intera (disegno in lib/avatar.php) e il suo negozio, a gettoni come il Negozio del profilo
+ * Personaggio: il giocatore a figura intera (disegno in lib/avatar.php) e il suo negozio, a KOIN come il Negozio del profilo
  * (lib/shop.php). Capelli, barba, occhiali, maglie, pantaloncini, scarpette, pet, pose ed esultanze; carnagione e colori naturali dei
  * capelli sono gratis per tutti. I copricapi sono quelli del Negozio: comprati o indossati qui o là, si vedono in tutti e due i posti.
  *
@@ -105,7 +105,8 @@ $itemsOf = function (string $kind) use ($catalog, $me, $owned, $admin): array {
     $items = $kind === 'hat' ? ['' => ['name' => 'Nessun copricapo', 'price' => 0, 'out' => false]] : [];
     foreach ($catalog[$kind] as $k => $item) {
         $out = !shop_released((string) $k, $item);
-        if ((!isset($item['owner_player_id']) || $item['owner_player_id'] === $me) && (!$out || $admin || isset($owned[$k]))) {
+        if ((!isset($item['owner_player_id']) || $item['owner_player_id'] === $me) && (!$out || $admin || isset($owned[$k]))
+            && (!isset($item['fanta']) || isset($owned[$k]))) {   // i premi del Fanta si vedono solo da chi li ha vinti
             $items[$k] = $item + ['out' => $out];
         }
     }
@@ -192,7 +193,7 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
             . '<button class="btn ' . $cls . ' btn-block"' . ($disabled ? ' disabled' : '') . '>' . $label . '</button></form>';
     };
     [$price, $why] = $key !== '' ? $priceOf($key, $item) : [0, null];
-    $wishBtn = $key !== '' && ($item['price'] ?? 0) > 0
+    $wishBtn = $key !== '' && ($item['price'] ?? 0) > 0 && !isset($item['fanta'])
         ? '<form method="post" class="av-wish">' . csrf_field() . '<input type="hidden" name="do" value="wish"><input type="hidden" name="kind" value="' . h($cat) . '">'
             . '<input type="hidden" name="key" value="' . h($key) . '"><input type="hidden" name="v" value="' . h($view) . '"><input type="hidden" name="p" value="' . $page . '">'
             . '<button class="wish' . (isset($wish[$key]) ? ' is-on' : '') . '" data-wish aria-pressed="' . (isset($wish[$key]) ? 'true' : 'false') . '" title="'
@@ -205,13 +206,13 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
     } elseif ($state === 'buy') {
         $short = $balance < (int) $price;
         $out = !empty($item['out']);
-        $act = '<p class="av-price"><i class="ti ti-coin"></i> ' . (int) $price . ' <span>gettoni</span>'
+        $act = '<p class="av-price"><i class="ti ti-coin"></i> ' . (int) $price . ' <span>KOIN</span>'
             . ($price !== $item['price'] ? ' <span class="price-move ' . ($price > $item['price'] ? 'is-up' : 'is-down') . '"><i class="ti ti-trending-'
                 . ($price > $item['price'] ? 'up' : 'down') . '"></i> base ' . (int) $item['price'] . '</span>' : '') . '</p>'
             . ($why ? '<p class="small av-why">' . h(shop_price_note($why)) . '</p>' : '')
             . ($out ? '<p class="av-state"><i class="ti ti-eye-off"></i> Non ancora uscito: lo fai uscire da <a class="link" href="drops.php">Uscite</a>.</p>'
                 : $form('buy', '<i class="ti ti-shopping-bag"></i> Compra e ' . ($cat === 'celebration' || $cat === 'pose' ? 'usa' : 'indossa'), 'btn-primary', $short)
-                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' gettoni: <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
+                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' KOIN: <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
     } else {
         $act = '<p class="av-state"><i class="ti ti-' . ($state === 'free' ? 'gift' : 'hanger') . '"></i> ' . ($state === 'free' ? 'Incluso per tutti' : 'Nel tuo guardaroba') . '</p>'
             . $form('wear', $word[0], 'btn-primary');
@@ -289,7 +290,7 @@ layout_start('Personaggio', 'avatar');
       <a href="<?= h($url(['v' => 'mine', 'p' => ''])) ?>" class="<?= $view === 'mine' ? 'active' : '' ?>"><i class="ti ti-hanger"></i> Guardaroba <span class="count"><?= $totMine ?></span></a>
       <a href="<?= h($url(['v' => 'wish', 'p' => ''])) ?>" class="<?= $view === 'wish' ? 'active' : '' ?>"><i class="ti ti-heart"></i> Obiettivi <span class="count"><?= count($wish) ?></span></a>
       <?php if ($admin): ?><a href="drops.php" class="av-drops"><i class="ti ti-rocket"></i> Uscite</a><?php endif; ?>
-      <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> gettoni</span>
+      <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> KOIN</span>
     </nav>
 
     <nav class="av-cats" aria-label="Categorie">

@@ -1,5 +1,5 @@
 <?php
-/* Scommesse goliardiche sulle partite (gettoni finti): vedi lib/bets.php per le regole. */
+/* Scommesse goliardiche sulle partite (KOIN finti): vedi lib/bets.php per le regole. */
 require __DIR__ . '/lib/bootstrap.php';
 require_view();
 
@@ -61,7 +61,7 @@ if (is_post()) {
                     $ok++;
                     $total += $stake;
                     $label = bet_pick_label($m, (string) $market, (string) $pick);
-                    log_activity('puntata', $label . ' · ' . $stake . ' gettoni', (int) $m['group_id']);
+                    log_activity('puntata', $label . ' · ' . $stake . ' KOIN', (int) $m['group_id']);
                     $placed = (float) q("SELECT odds FROM bets WHERE match_id = ? AND player_id = ? AND market = ? AND pick = ? AND status = 'aperta'",
                         [$m['id'], $me, $market, $pick])->fetchColumn();
                     $seen = (float) ($seenRaw[$i] ?? 0);
@@ -71,7 +71,7 @@ if (is_post()) {
                 }
             }
             if ($ok) {
-                flash('ok', $ok . ($ok > 1 ? ' puntate singole piazzate' : ' puntata singola piazzata') . " ({$total} gettoni in tutto)."
+                flash('ok', $ok . ($ok > 1 ? ' puntate singole piazzate' : ' puntata singola piazzata') . " ({$total} KOIN in tutto)."
                     . ($moved ? ' Nel frattempo la quota era cambiata: ' . implode(', ', $moved) . '.' : '')
                     . ($firstErr ? ' Una non è andata a buon fine: ' . $firstErr : ''));
             } else {
@@ -99,8 +99,8 @@ if (is_post()) {
                 if ($seen > 0 && abs($seen - $odds) >= 0.01) {
                     flash('ok', 'Nel frattempo la quota della multipla era cambiata: ×' . fmt_num($seen, 2) . ' → ×' . fmt_num($odds, 2) . '.');
                 }
-                log_activity('multipla', count($legs) . ' scelte · ' . $stake . ' gettoni a ×' . fmt_num($odds, 2), (int) get_match((int) $legs[0]['match_id'])['group_id']);
-                flash('ok', 'Multipla da ' . count($legs) . ' su ' . $stake . ' gettoni a ×' . fmt_num($odds, 2)
+                log_activity('multipla', count($legs) . ' scelte · ' . $stake . ' KOIN a ×' . fmt_num($odds, 2), (int) get_match((int) $legs[0]['match_id'])['group_id']);
+                flash('ok', 'Multipla da ' . count($legs) . ' su ' . $stake . ' KOIN a ×' . fmt_num($odds, 2)
                     . ': se le indovini tutte vinci ' . bet_payout($stake, $odds) . '. Chi non risica...');
             }
         }
@@ -111,7 +111,7 @@ if (is_post()) {
         if (!$err) {
             log_activity('puntata_ritirata', 'multipla');
         }
-        flash($err ? 'err' : 'ok', $err ?: 'Multipla ritirata: i gettoni sono tornati nel portafoglio. Vigliacco.');
+        flash($err ? 'err' : 'ok', $err ?: 'Multipla ritirata: i KOIN sono tornati nel portafoglio. Vigliacco.');
         redirect('bets.php?t=mie');
     }
 
@@ -132,16 +132,16 @@ if (is_post()) {
             flash('err', $err);
         } else {
             $label = bet_pick_label($match, $market, (string) $_POST['pick']);
-            log_activity('puntata', $label . ' · ' . $stake . ' gettoni', (int) $match['group_id']);
+            log_activity('puntata', $label . ' · ' . $stake . ' KOIN', (int) $match['group_id']);
             $jokes = ['Che Dio ti assista.', 'Coraggio, o incoscienza.', 'Gli amici ti guardano.', 'Si vedrà chi ride a fine partita.', 'Il banco ringrazia.'];
-            flash('ok', "Puntati {$stake} gettoni su «{$label}». " . $jokes[array_rand($jokes)]);
+            flash('ok', "Puntati {$stake} KOIN su «{$label}». " . $jokes[array_rand($jokes)]);
         }
     } elseif ($do === 'cancel') {
         $err = bet_cancel($match, $me, $market, (string) ($_POST['pick'] ?? ''));
         if (!$err) {
             log_activity('puntata_ritirata', bet_pick_label($match, $market, (string) ($_POST['pick'] ?? '')), (int) $match['group_id']);
         }
-        flash($err ? 'err' : 'ok', $err ?: 'Puntata ritirata: i gettoni sono tornati nel portafoglio. Vigliacco.');
+        flash($err ? 'err' : 'ok', $err ?: 'Puntata ritirata: i KOIN sono tornati nel portafoglio. Vigliacco.');
     }
     redirect($back);
 }
@@ -224,7 +224,7 @@ function combo_sheet(array $c, array $markets, bool $open): string
 
 layout_start('Scommesse', 'bets');
 ?>
-<div class="page-head"><h1>Scommesse <span class="muted small">a gettoni finti</span></h1></div>
+<div class="page-head"><h1>Scommesse <span class="muted small">a KOIN finti</span></h1></div>
 <?= group_bar('bets.php') ?>
 
 <section class="card wallet">
@@ -235,12 +235,12 @@ layout_start('Scommesse', 'bets');
   <?php else: ?>
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
-  <p class="muted small wallet-rules">Si scommette solo con gettoni finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i gettoni). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni gettone già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
+  <p class="muted small wallet-rules">Si scommette solo con KOIN finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i KOIN). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni KOIN già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
-    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> gettoni e ogni assist <?= BET_REWARD_ASSIST ?>, appena viene salvato il risultato. Su te stesso (chi segna, doppietta, tripletta, autogol, MVP) non si scommette.
-    I tuoi gettoni si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> gettoni a settimana.</p>
+    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN e ogni assist <?= BET_REWARD_ASSIST ?>, appena viene salvato il risultato. Su te stesso (chi segna, doppietta, tripletta, autogol, MVP) non si scommette.
+    I tuoi KOIN si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> KOIN a settimana.</p>
 </section>
 
 <nav class="shop-tabs">
@@ -347,7 +347,7 @@ layout_start('Scommesse', 'bets');
 <?php elseif (!$openSingles && !$comboOpen && !$history && !$comboHist): ?>
 <p class="empty card">Non hai ancora fatto nessuna scommessa: vai su <a class="link" href="bets.php">Partite</a> e tocca una quota.</p>
 <?php else: ?>
-<p class="muted small">Tutte le tue scommesse, singole e multiple: in gioco <b><?= $inPlay ?></b> gettoni · saldo delle scommesse decise <b><?= fmt_signed($net + $comboNet, 0) ?></b>
+<p class="muted small">Tutte le tue scommesse, singole e multiple: in gioco <b><?= $inPlay ?></b> KOIN · saldo delle scommesse decise <b><?= fmt_signed($net + $comboNet, 0) ?></b>
   · premi per gol e assist <b>+<?= player_rewards_total($me) ?></b> (<?= BET_REWARD_GOAL ?> a gol, <?= BET_REWARD_ASSIST ?> ad assist).</p>
 
 <h2 class="section-title">Singole in corso</h2>
@@ -406,7 +406,7 @@ layout_start('Scommesse', 'bets');
 <h2 class="section-title">Classifica dei ricchi</h2>
 <?php if (!$board): ?><p class="empty card">Nessuno ha ancora aperto il portafoglio.</p><?php else: ?>
 <div class="card table-card"><div class="table-wrap"><table class="table">
-  <thead><tr><th>#</th><th>Giocatore</th><th class="bet-col-title">Titolo</th><th>Gettoni</th><th title="Puntate (singole e multiple) vinte su decise">Vinte</th></tr></thead><tbody>
+  <thead><tr><th>#</th><th>Giocatore</th><th class="bet-col-title">Titolo</th><th>KOIN</th><th title="Puntate (singole e multiple) vinte su decise">Vinte</th></tr></thead><tbody>
   <?php foreach ($board as $i => $r): $tot = (int) $r['balance'] + (int) $r['in_play']; ?>
     <tr<?= (int) $r['id'] === $me ? ' class="row-mvp"' : '' ?>>
       <td class="rank rank-<?= $i + 1 ?>"><span><?= $i + 1 ?></span></td>
@@ -441,7 +441,7 @@ layout_start('Scommesse', 'bets');
     <?= csrf_field() ?><input type="hidden" name="do" value="combo_bet">
     <div id="slip-multi-legs"></div>
     <span class="betslip-odds small">Quota multipla <b id="slip-multi-odds">×0</b></span>
-    <label class="betslip-stake small">Importo <input type="number" name="stake" id="slip-multi-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="Gettoni sulla multipla"></label>
+    <label class="betslip-stake small">Importo <input type="number" name="stake" id="slip-multi-stake" min="1" max="<?= max(1, $balance) ?>" value="<?= min(10, max(1, $balance)) ?>" inputmode="numeric" aria-label="KOIN sulla multipla"></label>
     <span class="betslip-total small" id="slip-multi-win"></span>
     <button type="submit" class="btn btn-primary btn-sm" id="slip-multi-submit">Punta la multipla</button>
     <button type="button" class="btn btn-ghost btn-sm" id="slip-clear-2">Svuota schedina</button>

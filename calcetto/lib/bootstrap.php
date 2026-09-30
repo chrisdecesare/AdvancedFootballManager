@@ -79,6 +79,7 @@ require __DIR__ . '/live.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';
 require __DIR__ . '/guess.php';
+require __DIR__ . '/fanta.php';
 
 if (!defined('NO_CSRF')) {   // push.php la salta solo per il rinnovo dell'abbonamento, che non ha una sessione (vedi push.php)
     verify_csrf();
@@ -93,6 +94,7 @@ if (tables_exist()) {
     touch_last_seen();     // ultima volta che l'account ha usato il sito (per platform.php)
     close_due_votings();   // votazioni arrivate all'orario di fine: si chiudono da sole
     bets_settle_pending();  // scommesse rimaste da pagare (di solito nessuna)
+    fanta_snapshot_due();   // Fanta: formazioni «fotografate» al calcio d'inizio (lib/fanta.php)
     // a risposta già inviata: prima si spediscono le notifiche in coda (e si riprovano quelle non riuscite),
     // poi, per chi è collegato, parte l'eventuale promemoria "non hai ancora risposto"
     push_defer('push_queue_kick');

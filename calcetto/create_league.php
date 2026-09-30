@@ -120,7 +120,7 @@ layout_start('Crea la tua lega');
   <div class="card login-card">
     <div class="login-ball"><i class="ti ti-trophy"></i></div>
     <h1>Crea la tua lega</h1>
-    <p class="muted">Organizza il tuo calcetto: presenze, squadre bilanciate in automatico, voti e MVP, classifica, pagamenti delle quote e scommesse a gettoni finti.
+    <p class="muted">Organizza il tuo calcetto: presenze, squadre bilanciate in automatico, voti e MVP, classifica, pagamenti delle quote e scommesse a KOIN finti.
       La lega è tua: inviti i giocatori con un link, approvi chi entra e scegli chi ti aiuta a gestirla. Gli altri utenti del sito non la vedono.</p>
     <?php foreach ($errors as $e): ?><div class="flash flash-err"><?= h($e) ?></div><?php endforeach; ?>
     <form method="post" class="form">

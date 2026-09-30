@@ -88,7 +88,7 @@
       stakeIn.type = 'number'; stakeIn.name = 'stakes[]'; stakeIn.className = 'slip-leg-stake';
       stakeIn.min = 1; stakeIn.max = Math.max(1, balance); stakeIn.inputMode = 'numeric';
       stakeIn.value = leg.stake || Math.min(10, Math.max(1, balance));
-      stakeIn.setAttribute('aria-label', 'Gettoni su questa selezione');
+      stakeIn.setAttribute('aria-label', 'KOIN su questa selezione');
       stakeIn.setAttribute('form', 'slip-singles-form');
       row.appendChild(legIn);
       row.appendChild(stakeIn);

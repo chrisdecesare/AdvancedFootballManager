@@ -8,6 +8,7 @@ function layout_start(string $title, string $active = ''): void
         'players' => ['players.php', 'Rosa', 'shirt'],
         'standings' => ['standings.php', 'Classifica', 'trophy'],
         'bets' => ['bets.php', 'Scommesse', 'coin'],
+        'fanta' => ['fanta.php', 'Fanta', 'cards'],
         'shop' => ['shop.php', 'Negozio', 'shopping-bag'],
         'curiosities' => ['curiosities.php', 'Curiosità', 'bulb'],
     ];
@@ -43,8 +44,8 @@ function layout_start(string $title, string $active = ''): void
     }
     // pulsante con la campanella: attiva/disattiva le notifiche (o porta alla scheda che le spiega)
     $notifHref = ($u && !$guest && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
-    // gettoni delle scommesse: sempre visibili accanto al profilo, non solo nella pagina Scommesse
-    $myId = $guest ? null : my_player_id();   // un ospite non ha gettoni
+    // KOIN delle scommesse: sempre visibili accanto al profilo, non solo nella pagina Scommesse
+    $myId = $guest ? null : my_player_id();   // un ospite non ha KOIN
     if ($u && $myId) {
         $dole = wallet_open($myId);
         if ($dole) {
@@ -113,7 +114,7 @@ function layout_start(string $title, string $active = ''): void
           <span><?= h($u['player_name'] ?: $u['username']) ?></span>
           <?php if ($u['role'] !== 'player'): ?><span class="tag tag-admin"><?= h(strtolower(role_label($u['role']))) ?></span><?php endif; ?>
         </a>
-        <?php if ($coins !== null): ?><a href="shop.php" class="coin-pill" title="I tuoi gettoni: si spendono nel Negozio"><i class="ti ti-coin"></i> <?= $coins ?></a><?php endif; ?>
+        <?php if ($coins !== null): ?><a href="shop.php" class="coin-pill" title="I tuoi KOIN: si spendono nel Negozio"><i class="ti ti-coin"></i> <?= $coins ?></a><?php endif; ?>
         <?php if (!empty($pending)): ?><a href="admin.php" class="nav-badge pending-dot" title="Iscrizioni da approvare" aria-label="<?= (int) $pending ?> iscrizioni da approvare"><?= (int) $pending ?></a>
         <?php elseif ($pendingLeague): ?><a href="league.php" class="nav-badge pending-dot" title="Richieste da approvare nella tua lega" aria-label="<?= (int) $pendingLeague ?> richieste da approvare"><?= (int) $pendingLeague ?></a><?php endif; ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="btn btn-ghost btn-sm" data-push-bell title="Notifiche" aria-label="Notifiche"><i class="ti ti-bell"></i></a><?php endif; ?>
@@ -137,14 +138,14 @@ function layout_start(string $title, string $active = ''): void
   <div class="flash flash-warn"><i class="ti ti-shield-lock"></i> <?= is_admin() ? 'Il tuo account gestisce tutto il sito' : 'Il tuo account gestisce una lega' ?>: proteggilo con la
     <a class="link" href="account.php#due-passaggi">verifica in due passaggi</a> (un codice dal telefono oltre alla password). Ci vuole un minuto.</div>
 <?php endif; ?>
-<?php if ($myId && ($gift = coin_gifts_unseen($myId))):   // regalo di gettoni dall'admin: sovraimpressione col gettone, una volta sola
+<?php if ($myId && ($gift = coin_gifts_unseen($myId))):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta sola
     [$giftTot, $giftN, $giftLast, $giftGuess] = $gift;
     coin_gifts_seen($myId, $giftLast); ?>
 <div class="vote-done coin-gift" data-vote-done role="status" aria-live="polite">
   <div class="vote-done-card">
     <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>
-    <div class="vote-done-title">+<?= $giftTot ?> gettoni!</div>
-    <div class="vote-done-sub">L'admin ti ha regalato <?= $giftTot ?> gettoni<?= $giftGuess && $giftN === 1 ? ' per la tua idea su «Indovina la funzionalità»' : '' ?>.</div>
+    <div class="vote-done-title">+<?= $giftTot ?> KOIN!</div>
+    <div class="vote-done-sub">L'admin ti ha regalato <?= $giftTot ?> KOIN<?= $giftGuess && $giftN === 1 ? ' per la tua idea su «Indovina la funzionalità»' : '' ?>.</div>
   </div>
 </div>
 <?php endif; ?>
