@@ -778,23 +778,25 @@ function push_run_bets(?int $onlyMatch = null): int
 }
 
 /**
- * Partita in programma eliminata. Va chiamata PRIMA di cancellarla: i destinatari si calcolano subito (dopo la
- * cancellazione l'elenco dei giocatori non esiste più), l'invio parte a pagina già inviata.
+ * Partita annullata: eliminata (solo se era ancora in programma) oppure chiusa come «annullata» ($reason non null, anche se già giocata).
+ * Va chiamata PRIMA di cambiarla o cancellarla: i destinatari si calcolano subito, l'invio parte a pagina già inviata.
  */
-function push_notify_match_cancelled(array $match, ?int $exceptUser = null): void
+function push_notify_match_cancelled(array $match, ?int $exceptUser = null, ?string $reason = null): void
 {
-    if ($match['status'] !== 'programmata') {
+    $kept = $reason !== null;   // annullata ma salvata: la pagina della partita resta
+    if (!$kept && $match['status'] !== 'programmata') {
         return;
     }
     $users = push_match_recipients((int) $match['id'], "mp.availability <> 'assente'", $exceptUser);
     if (!$users) {
         return;
     }
-    push_defer(function () use ($users, $match) {
+    push_defer(function () use ($users, $match, $kept, $reason) {
         push_notify_users($users, [
             'title' => 'Partita annullata',
-            'body' => 'La partita di ' . push_when($match['match_date']) . ($match['location'] !== '' ? ' · ' . $match['location'] : '') . ' è stata annullata.',
-            'url' => 'matches.php', 'tag' => 'match-' . $match['id'],
+            'body' => 'La partita di ' . push_when($match['match_date']) . ($match['location'] !== '' ? ' · ' . $match['location'] : '') . ' è stata annullata'
+                . ($reason ? ': ' . mb_substr($reason, 0, 120) : '') . '.' . ($kept ? ' Le scommesse sono rimborsate e non conta per classifiche e statistiche.' : ''),
+            'url' => $kept ? 'match.php?id=' . (int) $match['id'] : 'matches.php', 'tag' => 'match-' . $match['id'],
         ], 'high', 'partita annullata');
     });
 }

@@ -57,10 +57,20 @@ if (is_post()) {
         redirect($self);
     }
     $actor = (int) current_user()['id'];
+    // partita annullata: i dati restano come sono; si può solo riaprirla, eliminarla o segnare i pagamenti
+    if ($match['status'] === 'annullata' && !in_array($do, ['reopen', 'delete', 'toggle_paid'], true)) {
+        flash('err', 'La partita è annullata: per cambiarla riportala prima a "programmata".');
+        redirect($self);
+    }
     if ($canAdmin || !in_array($do, ['toggle_paid', 'add_guest', 'remove_guest', 'delete'], true)) {   // quelle rifiutate sotto non contano
         log_activity('partita', $do . ' · ' . fmt_date_short($match['match_date']), $gid);
     }
     switch ($do) {
+        case 'cancel':
+            match_cancel($match, is_string($_POST['reason'] ?? null) ? $_POST['reason'] : '', !empty($_POST['no_fee']), $actor);   // lib/stats.php
+            flash('ok', 'Partita annullata: non conta per classifiche, statistiche, voti e Fanta, e le scommesse sono state rimborsate. Presenze, squadre e gol restano salvati.');
+            break;
+
         case 'edit_info':
             $dt = DateTime::createFromFormat('Y-m-d H:i', ($_POST['date'] ?? '') . ' ' . ($_POST['time'] ?? ''));
             if ($dt) {
@@ -293,8 +303,8 @@ if (is_post()) {
             flash('ok', 'Le votazioni terminano ' . push_when($dt->format('Y-m-d H:i:s')) . '.');
             break;
 
-        case 'reopen':
-            q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL WHERE id = ?", [$id]);
+        case 'reopen':   // da giocata o da annullata
+            q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL, cancel_reason = NULL, cancelled_at = NULL WHERE id = ?", [$id]);
             bets_unsettle($id);   // le scommesse tornano aperte e si ripagano quando la partita viene richiusa
             match_rewards_sync($id);   // e i premi per gol e assist si tolgono (tornano quando il risultato viene salvato di nuovo)
             flash('ok', 'Partita riportata a "programmata".');
@@ -413,6 +423,11 @@ foreach ($roster as $r) {
 }
 $hasTeams = $teams['A'] || $teams['B'];
 $played = $match['status'] === 'giocata';
+$cancelled = $match['status'] === 'annullata';
+$canManageMatch = $canManage;   // per i comandi di una partita annullata (riaprirla, eliminarla)
+if ($cancelled) {
+    $canManage = false;          // annullata: si vede tutto com'era, ma niente si modifica
+}
 $votingOpen = $played && (int) $match['voting_open'];
 $avgs = match_vote_averages()[$id] ?? [];
 $mvpCounts = match_mvp_counts()[$id] ?? [];
@@ -493,7 +508,7 @@ if (!empty($_SESSION['vote_done'])):
 
 <section class="card match-head">
   <div class="match-when">
-    <span class="eyebrow"><?= $played ? 'Partita giocata' : ($liveOn ? '<span class="tag tag-live"><i class="ti ti-broadcast"></i> in corso</span>' : '<i class="ti ti-calendar-event"></i> In programma') ?></span>
+    <span class="eyebrow"><?= $cancelled ? '<span class="tag tag-live"><i class="ti ti-ban"></i> Partita annullata</span>' : ($played ? 'Partita giocata' : ($liveOn ? '<span class="tag tag-live"><i class="ti ti-broadcast"></i> in corso</span>' : '<i class="ti ti-calendar-event"></i> In programma')) ?></span>
     <h1><?= h(ucfirst(fmt_date_long($match['match_date']))) ?></h1>
     <div class="hero-meta">
       <span><i class="ti ti-clock"></i> <?= fmt_time($match['match_date']) ?></span>
@@ -503,10 +518,14 @@ if (!empty($_SESSION['vote_done'])):
       <span><i class="ti ti-hand-stop"></i> <?= h(keepers_label(match_keepers($match))) ?></span>
     </div>
     <?php if ($match['notes']): ?><p class="muted"><?= nl2br(h($match['notes'])) ?></p><?php endif; ?>
-    <?php if (!$played && strtotime($match['match_date']) > time() - 3 * 3600): ?>
+    <?php if ($cancelled): ?>
+      <p class="flash flash-warn"><i class="ti ti-ban"></i> Annullata<?= $match['cancelled_at'] ? ' il ' . fmt_date_short($match['cancelled_at']) : '' ?><?= $match['cancel_reason'] ? ': ' . h($match['cancel_reason']) : '' ?>.
+        Non conta per classifiche, statistiche, voti e Fanta, e le scommesse sono state rimborsate; presenze, squadre e gol restano qui com'erano.</p>
+    <?php endif; ?>
+    <?php if (!$played && !$cancelled && strtotime($match['match_date']) > time() - 3 * 3600): ?>
       <div class="hero-count"><?= countdown_html($match['match_date'], 'Mancano ', 'Si gioca!', 86400, false, 'hourglass-high', 'countdown-big') ?></div>
     <?php endif; ?>
-    <?php if (!$played): ?><div class="match-cal"><?= gcal_button($match) ?></div><?php endif; ?>
+    <?php if (!$played && !$cancelled): ?><div class="match-cal"><?= gcal_button($match) ?></div><?php endif; ?>
   </div>
   <?php if ($played || $match['score_a'] !== null): ?>
     <div class="score">
@@ -653,7 +672,7 @@ if (!empty($_SESSION['vote_done'])):
       </div>
     <?php endforeach; ?>
   </div>
-  <?php if ($canAdmin): $guests = match_guests($id); ?>
+  <?php if ($canAdmin && !$cancelled): $guests = match_guests($id); ?>
   <div class="guest-admin">
     <h3><i class="ti ti-user-plus"></i> Ospiti <span class="count"><?= count($guests) ?></span></h3>
     <?php foreach ($guests as $g): ?>
@@ -978,6 +997,20 @@ if (!empty($_SESSION['vote_done'])):
     <?php if (!$played): ?><p class="muted small span-2">Se cambi il giorno, le risposte «Ci sono / Non ci sono» si azzerano. I giocatori ricevono una notifica per ogni modifica.</p><?php endif; ?>
     <div class="span-2"><button class="btn btn-ghost">Salva modifiche</button></div>
   </form>
+  <details class="collapsible" id="annulla">
+    <summary><strong><i class="ti ti-ban"></i> Partita annullata</strong></summary>
+    <p class="muted small">Per una partita saltata o interrotta (pioggia, campo chiuso, troppi assenti, infortunio...). La partita si chiude e
+      <strong>non conta</strong> per classifiche, statistiche, voti, Fanta e premi in KOIN; le scommesse vengono rimborsate. Presenze, squadre,
+      gol già segnati e pagamenti <strong>restano salvati</strong>, e si può sempre riportarla a "programmata". Chi era in lista riceve una notifica.</p>
+    <form method="post" class="form form-grid">
+      <?= csrf_field() ?><input type="hidden" name="do" value="cancel">
+      <label class="field span-2"><span>Motivo (facoltativo, lo vedono tutti)</span><input name="reason" maxlength="200" placeholder="Es. campo allagato, interrotta per infortunio"></label>
+      <?php if ((float) $match['fee'] > 0): ?>
+        <label class="field check span-2"><input type="checkbox" name="no_fee" value="1"><span>Nessuno paga la quota di <?= fmt_money($match['fee']) ?> (si azzera)</span></label>
+      <?php endif; ?>
+      <div class="span-2"><button class="btn btn-danger" data-confirm="Annullare la partita? Non conterà per classifiche e statistiche e le scommesse verranno rimborsate."><i class="ti ti-ban"></i> Annulla la partita</button></div>
+    </form>
+  </details>
   <div class="btn-row danger-zone">
     <?php if ($played): ?>
       <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="reopen">
@@ -989,6 +1022,20 @@ if (!empty($_SESSION['vote_done'])):
     <?php endif; ?>
   </div>
 </details>
+<?php endif; ?>
+<?php if ($cancelled && $canManageMatch): ?>
+<section class="card">
+  <h2><i class="ti ti-settings"></i> Partita annullata</h2>
+  <p class="muted small">Riportandola a "programmata" si può di nuovo modificare: le scommesse tornano aperte e, quando la chiudi, conta come le altre.</p>
+  <div class="btn-row danger-zone">
+    <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="reopen">
+      <button class="btn btn-ghost" data-confirm="Riportare la partita a 'programmata'? Le scommesse rimborsate tornano aperte.">↩️ Riporta a programmata</button></form>
+    <?php if ($canAdmin): ?>
+    <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="delete">
+      <button class="btn btn-danger" data-confirm="Eliminare definitivamente la partita con presenze, gol e voti?"><i class="ti ti-trash"></i> Elimina partita</button></form>
+    <?php endif; ?>
+  </div>
+</section>
 <?php endif; ?>
 <?php
 layout_end();

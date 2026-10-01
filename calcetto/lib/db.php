@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 40;
+const SCHEMA_VERSION = 41;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -773,6 +773,12 @@ function ensure_schema(): void
         if (q("SHOW KEYS FROM wallet_moves WHERE Key_name = 'uq_ref'")->fetch()) {
             db()->exec('ALTER TABLE wallet_moves DROP INDEX uq_ref');
         }
+    }
+    if ($v < 41) {
+        // «Partita annullata» (match.php): si chiude senza contare (classifiche, statistiche, voti, Fanta, premi) ma i dati restano
+        db()->exec("ALTER TABLE matches MODIFY status ENUM('programmata','giocata','annullata') NOT NULL DEFAULT 'programmata'");
+        $add('matches', 'cancel_reason', 'VARCHAR(200) NULL');
+        $add('matches', 'cancelled_at', 'DATETIME NULL');
     }
     if ($v < 40) {
         // le foto originali degli sfondi caricate finora erano state tenute con i loro metadati (EXIF: anche dove sono state

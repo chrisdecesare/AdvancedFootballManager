@@ -165,6 +165,24 @@ function close_voting_now(int $matchId, ?int $actorUser = null): ?array
     return $late;
 }
 
+/**
+ * «Partita annullata»: chi gestisce la lega chiude la partita senza che conti (classifiche, statistiche, voti e MVP, Fanta, premi
+ * per gol e assist), ma i dati restano: presenze, squadre, gol già segnati, ospiti, pagamenti. Le scommesse si rimborsano.
+ * Con $noFee la quota della partita si azzera (nessuno la deve). Si torna indietro con «Riporta a programmata» (match.php: reopen).
+ */
+function match_cancel(array $match, string $reason, bool $noFee, ?int $actorUser = null): void
+{
+    $id = (int) $match['id'];
+    $reason = trim(mb_substr(preg_replace('/\s+/u', ' ', $reason), 0, 200));
+    push_notify_match_cancelled($match, $actorUser, $reason);   // destinatari calcolati adesso, invio a pagina già spedita
+    bet_atomic(function () use ($id, $reason, $noFee) {
+        q("UPDATE matches SET status = 'annullata', voting_open = 0, voting_ends_at = NULL, cancel_reason = ?, cancelled_at = NOW()"
+            . ($noFee ? ', fee = 0' : '') . ' WHERE id = ?', [$reason !== '' ? $reason : null, $id]);
+        bets_void_match($id);
+        match_rewards_sync($id);   // la partita non conta: niente premi per gol e assist
+    });
+}
+
 /** Chiude le votazioni il cui orario di fine è passato (a ogni richiesta, e da cron.php). */
 function close_due_votings(): void
 {

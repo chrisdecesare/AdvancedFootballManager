@@ -41,6 +41,8 @@ $upcoming = q("SELECT m.*,
                FROM matches m LEFT JOIN match_players mp ON mp.match_id = m.id
                WHERE m.status = 'programmata' AND " . scope_sql('m.group_id') . " GROUP BY m.id ORDER BY m.match_date ASC")->fetchAll();
 $played = played_matches();
+// annullate: chiuse senza contare, i dati restano (match.php: «Partita annullata»)
+$cancelled = q("SELECT * FROM matches WHERE status = 'annullata' AND " . scope_sql('group_id') . ' ORDER BY match_date DESC, id DESC')->fetchAll();
 $me = my_player_id();
 
 layout_start('Partite', 'matches');
@@ -107,5 +109,19 @@ layout_start('Partite', 'matches');
   </a>
 <?php endforeach; ?>
 </div>
+
+<?php if ($cancelled): ?>
+<h2 class="section-title">Annullate <span class="muted small">non contano per classifiche e statistiche</span></h2>
+<div class="list">
+<?php foreach ($cancelled as $m): ?>
+  <a class="card match-row" href="match.php?id=<?= (int) $m['id'] ?>">
+    <div class="mdate"><span class="d"><?= date('j', strtotime($m['match_date'])) ?></span><span class="m"><?= mb_substr(MESI[(int) date('n', strtotime($m['match_date']))], 0, 3) ?></span></div>
+    <div class="minfo"><strong><?= h(ucfirst(fmt_date_long($m['match_date']))) ?> · <?= fmt_time($m['match_date']) ?></strong>
+      <span class="muted"><?= h($m['cancel_reason'] ?: ($m['location'] ?: 'Campo da definire')) ?> <?= group_tag((int) $m['group_id']) ?></span></div>
+    <div class="mside"><span class="tag"><i class="ti ti-ban"></i> annullata</span></div>
+  </a>
+<?php endforeach; ?>
+</div>
+<?php endif; ?>
 <?php
 layout_end();
