@@ -285,7 +285,7 @@ if ($withCards):
         $sc = $pts && $lineup ? fanta_lineup_score($lineup, $pts) : null; ?>
       <details class="card fz-match">
         <summary><span><?= h(fmt_date_long($m['match_date'])) ?> · <?= h(team_name('A', $m)) ?> <?= $m['status'] === 'giocata' ? (int) $m['score_a'] . '–' . (int) $m['score_b'] : 'vs' ?> <?= h(team_name('B', $m)) ?></span>
-          <strong><?= $sc ? fanta_fmt($sc['total']) . ' pt' : ($m['status'] === 'giocata' ? ($lineup ? '0 pt' : 'squadra vuota') : 'in corso') ?></strong>
+          <strong><?= $sc ? fanta_fmt($sc['total']) . ' pt' : ($m['status'] === 'giocata' ? ($lineup ? '0 pt' : 'squadra vuota') : ($m['status'] === 'annullata' ? 'annullata · non conta' : 'in corso')) ?></strong>
           <?php if ($pts && reset($pts)['provisional']): ?><span class="tag">provvisorio: votazioni aperte</span><?php endif; ?></summary>
         <?php if ($sc): ?>
         <table class="table fz-table"><thead><tr><th>Figurina</th><th>Voto</th><th>Bonus</th><th>Punti</th></tr></thead><tbody>

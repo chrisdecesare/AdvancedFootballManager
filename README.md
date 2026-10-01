@@ -444,6 +444,13 @@ Ciclo di una partita (dove si legge «admin» vale anche per il manager, per le 
 squadre bilanciate → a fine partita inserisce il risultato → i giocatori votano → l'admin chiude
 le votazioni e voti/MVP entrano nelle statistiche.
 
+**Partita annullata:** per una partita saltata o interrotta (pioggia, campo chiuso, troppi assenti...) chi la gestisce (admin o manager della lega) apre
+«Gestione partita → Partita annullata», scrive un motivo facoltativo e conferma; può anche azzerare la quota. La partita si chiude con lo stato `annullata`
+e **non conta** per classifiche, statistiche, voti e MVP, Fanta e premi in KOIN per gol e assist; tutte le scommesse sulla partita (anche dentro le multiple)
+vengono rimborsate. I dati **restano salvati** (presenze, squadre, gol già segnati, ospiti, pagamenti) e si vedono nella scheda, in sola lettura; in «Partite»
+compare tra le «Annullate» con il motivo. Chi era in lista riceve la notifica. «Riporta a programmata» la riapre: le scommesse tornano in gioco.
+Codice: `match_cancel()` in `lib/stats.php`, `bets_void_match()` in `lib/bets.php`.
+
 **Diretta (cronaca della partita):** dal calcio d'inizio, nella scheda della partita compare la sezione «Diretta» (`lib/live.php`, tabella `match_events`). Chi gioca
 (fino a 4 ore dall'inizio) e chi gestisce le partite segna i **gol** (con l'assist facoltativo, solo tra compagni) e gli **autogol**: ogni gol aggiorna subito il risultato,
 i gol e gli assist della tabella «Risultato e marcatori» e l'intesa «chi ha servito chi», e manda la notifica a chi non gioca. Si segnano anche gli **infortuni**

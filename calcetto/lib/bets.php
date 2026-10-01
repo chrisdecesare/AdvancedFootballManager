@@ -832,6 +832,27 @@ function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'm
     });
 }
 
+/**
+ * Partita annullata: tutte le puntate sulla partita si rimborsano, anche quelle già pagate (prima si annullano i pagamenti).
+ * Nelle multiple la sua selezione diventa «rimborsata» ed esce dal conto, come quando manca il dato. Si può richiamare senza danni;
+ * riportando la partita a "programmata" (bets_unsettle) le puntate tornano aperte.
+ */
+function bets_void_match(int $matchId): void
+{
+    $markets = [...BET_RESULT_MARKETS, 'mvp'];
+    bet_atomic(function () use ($matchId, $markets) {
+        bets_unsettle($matchId, $markets);
+        foreach (q("SELECT * FROM bets WHERE match_id = ? AND status = 'aperta' FOR UPDATE", [$matchId])->fetchAll() as $b) {
+            q("UPDATE bets SET status = 'rimborsata', payout = ?, settled_at = NOW() WHERE id = ?", [(int) $b['stake'], $b['id']]);
+            q("INSERT INTO wallet_moves (player_id, eco, bet_id, delta, kind) VALUES (?, ?, ?, ?, 'rimborso')",
+                [$b['player_id'], (int) $b['eco'], $b['id'], (int) $b['stake']]);
+        }
+    });
+    foreach ($markets as $market) {
+        combo_legs_settle_for_match($matchId, $market, false);
+    }
+}
+
 /** Il risultato è stato salvato o corretto: rifà i pagamenti dei mercati legati a risultato e marcatori, e i premi per gol e assist. */
 function bets_resettle_result(int $matchId): void
 {
