@@ -95,6 +95,7 @@ if ($dole) {
 $mp = get_player($me);
 $look = avatar_look($mp);
 $owned = shop_owned($me) + ['' => true];
+shop_credits_grant($me);
 $balance = shop_spendable($me);   // KOIN + crediti del Personaggio
 $avCredits = shop_credit_balance($me);
 $catalog = shop_catalog();
@@ -189,7 +190,7 @@ $stateOf = function (string $key, array $item) use ($cat, $owned, $wornKey): str
 };
 
 /** Il pannello sotto il personaggio: nome, rarità, descrizione e il pulsante giusto (compra, indossa, già tuo). */
-$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN): string {
+$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $avCredits, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN): string {
     [$rk, $rl] = avatar_rarity($item['price']);
     $desc = $item['desc'] ?? ($cat === 'jersey'
         ? $jerseyKind[$item['kind']] . (($item['pattern'] ?? 'solid') !== 'solid' ? ' · ' . mb_strtolower($patterns[$item['pattern']]) : '') . '.'
@@ -222,7 +223,7 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
             . ($why ? '<p class="small av-why">' . h(shop_price_note($why)) . '</p>' : '')
             . ($out ? '<p class="av-state"><i class="ti ti-eye-off"></i> Non ancora uscito: lo fai uscire da <a class="link" href="drops.php">Uscite</a>.</p>'
                 : $form('buy', '<i class="ti ti-shopping-bag"></i> Compra e ' . ($cat === 'celebration' || $cat === 'pose' ? 'usa' : 'indossa'), 'btn-primary', $short)
-                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' KOIN: <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
+                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' KOIN (hai ' . ($balance - $avCredits) . ' KOIN + ' . $avCredits . ' crediti Personaggio): <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
     } else {
         $act = '<p class="av-state"><i class="ti ti-' . ($state === 'free' ? 'gift' : 'hanger') . '"></i> ' . ($state === 'free' ? 'Incluso per tutti' : 'Nel tuo guardaroba') . '</p>'
             . $form('wear', $word[0], 'btn-primary');

@@ -223,6 +223,16 @@ function shop_credit_balance(int $playerId): int
     return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND shop_only = 1', [$playerId])->fetchColumn();
 }
 
+/** Regalo dei 1000 crediti del Personaggio: una volta sola per giocatore (il ref lo impedisce), anche a chi non l'ha avuto con la migrazione. */
+function shop_credits_grant(int $playerId): void
+{
+    try {
+        q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref, shop_only)
+           SELECT id, 0, 1000, 'negozio', 'gift-shop-1000', 1 FROM players WHERE id = ? AND is_guest = 0", [$playerId]);
+    } catch (Throwable $e) {   // colonna non ancora creata
+    }
+}
+
 /** Quanto si può spendere nel negozio: KOIN dell'economia più crediti del negozio. */
 function shop_spendable(int $playerId, ?int $eco = null): int
 {
