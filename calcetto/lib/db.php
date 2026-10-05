@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 45;
+const SCHEMA_VERSION = 46;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -825,6 +825,16 @@ function ensure_schema(): void
         db()->exec("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref)
                     SELECT player_id, 0, 255, 'rimborso', 'refund-255' FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL
                     ORDER BY id LIMIT 1");
+    }
+    if ($v < 46) {
+        // una tantum: l'admin (primo account admin attivo) arriva a 500 KOIN nelle leghe storiche, con la differenza di quanto ne ha
+        $adm = q("SELECT player_id FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL ORDER BY id LIMIT 1")->fetchColumn();
+        if ($adm) {
+            $have = (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND eco = 0 AND shop_only = 0', [(int) $adm])->fetchColumn();
+            if ($have < 500) {
+                q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, 0, ?, 'regalo', 'topup-500')", [(int) $adm, 500 - $have]);
+            }
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
