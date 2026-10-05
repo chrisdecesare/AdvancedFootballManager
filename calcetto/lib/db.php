@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 42;
+const SCHEMA_VERSION = 43;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -802,6 +802,10 @@ function ensure_schema(): void
         if (count($dav) === 1) {
             q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, 0, 500, 'regalo', 'gift-fanta-500')", [(int) $dav[0]]);
         }
+    }
+    if ($v < 43) {
+        // messaggio «Il primo giro lo offro io» (crediti del Personaggio): 1 quando il giocatore l'ha già visto (lib/guess.php: credits_intro_unseen)
+        $add('players', 'credits_seen', 'TINYINT(1) NOT NULL DEFAULT 0');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

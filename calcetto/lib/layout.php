@@ -153,6 +153,16 @@ function layout_start(string $title, string $active = ''): void
     <div class="vote-done-sub">L'admin ti ha regalato <?= $giftTot ?> KOIN<?= $giftGuess && $giftN === 1 ? ' per la tua idea su «Indovina la funzionalità»' : '' ?>.</div>
   </div>
 </div>
+<?php elseif ($myId && ($credIntro = credits_intro_unseen($myId))):   // «Il primo giro lo offro io»: una volta sola
+    q('UPDATE players SET credits_seen = 1 WHERE id = ?', [$myId]); ?>
+<div class="vote-done coin-gift" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-hanger"></i></span>
+    <div class="vote-done-title">Il primo giro lo offro io!</div>
+    <div class="vote-done-sub">Ti ho regalato <?= $credIntro ?> crediti per personalizzare il tuo Personaggio: capelli, maglie, cappelli e tutto il resto.
+      Valgono solo nella sezione <a class="link" href="avatar.php">Personaggio</a>, non per le scommesse.</div>
+  </div>
+</div>
 <?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
   <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>

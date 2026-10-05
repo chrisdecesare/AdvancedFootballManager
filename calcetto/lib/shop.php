@@ -508,7 +508,7 @@ function shop_news_notify_due(): void
 /* ---------------------------------------------------------------- acquisti */
 
 /** Compra un oggetto con i KOIN di un'economia (null = quella in uso adesso). Ritorna il messaggio d'errore oppure null se è andata. */
-function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null): ?string
+function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bool $useCredits = false): ?string
 {
     $eco ??= current_eco($playerId);
     if (!in_array($eco, player_ecos($playerId), true)) {
@@ -540,7 +540,7 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null): ?
         }
         shop_market(true, $eco);   // il prezzo di adesso, con desideri, possessori e saldi letti ora
         [$price] = shop_price($key, $item, $playerId, $eco);
-        $credits = shop_credit_balance($playerId);
+        $credits = $useCredits ? shop_credit_balance($playerId) : 0;   // i crediti valgono solo dalla pagina del Personaggio
         $left = wallet_balance($playerId, $eco) + $credits;
         if ($left < $price) {
             return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . ($eco ? ' in «' . eco_label($eco) . '»' : '') . '. Vai a scommettere!';

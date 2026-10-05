@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS players (
   position2 VARCHAR(20) NULL,                      -- seconda posizione (facoltativa)
   foot VARCHAR(12) NOT NULL DEFAULT 'Destro',
   gender ENUM('M','F','NB') NOT NULL DEFAULT 'M',
+  credits_seen TINYINT(1) NOT NULL DEFAULT 0,      -- 1 = ha già visto il messaggio dei crediti del Personaggio (lib/guess.php)
   gift_seen_id INT NOT NULL DEFAULT 0,             -- ultimo regalo di gettoni dell'admin già mostrato (wallet_moves.id, vedi lib/guess.php)   -- Maschio, Femmina, Non binario (facoltativo, per l'aspetto del Personaggio)
   base_rating DECIMAL(3,1) NOT NULL DEFAULT 6.0,
   active TINYINT(1) NOT NULL DEFAULT 1,
