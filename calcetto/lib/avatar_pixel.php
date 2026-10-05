@@ -841,9 +841,11 @@ function px_celebrations(): array
                 ['s_win', 1000, -2, 0, 0, '']])],
         'siu' => ['hint' => 6, 'steps' => array_merge($run(-12), [['s_crouch', 110, -3, 0, 0, ''], ['s_stretch', 90, -2, -8, 0, 'd1'],
             ['siu_air', 150, 0, -13, 0, 'd2'], ['siu_air', 110, 0, -6, 0, ''], ['siu', 1100, 0, 0, 0, 'd1']])],
-        'hernanes' => ['hint' => 9, 'steps' => array_merge($run(-14), [['s_crouch', 100, -5, 0, 0, ''], ['s_stretch', 70, -4, -5, 0, 'd1']],
-            $flip('s_tuck', -3, 1, 60), [['s_open', 70, 5, -4, 0, ''], ['s_land', 100, 5, 0, 0, 'd1'], ['s_crouch', 150, 5, 0, 0, 'd2'],
-                ['s_win', 900, 5, 0, 0, '']])],
+        // capriola all'indietro da fermo, come l'ha sempre fatta Hernanes (non in avanti e non di corsa)
+        'hernanes' => ['hint' => 8, 'steps' => array_merge(
+            [['s_stand', 300, 0, 0, 0, ''], ['s_crouch', 190, 0, 0, 0, ''], ['s_stretch', 70, 0, -4, 0, 'd1'], ['s_arch', 70, 0, -13, 0, 'd2']],
+            array_map(fn($s) => [$s[0], $s[1], $s[2] - 1, $s[3] - 4, $s[4], $s[5]], $flip('s_tuck', 0, -1)),
+            [['s_open', 70, -2, -5, 0, ''], ['s_land', 90, -2, 0, 0, 'd1'], ['s_crouch', 160, -2, 0, 0, 'd2'], ['s_win', 1000, -2, 0, 0, '']])],
         // basi aggiunte col catalogo esteso (lib/shop_items_more.php)
         'double-backflip' => ['hint' => 9, 'steps' => array_merge(
             [['s_stand', 350, 0, 0, 0, ''], ['s_swing', 140, 0, 0, 0, ''], ['s_crouch', 240, 0, 0, 0, ''], ['s_stretch', 70, 0, -6, 0, 'd1'],
