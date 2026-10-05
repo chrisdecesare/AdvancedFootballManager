@@ -63,7 +63,7 @@ if (is_post()) {
         $item = $key !== '' ? shop_item($kind, $key) : null;
         if ($do === 'buy' && $item) {
             wallet_open($me);
-            $err = shop_buy($me, $kind, $key) ?? shop_equip($me, $kind, $key);
+            $err = shop_buy($me, $kind, $key, null, true) ?? shop_equip($me, $kind, $key);
             if (!$err) {
                 log_activity('negozio', $kind . ' · ' . $item['name']);
             }
@@ -95,7 +95,8 @@ if ($dole) {
 $mp = get_player($me);
 $look = avatar_look($mp);
 $owned = shop_owned($me) + ['' => true];
-$balance = shop_spendable($me);   // KOIN + crediti del negozio
+$balance = shop_spendable($me);   // KOIN + crediti del Personaggio
+$avCredits = shop_credit_balance($me);
 $catalog = shop_catalog();
 $number = $mp['shirt_number'];
 $wish = shop_wishlist($me);
@@ -313,7 +314,7 @@ layout_start('Personaggio', 'avatar');
       <a href="<?= h($url(['v' => 'mine', 'p' => ''])) ?>" class="<?= $view === 'mine' ? 'active' : '' ?>"><i class="ti ti-hanger"></i> Guardaroba <span class="count"><?= $totMine ?></span></a>
       <a href="<?= h($url(['v' => 'wish', 'p' => ''])) ?>" class="<?= $view === 'wish' ? 'active' : '' ?>"><i class="ti ti-heart"></i> Obiettivi <span class="count"><?= count($wish) ?></span></a>
       <?php if ($admin): ?><a href="drops.php" class="av-drops"><i class="ti ti-rocket"></i> Uscite</a><?php endif; ?>
-      <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> KOIN</span>
+      <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> KOIN<?php if ($avCredits): ?> <small>(di cui <?= $avCredits ?> solo per il Personaggio)</small><?php endif; ?></span>
     </nav>
 
     <nav class="av-cats" aria-label="Categorie">

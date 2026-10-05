@@ -223,6 +223,18 @@ function coin_gifts_unseen(int $playerId): ?array
     return $r && (int) $r['n'] > 0 ? [(int) $r['tot'], (int) $r['n'], (int) $r['last'], (bool) $r['guess']] : null;
 }
 
+/** Ha dei crediti del Personaggio regalati e non ha ancora visto il messaggio «Il primo giro lo offro io»? Ritorna l'importo, altrimenti null. */
+function credits_intro_unseen(int $playerId): ?int
+{
+    try {
+        $amount = q("SELECT w.delta FROM wallet_moves w JOIN players p ON p.id = w.player_id
+                     WHERE w.player_id = ? AND w.ref = 'gift-shop-1000' AND w.shop_only = 1 AND p.credits_seen = 0 LIMIT 1", [$playerId])->fetchColumn();
+    } catch (Throwable $e) {
+        return null;   // colonne non ancora create
+    }
+    return $amount ? (int) $amount : null;
+}
+
 function coin_gifts_seen(int $playerId, int $lastId): void
 {
     q('UPDATE players SET gift_seen_id = GREATEST(gift_seen_id, ?) WHERE id = ?', [$lastId, $playerId]);
