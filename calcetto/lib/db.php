@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 41;
+const SCHEMA_VERSION = 42;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -789,6 +789,18 @@ function ensure_schema(): void
             if ($clean !== null && strlen($clean) < strlen($jpg)) {
                 @file_put_contents($f, $clean, LOCK_EX);
             }
+        }
+    }
+    if ($v < 42) {
+        // crediti del negozio: movimenti che valgono solo per le personalizzazioni (non per le scommesse, vedi lib/bets.php: wallet_balance)
+        $add('wallet_moves', 'shop_only', 'TINYINT(1) NOT NULL DEFAULT 0');
+        // regali una tantum (il ref impedisce di darli due volte): 1000 crediti del negozio a tutti i giocatori e 500 KOIN a Davide,
+        // che aveva indovinato il Fanta in «Indovina la funzionalità» (solo se c'è un unico Davide)
+        db()->exec("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref, shop_only)
+                    SELECT id, 0, 1000, 'negozio', 'gift-shop-1000', 1 FROM players WHERE is_guest = 0");
+        $dav = q("SELECT id FROM players WHERE is_guest = 0 AND name LIKE 'Davide%'")->fetchAll(PDO::FETCH_COLUMN);
+        if (count($dav) === 1) {
+            q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, 0, 500, 'regalo', 'gift-fanta-500')", [(int) $dav[0]]);
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

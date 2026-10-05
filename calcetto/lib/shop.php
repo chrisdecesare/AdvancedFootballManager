@@ -277,14 +277,14 @@ function shop_market(bool $fresh = false, ?int $eco = null): array
         return $cache[$eco];
     }
     $m = ['wish' => [], 'owners' => [], 'balances' => [], 'avg' => 0.0];
-    $inEco = 'EXISTS (SELECT 1 FROM wallet_moves em WHERE em.player_id = t.player_id AND em.eco = ?)';
+    $inEco = 'EXISTS (SELECT 1 FROM wallet_moves em WHERE em.player_id = t.player_id AND em.eco = ? AND em.shop_only = 0)';
     foreach (q("SELECT t.item_key, COUNT(*) n FROM wishlist t WHERE $inEco GROUP BY t.item_key", [$eco])->fetchAll() as $r) {
         $m['wish'][$r['item_key']] = (int) $r['n'];
     }
     foreach (q("SELECT t.item_key, COUNT(*) n FROM player_items t WHERE $inEco GROUP BY t.item_key", [$eco])->fetchAll() as $r) {
         $m['owners'][$r['item_key']] = (int) $r['n'];
     }
-    foreach (q('SELECT player_id, SUM(delta) b FROM wallet_moves WHERE eco = ? GROUP BY player_id', [$eco])->fetchAll() as $r) {
+    foreach (q('SELECT player_id, SUM(delta) b FROM wallet_moves WHERE eco = ? AND shop_only = 0 GROUP BY player_id', [$eco])->fetchAll() as $r) {
         $m['balances'][(int) $r['player_id']] = (int) $r['b'];
     }
     $m['avg'] = $m['balances'] ? array_sum($m['balances']) / count($m['balances']) : 0.0;
@@ -540,12 +540,19 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null): ?
         }
         shop_market(true, $eco);   // il prezzo di adesso, con desideri, possessori e saldi letti ora
         [$price] = shop_price($key, $item, $playerId, $eco);
-        $left = wallet_balance($playerId, $eco);
+        $credits = shop_credit_balance($playerId);
+        $left = wallet_balance($playerId, $eco) + $credits;
         if ($left < $price) {
             return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . ($eco ? ' in «' . eco_label($eco) . '»' : '') . '. Vai a scommettere!';
         }
         q('INSERT INTO player_items (player_id, item_key, price) VALUES (?, ?, ?)', [$playerId, $key, $price]);
-        q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'acquisto', ?)", [$playerId, $eco, -$price, 'buy-' . $key]);
+        $fromCredits = min($credits, $price);   // prima si spendono i crediti del negozio, poi i KOIN
+        if ($fromCredits > 0) {
+            q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref, shop_only) VALUES (?, 0, ?, 'acquisto', ?, 1)", [$playerId, -$fromCredits, 'buy-' . $key]);
+        }
+        if ($price > $fromCredits) {
+            q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'acquisto', ?)", [$playerId, $eco, $fromCredits - $price, $fromCredits > 0 ? null : 'buy-' . $key]);
+        }
         return null;
     });
 }

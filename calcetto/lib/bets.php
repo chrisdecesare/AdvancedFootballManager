@@ -144,7 +144,7 @@ function player_ecos(int $playerId): array
     foreach (player_group_ids($playerId) as $gid) {
         $ecos[eco_of_group($gid)] = true;
     }
-    if (!isset($ecos[0]) && q('SELECT 1 FROM wallet_moves WHERE player_id = ? AND eco = 0 LIMIT 1', [$playerId])->fetch()) {
+    if (!isset($ecos[0]) && q('SELECT 1 FROM wallet_moves WHERE player_id = ? AND eco = 0 AND shop_only = 0 LIMIT 1', [$playerId])->fetch()) {
         $ecos[0] = true;
     }
     $ecos = array_keys($ecos);
@@ -214,7 +214,19 @@ function eco_switch(int $playerId, string $back): string
 function wallet_balance(int $playerId, ?int $eco = null): int
 {
     $eco ??= current_eco($playerId);
-    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND eco = ?', [$playerId, $eco])->fetchColumn();
+    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND eco = ? AND shop_only = 0', [$playerId, $eco])->fetchColumn();
+}
+
+/** Crediti del negozio rimasti (in tutte le economie): valgono solo per le personalizzazioni, non per le scommesse. */
+function shop_credit_balance(int $playerId): int
+{
+    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND shop_only = 1', [$playerId])->fetchColumn();
+}
+
+/** Quanto si può spendere nel negozio: KOIN dell'economia più crediti del negozio. */
+function shop_spendable(int $playerId, ?int $eco = null): int
+{
+    return wallet_balance($playerId, $eco) + shop_credit_balance($playerId);
 }
 
 /** KOIN puntati su scommesse (singole e multiple) non ancora decise, in un'economia. */
@@ -228,7 +240,7 @@ function wallet_in_play(int $playerId, ?int $eco = null): int
 /** KOIN di tutti i portafogli del giocatore, compresi quelli in gioco (solo per gli obiettivi dei nickname, che sono suoi e basta). */
 function wallet_total(int $playerId): int
 {
-    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ?', [$playerId])->fetchColumn()
+    return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND shop_only = 0', [$playerId])->fetchColumn()
         + (int) q("SELECT COALESCE(SUM(stake), 0) FROM bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn()
         + (int) q("SELECT COALESCE(SUM(stake), 0) FROM combo_bets WHERE player_id = ? AND status = 'aperta'", [$playerId])->fetchColumn();
 }
@@ -273,7 +285,7 @@ function bet_leaderboard(?int $eco = null): array
 {
     $eco ??= current_eco();
     return q('SELECT p.id, p.name, p.photo,
-                     (SELECT COALESCE(SUM(delta), 0) FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = :e1) AS balance,
+                     (SELECT COALESCE(SUM(delta), 0) FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = :e1 AND w.shop_only = 0) AS balance,
                      (SELECT COALESCE(SUM(stake), 0) FROM bets b WHERE b.player_id = p.id AND b.eco = :e2 AND b.status = \'aperta\')
                        + (SELECT COALESCE(SUM(stake), 0) FROM combo_bets c WHERE c.player_id = p.id AND c.eco = :e3 AND c.status = \'aperta\') AS in_play,
                      (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.eco = :e4 AND b.status = \'vinta\')
@@ -281,7 +293,7 @@ function bet_leaderboard(?int $eco = null): array
                      (SELECT COUNT(*) FROM bets b WHERE b.player_id = p.id AND b.eco = :e6 AND b.status IN (\'vinta\', \'persa\'))
                        + (SELECT COUNT(*) FROM combo_bets c WHERE c.player_id = p.id AND c.eco = :e7 AND c.status IN (\'vinta\', \'persa\')) AS decided
               FROM players p
-              WHERE EXISTS (SELECT 1 FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = :e8) AND ' . player_scope_sql('p.id') . '
+              WHERE EXISTS (SELECT 1 FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = :e8 AND w.shop_only = 0) AND ' . player_scope_sql('p.id') . '
               ORDER BY (balance + in_play) DESC, p.name', array_fill_keys(['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8'], $eco))->fetchAll();
 }
 

@@ -517,7 +517,7 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
 </section>
 
 <?php
-$giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0) FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = 0) AS bal
+$giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0) FROM wallet_moves w WHERE w.player_id = p.id AND w.eco = 0 AND w.shop_only = 0) AS bal
                   FROM players p JOIN player_groups pg ON pg.player_id = p.id
                   WHERE p.is_guest = 0 AND pg.group_id IN ($homeIn) ORDER BY p.name")->fetchAll();
 ?>
