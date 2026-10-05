@@ -533,7 +533,7 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bo
     if ($item['price'] === 0) {
         return 'È già tuo: è incluso per tutti.';
     }
-    return bet_atomic(function () use ($playerId, $key, $item, $eco) {
+    return bet_atomic(function () use ($playerId, $kind, $key, $item, $eco, $useCredits) {
         q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due acquisti insieme non possono spendere due volte gli stessi KOIN
         if (q('SELECT 1 FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $key])->fetch()) {
             return 'Ce l\'hai già.';
