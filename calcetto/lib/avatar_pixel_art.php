@@ -716,6 +716,7 @@ function px_hats(): array
             '.oxxxxxxx', '..oxxxxxx', '...oooooo'])],
         'turban' => ['front' => px_m(-1, -5, ['....ooooo', '..ooxxxxx', '.oxxXxxxx', 'oxxxxXxxx', 'oxXxxxXxx', 'oxxXxxxyy', 'oxxxXxxyy',
             'ooooooooo'])],
+        'kippah' => ['front' => px_m(3, -2, ['..ooo', '.oxxx', 'oxXxx', '.oooo'])],
         'fez' => ['front' => px_m(3, -6, ['.oooo', 'oxxxx', 'oxxxx', 'oxXxx', 'oxxxx', 'ooooo'])],
         'cone' => ['front' => px_m(3, -12, ['....o', '...ox', '...ol', '..oxx', '..oll', '..oxx', '.oxxx', '.olll', '.oxxx', 'oyyyy', 'ooooo'])],
         'catears' => ['front' => px_m(0, -4, ['..o.....', '.oxo....', '.oyxo...', 'oyyxo...', 'oxxxo...'])],

@@ -300,6 +300,7 @@ CREATE TABLE IF NOT EXISTS wallet_moves (
   delta INT NOT NULL,
   kind VARCHAR(12) NOT NULL,
   ref VARCHAR(20) NULL,                            -- per le mosse che si danno una volta sola (benvenuto, sussidio settimanale)
+  shop_only TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = crediti validi solo per il negozio, non per le scommesse
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ref (player_id, ref),
   INDEX (bet_id),

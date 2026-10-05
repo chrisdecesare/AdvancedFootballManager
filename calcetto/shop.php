@@ -59,7 +59,8 @@ if ($dole) {
     flash('ok', $dole);
 }
 $mp = $me ? get_player($me) : null;
-$balance = $me ? wallet_balance($me) : 0;
+$balance = $me ? shop_spendable($me) : 0;   // KOIN + crediti del negozio
+$shopCredits = $me ? shop_credit_balance($me) : 0;
 $inPlay = $me ? wallet_in_play($me) : 0;
 $owned = $me ? shop_owned($me) : [];
 $progress = $me ? shop_progress($me) : [];
@@ -144,7 +145,7 @@ layout_start('Negozio', 'shop');
     <div data-look-name><strong class="wallet-name"><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
   </div>
   <div class="shop-bar-info">
-    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>KOIN</span><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
+    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>KOIN</span><?php if ($shopCredits): ?> <small class="muted">(di cui <?= $shopCredits ?> solo per il negozio)</small><?php endif; ?><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
     <p class="muted small">Premi <b>Prova</b> su un oggetto per vederlo qui addosso a te prima di comprarlo.</p>
   </div>
 </section>

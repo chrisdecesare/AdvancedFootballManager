@@ -95,7 +95,7 @@ if ($dole) {
 $mp = get_player($me);
 $look = avatar_look($mp);
 $owned = shop_owned($me) + ['' => true];
-$balance = wallet_balance($me);
+$balance = shop_spendable($me);   // KOIN + crediti del negozio
 $catalog = shop_catalog();
 $number = $mp['shirt_number'];
 $wish = shop_wishlist($me);

@@ -96,6 +96,7 @@ return [
         ['h_cavaliere_o', 'Elmo del re', 500, 'knight', '#ffd23f', '#a67cf2', ''],
         ['h_turbante', 'Turbante', 115, 'turban', '#ff8c42', '#4a90e2', ''],
         ['h_fez', 'Fez rosso', 105, 'fez', '#c0392b', '#ffd23f', ''],
+        ['h_kippah', 'Kippah', 50, 'kippah', '#ffffff', '#2a3f9b', ''],
         ['h_birillo', 'Birillo stradale', 80, 'cone', '#ff8c42', '#2b2540', ''],
         ['h_gatto', 'Orecchie da gatto', 90, 'catears', '#2b2540', '#ff8fbf', '#ff8fbf'],
         ['h_gatta', 'Orecchie da gatta', 90, 'catears', '#ff8fbf', '#ffffff', '#e0568f'],
