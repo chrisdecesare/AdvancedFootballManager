@@ -390,6 +390,12 @@ return [
         ['pe_gatto_nero', 'Gatto nero', 240, 'cat', '#3a3450', '#ffffff'],
         ['pe_cane', 'Cane', 220, 'dog', '#c98a3b', '#fff3d6'],
         ['pe_pinguino', 'Pinguino', 260, 'penguin', '#2b2540', '#ffffff'],
+        ['pe_pogona', 'Pogona', 240, 'pogona', '#d9a441', '#f2d9a0'],
+        ['pe_pogona_cit', 'Pogona citrus', 260, 'pogona', '#ff9a2e', '#ffe0a8'],
+        ['pe_pogona_hyp', 'Pogona hypo', 260, 'pogona', '#f2ead8', '#ffffff'],
+        ['pe_pogona_red', 'Pogona rossa', 280, 'pogona', '#c8502e', '#f2b48a'],
+        ['pe_pogona_ver', 'Pogona verde', 260, 'pogona', '#7fae4a', '#d8e8a8'],
+        ['pe_pogona_lem', 'Pogona lemon', 280, 'pogona', '#ffe066', '#fff3b8'],
     ],
     // pose (come sta fermo il personaggio): [chiave, nome, prezzo, posa (lib/avatar_pixel.php: px_poses)]
     'pose' => [
