@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 44;
+const SCHEMA_VERSION = 45;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -819,6 +819,12 @@ function ensure_schema(): void
                     [$pid, $credits >= 50 ? 1 : 0]);
             }
         }
+    }
+    if ($v < 45) {
+        // rimborso una tantum all'admin: 255 KOIN spesi per il Personaggio prima che i crediti del Personaggio fossero usati per primi
+        db()->exec("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref)
+                    SELECT player_id, 0, 255, 'rimborso', 'refund-255' FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL
+                    ORDER BY id LIMIT 1");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
