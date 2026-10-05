@@ -216,7 +216,7 @@ function avatar_figure(array $look, array $o = []): string
     $ground = !empty($o['ring'])
         ? '<ellipse class="avf-ring" cx="16" cy="55.5" rx="11" ry="2.4"/>'
         : '<ellipse cx="16" cy="55.6" rx="9" ry="1.5" fill="#1f1a2e" opacity=".22" data-shadow/>';
-    $petSvg = empty($o['ring']) && empty($o['crop']) ? px_pet_svg($pet, $pal) : '';
+    $petSvg = empty($o['crop']) ? px_pet_svg($pet, $pal) : '';   // anche in formazione (ring): sporge a destra, la figura ha overflow visibile
     $vb = AVATAR_CROPS[$o['crop'] ?? ''] ?? ($o['viewBox'] ?? (!empty($o['stage']) ? AVATAR_VIEWBOX : (!empty($o['ring']) ? AVATAR_VIEWBOX_PITCH : AVATAR_VIEWBOX_FIG)));
     if (isset(AVATAR_CROPS[$o['crop'] ?? ''])) {   // miniature: l'inquadratura segue la corporatura (testa più su o più giù, fianchi più larghi)
         [$legs, $torso, $dw] = px_shape($parts);
