@@ -747,6 +747,8 @@ function px_pets(): array
             '.ouuouuo...', '..oo.oo....'],
         'dog' => ['..oooo......', '.ouuuuo.....', 'oiueuuio....', 'oiuuuuio....', '.ouiieo.....', '.ouuuuo..o..', 'ouuiiuuoouo.',
             'ouuiiuuuuo..', 'ouuouuouo...', '.oo.oo.o....'],
+        'pogona' => ['...o.o.o.o.....', '.ooouuuuuuoo...', 'ouuuuuuuuuuuoo.', 'oeuuuuuuuuuuuoo', 'oiiuuuuuuuuuuo.', '.oiioouuuuuoo..',
+            '..oo.oo.oo.oo..'],
         'penguin' => ['..ooooo..', '.ouuuuuo.', '.ouieieuo', '.ouiggiuo', 'ouuiiiuuo', 'ouiiiiiuo', 'ouiiiiiuo', '.ouiiiuo.', '..oiiio..',
             '.oggoggo.'],
     ];

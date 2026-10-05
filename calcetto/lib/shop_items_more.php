@@ -194,7 +194,7 @@ function shop_more_items(array $base): array
     }
 
     // pet: gli stessi animali con colori nuovi
-    foreach (['chick' => 'Pulcino', 'cat' => 'Gatto', 'dog' => 'Cane', 'penguin' => 'Pinguino'] as $animal => $name) {
+    foreach (['chick' => 'Pulcino', 'cat' => 'Gatto', 'dog' => 'Cane', 'penguin' => 'Pinguino', 'pogona' => 'Pogona'] as $animal => $name) {
         foreach (array_slice(shop_more_palettes(), 0, 8) as $pc => [$pname, $a, $b, $c, $mul]) {
             $out['pet']['pex_' . substr($animal, 0, 3) . $pc] = ['name' => $name . ' ' . $pname, 'price' => $round(220 * $mul), 'style' => $animal,
                 'colors' => ['a' => $a, 'b' => $animal === 'penguin' ? '#ffffff' : $c], 'drop' => 'pe'];
