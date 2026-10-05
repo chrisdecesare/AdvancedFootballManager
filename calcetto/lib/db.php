@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 43;
+const SCHEMA_VERSION = 44;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -806,6 +806,19 @@ function ensure_schema(): void
     if ($v < 43) {
         // messaggio «Il primo giro lo offro io» (crediti del Personaggio): 1 quando il giocatore l'ha già visto (lib/guess.php: credits_intro_unseen)
         $add('players', 'credits_seen', 'TINYINT(1) NOT NULL DEFAULT 0');
+    }
+    if ($v < 44) {
+        // la kippah (epica, 250) l'ha già comprata Danilo per 50: si spendono prima i crediti del Personaggio, poi i KOIN
+        // (solo se c'è un unico Danilo e non ce l'ha già)
+        $dan = q("SELECT id FROM players WHERE is_guest = 0 AND name LIKE 'Danilo%'")->fetchAll(PDO::FETCH_COLUMN);
+        if (count($dan) === 1) {
+            $pid = (int) $dan[0];
+            if (q("INSERT IGNORE INTO player_items (player_id, item_key, price) VALUES (?, 'h_kippah', 50)", [$pid])->rowCount()) {
+                $credits = (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND shop_only = 1', [$pid])->fetchColumn();
+                q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref, shop_only) VALUES (?, 0, -50, 'acquisto', 'buy-h_kippah', ?)",
+                    [$pid, $credits >= 50 ? 1 : 0]);
+            }
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
