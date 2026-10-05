@@ -540,7 +540,7 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bo
         }
         shop_market(true, $eco);   // il prezzo di adesso, con desideri, possessori e saldi letti ora
         [$price] = shop_price($key, $item, $playerId, $eco);
-        $credits = $useCredits ? shop_credit_balance($playerId) : 0;   // i crediti valgono solo dalla pagina del Personaggio
+        $credits = $useCredits || isset(avatar_kinds()[$kind]) ? shop_credit_balance($playerId) : 0;   // i crediti valgono per gli oggetti del Personaggio (anche i cappelli comprati dal negozio)
         $left = wallet_balance($playerId, $eco) + $credits;
         if ($left < $price) {
             return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . ($eco ? ' in «' . eco_label($eco) . '»' : '') . '. Vai a scommettere!';
