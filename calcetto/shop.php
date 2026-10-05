@@ -60,6 +60,8 @@ if ($dole) {
 }
 $mp = $me ? get_player($me) : null;
 $balance = $me ? wallet_balance($me) : 0;
+$shopCr = $me ? shop_credit_balance($me) : 0;   // crediti del Personaggio: valgono solo per i cappelli
+$balFor = fn(string $kind) => $balance + (isset(avatar_kinds()[$kind]) ? $shopCr : 0);
 $inPlay = $me ? wallet_in_play($me) : 0;
 $owned = $me ? shop_owned($me) : [];
 $progress = $me ? shop_progress($me) : [];
@@ -102,7 +104,7 @@ foreach ($catalog[$tab] as $key => $item) {
     $locked = !$has && $item['price'] === null;
     [$price, $why] = shop_price($key, $item, $me);   // il prezzo di adesso (lib/shop.php: shop_price)
     if (($filter === 'mine' && !$has) || ($filter === 'locked' && !$locked) || ($filter === 'wish' && !isset($wish[$key]))
-        || ($filter === 'buy' && ($has || $locked || $item['out'] || $price > $balance))) {
+        || ($filter === 'buy' && ($has || $locked || $item['out'] || $price > $balFor($tab)))) {
         continue;
     }
     $items[$key] = $item + ['has' => $has, 'locked' => $locked, 'now' => $price, 'why' => $why];
@@ -144,7 +146,7 @@ layout_start('Negozio', 'shop');
     <div data-look-name><strong class="wallet-name"><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
   </div>
   <div class="shop-bar-info">
-    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>KOIN</span><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
+    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>KOIN</span><?php if ($shopCr): ?> <small class="muted">(+<?= $shopCr ?> crediti Personaggio, solo per i cappelli)</small><?php endif; ?><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
     <p class="muted small">Premi <b>Prova</b> su un oggetto per vederlo qui addosso a te prima di comprarlo.</p>
   </div>
 </section>
@@ -199,7 +201,7 @@ layout_start('Negozio', 'shop');
     <?php if ($locked): ?>
       <p class="muted small shop-goal"><i class="ti ti-lock"></i> Si sblocca con: <?= h($goalText($item)) ?></p>
     <?php elseif (!$has): ?>
-      <p class="shop-price<?= $balance < $item['now'] ? ' is-short' : '' ?>" title="<?= h(shop_price_note($item['why'])) ?>"><i class="ti ti-coin"></i> <?= (int) $item['now'] ?>
+      <p class="shop-price<?= $balFor($tab) < $item['now'] ? ' is-short' : '' ?>" title="<?= h(shop_price_note($item['why'])) ?>"><i class="ti ti-coin"></i> <?= (int) $item['now'] ?>
         <?php if ($item['now'] !== $item['price']): ?><span class="price-move <?= $item['now'] > $item['price'] ? 'is-up' : 'is-down' ?>"><i class="ti ti-trending-<?= $item['now'] > $item['price'] ? 'up' : 'down' ?>"></i> base <?= (int) $item['price'] ?></span><?php endif; ?></p>
     <?php elseif ($item['price'] === null && !$isWorn): ?>
       <p class="small"><span class="tag tag-mvp"><i class="ti ti-award"></i> sbloccato</span></p>
@@ -216,7 +218,7 @@ layout_start('Negozio', 'shop');
           <button class="btn btn-primary btn-sm"<?= $tab === 'bg' && ($mp['bg_image'] || $mp['bg_color']) ? ' data-confirm="Lo sfondo speciale sostituisce quello che hai scelto con colore o immagine. Continuare?"' : '' ?>>Indossa</button>
         <?php elseif (!$locked && !$item['out']): ?>
           <input type="hidden" name="do" value="buy"><input type="hidden" name="p" value="<?= $page ?>">
-          <button class="btn btn-primary btn-sm"<?= $balance < $item['now'] ? ' title="Non hai abbastanza KOIN"' : '' ?>>Compra</button>
+          <button class="btn btn-primary btn-sm"<?= $balFor($tab) < $item['now'] ? ' title="Non hai abbastanza KOIN"' : '' ?>>Compra</button>
         <?php endif; ?>
       </form>
     </div>
