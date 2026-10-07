@@ -462,7 +462,7 @@ CREATE TABLE IF NOT EXISTS fanta_picks (
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- crediti fanta di ogni squadra (si parte da 10; comprando si pagano e vendendo si incassano alla quota attuale)
+-- crediti fanta di ogni squadra (si parte da 15; comprando si pagano e vendendo si incassano alla quota attuale)
 CREATE TABLE IF NOT EXISTS fanta_teams (
   season_id INT NOT NULL,
   manager_id INT NOT NULL,

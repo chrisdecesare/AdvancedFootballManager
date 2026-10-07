@@ -312,7 +312,7 @@ account è anche fantallenatore e si compra le **figurine** dei compagni. Più s
   della partita (voto + bonus): 1 sotto 6,5 punti (ha perso senza fare granché), 2 fino a 9,5 (una partita normale), 3 fino a 13 o con voto da 7,5
   (una bella partita), 4 da 13 in su o con voto da 8,5 (una prestazione sontuosa). Chi non ha ancora giocato vale 1. La **quota base** è la quota attuale
   all'apertura della stagione (`fanta_prices`). Soglie in cima a `lib/fanta.php` (`FANTA_QUOTE_PTS`, `FANTA_QUOTE_VOTE`).
-- **Rosa:** 6 figurine (5 titolari e 1 in panchina) con 10 crediti fanta di partenza, separati dai KOIN (salvati in `fanta_teams`). Si compra e si vende
+- **Rosa:** 6 figurine (5 titolari e 1 in panchina) con 15 crediti fanta di partenza (erano 10: alle squadre già fatte se ne sono aggiunti 5), separati dai KOIN (salvati in `fanta_teams`). Si compra e si vende
   quando si vuole, sempre alla quota attuale: chi compra a 1 e rivende a 4 guadagna 3 crediti. **Chi vince una partita della lega** (in campo, con un account) guadagna 1 credito
   (`FANTA_WIN_CREDITS`, tabella `fanta_win_credits`): si toglie se il risultato viene corretto o la partita torna programmata, viene annullata o eliminata;
   contano le partite dal 7 ottobre 2026. Tra i titolari c'è un **capitano**, che raddoppia bonus e malus (un gol vale +6).
