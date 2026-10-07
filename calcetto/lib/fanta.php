@@ -23,7 +23,7 @@
  */
 
 const FANTA_LAUNCH_AT = '2026-10-02 16:00:00';   // prima di allora il Fanta lo vede solo l'admin del sito (nessun indizio agli altri)
-const FANTA_BUDGET = 10;
+const FANTA_BUDGET = 15;   // erano 10 fino al 7 ottobre 2026: alle squadre già fatte la migrazione 52 (lib/db.php) ha aggiunto la differenza
 const FANTA_ROSTER = 6;
 const FANTA_STARTERS = 5;
 const FANTA_BONUS = ['goal' => 3, 'assist' => 1, 'mvp' => 3, 'win' => 1, 'own_goal' => -2];

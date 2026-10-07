@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 51;
+const SCHEMA_VERSION = 52;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -886,6 +886,11 @@ function ensure_schema(): void
         // il Personaggio si chiama Avatar: anche le frasi salvate per «Indovina la funzionalità» (rivelazione e indizio)
         db()->exec("UPDATE meta SET v = REPLACE(REPLACE(REPLACE(v, 'il Personaggio', 'l''Avatar'), 'del Personaggio', 'dell''Avatar'), 'Personaggio', 'Avatar')
                     WHERE k IN ('drop_reveal', 'drop_teaser')");
+    }
+    if ($v < 52) {
+        // Fanta: si parte da 15 crediti invece che da 10 (lib/fanta.php: FANTA_BUDGET). Chi ha già i crediti salvati nella stagione aperta
+        // riceve la differenza (+5); chi non li ha salvati li calcola da FANTA_BUDGET e prende i 5 in più da solo
+        db()->exec("UPDATE fanta_teams t JOIN fanta_seasons s ON s.id = t.season_id AND s.status = 'aperta' SET t.credits = t.credits + 5");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
