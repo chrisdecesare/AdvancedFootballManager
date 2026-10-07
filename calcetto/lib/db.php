@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 46;
+const SCHEMA_VERSION = 47;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -835,6 +835,18 @@ function ensure_schema(): void
                 q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, 0, ?, 'regalo', 'topup-500')", [(int) $adm, 500 - $have]);
             }
         }
+    }
+    if ($v < 47) {
+        // Fanta: un credito a chi vince una partita della lega (lib/fanta.php: fanta_win_credits_sync), uno per giocatore e partita.
+        // Niente chiave esterna sulla partita: quando viene eliminata, il credito si toglie dopo (si vede che la partita non c'è più)
+        db()->exec('CREATE TABLE IF NOT EXISTS fanta_win_credits (
+            match_id INT NOT NULL,
+            manager_id INT NOT NULL,
+            season_id INT NOT NULL,
+            PRIMARY KEY (match_id, manager_id),
+            FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+            FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

@@ -224,6 +224,7 @@ if (is_post()) {
             db()->commit();
             if ($match['status'] === 'giocata' || !empty($_POST['finish'])) {
                 bets_resettle_result($id);   // risultato salvato o corretto: si pagano (o si rifanno) le scommesse su esito e marcatori
+                fanta_win_credits_sync($id);   // e il credito fanta a chi ha vinto (lib/fanta.php)
             }
             redirect($self . '#risultato');
 
@@ -307,6 +308,7 @@ if (is_post()) {
             q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL, cancel_reason = NULL, cancelled_at = NULL WHERE id = ?", [$id]);
             bets_unsettle($id);   // le scommesse tornano aperte e si ripagano quando la partita viene richiusa
             match_rewards_sync($id);   // e i premi per gol e assist si tolgono (tornano quando il risultato viene salvato di nuovo)
+            fanta_win_credits_sync($id);   // anche i crediti fanta della vittoria
             flash('ok', 'Partita riportata a "programmata".');
             break;
 
@@ -353,6 +355,7 @@ if (is_post()) {
             }
             q('DELETE FROM wallet_moves WHERE ref = ?', ['premio-m' . $id]);   // i premi per gol e assist se ne vanno con la partita
             q('DELETE FROM matches WHERE id = ?', [$id]);
+            fanta_win_credits_sync($id);   // i crediti fanta della vittoria se ne vanno con la partita
             flash('ok', 'Partita eliminata.');
             redirect('matches.php');
     }
