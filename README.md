@@ -294,8 +294,9 @@ a chi le ha attive, con quanti oggetti e di che tipo. Chi non ha le notifiche ve
 categoria, finché non la apre. Per 7 giorni gli oggetti usciti hanno l'etichetta «Nuovo» (`SHOP_NEW_DAYS`, logica in `lib/shop.php`: `shop_news_*`).
 Gli oggetti del Personaggio usciti prima del suo lancio non si annunciano.
 
-**Rivelazione del countdown:** in *Admin → Indovina la funzionalità*, oltre alla data di uscita, si può scegliere un'ora in cui la card in Home smette di essere
-«top secret» e dice cos'è la novità (il countdown continua fino all'uscita); da quel momento non si mandano più idee.
+**Rivelazione del countdown:** in *Admin → Indovina la funzionalità*, oltre alla data di uscita, si può scegliere un'ora in cui la novità smette di essere
+«top secret» e si dice cos'è (il countdown continua fino all'uscita); da quel momento non si mandano più idee. La card della sorpresa in Home è stata tolta:
+il countdown resta nella pagina «Indovina la funzionalità» (`guess.php`).
 
 ## Fanta (fantacalcio della lega)
 
@@ -309,7 +310,9 @@ account è anche fantallenatore e si compra le **figurine** dei compagni. Più s
   (una bella partita), 4 da 13 in su o con voto da 8,5 (una prestazione sontuosa). Chi non ha ancora giocato vale 1. La **quota base** è la quota attuale
   all'apertura della stagione (`fanta_prices`). Soglie in cima a `lib/fanta.php` (`FANTA_QUOTE_PTS`, `FANTA_QUOTE_VOTE`).
 - **Rosa:** 6 figurine (5 titolari e 1 in panchina) con 10 crediti fanta di partenza, separati dai KOIN (salvati in `fanta_teams`). Si compra e si vende
-  quando si vuole, sempre alla quota attuale: chi compra a 1 e rivende a 4 guadagna 3 crediti. Tra i titolari c'è un **capitano**, che raddoppia bonus e malus (un gol vale +6).
+  quando si vuole, sempre alla quota attuale: chi compra a 1 e rivende a 4 guadagna 3 crediti. **Chi vince una partita della lega** (in campo, con un account) guadagna 1 credito
+  (`FANTA_WIN_CREDITS`, tabella `fanta_win_credits`): si toglie se il risultato viene corretto o la partita torna programmata, viene annullata o eliminata;
+  contano le partite dal 7 ottobre 2026. Tra i titolari c'è un **capitano**, che raddoppia bonus e malus (un gol vale +6).
 - **Punti di una figurina in una partita:** media dei voti ricevuti + 3 a gol, +1 ad assist, +3 all'MVP, +1 se la squadra vince, −2 ad autogol; chi non
   gioca fa 0. La **panchina** entra al posto del primo titolare che non gioca. Finché le votazioni sono aperte i punti sono provvisori.
 - **Formazione al calcio d'inizio:** per ogni partita conta la rosa com'era al fischio d'inizio (tabella `fanta_lineups`): la «foto» si scatta alla prima
@@ -438,11 +441,16 @@ nominati dentro una lega (vedi «Leghe create dagli utenti»).
 |---|---|
 | **Admin** | crea partite, modifica presenze, genera le squadre, inserisce risultato/gol/assist/autogol, conclude la partita, chiude le votazioni, gestisce pagamenti, giocatori, account, gruppi e statistiche |
 | **Manager** | crea e gestisce le partite dei suoi gruppi (presenze, squadre, risultato, votazioni); il resto come un giocatore |
-| **Giocatore** | conferma o disdice la presenza, vede partite e statistiche, dopo la partita vota tutti gli altri (1-10) e l'MVP, modifica il proprio profilo (foto, numero, ruolo, piede, password), scrive le sue curiosità, attiva le notifiche |
+| **Giocatore** | conferma o disdice la presenza, vede partite e statistiche, dopo la partita vota tutti gli altri (1-10), l'MVP, il miglior difensore e (con i portieri fissi) il miglior portiere, modifica il proprio profilo (foto, numero, ruolo, piede, password), scrive le sue curiosità, attiva le notifiche |
 
 Ciclo di una partita (dove si legge «admin» vale anche per il manager, per le sue partite): l'admin crea la partita → i giocatori confermano → l'admin genera le
 squadre bilanciate → a fine partita inserisce il risultato → i giocatori votano → l'admin chiude
 le votazioni e voti/MVP entrano nelle statistiche.
+
+**Miglior difensore e miglior portiere:** insieme all'MVP si vota il miglior difensore e, se la partita è con i **portieri fissi**, il miglior portiere
+(`MATCH_AWARDS` in `lib/stats.php`, tabella `award_votes`). Il portiere si sceglie tra chi gioca in porta nel modulo della sua squadra; il difensore tra
+tutti gli altri (mai se stessi). Vince chi ha più voti (a parità la media voto più alta). Come l'MVP, i vincitori si vedono alla chiusura delle votazioni,
+con un'etichetta accanto al nome e una colonna con i voti nella tabella della partita.
 
 **Partita annullata:** per una partita saltata o interrotta (pioggia, campo chiuso, troppi assenti...) chi la gestisce (admin o manager della lega) apre
 «Gestione partita → Partita annullata», scrive un motivo facoltativo e conferma; può anche azzerare la quota. La partita si chiude con lo stato `annullata`

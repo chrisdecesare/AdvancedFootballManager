@@ -389,6 +389,20 @@ function handle_vote(array $match, ?int $me): void
         flash('err', 'Scegli l\'MVP tra gli altri giocatori della partita.');
         return;
     }
+    // miglior difensore e (con i portieri fissi) miglior portiere: obbligatori quando c'è qualcuno da votare oltre a sé
+    $awards = [];
+    foreach (match_award_options($match, match_roster($id)) as $award => $options) {
+        $options = array_diff($options, [$me]);
+        if (!$options) {
+            continue;
+        }
+        $pick = (int) ($_POST['award'][$award] ?? 0);
+        if (!in_array($pick, $options, true)) {
+            flash('err', 'Scegli il ' . lcfirst(MATCH_AWARDS[$award]['name']) . ' tra gli altri giocatori della partita.');
+            return;
+        }
+        $awards[$award] = $pick;
+    }
     db()->beginTransaction();
     q('DELETE FROM ratings WHERE match_id = ? AND voter_id = ?', [$id, $me]);
     foreach ($mates as $pid => $_) {
@@ -400,6 +414,10 @@ function handle_vote(array $match, ?int $me): void
     }
     q('DELETE FROM mvp_votes WHERE match_id = ? AND voter_id = ?', [$id, $me]);
     q('INSERT INTO mvp_votes (match_id, voter_id, voted_id) VALUES (?, ?, ?)', [$id, $me, $mvp]);
+    q('DELETE FROM award_votes WHERE match_id = ? AND voter_id = ?', [$id, $me]);
+    foreach ($awards as $award => $pick) {
+        q('INSERT INTO award_votes (match_id, voter_id, award, voted_id) VALUES (?, ?, ?, ?)', [$id, $me, $award, $pick]);
+    }
     db()->commit();
     flash('ok', 'Voti registrati, grazie! Puoi modificarli finché le votazioni sono aperte.');
     $_SESSION['vote_done'] = 1;   // fa comparire il segno di spunta grande nella pagina successiva
@@ -441,12 +459,26 @@ $showVotes = $played && (!$votingOpen || $canAdmin);
 // voti già dati dal giocatore collegato (per precompilare il modulo)
 $myVotes = [];
 $myMvp = null;
+$myAwards = [];
 if ($votingOpen && $iPlayed) {
     foreach (q('SELECT rated_id, vote FROM ratings WHERE match_id = ? AND voter_id = ?', [$id, $me])->fetchAll() as $r) {
         $myVotes[(int) $r['rated_id']] = (float) $r['vote'];
     }
     $myMvp = q('SELECT voted_id FROM mvp_votes WHERE match_id = ? AND voter_id = ?', [$id, $me])->fetchColumn() ?: null;
+    foreach (q('SELECT award, voted_id FROM award_votes WHERE match_id = ? AND voter_id = ?', [$id, $me])->fetchAll() as $r) {
+        $myAwards[$r['award']] = (int) $r['voted_id'];
+    }
 }
+// miglior difensore e miglior portiere (lib/stats.php: MATCH_AWARDS): chi si può votare, voti e vincitori
+$awardOptions = $played ? match_award_options($match, $roster) : [];
+$awardCounts = $played ? match_award_counts($id) : [];
+$awardWinners = $played ? match_award_winners($id) : [];
+$awardOf = [];   // id giocatore => premi vinti
+foreach ($awardWinners as $award => $pid) {
+    $awardOf[$pid][] = $award;
+}
+$awardTags = fn(int $pid) => implode('', array_map(fn($a) => '<span class="tag tag-award tag-award-' . $a . '"><i class="ti ti-' . MATCH_AWARDS[$a]['icon'] . '"></i> '
+    . h(MATCH_AWARDS[$a]['name']) . '</span>', $awardOf[$pid] ?? []));
 $voters = $played ? array_map('intval', q('SELECT voter_id FROM mvp_votes WHERE match_id = ?', [$id])->fetchAll(PDO::FETCH_COLUMN)) : [];
 $participants = array_merge($teams['A'], $teams['B']);
 $voteParticipants = array_values(array_filter($participants, fn($r) => !$r['is_guest']));   // gli ospiti non votano e non si votano
@@ -763,6 +795,7 @@ if (!empty($_SESSION['vote_done'])):
             if (isset($injured[$pid])) $extra .= '<span class="ev ev-inj" title="Infortunato' . ($injured[$pid] !== '' ? ': ' . h($injured[$pid]) : '') . '"><i class="ti ti-first-aid-kit"></i></span>';
             if ($showVotes && isset($avgs[$pid])) $extra .= '<span class="vote ' . vote_class($avgs[$pid]['avg']) . '">' . fmt_num($avgs[$pid]['avg']) . '</span>';
             if (!$votingOpen && $mvp === $pid) $extra .= '<span class="tag tag-mvp"><i class="ti ti-star-filled"></i> MVP</span>';
+            if (!$votingOpen) $extra .= $awardTags($pid);
             if (!$played && !$r['is_guest']) $extra .= '<span class="ovr" title="Overall">' . overall($stats[$pid]['ovr'] ?? 6) . '</span>';
           ?>
             <div class="pline-row">
@@ -900,7 +933,7 @@ if (!empty($_SESSION['vote_done'])):
   <?php if ($votingOpen && $iPlayed): ?>
     <form method="post" class="vote-form">
       <?= csrf_field() ?><input type="hidden" name="do" value="vote">
-      <p class="muted">Dai un voto da 1 a 10 a ogni compagno e avversario, poi scegli l'MVP. <?= $myMvp ? '<strong>Hai già votato:</strong> puoi modificare.' : '' ?> <span class="small">Se non voti entro la chiusura, a tutti gli altri viene dato <?= default_vote_label() ?> d'ufficio.</span></p>
+      <p class="muted">Dai un voto da 1 a 10 a ogni compagno e avversario, poi scegli l'MVP<?= !empty($awardOptions['por']) ? ', il miglior difensore e il miglior portiere' : ' e il miglior difensore' ?>. <?= $myMvp ? '<strong>Hai già votato:</strong> puoi modificare.' : '' ?> <span class="small">Se non voti entro la chiusura, a tutti gli altri viene dato <?= default_vote_label() ?> d'ufficio.</span></p>
       <?php foreach ($voteParticipants as $r): $pid = (int) $r['player_id']; if ($pid === $me) continue;
         $val = $myVotes[$pid] ?? 6; ?>
         <div class="vote-row">
@@ -910,6 +943,17 @@ if (!empty($_SESSION['vote_done'])):
           <label class="mvp-pick" title="MVP"><input type="radio" name="mvp" value="<?= $pid ?>" <?= (int) $myMvp === $pid ? 'checked' : '' ?> required><span><i class="ti ti-star-filled"></i></span></label>
         </div>
       <?php endforeach; ?>
+      <div class="award-picks">
+      <?php foreach (MATCH_AWARDS as $award => $aw): $opts = array_values(array_diff($awardOptions[$award] ?? [], [$me])); if (!$opts) continue; ?>
+        <label class="field award-pick"><span><i class="ti ti-<?= $aw['icon'] ?>"></i> <?= h($aw['name']) ?></span>
+          <select name="award[<?= $award ?>]" required>
+            <option value="">Scegli…</option>
+            <?php foreach ($voteParticipants as $r): $pid = (int) $r['player_id']; if (!in_array($pid, $opts, true)) continue; ?>
+              <option value="<?= $pid ?>" <?= ($myAwards[$award] ?? 0) === $pid ? 'selected' : '' ?>><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option>
+            <?php endforeach; ?>
+          </select></label>
+      <?php endforeach; ?>
+      </div>
       <button class="btn btn-primary btn-block">Invia voti</button>
     </form>
   <?php elseif ($votingOpen): ?>
@@ -932,14 +976,18 @@ if (!empty($_SESSION['vote_done'])):
     usort($rank, fn($a, $b) => ($avgs[(int) $b['player_id']]['avg'] ?? 0) <=> ($avgs[(int) $a['player_id']]['avg'] ?? 0));
     ?>
     <div class="table-wrap"><table class="table">
-      <thead><tr><th>Giocatore</th><th>Media</th><th>N. voti</th><th><i class="ti ti-star-filled"></i> voti MVP</th></tr></thead>
+      <thead><tr><th>Giocatore</th><th>Media</th><th>N. voti</th><th><i class="ti ti-star-filled"></i> voti MVP</th>
+        <?php foreach (MATCH_AWARDS as $award => $aw): if (empty($awardOptions[$award])) continue; ?><th title="Voti come <?= h(lcfirst($aw['name'])) ?>"><i class="ti ti-<?= $aw['icon'] ?>"></i> <?= $award === 'dif' ? 'difensore' : 'portiere' ?></th><?php endforeach; ?></tr></thead>
       <tbody>
       <?php foreach ($rank as $r): $pid = (int) $r['player_id']; $a = $avgs[$pid] ?? null; ?>
         <tr class="<?= $mvp === $pid ? 'row-mvp' : '' ?>">
-          <td><a class="tname" href="player.php?id=<?= $pid ?>"><?= avatar($r, 'xs') ?> <?= h($r['name']) ?></a> <?= $mvp === $pid ? '<span class="tag tag-mvp">MVP</span>' : '' ?></td>
+          <td><a class="tname" href="player.php?id=<?= $pid ?>"><?= avatar($r, 'xs') ?> <?= h($r['name']) ?></a> <?= $mvp === $pid ? '<span class="tag tag-mvp">MVP</span>' : '' ?><?= $awardTags($pid) ?></td>
           <td><span class="vote <?= vote_class($a['avg'] ?? null) ?>"><?= fmt_num($a['avg'] ?? null) ?></span></td>
           <td><?= $a['n'] ?? 0 ?></td>
           <td><?= $mvpCounts[$pid] ?? 0 ?></td>
+          <?php foreach (MATCH_AWARDS as $award => $aw): if (empty($awardOptions[$award])) continue; ?>
+            <td><?= in_array($pid, $awardOptions[$award], true) ? ($awardCounts[$award][$pid] ?? 0) : '–' ?></td>
+          <?php endforeach; ?>
         </tr>
       <?php endforeach; ?>
       </tbody>
@@ -959,7 +1007,7 @@ if (!empty($_SESSION['vote_done'])):
     <div class="btn-row">
       <form method="post" class="inline"><?= csrf_field() ?>
         <?php if ($votingOpen): ?>
-          <input type="hidden" name="do" value="close_voting"><button class="btn btn-primary" data-confirm="Chiudere le votazioni? Voti e MVP entreranno nelle statistiche. A chi non ha votato verrà dato <?= default_vote_label() ?> d'ufficio a tutti gli altri."><i class="ti ti-lock"></i> Chiudi votazioni</button>
+          <input type="hidden" name="do" value="close_voting"><button class="btn btn-primary" data-confirm="Chiudere le votazioni? Voti, MVP, miglior difensore e miglior portiere entreranno nelle statistiche. A chi non ha votato verrà dato <?= default_vote_label() ?> d'ufficio a tutti gli altri."><i class="ti ti-lock"></i> Chiudi votazioni</button>
         <?php else: ?>
           <input type="hidden" name="do" value="open_voting"><button class="btn btn-ghost"><i class="ti ti-lock-open"></i> Riapri votazioni</button>
         <?php endif; ?>

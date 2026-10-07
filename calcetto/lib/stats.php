@@ -271,6 +271,75 @@ function match_mvp(int $match_id): ?int
     return $best;
 }
 
+/* ---------------------------------------------------------------- premi votati oltre all'MVP */
+
+/** Premi che si votano insieme all'MVP (match.php): chiave => [nome, icona]. Il portiere solo con i portieri fissi. */
+const MATCH_AWARDS = [
+    'dif' => ['name' => 'Miglior difensore', 'icon' => 'shield-filled'],
+    'por' => ['name' => 'Miglior portiere', 'icon' => 'hand-stop'],
+];
+
+/**
+ * Chi si può votare per ogni premio: [premio => [id giocatore, ...]] (ospiti esclusi). Miglior portiere solo con i portieri fissi:
+ * chi gioca in porta nel modulo della sua squadra; per il miglior difensore tutti gli altri (con i portieri fissi, loro no).
+ * @param array $roster righe di match_roster
+ */
+function match_award_options(array $match, array $roster): array
+{
+    $keepers = [];
+    if (match_keepers($match) === 'fissi') {
+        foreach (['A', 'B'] as $t) {
+            $rows = array_values(array_filter($roster, fn($r) => $r['team'] === $t));
+            if (!$rows) {
+                continue;
+            }
+            $roles = formation_roles(formation_for($match, $t, count($rows)));
+            foreach (team_slots($rows, $roles) as $pid => $slot) {
+                if (($roles[$slot] ?? '') === 'POR') {
+                    $keepers[(int) $pid] = true;
+                }
+            }
+        }
+    }
+    $out = ['dif' => [], 'por' => []];
+    foreach ($roster as $r) {
+        $pid = (int) $r['player_id'];
+        if (!$r['team'] || $r['is_guest']) {
+            continue;
+        }
+        $out[isset($keepers[$pid]) ? 'por' : 'dif'][] = $pid;
+    }
+    return $out;
+}
+
+/** Voti dei premi di una partita: [premio => [id giocatore => voti]]. */
+function match_award_counts(int $matchId): array
+{
+    $out = [];
+    foreach (q('SELECT award, voted_id, COUNT(*) AS n FROM award_votes WHERE match_id = ? GROUP BY award, voted_id', [$matchId])->fetchAll() as $r) {
+        $out[$r['award']][(int) $r['voted_id']] = (int) $r['n'];
+    }
+    return $out;
+}
+
+/** Vincitori dei premi di una partita: [premio => id giocatore] (più voti; a parità la media voto più alta). Senza voti, niente premio. */
+function match_award_winners(int $matchId): array
+{
+    $avgs = match_vote_averages()[$matchId] ?? [];
+    $out = [];
+    foreach (match_award_counts($matchId) as $award => $counts) {
+        $bestKey = null;
+        foreach ($counts as $pid => $n) {
+            $key = [$n, $avgs[$pid]['avg'] ?? 0, -$pid];
+            if ($bestKey === null || $key > $bestKey) {
+                $bestKey = $key;
+                $out[$award] = $pid;
+            }
+        }
+    }
+    return $out;
+}
+
 /**
  * Statistiche complete di tutti i giocatori: [player_id => [...]].
  * Gli MVP contano solo a votazioni chiuse.

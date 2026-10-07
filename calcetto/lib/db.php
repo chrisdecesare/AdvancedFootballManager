@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 47;
+const SCHEMA_VERSION = 48;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -846,6 +846,19 @@ function ensure_schema(): void
             PRIMARY KEY (match_id, manager_id),
             FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
             FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 48) {
+        // voti per il miglior difensore e (con i portieri fissi) il miglior portiere, insieme all'MVP (lib/stats.php: MATCH_AWARDS)
+        db()->exec('CREATE TABLE IF NOT EXISTS award_votes (
+            match_id INT NOT NULL,
+            voter_id INT NOT NULL,
+            award VARCHAR(3) NOT NULL,
+            voted_id INT NOT NULL,
+            PRIMARY KEY (match_id, voter_id, award),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (voter_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (voted_id) REFERENCES players(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
