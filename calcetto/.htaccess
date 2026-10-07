@@ -15,7 +15,7 @@ AddType text/javascript .js
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 </IfModule>
 
-# Indirizzi leggibili (/personaggio, /partita-12): riscrittura interna verso il file PHP vero, il browser vede solo l'indirizzo bello.
+# Indirizzi leggibili (/avatar, /partita-12): riscrittura interna verso il file PHP vero, il browser vede solo l'indirizzo bello.
 # PRETTY_URLS=1 dice a lib/routes.php che qui la riscrittura funziona: solo allora il sito usa i nuovi indirizzi (altrimenti resta sui .php).
 # Le regole vanno tenute uguali a pretty_routes() in lib/routes.php.
 <IfModule mod_rewrite.c>
@@ -35,6 +35,8 @@ AddType text/javascript .js
   RewriteRule ^classifica$ standings.php [QSA,L]
   RewriteRule ^scommesse$ bets.php [QSA,L]
   RewriteRule ^negozio$ shop.php [QSA,L]
+  RewriteRule ^avatar$ avatar.php [QSA,L]
+  # vecchio indirizzo della pagina (prima si chiamava Personaggio): i link salvati e le notifiche già mandate funzionano ancora
   RewriteRule ^personaggio$ avatar.php [QSA,L]
   RewriteRule ^fantacalcio$ fanta.php [QSA,L]
   RewriteRule ^crea-maglia$ jersey_creator.php [QSA,L]

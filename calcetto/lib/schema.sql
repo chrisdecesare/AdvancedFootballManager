@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS players (
   position2 VARCHAR(20) NULL,                      -- seconda posizione (facoltativa)
   foot VARCHAR(12) NOT NULL DEFAULT 'Destro',
   gender ENUM('M','F','NB') NOT NULL DEFAULT 'M',
-  credits_seen TINYINT(1) NOT NULL DEFAULT 0,      -- 1 = ha già visto il messaggio dei crediti del Personaggio (lib/guess.php)
-  gift_seen_id INT NOT NULL DEFAULT 0,             -- ultimo regalo di gettoni dell'admin già mostrato (wallet_moves.id, vedi lib/guess.php)   -- Maschio, Femmina, Non binario (facoltativo, per l'aspetto del Personaggio)
+  credits_seen TINYINT(1) NOT NULL DEFAULT 0,      -- 1 = ha già visto il messaggio dei crediti dell'Avatar (lib/guess.php)
+  gift_seen_id INT NOT NULL DEFAULT 0,             -- ultimo regalo di gettoni dell'admin già mostrato (wallet_moves.id, vedi lib/guess.php)   -- Maschio, Femmina, Non binario (facoltativo, per l'aspetto dell'Avatar)
   base_rating DECIMAL(3,1) NOT NULL DEFAULT 6.0,
   active TINYINT(1) NOT NULL DEFAULT 1,
   injured TINYINT(1) NOT NULL DEFAULT 0,           -- 1 = infortunato: non può confermare le partite (vedi player_set_injured in stats.php)
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS players (
   nick_key VARCHAR(16) NULL,                       -- nickname che porta adesso
   hat_key VARCHAR(16) NULL,                        -- copricapo che porta adesso
   border_key VARCHAR(16) NULL,                     -- bordo speciale che porta adesso
-  avatar_look TEXT NULL,                           -- Personaggio (avatar.php): cosa indossa, JSON tipo => chiave del catalogo (lib/avatar.php)
+  avatar_look TEXT NULL,                           -- Avatar (avatar.php): cosa indossa, JSON tipo => chiave del catalogo (lib/avatar.php)
   is_guest TINYINT(1) NOT NULL DEFAULT 0,          -- 1 = Ospite: gioca una partita sola, fuori da rosa e statistiche (lib/guests.php)
   guest_email VARCHAR(190) NULL,                   -- email dell'Ospite: se poi si iscrive con questa, la partita passa al suo profilo
   guest_match_id INT NULL,                         -- la partita a cui e' invitato (l'ultima, se e' un giocatore libero)
@@ -366,7 +366,7 @@ CREATE TABLE IF NOT EXISTS match_events (
   FOREIGN KEY (assist_id) REFERENCES players(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- maglie personalizzate create dai giocatori nel Personaggio (avatar.php / jersey_creator.php): colore + pattern,
+-- maglie personalizzate create dai giocatori nell'Avatar (avatar.php / jersey_creator.php): colore + pattern,
 -- diventano un oggetto "jersey" indossabile nel negozio (lib/shop.php) solo da chi le ha create
 CREATE TABLE IF NOT EXISTS custom_jerseys (
   id INT AUTO_INCREMENT PRIMARY KEY,

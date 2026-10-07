@@ -12,7 +12,7 @@
 function shop_more_drops(): array
 {
     $d = [];
-    // gli oggetti di sempre tenuti da parte al lancio del Personaggio (lib/shop.php: shop_launch_keep): escono anche loro da drops.php
+    // gli oggetti di sempre tenuti da parte al lancio dell'Avatar (lib/shop.php: shop_launch_keep): escono anche loro da drops.php
     foreach (shop_launch_kinds() as $kind => $name) {
         $d['l_' . $kind] = ['Lancio: ' . $name, $kind === 'flag' ? 'hat' : $kind];
     }

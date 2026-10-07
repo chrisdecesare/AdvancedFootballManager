@@ -1,6 +1,6 @@
 <?php
 /*
- * Personaggio in pixel art 16-bit: motore, fotogrammi, pose ed esultanze.
+ * Avatar in pixel art 16-bit: motore, fotogrammi, pose ed esultanze.
  *
  * Ogni fotogramma è una griglia di lettere, una per pixel; ogni lettera è una "zona" che prende il colore dal look del giocatore:
  *   o contorno   s pelle   h capelli   j maglia   a maniche   k finiture (colletto, polsini, calzettoni)   p pantaloncini

@@ -1,7 +1,7 @@
 <?php
 /*
  * Generato da tools/pixel/gen_parts.php: non modificare a mano (cambia le forme lì e rigenera).
- * Parti del Personaggio in pixel art: [x, y, righe] in coordinate dello sprite (lettere come in lib/avatar_pixel.php).
+ * Parti dell'Avatar in pixel art: [x, y, righe] in coordinate dello sprite (lettere come in lib/avatar_pixel.php).
  */
 
 function px_parts(): array

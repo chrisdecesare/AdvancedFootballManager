@@ -1,6 +1,6 @@
 <?php
 /*
- * Crea la tua maglia per il Personaggio: due colori e un motivo (lib/avatar.php: avatar_patterns). Resta tua, gratis
+ * Crea la tua maglia per l'Avatar: due colori e un motivo (lib/avatar.php: avatar_patterns). Resta tua, gratis
  * (lib/shop.php: shop_owned() la dà a chi l'ha creata) e non si vende agli altri. Ancora in prova: la vede solo l'admin.
  */
 require __DIR__ . '/lib/bootstrap.php';
@@ -40,8 +40,8 @@ if (is_post()) {
     } else {
         q('INSERT INTO custom_jerseys (player_id, name, primary_color, secondary_color, pattern_key) VALUES (?, ?, ?, ?, ?)',
             [$me, $name, strtolower($a), strtolower($b), $pattern]);
-        flash('ok', 'Maglia creata: premi «Indossa» per metterla al tuo personaggio.');
-        redirect('avatar.php?c=jersey&try=cj' . (int) db()->lastInsertId() . '#personaggio');
+        flash('ok', 'Maglia creata: premi «Indossa» per metterla al tuo avatar.');
+        redirect('avatar.php?c=jersey&try=cj' . (int) db()->lastInsertId() . '#avatar');
     }
     redirect('jersey_creator.php');
 }
@@ -51,7 +51,7 @@ $look = avatar_look($mp);
 
 layout_start('Crea la tua maglia', 'avatar');
 ?>
-<a class="back" href="avatar.php?c=jersey"><i class="ti ti-arrow-left"></i> Personaggio</a>
+<a class="back" href="avatar.php?c=jersey"><i class="ti ti-arrow-left"></i> Avatar</a>
 <div class="page-head"><h1>Crea la tua maglia</h1><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span></div>
 
 <section class="card jc">
@@ -89,7 +89,7 @@ layout_start('Crea la tua maglia', 'avatar');
       <span class="av-item-state"><?= h($patterns[$cj['pattern_key']] ?? '') ?></span>
     </div>
     <div class="av-item-foot">
-      <a class="btn btn-primary btn-sm" href="avatar.php?c=jersey&amp;try=cj<?= (int) $cj['id'] ?>#personaggio">Indossa</a>
+      <a class="btn btn-primary btn-sm" href="avatar.php?c=jersey&amp;try=cj<?= (int) $cj['id'] ?>#avatar">Indossa</a>
       <form method="post"><?= csrf_field() ?><input type="hidden" name="delete_id" value="<?= (int) $cj['id'] ?>">
         <button class="btn btn-ghost btn-sm" data-confirm="Cancellare «<?= h($cj['name']) ?>»?" title="Cancella" aria-label="Cancella"><i class="ti ti-trash"></i></button></form>
     </div>

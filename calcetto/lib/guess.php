@@ -50,7 +50,7 @@ function guess_reveal_at(): ?int
     return $v ? (int) strtotime($v) : null;
 }
 
-/** Cosa si svela (es. «È il Personaggio: ...»); vuoto = nessuna rivelazione. */
+/** Cosa si svela (es. «È l'Avatar: ...»); vuoto = nessuna rivelazione. */
 function guess_reveal_text(): string
 {
     return (string) (meta_get('drop_reveal') ?? '');
@@ -119,7 +119,7 @@ function guess_new_round(int $at): void
 }
 
 /*
- * Lancio del Personaggio (avatar.php): finché il countdown della Home non scade lo vede solo l'admin; alla scadenza si apre da solo
+ * Lancio dell'Avatar (avatar.php): finché il countdown della Home non scade lo vede solo l'admin; alla scadenza si apre da solo
  * a tutti. La prima volta che qualcuno carica una pagina dopo la scadenza si segna il round del lancio in meta, così resta aperto
  * anche quando l'admin apre un nuovo round con una data futura. Al lancio esce solo una parte degli oggetti (lib/shop.php: shop_launch_keep).
  */
@@ -137,7 +137,7 @@ function avatar_launch_round(): ?int
     return $r;
 }
 
-/** Il Personaggio è aperto a tutti? (l'admin lo vede sempre, anche prima del lancio) */
+/** L'Avatar è aperto a tutti? (l'admin lo vede sempre, anche prima del lancio) */
 function avatar_public(): bool
 {
     return avatar_launch_round() !== null;
@@ -241,7 +241,7 @@ function coin_gifts_unseen(int $playerId): ?array
     return [(int) $r['tot'], (int) $r['n'], (int) $r['last'], (bool) $r['guess'], $notes];
 }
 
-/** Ha dei crediti del Personaggio regalati e non ha ancora visto il messaggio «Il primo giro lo offro io»? Ritorna l'importo, altrimenti null. */
+/** Ha dei crediti dell'Avatar regalati e non ha ancora visto il messaggio «Il primo giro lo offro io»? Ritorna l'importo, altrimenti null. */
 function credits_intro_unseen(int $playerId): ?int
 {
     try {

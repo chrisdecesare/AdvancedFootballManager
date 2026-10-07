@@ -1,5 +1,5 @@
 /*
- * Player del Personaggio in pixel art (lib/avatar.php: avatar_figure). Ogni <svg class="avf"> ha i fotogrammi nei <defs>
+ * Player dell'Avatar in pixel art (lib/avatar.php: avatar_figure). Ogni <svg class="avf"> ha i fotogrammi nei <defs>
  * (<g id="…-nome">) e un <use data-sprite> che mostra quello del passo, con lo spostamento/rotazione già calcolati in PHP.
  *  - data-idle: la posa da fermo, ripetuta (il respiro, il saluto);
  *  - data-seq: l'esultanza, che parte con PixelAvatar.play(); effetti del passo: polvere e oggetti (<g data-fx>), scia dei due passi

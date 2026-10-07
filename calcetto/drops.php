@@ -104,7 +104,7 @@ $now = time();
 $state = fn(string $k) => !isset($map[$k]) ? 'pending' : ($map[$k] <= $now ? 'out' : 'scheduled');
 $kindNames = shop_kinds() + avatar_kinds();
 
-/** Anteprima di un oggetto: il copricapo, il nickname o il personaggio che lo indossa. */
+/** Anteprima di un oggetto: il copricapo, il nickname o l'avatar che lo indossa. */
 $me = my_player_id();
 $look = $me ? avatar_look(get_player($me)) : avatar_defaults() + ['hat' => null];
 $preview = function (string $kind, string $key, array $item) use ($look): string {

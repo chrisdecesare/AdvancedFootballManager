@@ -1,14 +1,14 @@
 <?php
 /*
- * Personaggio: il giocatore disegnato a figura intera in pixel art 16-bit (motore e fotogrammi in lib/avatar_pixel.php, disegni in
+ * Avatar: il giocatore disegnato a figura intera in pixel art 16-bit (motore e fotogrammi in lib/avatar_pixel.php, disegni in
  * lib/avatar_pixel_art.php e lib/avatar_pixel_parts.php, animazioni in assets/avatar_px.js).
  *
  * Cosa indossa sta nella colonna players.avatar_look (JSON: una chiave del catalogo per tipo, vedi avatar_defaults()); il copricapo è
  * invece quello del profilo (players.hat_key), così comprato o indossato qui o nel Negozio si vede in tutti e due i posti: in testa
- * al personaggio va la sua versione pixel (px_hats(), per modello). Catalogo e prezzi in lib/shop_items.php, acquisti in lib/shop.php.
+ * all'avatar va la sua versione pixel (px_hats(), per modello). Catalogo e prezzi in lib/shop_items.php, acquisti in lib/shop.php.
  * La figura (maschile, femminile, non binaria) è il genere del profilo, players.gender: si sceglie qui o in Modifica profilo.
  * Nello stesso JSON anche altezza e peso ('height' in cm, 'weight' in kg, gratis e facoltativi): danno le proporzioni al disegno
- * (lib/avatar_pixel.php: px_body_shape); senza, il personaggio ha le misure del disegno di base (1,75 m, corporatura media).
+ * (lib/avatar_pixel.php: px_body_shape); senza, l'avatar ha le misure del disegno di base (1,75 m, corporatura media).
  */
 
 function avatar_kinds(): array
@@ -66,7 +66,7 @@ function avatar_look(array $p): array
 /** Altezza (cm) e peso (kg) che si possono scegliere: [minimo, massimo, valore del disegno di base]. */
 const AVATAR_BODY = ['height' => [140, 215, 175], 'weight' => [40, 160, 72]];
 
-/** Salva altezza e peso del personaggio (null = non detto: torna alle misure del disegno di base). Restituisce l'errore, se c'è. */
+/** Salva altezza e peso dell'avatar (null = non detto: torna alle misure del disegno di base). Restituisce l'errore, se c'è. */
 function avatar_set_body(int $playerId, ?int $cm, ?int $kg): ?string
 {
     foreach (['height' => $cm, 'weight' => $kg] as $k => $v) {
@@ -83,7 +83,7 @@ function avatar_set_body(int $playerId, ?int $cm, ?int $kg): ?string
     return null;
 }
 
-/** Indossa (o, con $key = null, torna al valore di base) un oggetto del personaggio. Il copricapo va in hat_key come nel Negozio. */
+/** Indossa (o, con $key = null, torna al valore di base) un oggetto dell'avatar. Il copricapo va in hat_key come nel Negozio. */
 function avatar_set(int $playerId, string $kind, ?string $key): void
 {
     $saved = json_decode((string) q('SELECT avatar_look FROM players WHERE id = ?', [$playerId])->fetchColumn(), true);
@@ -105,7 +105,7 @@ const AVATAR_VIEWBOX_PITCH = '-2 -10 36 67';
 const AVATAR_CROPS = ['head' => '3 -9 26 33', 'torso' => '1 19 30 25', 'legs' => '4 36 24 21', 'feet' => '6 47 20 10'];
 
 /**
- * Colori e pezzi del personaggio per il motore pixel: [colori, pezzi, motivo, pet, posa, esultanza].
+ * Colori e pezzi dell'avatar per il motore pixel: [colori, pezzi, motivo, pet, posa, esultanza].
  * $jersey: ['a' =>, 'b' =>, 'pattern' =>] al posto della maglia indossata.
  */
 function avatar_px_look(array $look, ?array $jersey = null): array
@@ -131,9 +131,9 @@ function avatar_px_look(array $look, ?array $jersey = null): array
 }
 
 /**
- * Il personaggio in pixel art, come <svg class="avf">. Opzioni:
+ * L'avatar in pixel art, come <svg class="avf">. Opzioni:
  *  - number: numero di maglia;   - crop: un'inquadratura di AVATAR_CROPS (miniature del negozio);
- *  - stage: sul palco della pagina Personaggio (posa animata ed esultanza pronta per «Esulta!»);
+ *  - stage: sul palco della pagina Avatar (posa animata ed esultanza pronta per «Esulta!»);
  *  - idle: posa animata anche fuori dal palco (il campo della Home);
  *  - ring: sotto i piedi un disco del colore della squadra (var(--tc) di chi lo contiene) invece dell'ombra;
  *  - pose: posa del catalogo al posto di quella scelta;   - hint: esultanza da mostrare ferma nel suo momento più riconoscibile;

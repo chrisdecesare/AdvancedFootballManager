@@ -22,8 +22,8 @@ function layout_start(string $title, string $active = ''): void
         $nav = array_slice($nav, 0, 5, true) + ['fanta' => ['fanta.php', 'Fanta', 'cards']] + $nav;
     }
     if ($u && !$guest && avatar_visible()) {
-        // Personaggio (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
-        $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Personaggio', '3d-cube-sphere']] + $nav;
+        // Avatar (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
+        $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Avatar', '3d-cube-sphere']] + $nav;
     }
     $pendingLeague = 0;
     if ($u && !$guest) {
@@ -162,8 +162,8 @@ function layout_start(string $title, string $active = ''): void
   <div class="vote-done-card">
     <span class="cg-badge" aria-hidden="true"><i class="ti ti-hanger"></i></span>
     <div class="vote-done-title">Il primo giro lo offro io!</div>
-    <div class="vote-done-sub">Ti ho regalato <?= $credIntro ?> crediti per personalizzare il tuo Personaggio: capelli, maglie, cappelli e tutto il resto.
-      Valgono solo nella sezione <a class="link" href="avatar.php">Personaggio</a>, non per le scommesse.</div>
+    <div class="vote-done-sub">Ti ho regalato <?= $credIntro ?> crediti per personalizzare il tuo Avatar: capelli, maglie, cappelli e tutto il resto.
+      Valgono solo nella sezione <a class="link" href="avatar.php">Avatar</a>, non per le scommesse.</div>
   </div>
 </div>
 <?php endif; ?>

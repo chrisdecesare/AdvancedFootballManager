@@ -1272,8 +1272,8 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 @media (prefers-reduced-motion: reduce) { .slip-leg.is-moved-up, .slip-leg.is-moved-down { animation: none; } }
 
 
-/* ---------------------------------------------------------------- Personaggio (avatar.php, disegno in lib/avatar.php) */
-/* il personaggio in pixel art: SVG coi pixel già colorati (lib/avatar_pixel.php); pose ed esultanze le muove assets/avatar_px.js */
+/* ---------------------------------------------------------------- Avatar (avatar.php, disegno in lib/avatar.php) */
+/* l'avatar in pixel art: SVG coi pixel già colorati (lib/avatar_pixel.php); pose ed esultanze le muove assets/avatar_px.js */
 .avf { display: block; overflow: visible; image-rendering: pixelated; }
 .avf .avf-ring { fill: var(--tc, var(--paper-2)); }
 .av-stage .pxa-pet { animation: pxa-pet 1.1s steps(1) infinite; }
@@ -1402,7 +1402,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .jc-pat { display: inline-flex !important; align-items: center; gap: 6px; padding: 5px 12px 5px 8px; border: var(--b2); border-radius: 999px; background: var(--white); cursor: pointer; }
 .jc-pat:has(input:checked) { background: var(--yellow); box-shadow: var(--sh-sm); }
 
-/* Home: formazioni con i personaggi (lib/formation.php: render_pitch_figures) */
+/* Home: formazioni con gli avatar (lib/formation.php: render_pitch_figures) */
 .sub-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
 .sub-title-row .sub-title { margin: 0; }
 .pitch-view-toggle { display: flex; gap: 6px; }
@@ -1468,7 +1468,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .drop-item.is-out .drop-item-state { color: var(--grass-d); }
 .drop-item.is-scheduled .drop-item-state { color: #b86e00; }
 
-/* Personaggio e Negozio: il riquadro «Coming soon» con gli oggetti non ancora usciti (solo il numero, niente nomi) */
+/* Avatar e Negozio: il riquadro «Coming soon» con gli oggetti non ancora usciti (solo il numero, niente nomi) */
 .av-item-soon { cursor: default; opacity: .9; }
 .av-item-soon:hover { transform: none; box-shadow: var(--sh-sm); }
 .av-item-soon .av-item-plus { background: var(--paper-2); }
@@ -1626,7 +1626,7 @@ tr.is-new td { background: #fffbe6; }
 .drops-time-opt { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; }
 .drops-time-opt input[type="datetime-local"] { max-width: 100%; }
 
-/* Personaggio: figura (è il genere del profilo) */
+/* Avatar: figura (è il genere del profilo) */
 .av-figure { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 10px 16px 0; }
 .av-figure-label { font-weight: 900; margin-right: 2px; display: inline-flex; align-items: center; gap: 4px; }
 .av-figure-opt { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: var(--b2); border-radius: 999px; background: var(--white);

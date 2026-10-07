@@ -361,7 +361,7 @@ function render_pitch(array $match, array $roster, bool $editable = false, bool 
 
 
 /**
- * Le formazioni con i Personaggi (lib/avatar.php) in piedi su un campo in prospettiva, nelle stesse posizioni di render_pitch():
+ * Le formazioni con gli Avatar (lib/avatar.php) in piedi su un campo in prospettiva, nelle stesse posizioni di render_pitch():
  * la squadra A vicina (in basso), la B in fondo. È la vista «Campo» della Home, in alternativa ai cerchi.
  */
 function render_pitch_figures(array $match, array $roster): string
@@ -420,7 +420,7 @@ function render_pitch_figures(array $match, array $roster): string
             $pl[] = ['r' => $r, 't' => $t, 'top' => $top, 'lx' => $x(($left - 50) / 50 * .9, $d) / 4, 'ly' => $y($d) / 3.3, 's' => .62 + .38 * $d];
         }
     }
-    // in prospettiva i personaggi sono alti: chi finirebbe quasi davanti a un altro viene spostato un po' di lato
+    // in prospettiva gli avatar sono alti: chi finirebbe quasi davanti a un altro viene spostato un po' di lato
     for ($pass = 0; $pass < 4; $pass++) {
         foreach ($pl as $i => $p) {
             foreach ($pl as $j => $q) {

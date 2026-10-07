@@ -18,7 +18,7 @@
  *    d'inizio, e sempre prima di qualsiasi cambio di rosa: così è identica alla rosa che c'era al fischio d'inizio.
  *  - Punti di una figurina in una partita (fanta_match_points): media dei voti ricevuti + bonus (FANTA_BONUS). Chi non ha
  *    giocato fa 0; se un titolare non ha giocato entra quello in panchina, se ha giocato. L'MVP conta a votazioni chiuse.
- *  - Premi: oggetti del Personaggio e nickname che non si comprano (fanta_reward_items, nel catalogo con 'fanta' => posizione):
+ *  - Premi: oggetti dell'Avatar e nickname che non si comprano (fanta_reward_items, nel catalogo con 'fanta' => posizione):
  *    un oggetto con 'fanta' => N va a chi arriva tra i primi N. Chi ce l'ha già riceve FANTA_DUPLICATE_KOIN al suo posto.
  */
 
