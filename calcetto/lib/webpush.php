@@ -892,7 +892,7 @@ function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): 
         if (!$m || $m['status'] !== 'giocata') {
             return;
         }
-        $users = push_match_recipients($matchId, 'mp.team IS NOT NULL AND NOT EXISTS (SELECT 1 FROM players g WHERE g.id = mp.player_id AND g.is_guest = 1)', $exceptUser);   // gli ospiti non votano
+        $users = push_match_recipients($matchId, 'mp.team IS NOT NULL', $exceptUser);   // anche gli ospiti votano
         if ($open) {
             $msg = ['title' => 'Votazioni aperte',
                 'body' => team_name('A', $m) . ' ' . (int) $m['score_a'] . '–' . (int) $m['score_b'] . ' ' . team_name('B', $m)
@@ -913,7 +913,7 @@ function push_notify_voting(int $matchId, bool $open, ?int $exceptUser = null): 
  * Le campanelle di match.php (solo admin e manager della lega): un promemoria SOLO a chi non ha ancora fatto la sua parte,
  * ricontrollato nel momento dell'invio e mai a chi lo manda.
  *  - presenza: partita in programma, a chi non ha ancora detto se c'è o no;
- *  - voti: votazioni aperte, a chi ha giocato e non ha ancora votato (gli ospiti non votano).
+ *  - voti: votazioni aperte, a chi ha giocato e non ha ancora votato (ospiti compresi).
  * Al massimo un promemoria ogni PUSH_NUDGE_MINUTES per partita e per tipo.
  */
 const PUSH_NUDGE_MINUTES = 30;
@@ -926,7 +926,7 @@ function push_nudge_missing(int $matchId, string $kind): array
 {
     $sql = $kind === 'voti'
         ? 'SELECT mp.player_id FROM match_players mp JOIN players p ON p.id = mp.player_id
-           WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0
+           WHERE mp.match_id = ? AND mp.team IS NOT NULL
              AND NOT EXISTS (SELECT 1 FROM mvp_votes v WHERE v.match_id = mp.match_id AND v.voter_id = mp.player_id)'
         : "SELECT mp.player_id FROM match_players mp JOIN players p ON p.id = mp.player_id
            WHERE mp.match_id = ? AND mp.availability = 'in_attesa' AND p.active = 1";

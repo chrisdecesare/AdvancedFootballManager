@@ -127,14 +127,24 @@ function result_for(array $m, string $team): string
     return (($team === 'A') === ($a > $b)) ? 'V' : 'S';
 }
 
-/** [match_id][player_id] => ['avg' => media dei voti ricevuti, 'n' => numero voti] */
+/**
+ * Condizione SQL: i voti del giocatore $playerCol nella partita $matchCol contano per la lega. Non contano quelli degli ospiti
+ * finché chi gestisce la lega non li accetta (match_players.votes_ok NULL o 0, vedi lib/guests.php), né dati né ricevuti.
+ */
+function votes_ok_sql(string $matchCol, string $playerCol): string
+{
+    return "NOT EXISTS (SELECT 1 FROM match_players vk WHERE vk.match_id = $matchCol AND vk.player_id = $playerCol AND COALESCE(vk.votes_ok, 0) = 0)";
+}
+
+/** [match_id][player_id] => ['avg' => media dei voti ricevuti, 'n' => numero voti] (solo i voti che contano per la lega) */
 function match_vote_averages(): array
 {
     static $c = null;
     if ($c === null) {
         $c = [];
         $rows = q('SELECT match_id, rated_id, AVG(vote) AS avg_vote, COUNT(*) AS n
-                   FROM ratings GROUP BY match_id, rated_id')->fetchAll();
+                   FROM ratings WHERE ' . votes_ok_sql('ratings.match_id', 'ratings.voter_id') . ' AND ' . votes_ok_sql('ratings.match_id', 'ratings.rated_id') . '
+                   GROUP BY match_id, rated_id')->fetchAll();
         foreach ($rows as $r) {
             $c[(int) $r['match_id']][(int) $r['rated_id']] = ['avg' => (float) $r['avg_vote'], 'n' => (int) $r['n']];
         }
@@ -207,7 +217,7 @@ function default_vote_label(): string
 function apply_default_votes(int $matchId): array
 {
     $played = q('SELECT mp.player_id, p.name FROM match_players mp JOIN players p ON p.id = mp.player_id
-                 WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0 ORDER BY p.name', [$matchId])->fetchAll();   // gli ospiti non votano e non si votano
+                 WHERE mp.match_id = ? AND mp.team IS NOT NULL ORDER BY p.name', [$matchId])->fetchAll();   // anche gli ospiti (contano solo se accettati)
     $voted = array_map('intval', q('SELECT voter_id FROM mvp_votes WHERE match_id = ?', [$matchId])->fetchAll(PDO::FETCH_COLUMN));
     $names = [];
     db()->beginTransaction();
@@ -228,13 +238,14 @@ function apply_default_votes(int $matchId): array
     return $names;
 }
 
-/** [match_id][player_id] => numero di voti MVP */
+/** [match_id][player_id] => numero di voti MVP (solo quelli che contano per la lega) */
 function match_mvp_counts(): array
 {
     static $c = null;
     if ($c === null) {
         $c = [];
-        foreach (q('SELECT match_id, voted_id, COUNT(*) AS n FROM mvp_votes GROUP BY match_id, voted_id')->fetchAll() as $r) {
+        foreach (q('SELECT match_id, voted_id, COUNT(*) AS n FROM mvp_votes WHERE ' . votes_ok_sql('mvp_votes.match_id', 'mvp_votes.voter_id')
+                   . ' AND ' . votes_ok_sql('mvp_votes.match_id', 'mvp_votes.voted_id') . ' GROUP BY match_id, voted_id')->fetchAll() as $r) {
             $c[(int) $r['match_id']][(int) $r['voted_id']] = (int) $r['n'];
         }
     }
@@ -280,7 +291,7 @@ const MATCH_AWARDS = [
 ];
 
 /**
- * Chi si può votare per ogni premio: [premio => [id giocatore, ...]] (ospiti esclusi). Miglior portiere solo con i portieri fissi:
+ * Chi si può votare per ogni premio: [premio => [id giocatore, ...]] (anche gli ospiti). Miglior portiere solo con i portieri fissi:
  * chi gioca in porta nel modulo della sua squadra; per il miglior difensore tutti gli altri (con i portieri fissi, loro no).
  * @param array $roster righe di match_roster
  */
@@ -304,7 +315,7 @@ function match_award_options(array $match, array $roster): array
     $out = ['dif' => [], 'por' => []];
     foreach ($roster as $r) {
         $pid = (int) $r['player_id'];
-        if (!$r['team'] || $r['is_guest']) {
+        if (!$r['team']) {
             continue;
         }
         $out[isset($keepers[$pid]) ? 'por' : 'dif'][] = $pid;
@@ -312,11 +323,12 @@ function match_award_options(array $match, array $roster): array
     return $out;
 }
 
-/** Voti dei premi di una partita: [premio => [id giocatore => voti]]. */
+/** Voti dei premi di una partita: [premio => [id giocatore => voti]] (solo quelli che contano per la lega). */
 function match_award_counts(int $matchId): array
 {
     $out = [];
-    foreach (q('SELECT award, voted_id, COUNT(*) AS n FROM award_votes WHERE match_id = ? GROUP BY award, voted_id', [$matchId])->fetchAll() as $r) {
+    foreach (q('SELECT award, voted_id, COUNT(*) AS n FROM award_votes WHERE match_id = ? AND ' . votes_ok_sql('award_votes.match_id', 'award_votes.voter_id')
+               . ' AND ' . votes_ok_sql('award_votes.match_id', 'award_votes.voted_id') . ' GROUP BY award, voted_id', [$matchId])->fetchAll() as $r) {
         $out[$r['award']][(int) $r['voted_id']] = (int) $r['n'];
     }
     return $out;

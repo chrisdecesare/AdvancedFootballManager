@@ -13,7 +13,9 @@ function layout_start(string $title, string $active = ''): void
     ];
     $guest = is_guest();
     if ($guest) {
-        $nav = ['match' => ['match.php?id=' . (int) guest_match_id(), 'La partita', 'calendar-event']];   // vede solo la sua partita
+        // vede solo le sue partite (l'ultima nel menu) e la sua area (guest.php)
+        $nav = (guest_match_id() ? ['match' => ['match.php?id=' . (int) guest_match_id(), 'La partita', 'calendar-event']] : [])
+            + ['guest' => ['guest.php', 'La tua area', 'user-circle']];
     }
     if ($u && !$guest && fanta_visible()) {
         // Fanta (fanta.php): prima di FANTA_LAUNCH_AT lo vede solo l'admin (lib/fanta.php)

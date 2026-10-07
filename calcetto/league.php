@@ -74,6 +74,10 @@ if (is_post()) {
             }
             break;
 
+        case 'invite_free_agent':   // un giocatore libero (ospite che ha tenuto l'account, lib/guests.php) invitato nella lega
+            $err = league_invite_free_agent($gid, $pid, $meUid);
+            flash($err ? 'err' : 'ok', $err ?? 'Invito mandato: se accetta entra nella lega.');
+            redirect($self . '#liberi');
         case 'invite_regen':
             q('UPDATE squad_groups SET invite_code = ? WHERE id = ?', [league_new_code(), $gid]);
             log_activity('lega_invito', 'nuovo link', $gid);
@@ -343,6 +347,24 @@ layout_start($league['name'] . ' · gestione', 'league');
     <div><button class="btn btn-primary">Aggiungi</button></div>
   </form>
 </section>
+
+<?php $free = free_agents($gid); if ($free): ?>
+<section class="card" id="liberi">
+  <h2><i class="ti ti-user-search"></i> Giocatori liberi <span class="count"><?= count($free) ?></span></h2>
+  <p class="muted small">Ospiti di altre leghe che hanno tenuto l'account e non sono in nessuna lega. Puoi invitarli nella lega; per chiamarne uno a una partita
+    usa «Giocatori liberi» tra gli ospiti, nella scheda della partita.</p>
+  <?php foreach ($free as $fa): $fb = $fa['feedback']; ?>
+    <div class="pline-row free-agent">
+      <span><?= avatar($fa, 'sm') ?> <strong><?= h($fa['name']) ?></strong>
+        <span class="muted small">· <?= h(implode(' / ', array_filter([$fa['position'], $fa['position2']]))) ?> · <?= h($fa['foot']) ?> · <?= $fb['matches'] ?> <?= $fb['matches'] === 1 ? 'partita' : 'partite' ?> da ospite</span>
+        <?php if ($fb['avg'] !== null): ?><span class="vote <?= vote_class($fb['avg']) ?>" title="Media dei voti ricevuti (<?= $fb['votes'] ?>)"><?= fmt_num($fb['avg']) ?></span><?php endif; ?></span>
+      <?php if ($fa['invited']): ?><span class="tag">invitato</span><?php else: ?>
+      <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="invite_free_agent"><input type="hidden" name="group_id" value="<?= $gid ?>"><input type="hidden" name="player_id" value="<?= (int) $fa['id'] ?>">
+        <button class="btn btn-ghost btn-sm"><i class="ti ti-user-plus"></i> Invita in lega</button></form><?php endif; ?>
+    </div>
+  <?php endforeach; ?>
+</section>
+<?php endif; ?>
 
 <section class="card">
   <h2><i class="ti ti-settings"></i> Impostazioni</h2>
