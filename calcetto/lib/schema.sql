@@ -328,6 +328,8 @@ CREATE TABLE IF NOT EXISTS wallet_moves (
   kind VARCHAR(12) NOT NULL,
   ref VARCHAR(20) NULL,                            -- per le mosse che si danno una volta sola (benvenuto, sussidio settimanale)
   shop_only TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = crediti validi solo per il negozio, non per le scommesse
+  note VARCHAR(200) NULL,                          -- regalo dell'admin: il messaggio per chi lo riceve
+  given_by INT NULL,                               -- regalo dell'admin: l'account che l'ha fatto (massimo 500 KOIN al giorno)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ref (player_id, ref),
   INDEX (bet_id),

@@ -286,8 +286,11 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   del portafoglio per giocatore e partita (`kind = 'premio'`). Il totale si vede nella scheda «Scommesse».
 - Al passaggio al nuovo modello (migrazione v26) le puntate ancora aperte sono state riprezzate, quelle su se stessi annullate e rimborsate, e i
   premi assegnati anche per le partite già giocate.
-**Regalare KOIN:** in *Admin → Regala KOIN* l'admin sceglie un giocatore delle sue leghe e una cifra (da 1 a 1000): si aggiunge una mossa `regalo` al
-portafoglio, visibile subito nel saldo, in classifica e nel Negozio. Ogni regalo finisce nel registro delle operazioni.
+**Regalare KOIN:** in *Admin → Regala KOIN* l'admin sceglie un giocatore delle sue leghe, una cifra e, se vuole, un **messaggio** (fino a 200 caratteri):
+si aggiunge una mossa `regalo` al portafoglio, visibile subito nel saldo, in classifica e nel Negozio. Il giocatore riceve la notifica push (con il messaggio)
+e, alla prima pagina che apre, la sovraimpressione col KOIN con il messaggio in un fumetto. Ogni admin regala **al massimo 500 KOIN al giorno** in tutto
+(`COIN_GIFT_DAILY_MAX` in `lib/guess.php`, dalla mezzanotte; colonne `wallet_moves.note` e `given_by`). I premi di «Indovina la funzionalità» non contano
+nel limite. Ogni regalo finisce nel registro delle operazioni.
 
 **Oggetti nuovi:** quando escono oggetti da *Uscite* (subito o a una data), alla prima richiesta dopo l'uscita (o da `cron.php`) parte una notifica push
 a chi le ha attive, con quanti oggetti e di che tipo. Chi non ha le notifiche vede un pallino rosso sulla scheda del menu (Personaggio o Negozio) e sulla

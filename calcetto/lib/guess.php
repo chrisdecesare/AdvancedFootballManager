@@ -190,25 +190,36 @@ function proposal_unread_count(): int
 
 /*
  * Quando l'admin regala KOIN (Admin → Regala KOIN, o il premio di «Indovina la funzionalità») il giocatore riceve una notifica push
- * e, alla prima pagina che apre, una sovraimpressione col KOIN (layout.php) come la spunta dei voti. players.gift_seen_id ricorda
- * fin dove li ha già visti.
+ * e, alla prima pagina che apre, una sovraimpressione col KOIN (layout.php) come la spunta dei voti, con il messaggio dell'admin se l'ha
+ * scritto (wallet_moves.note). players.gift_seen_id ricorda fin dove li ha già visti. Ogni admin regala al massimo COIN_GIFT_DAILY_MAX
+ * KOIN al giorno (wallet_moves.given_by), dalla mezzanotte.
  */
-/** Push al giocatore premiato (a fine richiesta, per non rallentare la pagina dell'admin). */
-function coin_gift_notify(int $playerId, int $amount, string $why = ''): void
+const COIN_GIFT_DAILY_MAX = 500;
+const COIN_GIFT_NOTE_MAX = 200;   // caratteri del messaggio che accompagna il regalo
+
+/** KOIN che l'admin $uid ha già regalato oggi (da Admin → Regala KOIN). */
+function coin_gift_given_today(int $uid): int
 {
-    push_defer(function () use ($playerId, $amount, $why) {
+    return (int) q("SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE kind = 'regalo' AND given_by = ? AND created_at >= ?",
+        [$uid, date('Y-m-d 00:00:00')])->fetchColumn();
+}
+
+/** Push al giocatore premiato (a fine richiesta, per non rallentare la pagina dell'admin). */
+function coin_gift_notify(int $playerId, int $amount, string $why = '', string $note = ''): void
+{
+    push_defer(function () use ($playerId, $amount, $why, $note) {
         $users = array_values(push_users_of_players([$playerId]));
         if ($users) {
             push_notify_users($users, [
                 'title' => 'Hai ricevuto ' . $amount . ' KOIN!',
-                'body' => 'L\'admin ti ha regalato ' . $amount . ' KOIN' . ($why !== '' ? ' ' . $why : '') . '.',
+                'body' => 'L\'admin ti ha regalato ' . $amount . ' KOIN' . ($why !== '' ? ' ' . $why : '') . '.' . ($note !== '' ? ' «' . $note . '»' : ''),
                 'url' => 'bets.php', 'tag' => 'gift-' . $playerId . '-' . time(),
             ], 'normal', 'regalo');
         }
     });
 }
 
-/** Regali non ancora mostrati al giocatore: [totale, quanti, ultimo id, uno è un premio di «Indovina»?]. Null se non ce ne sono. */
+/** Regali non ancora mostrati al giocatore: [totale, quanti, ultimo id, uno è un premio di «Indovina»?, messaggi]. Null se non ce ne sono. */
 function coin_gifts_unseen(int $playerId): ?array
 {
     try {
@@ -220,7 +231,14 @@ function coin_gifts_unseen(int $playerId): ?array
     } catch (Throwable $e) {
         return null;   // colonna non ancora creata
     }
-    return $r && (int) $r['n'] > 0 ? [(int) $r['tot'], (int) $r['n'], (int) $r['last'], (bool) $r['guess']] : null;
+    if (!$r || (int) $r['n'] === 0) {
+        return null;
+    }
+    // i messaggi dell'admin che accompagnano i regali (gli ultimi tre, dal più vecchio)
+    $notes = array_reverse(q("SELECT w.note FROM wallet_moves w JOIN players p ON p.id = w.player_id
+                              WHERE w.player_id = ? AND w.id > p.gift_seen_id AND w.kind = 'regalo' AND w.delta > 0 AND w.note IS NOT NULL AND w.note <> ''
+                              ORDER BY w.id DESC LIMIT 3", [$playerId])->fetchAll(PDO::FETCH_COLUMN));
+    return [(int) $r['tot'], (int) $r['n'], (int) $r['last'], (bool) $r['guess'], $notes];
 }
 
 /** Ha dei crediti del Personaggio regalati e non ha ancora visto il messaggio «Il primo giro lo offro io»? Ritorna l'importo, altrimenti null. */

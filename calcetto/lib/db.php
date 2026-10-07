@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 49;
+const SCHEMA_VERSION = 50;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -876,6 +876,11 @@ function ensure_schema(): void
             FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE,
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 50) {
+        // regali di KOIN dell'admin (lib/guess.php): il messaggio per chi li riceve e chi li ha dati (massimo COIN_GIFT_DAILY_MAX al giorno)
+        $add('wallet_moves', 'note', 'VARCHAR(200) NULL');
+        $add('wallet_moves', 'given_by', 'INT NULL');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
