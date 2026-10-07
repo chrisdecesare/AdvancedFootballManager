@@ -126,21 +126,43 @@ if (is_post()) {
             }
             break;
         case 'gift_coins':
-            // regalo di KOIN a un giocatore delle leghe di casa: una mossa «regalo» nel portafoglio (si vede nel saldo e in classifica)
+            // regalo di KOIN a un giocatore delle leghe di casa: una mossa «regalo» nel portafoglio (si vede nel saldo e in classifica),
+            // con il messaggio facoltativo; al massimo COIN_GIFT_DAILY_MAX al giorno per admin (lib/guess.php)
             $giftId = (int) ($_POST['gift_player'] ?? 0);
             $giftAmount = (int) ($_POST['amount'] ?? 0);
+            $giftNote = trim(preg_replace('/\s+/u', ' ', is_string($_POST['note'] ?? null) ? $_POST['note'] : ''));
+            $actorUid = (int) current_user()['id'];
             $giftPlayer = $giftId ? q("SELECT p.id, p.name FROM players p WHERE p.id = ? AND p.is_guest = 0
                                        AND EXISTS (SELECT 1 FROM player_groups pg WHERE pg.player_id = p.id AND pg.group_id IN ($homeIn))", [$giftId])->fetch() : null;
             if (!$giftPlayer) {
                 flash('err', 'Scegli un giocatore.');
-            } elseif ($giftAmount < 1 || $giftAmount > 1000) {
-                flash('err', 'Il regalo va da 1 a 1000 KOIN.');
-            } else {
-                q("INSERT INTO wallet_moves (player_id, eco, delta, kind) VALUES (?, 0, ?, 'regalo')", [$giftPlayer['id'], $giftAmount]);   // KOIN delle leghe storiche
-                log_activity('gettoni', 'regalo · ' . $giftAmount . ' a ' . $giftPlayer['name']);
-                coin_gift_notify((int) $giftPlayer['id'], $giftAmount);
-                flash('ok', 'Regalati ' . $giftAmount . ' KOIN a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id'], 0) . '.');
+                break;
             }
+            if (mb_strlen($giftNote) > COIN_GIFT_NOTE_MAX) {
+                flash('err', 'Il messaggio può avere al massimo ' . COIN_GIFT_NOTE_MAX . ' caratteri.');
+                break;
+            }
+            $giftErr = bet_atomic(function () use ($giftPlayer, $giftAmount, $giftNote, $actorUid, &$giftLeft) {
+                q('SELECT id FROM users WHERE id = ? FOR UPDATE', [$actorUid]);   // due regali insieme non superano il limite
+                $giftLeft = COIN_GIFT_DAILY_MAX - coin_gift_given_today($actorUid);
+                if ($giftLeft <= 0) {
+                    return 'Oggi hai già regalato ' . COIN_GIFT_DAILY_MAX . ' KOIN, il massimo: riprova domani.';
+                }
+                if ($giftAmount < 1 || $giftAmount > $giftLeft) {
+                    return 'Oggi puoi regalare ancora ' . $giftLeft . ' KOIN (massimo ' . COIN_GIFT_DAILY_MAX . ' al giorno): scegli un numero da 1 a ' . $giftLeft . '.';
+                }
+                q("INSERT INTO wallet_moves (player_id, eco, delta, kind, note, given_by) VALUES (?, 0, ?, 'regalo', ?, ?)",   // KOIN delle leghe storiche
+                    [$giftPlayer['id'], $giftAmount, $giftNote !== '' ? $giftNote : null, $actorUid]);
+                return null;
+            });
+            if ($giftErr) {
+                flash('err', $giftErr);
+                break;
+            }
+            log_activity('gettoni', 'regalo · ' . $giftAmount . ' a ' . $giftPlayer['name']);
+            coin_gift_notify((int) $giftPlayer['id'], $giftAmount, '', $giftNote);
+            flash('ok', 'Regalati ' . $giftAmount . ' KOIN a ' . $giftPlayer['name'] . ': ora ne ha ' . wallet_balance((int) $giftPlayer['id'], 0) . '.'
+                . ' Oggi puoi regalarne ancora ' . ($giftLeft - $giftAmount) . '.');
             break;
         case 'mail_test':
             $to = mb_strtolower(trim((string) ($_POST['to'] ?? '')));
@@ -523,15 +545,21 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
 ?>
 <section class="card" id="koin">
   <h2><i class="ti ti-coin"></i> Regala KOIN</h2>
-  <p class="muted small">Aggiunge KOIN al portafoglio di un giocatore (da 1 a 1000 per volta): si vedono subito nel suo saldo, in classifica e nel Negozio.</p>
+  <?php $giftLeft = max(0, COIN_GIFT_DAILY_MAX - coin_gift_given_today((int) current_user()['id'])); ?>
+  <p class="muted small">Aggiunge KOIN al portafoglio di un giocatore: si vedono subito nel suo saldo, in classifica e nel Negozio. Alla prima pagina che apre
+    gli compare il KOIN con il tuo messaggio, se lo scrivi. Massimo <?= COIN_GIFT_DAILY_MAX ?> KOIN al giorno:
+    <strong><?= $giftLeft ? 'oggi puoi regalarne ancora ' . $giftLeft : 'per oggi li hai già regalati tutti, riprova domani' ?></strong>.</p>
+  <?php if ($giftLeft): ?>
   <form method="post" class="form form-grid form-grid-4">
     <?= csrf_field() ?><input type="hidden" name="do" value="gift_coins">
     <label class="field"><span>Giocatore</span><select name="gift_player" required>
       <option value="">— scegli —</option>
       <?php foreach ($giftPlayers as $gp): ?><option value="<?= (int) $gp['id'] ?>"><?= h($gp['name']) ?> (<?= (int) $gp['bal'] ?> KOIN)</option><?php endforeach; ?></select></label>
-    <label class="field"><span>KOIN</span><input type="number" name="amount" min="1" max="1000" value="50" required inputmode="numeric"></label>
+    <label class="field"><span>KOIN</span><input type="number" name="amount" min="1" max="<?= $giftLeft ?>" value="<?= min(50, $giftLeft) ?>" required inputmode="numeric"></label>
+    <label class="field span-2"><span>Messaggio (facoltativo)</span><input name="note" maxlength="<?= COIN_GIFT_NOTE_MAX ?>" autocomplete="off" placeholder="Es. Grazie per aver portato il pallone!"></label>
     <div><button class="btn btn-primary" data-confirm="Regalare questi KOIN?"><i class="ti ti-gift"></i> Regala</button></div>
   </form>
+  <?php endif; ?>
 </section>
 
 <?php $guessList = guess_all(guess_round()); ?>

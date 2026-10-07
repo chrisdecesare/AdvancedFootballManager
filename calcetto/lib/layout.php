@@ -146,13 +146,14 @@ function layout_start(string $title, string $active = ''): void
     <a class="link" href="account.php#due-passaggi">verifica in due passaggi</a> (un codice dal telefono oltre alla password). Ci vuole un minuto.</div>
 <?php endif; ?>
 <?php if ($myId && ($gift = coin_gifts_unseen($myId))):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta sola
-    [$giftTot, $giftN, $giftLast, $giftGuess] = $gift;
+    [$giftTot, $giftN, $giftLast, $giftGuess, $giftNotes] = $gift;
     coin_gifts_seen($myId, $giftLast); ?>
-<div class="vote-done coin-gift" data-vote-done role="status" aria-live="polite">
+<div class="vote-done coin-gift<?= $giftNotes ? ' has-note' : '' ?>" data-vote-done role="status" aria-live="polite">
   <div class="vote-done-card">
     <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>
     <div class="vote-done-title">+<?= $giftTot ?> KOIN!</div>
     <div class="vote-done-sub">L'admin ti ha regalato <?= $giftTot ?> KOIN<?= $giftGuess && $giftN === 1 ? ' per la tua idea su «Indovina la funzionalità»' : '' ?>.</div>
+    <?php foreach ($giftNotes as $note): ?><p class="cg-note">«<?= h($note) ?>»</p><?php endforeach; ?>
   </div>
 </div>
 <?php elseif ($myId && ($credIntro = credits_intro_unseen($myId))):   // «Il primo giro lo offro io»: una volta sola

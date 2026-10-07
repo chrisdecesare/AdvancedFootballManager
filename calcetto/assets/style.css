@@ -1494,6 +1494,9 @@ tr.is-new td { background: #fffbe6; }
 
 /* regalo di KOIN dall'admin: come la spunta dei voti, ma col KOIN (lib/layout.php) */
 .coin-gift { animation-duration: 3.6s; }
+.coin-gift.has-note { animation-duration: 8s; }   /* c'è da leggere il messaggio (un tocco la chiude prima) */
+.cg-note { margin: 4px 0 0; max-width: 300px; padding: 8px 14px; background: var(--white); color: var(--ink); border: var(--b2); border-radius: 14px;
+  box-shadow: var(--sh-sm); font-weight: 800; transform: rotate(1deg); overflow-wrap: anywhere; }
 .cg-badge { display: grid; place-items: center; width: min(46vw, 170px); aspect-ratio: 1; border-radius: 50%; background: var(--yellow); border: 6px solid var(--ink);
   box-shadow: 8px 8px 0 var(--ink); font-size: min(30vw, 112px); color: var(--ink); animation: cg-spin .9s .15s cubic-bezier(.34, 1.56, .64, 1) both; }
 @keyframes cg-spin { from { transform: rotateY(180deg) scale(.6); opacity: 0; } to { transform: rotateY(0) scale(1); opacity: 1; } }
