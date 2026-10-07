@@ -114,6 +114,18 @@ CREATE TABLE IF NOT EXISTS mvp_votes (
   FOREIGN KEY (voted_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- voti per gli altri premi della partita (lib/stats.php: MATCH_AWARDS): dif = miglior difensore, por = miglior portiere (portieri fissi)
+CREATE TABLE IF NOT EXISTS award_votes (
+  match_id INT NOT NULL,
+  voter_id INT NOT NULL,
+  award VARCHAR(3) NOT NULL,
+  voted_id INT NOT NULL,
+  PRIMARY KEY (match_id, voter_id, award),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (voter_id) REFERENCES players(id) ON DELETE CASCADE,
+  FOREIGN KEY (voted_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS meta (
   k VARCHAR(40) PRIMARY KEY,
   v VARCHAR(255) NOT NULL

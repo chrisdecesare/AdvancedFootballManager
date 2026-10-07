@@ -286,6 +286,8 @@ body:has(.betslip:not([hidden])) .wrap { padding-bottom: 260px; }
   background: var(--white); border: var(--b2); white-space: nowrap; }
 .tag-admin { background: var(--ink); color: var(--yellow); border-color: var(--ink); }
 .tag-mvp { background: var(--yellow); }
+.tag-award-dif { background: var(--sky); }
+.tag-award-por { background: var(--grass); }
 .tag-live { background: var(--red); color: var(--white); }
 .tag-injured { background: var(--red); color: var(--white); }
 .tag-ok { background: var(--grass); }
@@ -348,23 +350,8 @@ form.inline { display: inline; margin: 0; }
 .gender-opt:has(input:checked), .gender-opt.is-on { background: var(--yellow); }
 .guess-mine { font-weight: 800; font-style: italic; }
 
-.drop-hype { position: relative; overflow: hidden; background: linear-gradient(135deg, var(--purple), var(--pink)); }
-.drop-hype-tag { position: absolute; top: 14px; right: -36px; transform: rotate(35deg); background: var(--ink); color: var(--yellow);
-  font-weight: 800; font-size: .78rem; padding: 4px 42px; display: flex; align-items: center; gap: 4px; justify-content: center; }
-.drop-hype-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.drop-hype-icon { font-size: 2.6rem; color: var(--white); flex: none; animation: wobble 1.1s ease-in-out infinite alternate; filter: drop-shadow(2px 2px 0 var(--ink)); }
-.drop-hype-txt { flex: 1 1 200px; min-width: 200px; }
-.drop-hype-txt h2 { margin: 0 0 4px; font: 400 1.6rem var(--font-d); color: var(--white); text-shadow: 2px 2px 0 var(--ink); }
-.drop-hype-txt p { margin: 0; color: var(--white); font-weight: 700; }
-.drop-hype-count { flex: none; animation: brdPulse 1.6s ease-in-out infinite; }
-.drop-hype-cta { margin-top: 16px; }
-@media (max-width: 600px) { .drop-hype-row { flex-direction: column; align-items: flex-start; } .drop-hype-txt { flex: none; min-width: 0; padding-right: 40px; } }
-/* in Home il countdown sta sotto al testo, così non finisce sotto l'etichetta «Top secret» in diagonale */
-.home > .drop-hype .drop-hype-txt { flex: 1 1 calc(100% - 80px); padding-right: 40px; }
-.drop-hype.is-launched { background: linear-gradient(135deg, var(--grass), var(--purple)); }
-/* proposte per il sito, dentro la card: le legge solo l'admin */
-/* proposte per il sito: card a parte accanto al countdown (index.php) */
-.home > .drop-hype, .home > .ideas-card { align-self: stretch; }
+/* proposte per il sito: card a parte (index.php), le legge solo l'admin */
+.home > .ideas-card { grid-column: 1 / -1; }
 .ideas-card { display: flex; flex-direction: column; gap: 8px; background: var(--paper-2); }
 .ideas-card h2 { margin: 0; font: 400 1.35rem var(--font-d); display: flex; align-items: center; gap: 6px; }
 .ideas-card p { margin: 0; }
@@ -471,6 +458,8 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .result-inputs input { width: 74px; font: 400 1.5rem var(--font-d); text-align: center; }
 
 .vote-form { display: grid; gap: 4px; }
+.award-picks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 10px 0 6px; }
+.award-pick select { width: 100%; }
 .vote-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) 52px 42px; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 2px dashed #e7dcc0; }
 .vote-who { display: flex; align-items: center; gap: 8px; font-weight: 800; min-width: 0; }
 .vote-who span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

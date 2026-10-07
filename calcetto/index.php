@@ -62,44 +62,7 @@ layout_start('Home', 'home');
 <?= group_bar('index.php') ?>
 <div class="home">
 
-  <?php $launched = avatar_public() && avatar_launch_round() === guess_round(); // il round del countdown è quello che ha aperto il Personaggio ?>
-  <section class="card drop-hype<?= $launched ? ' is-launched' : '' ?>">
-    <?php if ($launched): ?>
-    <span class="drop-hype-tag"><i class="ti ti-sparkles"></i> Novità</span>
-    <div class="drop-hype-row">
-      <i class="ti ti-user-star drop-hype-icon" aria-hidden="true"></i>
-      <div class="drop-hype-txt">
-        <h2>È arrivato il Personaggio!</h2>
-        <p>Il tuo giocatore in pixel art: capelli, maglie, bandiere, pet ed esultanze da comprare con i KOIN. Altri oggetti sono in arrivo, un po' alla volta.</p>
-      </div>
-    </div>
-    <?php if ($me && !is_guest()): ?><a class="btn btn-primary drop-hype-cta" href="avatar.php"><i class="ti ti-user-star"></i> Crea il tuo personaggio</a><?php endif; ?>
-    <?php elseif (guess_revealed() && !guess_drop_passed()): ?>
-    <span class="drop-hype-tag"><i class="ti ti-eye"></i> Svelato</span>
-    <div class="drop-hype-row">
-      <i class="ti ti-user-star drop-hype-icon" aria-hidden="true"></i>
-      <div class="drop-hype-txt">
-        <h2><?= h(guess_reveal_text()) ?></h2>
-        <p>Esce <?= h(fmt_date_long(date('Y-m-d H:i:s', guess_drop_at()))) ?> alle <?= date('H:i', guess_drop_at()) ?>. Chi aveva indovinato riceverà dei KOIN.</p>
-      </div>
-      <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'È il momento!', 0, true, 'hourglass-high', 'countdown-big drop-hype-count') ?>
-    </div>
-    <?php else: ?>
-    <span class="drop-hype-tag"><i class="ti ti-eye-off"></i> Top secret</span>
-    <div class="drop-hype-row">
-      <i class="ti ti-gift drop-hype-icon" aria-hidden="true"></i>
-      <div class="drop-hype-txt">
-        <h2><?= guess_drop_passed() ? 'Ci siamo: sta per uscire!' : (date('Y-m-d', guess_drop_at()) === date('Y-m-d') ? 'Oggi' : ucfirst(GIORNI[(int) date('w', guess_drop_at())])) . ' cambia tutto.' ?></h2>
-        <p>Una novità è in arrivo e nessuno, tranne l'admin, sa cosa sia davvero.<?= guess_teaser() !== '' ? ' Indizio: «' . h(guess_teaser()) . '»' : '' ?></p>
-      </div>
-      <?= countdown_html(date('Y-m-d H:i:s', guess_drop_at()), 'Manca ', 'È il momento!', 0, true, 'hourglass-high', 'countdown-big drop-hype-count') ?>
-    </div>
-    <a class="btn btn-primary drop-hype-cta" href="guess.php"><i class="ti ti-help-circle"></i> Prova a indovinare cosa sarà: in palio dei KOIN</a>
-    <?php endif; ?>
-
-  </section>
-
-  <?php if (current_user() && !is_guest()): // proposte per il sito: una card a parte, accanto al countdown (sotto, sui telefoni) ?>
+  <?php if (current_user() && !is_guest()): // proposte per il sito: una card a parte ?>
   <section class="card ideas-card" id="proposte">
     <h2><i class="ti ti-bulb"></i> Hai un'idea per il sito?</h2>
     <p class="muted small">Una funzione nuova, un'esultanza, una statistica che manca, un torneo... Proponila: la legge solo l'admin.</p>
