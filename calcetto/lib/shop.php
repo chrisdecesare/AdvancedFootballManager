@@ -10,19 +10,19 @@
  * Il catalogo sta in lib/shop_items.php (nome, prezzo, obiettivo) e il disegno di sfondi e bordi in assets/style.css; nel database restano
  * solo gli acquisti (player_items) e cosa si indossa adesso (colonne bg_preset, border_key, nick_key, hat_key di players). Le chiavi degli
  * oggetti sono uniche in tutto il catalogo e lunghe al massimo 16 caratteri (finiscono anche nella mossa del portafoglio).
- * Anche gli oggetti del Personaggio (avatar.php) stanno in questo catalogo e si comprano allo stesso modo: vedi lib/avatar.php.
+ * Anche gli oggetti dell'Avatar (avatar.php) stanno in questo catalogo e si comprano allo stesso modo: vedi lib/avatar.php.
  */
 
 require_once __DIR__ . '/hats.php';
 require_once __DIR__ . '/shop_items_more.php';
 
-/** Tipi del Negozio del profilo (shop.php). Quelli del Personaggio sono in lib/avatar.php (avatar_kinds). */
+/** Tipi del Negozio del profilo (shop.php). Quelli dell'Avatar sono in lib/avatar.php (avatar_kinds). */
 function shop_kinds(): array
 {
     return ['hat' => 'Copricapi', 'border' => 'Bordi', 'bg' => 'Sfondi', 'nick' => 'Nickname'];
 }
 
-/** Colonna di players dove si salva cosa si indossa, per i tipi del profilo (il Personaggio usa avatar_look, lib/avatar.php). */
+/** Colonna di players dove si salva cosa si indossa, per i tipi del profilo (l'Avatar usa avatar_look, lib/avatar.php). */
 function shop_column(string $kind): string
 {
     return ['bg' => 'bg_preset', 'nick' => 'nick_key', 'hat' => 'hat_key', 'border' => 'border_key'][$kind];
@@ -69,7 +69,7 @@ function shop_catalog(): array
     foreach ($src['nick'] as $row) {
         $c['nick'][$row[0]] = ['name' => $row[1], 'price' => $row[2]] + (isset($row[3]) ? ['goal' => $row[3]] : []);
     }
-    // Personaggio (lib/avatar.php)
+    // Avatar (lib/avatar.php)
     foreach ($src['hair'] as [$k, $name, $price, $style, $desc]) {
         $c['hair'][$k] = ['name' => $name, 'price' => $price, 'style' => $style, 'desc' => $desc];
     }
@@ -102,7 +102,7 @@ function shop_catalog(): array
     foreach ($src['celebration'] as [$k, $name, $price, $anim]) {
         $c['celebration'][$k] = ['name' => $name, 'price' => $price, 'anim' => $anim];
     }
-    // al lancio del Personaggio ne esce solo una parte: gli altri diventano un pacchetto «Lancio: ...» come quelli del catalogo esteso
+    // al lancio dell'Avatar ne esce solo una parte: gli altri diventano un pacchetto «Lancio: ...» come quelli del catalogo esteso
     $keep = shop_launch_keep();
     foreach (shop_launch_kinds() as $kind => $_) {
         $isFlag = $kind === 'flag';
@@ -125,7 +125,7 @@ function shop_catalog(): array
 }
 
 /**
- * Lancio del Personaggio: dei tipi qui sotto (le bandiere sono copricapi) al lancio esce solo una parte degli oggetti di sempre,
+ * Lancio dell'Avatar: dei tipi qui sotto (le bandiere sono copricapi) al lancio esce solo una parte degli oggetti di sempre,
  * quelli gratis più quelli di shop_launch_keep(); gli altri restano «in arrivo» (senza nome) finché l'admin non li fa uscire da drops.php.
  * I copricapi normali no: erano già nel Negozio del profilo.
  */
@@ -206,7 +206,7 @@ function shop_goal_met(array $item, array $progress): bool
 }
 
 /**
- * Oggetti che il giocatore possiede: comprati, nickname sbloccati con gli obiettivi, oggetti del Personaggio gratis (inclusi per tutti)
+ * Oggetti che il giocatore possiede: comprati, nickname sbloccati con gli obiettivi, oggetti dell'Avatar gratis (inclusi per tutti)
  * e maglie create da lui. @return array<string, true>
  */
 function shop_owned(int $playerId): array
@@ -379,8 +379,8 @@ function shop_kind_of(string $key): ?string
 /*
  * Quando escono oggetti (drops.php, subito o a una data), alla prima richiesta dopo l'uscita parte una notifica push a chi le ha
  * attive (shop_news_notify_due, anche da cron.php). Chi non le ha attive vede invece un pallino rosso sulla scheda del menu
- * (Personaggio o Negozio) e sulla categoria, finché non la apre. Per SHOP_NEW_DAYS giorni gli oggetti usciti hanno l'etichetta «Nuovo».
- * Gli oggetti del Personaggio usciti prima del suo lancio non si annunciano: sarebbe uno spoiler.
+ * (Avatar o Negozio) e sulla categoria, finché non la apre. Per SHOP_NEW_DAYS giorni gli oggetti usciti hanno l'etichetta «Nuovo».
+ * Gli oggetti dell'Avatar usciti prima del suo lancio non si annunciano: sarebbe uno spoiler.
  */
 const SHOP_NEW_DAYS = 7;
 
@@ -405,7 +405,7 @@ function shop_is_new(string $key): bool
     return isset(shop_new_items()[$key]);
 }
 
-/** Il Personaggio o il Negozio del profilo: la scheda del menu di un tipo. */
+/** L'Avatar o il Negozio del profilo: la scheda del menu di un tipo. */
 function shop_news_section(string $kind): string
 {
     return isset(avatar_kinds()[$kind]) && $kind !== 'hat' ? 'avatar' : 'shop';
@@ -413,7 +413,7 @@ function shop_news_section(string $kind): string
 
 /**
  * Tipi con oggetti nuovi che l'utente non ha ancora guardato: tipo => true. Vuoto per chi ha le notifiche attive (a loro arriva
- * la notifica) e per chi non può vederli (il Personaggio prima del lancio).
+ * la notifica) e per chi non può vederli (l'Avatar prima del lancio).
  */
 function shop_news_unseen(): array
 {
@@ -540,7 +540,7 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bo
         }
         shop_market(true, $eco);   // il prezzo di adesso, con desideri, possessori e saldi letti ora
         [$price] = shop_price($key, $item, $playerId, $eco);
-        $credits = $useCredits || isset(avatar_kinds()[$kind]) ? shop_credit_balance($playerId) : 0;   // i crediti valgono per gli oggetti del Personaggio (anche i cappelli comprati dal negozio)
+        $credits = $useCredits || isset(avatar_kinds()[$kind]) ? shop_credit_balance($playerId) : 0;   // i crediti valgono per gli oggetti dell'Avatar (anche i cappelli comprati dal negozio)
         $left = wallet_balance($playerId, $eco) + $credits;
         if ($left < $price) {
             return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . ($eco ? ' in «' . eco_label($eco) . '»' : '') . '. Vai a scommettere!';
@@ -560,7 +560,7 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bo
 /**
  * Indossa un oggetto (o lo toglie, con $key = null). Ritorna il messaggio d'errore oppure null.
  * Uno sfondo speciale sostituisce quello scelto con colore o immagine (che va rifatto da "Modifica profilo").
- * Gli oggetti del Personaggio vanno in avatar_look (lib/avatar.php), tranne il copricapo che è lo stesso del profilo.
+ * Gli oggetti dell'Avatar vanno in avatar_look (lib/avatar.php), tranne il copricapo che è lo stesso del profilo.
  */
 function shop_equip(int $playerId, string $kind, ?string $key): ?string
 {

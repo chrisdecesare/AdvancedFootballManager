@@ -1,6 +1,6 @@
 <?php
 /*
- * Personaggio in pixel art: le parti disegnate a mano, pixel per pixel (lettere come in lib/avatar_pixel.php).
+ * Avatar in pixel art: le parti disegnate a mano, pixel per pixel (lettere come in lib/avatar_pixel.php).
  * Teste e facce, acconciature, barbe, occhiali, copricapi, pet ed effetti. Ogni pezzo della testa ha una vista "front" (di fronte)
  * e una "side" (di profilo verso destra), come [dx, dy, righe] rispetto all'angolo in alto a sinistra della testa (16×13).
  * px_m() prende la metà sinistra e la specchia, per i pezzi simmetrici.

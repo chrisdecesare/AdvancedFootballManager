@@ -1,6 +1,6 @@
 <?php
 /*
- * Genera calcetto/lib/avatar_pixel_parts.php: le parti del Personaggio in pixel art che hanno linee in diagonale (braccia e gambe di
+ * Genera calcetto/lib/avatar_pixel_parts.php: le parti dell'Avatar in pixel art che hanno linee in diagonale (braccia e gambe di
  * fronte, corpi di profilo). Ogni parte è descritta da forme semplici (capsule e poligoni) in coordinate dello sprite (x da -8 a 40,
  * y da -8 a 56, terreno alla riga 55); qui si rasterizzano a 1 pixel e si aggiunge il contorno.
  * Uso: php tools/pixel/gen_parts.php  (poi si ricontrollano i disegni con l'anteprima).
@@ -217,7 +217,7 @@ foreach (glob(__DIR__ . '/side/*.php') as $f) {
 /* ---------------------------------------------------------------- scrittura */
 
 $php = "<?php\n/*\n * Generato da tools/pixel/gen_parts.php: non modificare a mano (cambia le forme lì e rigenera).\n"
-    . " * Parti del Personaggio in pixel art: [x, y, righe] in coordinate dello sprite (lettere come in lib/avatar_pixel.php).\n */\n\n"
+    . " * Parti dell'Avatar in pixel art: [x, y, righe] in coordinate dello sprite (lettere come in lib/avatar_pixel.php).\n */\n\n"
     . "function px_parts(): array\n{\n    static \$p = [\n";
 foreach ($parts as $n => [$x, $y, $rows]) {
     $php .= "        '" . $n . "' => [" . $x . ', ' . $y . ", [\n";

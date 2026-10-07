@@ -110,12 +110,12 @@ layout_start('Home', 'home');
       <?= availability_buttons($next, $myStatus, 'index.php') ?>
 
       <?php if ($hasTeams): ?>
-        <?php if (avatar_visible()): // la vista con i Personaggi si apre a tutti insieme al Personaggio (lib/guess.php: avatar_public) ?>
+        <?php if (avatar_visible()): // la vista con gli Avatar si apre a tutti insieme all'Avatar (lib/guess.php: avatar_public) ?>
         <div class="sub-title-row">
           <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
           <div class="pitch-view-toggle" role="group" aria-label="Vista formazioni">
             <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-view-toggle="2d"><i class="ti ti-circles"></i> Cerchi</button>
-            <button type="button" class="btn btn-ghost btn-sm" data-pitch-view-toggle="fig"><i class="ti ti-users"></i> Personaggi</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-pitch-view-toggle="fig"><i class="ti ti-users"></i> Avatar</button>
           </div>
         </div>
         <div data-pitch-view="2d"><?= render_pitch($next, $roster) ?></div>

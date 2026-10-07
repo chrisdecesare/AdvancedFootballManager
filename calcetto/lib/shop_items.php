@@ -1,6 +1,6 @@
 <?php
 /*
- * Catalogo del negozio (lib/shop.php): copricapi, sfondi, bordi e nickname del profilo, e in fondo gli oggetti del Personaggio
+ * Catalogo del negozio (lib/shop.php): copricapi, sfondi, bordi e nickname del profilo, e in fondo gli oggetti dell'Avatar
  * (avatar.php), un oggetto per riga. Si può modificare a mano:
  *  - copricapi: [chiave, nome, prezzo, forma (lib/hats.php), colore a, b, c];
  *  - sfondi e bordi: [chiave, nome, prezzo] (il disegno sta in assets/style.css: classi bgp-<chiave> e brd-<chiave>);
@@ -258,7 +258,7 @@ return [
         ['n_collezionista', 'Il Collezionista', null, ['items', 10, '10 oggetti comprati nel negozio']],
     ],
     /*
-     * Personaggio (avatar.php, disegno in lib/avatar.php). Prezzo 0 = incluso per tutti, senza comprarlo.
+     * Avatar (avatar.php, disegno in lib/avatar.php). Prezzo 0 = incluso per tutti, senza comprarlo.
      * Carnagione e colori naturali dei capelli sono sempre gratis.
      */
     // capelli: [chiave, nome, prezzo, acconciatura (lib/avatar_pixel_art.php: px_hair), descrizione]
@@ -397,7 +397,7 @@ return [
         ['pe_pogona_ver', 'Pogona verde', 260, 'pogona', '#7fae4a', '#d8e8a8'],
         ['pe_pogona_lem', 'Pogona lemon', 280, 'pogona', '#ffe066', '#fff3b8'],
     ],
-    // pose (come sta fermo il personaggio): [chiave, nome, prezzo, posa (lib/avatar_pixel.php: px_poses)]
+    // pose (come sta fermo l'avatar): [chiave, nome, prezzo, posa (lib/avatar_pixel.php: px_poses)]
     'pose' => [
         ['po_riposo', 'Riposo', 0, 'rest'],
         ['po_aperte', 'Braccia aperte', 40, 'open'],

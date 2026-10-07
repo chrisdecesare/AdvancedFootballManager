@@ -1,5 +1,5 @@
 /*
- * Il cuoricino degli obiettivi (Negozio e Personaggio): aggiunge o toglie l'oggetto dalla lista desideri senza ricaricare la pagina.
+ * Il cuoricino degli obiettivi (Negozio e Avatar): aggiunge o toglie l'oggetto dalla lista desideri senza ricaricare la pagina.
  * Se la richiesta non va, il modulo parte da solo come un modulo normale.
  */
 document.addEventListener('click', async (e) => {

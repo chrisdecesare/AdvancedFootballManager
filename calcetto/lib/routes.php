@@ -1,6 +1,6 @@
 <?php
 /*
- * Indirizzi leggibili: /personaggio invece di avatar.php, /partita-12 invece di match.php?id=12.
+ * Indirizzi leggibili: /avatar invece di avatar.php, /partita-12 invece di match.php?id=12.
  *
  * Come funziona:
  *  1. .htaccess traduce l'indirizzo leggibile nel file PHP vero (riscrittura interna: il browser non lo vede) e segna la richiesta
@@ -10,7 +10,7 @@
  *     cliccando non c'è nemmeno il 301. Anche redirect() (lib/helpers.php) passa da pretty_url().
  *
  * Tutti gli indirizzi restano a un solo livello (partita-12, non partita/12): così i percorsi relativi del sito (assets/..., push.php,
- * i riferimenti interni degli SVG del Personaggio) funzionano senza cambiare nulla.
+ * i riferimenti interni degli SVG dell'Avatar) funzionano senza cambiare nulla.
  * Se il server non riscrive (manca mod_rewrite, sviluppo in locale con php -S) PRETTY_URLS non c'è e il sito usa i .php come prima.
  *
  * ATTENZIONE: le righe qui e le RewriteRule in .htaccess vanno tenute uguali.
@@ -29,7 +29,7 @@ function pretty_routes(): array
         'standings' => ['classifica', null],
         'bets' => ['scommesse', null],
         'shop' => ['negozio', null],
-        'avatar' => ['personaggio', null],
+        'avatar' => ['avatar', null],
         'fanta' => ['fantacalcio', null],
         'jersey_creator' => ['crea-maglia', null],
         'drops' => ['uscite', null],

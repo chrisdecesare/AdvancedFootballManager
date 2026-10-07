@@ -1,10 +1,10 @@
 <?php
 /*
- * Personaggio: il giocatore a figura intera (disegno in lib/avatar.php) e il suo negozio, a KOIN come il Negozio del profilo
+ * Avatar: il giocatore a figura intera (disegno in lib/avatar.php) e il suo negozio, a KOIN come il Negozio del profilo
  * (lib/shop.php). Capelli, barba, occhiali, maglie, pantaloncini, scarpette, pet, pose ed esultanze; carnagione e colori naturali dei
  * capelli sono gratis per tutti. I copricapi sono quelli del Negozio: comprati o indossati qui o là, si vedono in tutti e due i posti.
  *
- * Funziona anche senza JavaScript: «Prova» è un link che mostra l'oggetto addosso al personaggio (?try=chiave); lo script in fondo
+ * Funziona anche senza JavaScript: «Prova» è un link che mostra l'oggetto addosso all'avatar (?try=chiave); lo script in fondo
  * fa lo stesso senza ricaricare e anima pose ed esultanze. Prima del lancio la vede solo l'admin; si apre a tutti alla scadenza del
  * countdown in Home (lib/guess.php: avatar_public), con solo una parte degli oggetti: gli altri sono «in arrivo», senza nome.
  */
@@ -39,21 +39,21 @@ $url = function (array $set = []) use ($cat, $view, $rar, $sort, $page): string 
 
 /* ---------------------------------------------------------------- azioni */
 if (is_post() && ($_POST['do'] ?? '') === 'figure') {
-    // figura del personaggio: è il genere del profilo (lo stesso di Modifica profilo)
+    // figura dell'avatar: è il genere del profilo (lo stesso di Modifica profilo)
     $g = (string) ($_POST['gender'] ?? '');
     if (isset(genders()[$g])) {
         q('UPDATE players SET gender = ? WHERE id = ?', [$g, $me]);
         flash('ok', 'Figura aggiornata: ' . mb_strtolower(genders()[$g]) . '.');
     }
-    redirect($url() . '#personaggio');
+    redirect($url() . '#avatar');
 }
 if (is_post() && ($_POST['do'] ?? '') === 'body') {
     // corporatura: altezza e peso, gratis; «Non dirlo» torna alle misure del disegno di base
     $clear = isset($_POST['clear']);
     $num = fn(string $k) => !$clear && is_numeric($_POST[$k] ?? null) ? (int) round((float) $_POST[$k]) : null;
     $err = avatar_set_body($me, $num('height'), $num('weight'));
-    flash($err ? 'err' : 'ok', $err ?: ($clear ? 'Il personaggio è tornato alle misure di base.' : 'Corporatura salvata: il personaggio ha le tue proporzioni.'));
-    redirect($url() . '#personaggio');
+    flash($err ? 'err' : 'ok', $err ?: ($clear ? 'L\'avatar è tornato alle misure di base.' : 'Corporatura salvata: l\'avatar ha le tue proporzioni.'));
+    redirect($url() . '#avatar');
 }
 if (is_post()) {
     $kind = (string) ($_POST['kind'] ?? '');
@@ -84,7 +84,7 @@ if (is_post()) {
     $r = (string) ($_POST['r'] ?? '');
     redirect($url(['c' => isset($kinds[$kind]) ? $kind : $cat, 'try' => $key, 'v' => in_array($_POST['v'] ?? '', ['mine', 'wish'], true) ? $_POST['v'] : '',
         'p' => max(1, (int) ($_POST['p'] ?? 1)) > 1 ? (int) $_POST['p'] : '',
-        'r' => isset($rarities[$r]) ? $r : '', 'o' => ($_POST['o'] ?? '') === 'desc' ? 'desc' : '']) . '#personaggio');
+        'r' => isset($rarities[$r]) ? $r : '', 'o' => ($_POST['o'] ?? '') === 'desc' ? 'desc' : '']) . '#avatar');
 }
 
 /* ---------------------------------------------------------------- dati */
@@ -96,7 +96,7 @@ $mp = get_player($me);
 $look = avatar_look($mp);
 $owned = shop_owned($me) + ['' => true];
 shop_credits_grant($me);
-$balance = shop_spendable($me);   // KOIN + crediti del Personaggio
+$balance = shop_spendable($me);   // KOIN + crediti dell'Avatar
 $avCredits = shop_credit_balance($me);
 $catalog = shop_catalog();
 $number = $mp['shirt_number'];
@@ -172,14 +172,14 @@ $lookWith = function (string $key) use ($look, $cat): array {
 
 $kindDesc = [
     'hair_color' => 'Tinta per capelli, sopracciglia e barba.',
-    'skin' => 'La carnagione del tuo personaggio: sono tutte gratis.',
+    'skin' => 'La carnagione del tuo avatar: sono tutte gratis.',
     'beard' => 'Barba e baffi prendono il colore dei capelli.',
     'glasses' => 'Per vederci meglio, o solo per stile.',
     'hat' => 'È lo stesso copricapo del Negozio: si vede anche sul tuo profilo e nella Rosa.',
     'shorts' => 'Pantaloncini da gara.',
     'shoes' => 'Scarpette da calcetto, tacchetti corti.',
     'pet' => 'Ti aspetta a bordo campo, sempre.',
-    'pose' => 'Come sta in posa il tuo personaggio.',
+    'pose' => 'Come sta in posa il tuo avatar.',
     'celebration' => 'Premi «Esulta!» per vederla.',
 ];
 $jerseyKind = ['club' => 'Maglia da club', 'national' => 'Maglia della nazionale', 'custom' => 'Creata da te'];
@@ -189,7 +189,7 @@ $stateOf = function (string $key, array $item) use ($cat, $owned, $wornKey): str
     return $wornKey($cat) === $key ? 'worn' : (isset($owned[$key]) ? ($item['price'] ? 'owned' : 'free') : 'buy');
 };
 
-/** Il pannello sotto il personaggio: nome, rarità, descrizione e il pulsante giusto (compra, indossa, già tuo). */
+/** Il pannello sotto l'avatar: nome, rarità, descrizione e il pulsante giusto (compra, indossa, già tuo). */
 $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $avCredits, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN): string {
     [$rk, $rl] = avatar_rarity($item['price']);
     $desc = $item['desc'] ?? ($cat === 'jersey'
@@ -223,7 +223,7 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
             . ($why ? '<p class="small av-why">' . h(shop_price_note($why)) . '</p>' : '')
             . ($out ? '<p class="av-state"><i class="ti ti-eye-off"></i> Non ancora uscito: lo fai uscire da <a class="link" href="drops.php">Uscite</a>.</p>'
                 : $form('buy', '<i class="ti ti-shopping-bag"></i> Compra e ' . ($cat === 'celebration' || $cat === 'pose' ? 'usa' : 'indossa'), 'btn-primary', $short)
-                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' KOIN (hai ' . ($balance - $avCredits) . ' KOIN + ' . $avCredits . ' crediti Personaggio): <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
+                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' KOIN (hai ' . ($balance - $avCredits) . ' KOIN + ' . $avCredits . ' crediti Avatar): <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
     } else {
         $act = '<p class="av-state"><i class="ti ti-' . ($state === 'free' ? 'gift' : 'hanger') . '"></i> ' . ($state === 'free' ? 'Incluso per tutti' : 'Nel tuo guardaroba') . '</p>'
             . $form('wear', $word[0], 'btn-primary');
@@ -245,7 +245,7 @@ if (!isset($_GET['fig'])) {
     shop_news_seen($cat);
 }
 
-// «Prova» dal catalogo: la pagina chiede solo il personaggio del palco (avatar_px.js lo mette al posto di quello di prima);
+// «Prova» dal catalogo: la pagina chiede solo l'avatar del palco (avatar_px.js lo mette al posto di quello di prima);
 // con bh/bw (cursori della corporatura) lo si vede con quell'altezza e quel peso prima di salvarli
 if (isset($_GET['fig'])) {
     foreach (['bh' => 'height', 'bw' => 'weight'] as $q => $k) {
@@ -253,27 +253,27 @@ if (isset($_GET['fig'])) {
             $stageLook[$k] = max(AVATAR_BODY[$k][0], min(AVATAR_BODY[$k][1], (int) $_GET[$q]));
         }
     }
-    echo avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'Il personaggio di ' . $mp['name']]);
+    echo avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'L\'avatar di ' . $mp['name']]);
     exit;
 }
 
-layout_start('Personaggio', 'avatar');
+layout_start('Avatar', 'avatar');
 ?>
-<div class="page-head"><h1>Personaggio</h1><?php if (!avatar_public()): ?><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span><?php endif; ?></div>
+<div class="page-head"><h1>Avatar</h1><?php if (!avatar_public()): ?><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin</span><?php endif; ?></div>
 <?= $me ? eco_switch($me, 'avatar.php') : '' ?>
 
 <div class="av-layout">
-  <aside class="av-side" id="personaggio">
+  <aside class="av-side" id="avatar">
     <section class="card av-panel">
       <div class="av-panel-head">
-        <span class="av-panel-title"><i class="ti ti-user-star"></i> Il tuo personaggio</span>
+        <span class="av-panel-title"><i class="ti ti-user-star"></i> Il tuo avatar</span>
         <div class="av-panel-btns">
           <button type="button" class="btn btn-sm btn-ghost" data-av-play hidden><i class="ti ti-confetti"></i> Esulta!</button>
           <button type="button" class="btn btn-sm btn-ghost" data-av-pause hidden aria-pressed="false"><i class="ti ti-player-pause"></i> Pausa</button>
         </div>
       </div>
       <div class="av-stage" data-av-stage<?= $cat === 'celebration' && $try !== '' ? ' data-autoplay="1"' : '' ?>>
-        <?= avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'Il personaggio di ' . $mp['name']]) ?>
+        <?= avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'L\'avatar di ' . $mp['name']]) ?>
       </div>
       <div class="av-who"><strong><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
       <form method="post" class="av-figure" aria-label="Figura">
@@ -291,7 +291,7 @@ layout_start('Personaggio', 'avatar');
               : 'misure di base' ?></span></summary>
         <form method="post" class="av-body-form" data-av-body>
           <?= csrf_field() ?><input type="hidden" name="do" value="body">
-          <p class="small">Altezza e peso danno le proporzioni al tuo personaggio: più alto o più basso, più robusto o più snello. Sono gratis e le puoi cambiare quando vuoi.</p>
+          <p class="small">Altezza e peso danno le proporzioni al tuo avatar: più alto o più basso, più robusto o più snello. Sono gratis e le puoi cambiare quando vuoi.</p>
           <?php foreach (['height' => ['Altezza', 'cm'], 'weight' => ['Peso', 'kg']] as $k => [$lbl, $unit]): [$min, $max, $def] = AVATAR_BODY[$k]; ?>
           <label class="av-body-row">
             <span><?= $lbl ?></span>
@@ -315,7 +315,7 @@ layout_start('Personaggio', 'avatar');
       <a href="<?= h($url(['v' => 'mine', 'p' => ''])) ?>" class="<?= $view === 'mine' ? 'active' : '' ?>"><i class="ti ti-hanger"></i> Guardaroba <span class="count"><?= $totMine ?></span></a>
       <a href="<?= h($url(['v' => 'wish', 'p' => ''])) ?>" class="<?= $view === 'wish' ? 'active' : '' ?>"><i class="ti ti-heart"></i> Obiettivi <span class="count"><?= count($wish) ?></span></a>
       <?php if ($admin): ?><a href="drops.php" class="av-drops"><i class="ti ti-rocket"></i> Uscite</a><?php endif; ?>
-      <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> KOIN<?php if ($avCredits): ?> <small>(di cui <?= $avCredits ?> solo per il Personaggio)</small><?php endif; ?></span>
+      <span class="av-coins"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> KOIN<?php if ($avCredits): ?> <small>(di cui <?= $avCredits ?> solo per l'Avatar)</small><?php endif; ?></span>
     </nav>
 
     <nav class="av-cats" aria-label="Categorie">
@@ -354,7 +354,7 @@ layout_start('Personaggio', 'avatar');
           $state = $stateOf($key, $item);
           $pl = $lookWith($key); ?>
       <article class="av-item rar-<?= $rk ?><?= $state === 'worn' ? ' is-worn' : '' ?><?= $key === $selected ? ' is-trying' : '' ?><?= $item['out'] ? ' is-out' : '' ?>" data-av-item data-kind="<?= h($cat) ?>">
-        <a class="av-item-link" href="<?= h($url(['try' => $key])) ?>#personaggio" data-av-try>
+        <a class="av-item-link" href="<?= h($url(['try' => $key])) ?>#avatar" data-av-try>
           <span class="av-item-top"><span class="rar rar-<?= $rk ?>"><?= $item['out'] ? 'Non uscito' : $rl ?></span><?php if (!$item['out'] && shop_is_new($key)): ?><span class="tag-new">Nuovo</span><?php endif; ?><?php if (isset($wish[$key])): ?><i class="ti ti-heart-filled av-item-wish" title="Tra i tuoi obiettivi"></i><?php endif; ?>
             <span class="av-item-mark" title="<?= ['worn' => 'Indossato', 'owned' => 'Nel guardaroba', 'free' => 'Incluso', 'buy' => 'Da comprare'][$state] ?>"><i class="ti ti-<?= ['worn' => 'check', 'owned' => 'hanger', 'free' => 'gift', 'buy' => 'plus'][$state] ?>"></i></span></span>
           <span class="av-item-fig"><?= avatar_figure($pl, ['number' => $number, 'crop' => $crop] + ($cat === 'celebration' ? ['hint' => $item['anim']] : [])) ?></span>
@@ -451,7 +451,7 @@ layout_start('Personaggio', 'avatar');
   }));
   if (stage.dataset.autoplay) play();
 
-  // corporatura: il personaggio sul palco cambia mentre si muovono i cursori (si salva solo con «Salva»)
+  // corporatura: l'avatar sul palco cambia mentre si muovono i cursori (si salva solo con «Salva»)
   const body = document.querySelector('[data-av-body]');
   let bodyReq = 0, bodyT = 0;
   if (body) body.addEventListener('input', e => {
@@ -471,7 +471,7 @@ layout_start('Personaggio', 'avatar');
         stage.querySelectorAll('.avf').forEach(n => n.remove());
         stage.insertAdjacentHTML('afterbegin', html);
         P.idle(svg());
-      } catch (err) { /* resta il personaggio di prima */ }
+      } catch (err) { /* resta l'avatar di prima */ }
     }, 120);
   });
 })();

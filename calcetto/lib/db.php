@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 50;
+const SCHEMA_VERSION = 51;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -556,7 +556,7 @@ function ensure_schema(): void
         $add('players', 'injured', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER active');
     }
     if ($v < 30) {
-        // maglie create dai giocatori per il Personaggio (jersey_creator.php)
+        // maglie create dai giocatori per l'Avatar (jersey_creator.php)
         db()->exec('CREATE TABLE IF NOT EXISTS custom_jerseys (
             id INT AUTO_INCREMENT PRIMARY KEY,
             player_id INT NOT NULL,
@@ -570,7 +570,7 @@ function ensure_schema(): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     if ($v < 31) {
-        // Personaggio disegnato in SVG (lib/avatar.php): cosa indossa sta tutto in avatar_look (JSON), il copricapo resta hat_key.
+        // Avatar disegnato in SVG (lib/avatar.php): cosa indossa sta tutto in avatar_look (JSON), il copricapo resta hat_key.
         // Chi era alla v30 aveva le colonne della prima versione in 3D: si tiene quello che indossava e le si toglie.
         $add('players', 'avatar_look', 'TEXT NULL');
         $old = ['equipped_jersey_key' => 'jersey', 'equipped_shorts_key' => 'shorts', 'equipped_shoes_key' => 'shoes',
@@ -622,7 +622,7 @@ function ensure_schema(): void
         meta_set('requote_v28', "singole $s1, multiple $s2, annullate $s3");
     }
     if ($v < 33) {
-        // genere nel profilo (facoltativo, per l'aspetto del Personaggio) e "Indovina la funzionalità": un round alla volta in cui
+        // genere nel profilo (facoltativo, per l'aspetto dell'Avatar) e "Indovina la funzionalità": un round alla volta in cui
         // si scommette (per finta, in un campo di testo) su quale sarà la prossima novità del sito prima che esca (vedi lib/guess.php)
         $add('players', 'gender', "ENUM('M','F','NB') NOT NULL DEFAULT 'M' AFTER foot");
         db()->exec('CREATE TABLE IF NOT EXISTS feature_guesses (
@@ -741,11 +741,11 @@ function ensure_schema(): void
     if ($v < 37) {
         // oggetti nuovi del negozio (lib/shop.php: shop_news_*): quando ognuno ha guardato l'ultima volta ogni tipo, per il pallino rosso
         $add('users', 'news_seen', 'TEXT NULL');
-        // uscita del Personaggio anticipata a giovedì 1 ottobre 2026 alle 16, svelata alle 15 (solo se non è già uscito)
+        // uscita dell'Avatar anticipata a giovedì 1 ottobre 2026 alle 16, svelata alle 15 (solo se non è già uscito)
         if (meta_get('avatar_launch_round') === null) {
             meta_set('drop_at', '2026-10-01 16:00:00');
             meta_set('drop_reveal_at', '2026-10-01 15:00:00');
-            meta_set('drop_reveal', 'È il Personaggio: il tuo giocatore in pixel art, da vestire come vuoi!');
+            meta_set('drop_reveal', 'È l\'Avatar: il tuo giocatore in pixel art, da vestire come vuoi!');
         }
     }
     if ($v < 38) {
@@ -804,11 +804,11 @@ function ensure_schema(): void
         }
     }
     if ($v < 43) {
-        // messaggio «Il primo giro lo offro io» (crediti del Personaggio): 1 quando il giocatore l'ha già visto (lib/guess.php: credits_intro_unseen)
+        // messaggio «Il primo giro lo offro io» (crediti dell'Avatar): 1 quando il giocatore l'ha già visto (lib/guess.php: credits_intro_unseen)
         $add('players', 'credits_seen', 'TINYINT(1) NOT NULL DEFAULT 0');
     }
     if ($v < 44) {
-        // la kippah (epica, 250) l'ha già comprata Danilo per 50: si spendono prima i crediti del Personaggio, poi i KOIN
+        // la kippah (epica, 250) l'ha già comprata Danilo per 50: si spendono prima i crediti dell'Avatar, poi i KOIN
         // (solo se c'è un unico Danilo e non ce l'ha già)
         $dan = q("SELECT id FROM players WHERE is_guest = 0 AND name LIKE 'Danilo%'")->fetchAll(PDO::FETCH_COLUMN);
         if (count($dan) === 1) {
@@ -821,7 +821,7 @@ function ensure_schema(): void
         }
     }
     if ($v < 45) {
-        // rimborso una tantum all'admin: 255 KOIN spesi per il Personaggio prima che i crediti del Personaggio fossero usati per primi
+        // rimborso una tantum all'admin: 255 KOIN spesi per l'Avatar prima che i crediti dell'Avatar fossero usati per primi
         db()->exec("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref)
                     SELECT player_id, 0, 255, 'rimborso', 'refund-255' FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL
                     ORDER BY id LIMIT 1");
@@ -881,6 +881,11 @@ function ensure_schema(): void
         // regali di KOIN dell'admin (lib/guess.php): il messaggio per chi li riceve e chi li ha dati (massimo COIN_GIFT_DAILY_MAX al giorno)
         $add('wallet_moves', 'note', 'VARCHAR(200) NULL');
         $add('wallet_moves', 'given_by', 'INT NULL');
+    }
+    if ($v < 51) {
+        // il Personaggio si chiama Avatar: anche le frasi salvate per «Indovina la funzionalità» (rivelazione e indizio)
+        db()->exec("UPDATE meta SET v = REPLACE(REPLACE(REPLACE(v, 'il Personaggio', 'l''Avatar'), 'del Personaggio', 'dell''Avatar'), 'Personaggio', 'Avatar')
+                    WHERE k IN ('drop_reveal', 'drop_teaser')");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

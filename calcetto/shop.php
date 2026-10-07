@@ -17,7 +17,7 @@ if (is_post()) {
     $kind = (string) ($_POST['kind'] ?? '');
     $key = (string) ($_POST['key'] ?? '');
     $item = shop_item($kind, $key);
-    if (!isset($kinds[$kind])) {   // gli oggetti del Personaggio si comprano da avatar.php
+    if (!isset($kinds[$kind])) {   // gli oggetti dell'Avatar si comprano da avatar.php
         redirect('shop.php');
     } elseif (!$me) {
         flash('err', 'Il tuo account non è collegato a un giocatore: chiedi all\'admin.');
@@ -60,7 +60,7 @@ if ($dole) {
 }
 $mp = $me ? get_player($me) : null;
 $balance = $me ? wallet_balance($me) : 0;
-$shopCr = $me ? shop_credit_balance($me) : 0;   // crediti del Personaggio: valgono solo per i cappelli
+$shopCr = $me ? shop_credit_balance($me) : 0;   // crediti dell'Avatar: valgono solo per i cappelli
 $balFor = fn(string $kind) => $balance + (isset(avatar_kinds()[$kind]) ? $shopCr : 0);
 $inPlay = $me ? wallet_in_play($me) : 0;
 $owned = $me ? shop_owned($me) : [];
@@ -146,7 +146,7 @@ layout_start('Negozio', 'shop');
     <div data-look-name><strong class="wallet-name"><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
   </div>
   <div class="shop-bar-info">
-    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>KOIN</span><?php if ($shopCr): ?> <small class="muted">(+<?= $shopCr ?> crediti Personaggio, solo per i cappelli)</small><?php endif; ?><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
+    <div class="wallet-num"><i class="ti ti-coin"></i> <strong><?= $balance ?></strong> <span>KOIN</span><?php if ($shopCr): ?> <small class="muted">(+<?= $shopCr ?> crediti Avatar, solo per i cappelli)</small><?php endif; ?><?php if ($inPlay): ?> <small class="muted">(+<?= $inPlay ?> in gioco)</small><?php endif; ?></div>
     <p class="muted small">Premi <b>Prova</b> su un oggetto per vederlo qui addosso a te prima di comprarlo.</p>
   </div>
 </section>
@@ -174,7 +174,7 @@ layout_start('Negozio', 'shop');
   e seguono i KOIN in circolo e quelli che hai tu. Si paga il prezzo del momento.</p>
 
 <?php if ($tab === 'hat' && avatar_visible()): ?>
-<p class="muted small"><i class="ti ti-user-star"></i> I copricapi si vedono anche sul tuo <a class="link" href="avatar.php?c=hat">Personaggio</a>.</p>
+<p class="muted small"><i class="ti ti-user-star"></i> I copricapi si vedono anche sul tuo <a class="link" href="avatar.php?c=hat">Avatar</a>.</p>
 <?php endif; ?>
 <?php if (!$items && ($admin || $filter !== 'all')): ?><p class="empty card">Niente da mostrare con questo filtro.</p><?php endif; ?>
 <div class="shop-grid">

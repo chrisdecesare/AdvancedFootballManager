@@ -293,9 +293,9 @@ e, alla prima pagina che apre, la sovraimpressione col KOIN con il messaggio in 
 nel limite. Ogni regalo finisce nel registro delle operazioni.
 
 **Oggetti nuovi:** quando escono oggetti da *Uscite* (subito o a una data), alla prima richiesta dopo l'uscita (o da `cron.php`) parte una notifica push
-a chi le ha attive, con quanti oggetti e di che tipo. Chi non ha le notifiche vede un pallino rosso sulla scheda del menu (Personaggio o Negozio) e sulla
+a chi le ha attive, con quanti oggetti e di che tipo. Chi non ha le notifiche vede un pallino rosso sulla scheda del menu (Avatar o Negozio) e sulla
 categoria, finché non la apre. Per 7 giorni gli oggetti usciti hanno l'etichetta «Nuovo» (`SHOP_NEW_DAYS`, logica in `lib/shop.php`: `shop_news_*`).
-Gli oggetti del Personaggio usciti prima del suo lancio non si annunciano.
+Gli oggetti dell'Avatar usciti prima del suo lancio non si annunciano.
 
 **Rivelazione del countdown:** in *Admin → Indovina la funzionalità*, oltre alla data di uscita, si può scegliere un'ora in cui la novità smette di essere
 «top secret» e si dice cos'è (il countdown continua fino all'uscita); da quel momento non si mandano più idee. La card della sorpresa in Home è stata tolta:

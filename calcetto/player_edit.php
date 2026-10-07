@@ -323,7 +323,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
           </label>
           <?php endforeach; ?>
         </div>
-        <p class="muted small">Compare sul profilo e nella Rosa; capigliature, maglie, esultanze e tutto il resto del Personaggio restano scelte libere per chiunque, senza vincoli di genere.</p>
+        <p class="muted small">Compare sul profilo e nella Rosa; capigliature, maglie, esultanze e tutto il resto dell'Avatar restano scelte libere per chiunque, senza vincoli di genere.</p>
       </div>
     </div>
   </section>

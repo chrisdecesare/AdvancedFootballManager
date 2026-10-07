@@ -223,7 +223,7 @@ function shop_credit_balance(int $playerId): int
     return (int) q('SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND shop_only = 1', [$playerId])->fetchColumn();
 }
 
-/** Regalo dei 1000 crediti del Personaggio: una volta sola per giocatore (il ref lo impedisce), anche a chi non l'ha avuto con la migrazione. */
+/** Regalo dei 1000 crediti dell'Avatar: una volta sola per giocatore (il ref lo impedisce), anche a chi non l'ha avuto con la migrazione. */
 function shop_credits_grant(int $playerId): void
 {
     try {
