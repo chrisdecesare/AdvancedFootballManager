@@ -98,7 +98,8 @@ $myGroups = array_map('group_name', player_group_ids($id));
 
 layout_start($p['name'], 'players');
 ?>
-<a class="back" href="players.php"><i class="ti ti-arrow-left"></i> Rosa</a>
+<?php [$backHref, $backLabel] = back_link('players.php', 'Rosa', ['player', 'giocatore', 'player_edit', 'modifica-giocatore']); ?>
+<a class="back" href="<?= h($backHref) ?>"<?= $backHref !== 'players.php' ? ' data-back' : '' ?>><i class="ti ti-arrow-left"></i> <?= h($backLabel) ?></a>
 
 <?php $bgStyle = profile_bg_style($p); ?>
 <section class="card profile role-<?= strtolower(position_abbr($p['position'])) ?><?= str_contains($bgStyle, '--bg-h') ? ' has-bg-image' : '' ?><?= bg_preset_class($p) ?><?= border_class($p) ?>"<?= $bgStyle !== '' ? ' style="' . $bgStyle . '"' : '' ?>>

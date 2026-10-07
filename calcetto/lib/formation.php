@@ -420,15 +420,16 @@ function render_pitch_figures(array $match, array $roster): string
             $pl[] = ['r' => $r, 't' => $t, 'top' => $top, 'lx' => $x(($left - 50) / 50 * .9, $d) / 4, 'ly' => $y($d) / 3.3, 's' => .62 + .38 * $d];
         }
     }
-    // in prospettiva gli avatar sono alti: chi finirebbe quasi davanti a un altro viene spostato un po' di lato
-    for ($pass = 0; $pass < 4; $pass++) {
+    // in prospettiva gli avatar sono alti: chi finirebbe quasi davanti a un altro viene spostato di lato, con un po' d'aria tra i due
+    // (una figura è larga circa l'11,5% del campo: ne servono 14 tra un centro e l'altro)
+    for ($pass = 0; $pass < 6; $pass++) {
         foreach ($pl as $i => $p) {
             foreach ($pl as $j => $q) {
-                if ($j <= $i || abs($p['ly'] - $q['ly']) > 14) {
+                if ($j <= $i || abs($pl[$i]['ly'] - $pl[$j]['ly']) > 26) {   // una figura è alta circa un quarto del campo
                     continue;
                 }
-                $dx = $q['lx'] - $pl[$i]['lx'];
-                $need = 10 * ($p['s'] + $q['s']) / 2;
+                $dx = $pl[$j]['lx'] - $pl[$i]['lx'];
+                $need = 14 * ($p['s'] + $q['s']) / 2;
                 if (abs($dx) < $need) {
                     $push = ($need - abs($dx)) / 2 * ($dx >= 0 ? 1 : -1);
                     $pl[$i]['lx'] = max(8, min(92, $pl[$i]['lx'] - $push));

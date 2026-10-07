@@ -256,6 +256,15 @@ Quattro schede, con filtro «che posso comprare / miei» e un pulsante **Prova**
 Prezzi e obiettivi si cambiano in `lib/shop_items.php` (una riga per oggetto); il disegno di sfondi e bordi sta in `assets/style.css` (classi `bgp-<chiave>` e `brd-<chiave>`). Gli acquisti stanno in `player_items`,
 cosa si indossa adesso nelle colonne `bg_preset`, `border_key`, `nick_key`, `hat_key` di `players`.
 
+**Vendere gli oggetti:** un oggetto comprato (nel Negozio o nell'Avatar) si può rivendere con «Vendi»: torna **metà di quanto l'avevi pagato**
+(`SHOP_SELL_RATE` in `lib/shop.php`, arrotondato per difetto), nella stessa moneta: la parte pagata con i crediti dell'Avatar torna in crediti (che non
+valgono per le scommesse), il resto in KOIN della lega in cui l'avevi comprato (colonne `player_items.paid_credits` e `paid_eco`). Se lo indossavi, te lo
+togli; se lo rivuoi, lo ricompri al prezzo di quel momento. Gratis, premi del Fanta e nickname sbloccati non si vendono.
+
+**Copricapi e capelli dell'Avatar:** quasi tutti i copricapi schiacciano i capelli alti (codino, ricci, afro, creste diventano un taglio corto). Quelli che
+non poggiano sulla testa o la cingono appena (aureola, coppa, pallone, alloro, fiori, cuffie, bandana e le bandiere) lasciano i capelli come sono, e
+aureola, coppa e pallone salgono sopra un codino o un afro (`PX_HATS_KEEP_HAIR`, `PX_HATS_FLOAT` in `lib/avatar_pixel_art.php`).
+
 **Overall:** dove prima si vedeva il rating (1-10, che sembrava un voto) ora si vede l'**overall** in stile videogioco, da 1 a 99 (rating × 10): in cima al profilo, sulla carta nella Rosa, in Classifica e nelle formazioni.
 Si calcola come prima (rating base deciso dall'admin, media voto e percentuale di vittorie) ed è quello che serve a bilanciare le squadre.
 

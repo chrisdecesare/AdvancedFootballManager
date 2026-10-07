@@ -366,7 +366,7 @@ function px_letters(string $name, array $parts): array
             px_paint($g, $d[2], $hx + $d[0], $hy + $d[1]);
         }
     };
-    $style = $parts['hat'] ? px_hair_under_hat($parts['hair']) : $parts['hair'];
+    $style = $parts['hat'] ? px_hair_under_hat($parts['hair'], $parts['hat']) : $parts['hair'];
     $over = [];
     foreach ($f['layers'] as $l) {
         if (($l[4] ?? '') === 'torso' && ($parts['figure'] ?? '') === 'F') {
@@ -408,7 +408,12 @@ function px_letters(string $name, array $parts): array
     $piece(px_hair()[$style] ?? null);
     $piece(px_glasses()[$parts['glasses']] ?? null);
     if ($parts['hat']) {
-        $piece(px_hats()[$parts['hat']] ?? null);
+        $hatDef = px_hats()[$parts['hat']] ?? null;
+        $lift = $hatDef && in_array($parts['hat'], PX_HATS_FLOAT, true) ? px_hair_lift($style, $view) : 0;
+        if ($lift) {   // aureola, coppa, pallone: sopra un codino o un afro, non schiacciati dentro
+            $hatDef = array_map(fn($d) => [$d[0], $d[1] - min($lift, max(0, $hy + $d[1])), $d[2]], $hatDef);   // senza uscire dalla griglia
+        }
+        $piece($hatDef);
     }
     foreach ($over as $l) {
         if (count($l) === 1) {   // livello già sulla griglia (corporatura): si copia sopra

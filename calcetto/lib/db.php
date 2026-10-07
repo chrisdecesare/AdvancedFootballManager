@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 52;
+const SCHEMA_VERSION = 53;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -891,6 +891,18 @@ function ensure_schema(): void
         // Fanta: si parte da 15 crediti invece che da 10 (lib/fanta.php: FANTA_BUDGET). Chi ha già i crediti salvati nella stagione aperta
         // riceve la differenza (+5); chi non li ha salvati li calcola da FANTA_BUDGET e prende i 5 in più da solo
         db()->exec("UPDATE fanta_teams t JOIN fanta_seasons s ON s.id = t.season_id AND s.status = 'aperta' SET t.credits = t.credits + 5");
+    }
+    if ($v < 53) {
+        // vendita degli oggetti (lib/shop.php: shop_sell): quanto di ogni acquisto è stato pagato con i crediti dell'Avatar e in quale
+        // economia il resto, così si rimborsa nella stessa moneta. Per gli acquisti di prima si ricava dai movimenti «buy-»
+        // (con crediti e KOIN insieme il movimento dei KOIN non ha il ref: si prende l'economia delle leghe storiche)
+        $add('player_items', 'paid_credits', 'INT NOT NULL DEFAULT 0');
+        $add('player_items', 'paid_eco', 'INT NOT NULL DEFAULT 0');
+        db()->exec("UPDATE player_items pi SET
+            pi.paid_credits = LEAST(pi.price, COALESCE((SELECT -SUM(w.delta) FROM wallet_moves w
+                WHERE w.player_id = pi.player_id AND w.ref = CONCAT('buy-', pi.item_key) AND w.shop_only = 1), 0)),
+            pi.paid_eco = COALESCE((SELECT MAX(w.eco) FROM wallet_moves w
+                WHERE w.player_id = pi.player_id AND w.ref = CONCAT('buy-', pi.item_key) AND w.shop_only = 0), 0)");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

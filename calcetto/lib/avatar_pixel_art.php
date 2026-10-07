@@ -542,9 +542,41 @@ function px_hair(): array
     ];
 }
 
-/** Col copricapo i capelli alti non ci stanno sotto: restano quelli lunghi, il resto diventa un taglio corto. */
-function px_hair_under_hat(string $style): string
+/**
+ * Copricapi che non schiacciano i capelli: stanno sospesi sopra la testa, di lato o la cingono appena (aureola, bandiere, cuffie...),
+ * così codino, ricci, afro e creste restano come sono.
+ */
+const PX_HATS_KEEP_HAIR = ['halo', 'ball', 'trophy', 'laurel', 'flowers', 'headphones', 'bandana',
+    'flag', 'flag_h', 'flag_h2', 'flag_pt', 'flag_br'];
+/** ... di questi, quelli sospesi o appoggiati in cima: con capelli alti salgono sopra i capelli invece di coprirli (px_hair_lift). */
+const PX_HATS_FLOAT = ['halo', 'ball', 'trophy'];
+
+/** Di quante righe un'acconciatura sale sopra il taglio classico, in una vista (0 se non sale). */
+function px_hair_lift(string $style, string $view): int
 {
+    $top = function (?array $hair) use ($view): ?int {
+        $d = $hair[$view] ?? ($hair['front'] ?? null);
+        if (!$d) {
+            return null;
+        }
+        foreach ($d[2] as $i => $row) {
+            if (trim($row, '.') !== '') {
+                return $d[1] + $i;
+            }
+        }
+        return null;
+    };
+    $ref = $top(px_hair()['classic'] ?? null);
+    $mine = $top(px_hair()[$style] ?? null);
+    return $ref !== null && $mine !== null ? max(0, $ref - $mine) : 0;
+}
+
+/** Col copricapo i capelli alti non ci stanno sotto: restano quelli lunghi, il resto diventa un taglio corto (tranne PX_HATS_KEEP_HAIR). */
+function px_hair_under_hat(string $style, ?string $hat = null): string
+{
+    if ($hat !== null && in_array($hat, PX_HATS_KEEP_HAIR, true)) {
+        return $style;
+    }
     return in_array($style, ['bald', 'buzz', 'long', 'mullet', 'braids', 'fade', 'classic', 'side', 'ponytail'], true)
         ? $style : (in_array($style, ['mohawk', 'crest_punk', 'crest_gold'], true) ? 'buzz' : 'classic');
 }
@@ -718,6 +750,16 @@ function px_hats(): array
             'ooooooooo'])],
         'kippah' => ['front' => px_m(3, -2, ['..ooo', '.oxxx', 'oxXxx', '.oooo'])],
         'fez' => ['front' => px_m(3, -6, ['.oooo', 'oxxxx', 'oxxxx', 'oxXxx', 'oxxxx', 'ooooo'])],
+        // bandiere (lib/shop_items.php 'f_'): un'asta accanto alla testa con la bandierina, i colori della nazione nell'ordine giusto
+        'flag' => ['front' => px_l(15, -12, ['.oo...........', 'obbooooooooooo', 'obboxxxyyyzzzo', 'obboxxxyyyzzzo', 'obboxxxyyyzzzo', 'obboxxxyyyzzzo', 'obboxxxyyyzzzo', 'obbooooooooooo', 'obbo', 'obbo', 'obbo', 'obbo', 'obbo', '.oo.'])],
+        'flag_h' => ['front' => px_l(15, -12, ['.oo...........', 'obbooooooooooo', 'obboxxxxxxxxxo', 'obboxxxxxxxxxo', 'obboyyyyyyyyyo', 'obboyyyyyyyyyo', 'obbozzzzzzzzzo', 'obbozzzzzzzzzo', 'obbooooooooooo', 'obbo', 'obbo', 'obbo', 'obbo', 'obbo', '.oo.'])],
+        'flag_h2' => ['front' => px_l(15, -12, ['.oo...........', 'obbooooooooooo', 'obboxxxxxxxxxo', 'obboyyyyyyyyyo', 'obboyyyyyyyyyo', 'obboyyyyyyyyyo', 'obboxxxxxxxxxo', 'obbooooooooooo', 'obbo', 'obbo', 'obbo', 'obbo', 'obbo', '.oo.'])],
+        'flag_pt' => ['front' => px_l(15, -12, ['.oo...........', 'obbooooooooooo', 'obboxxxxyyyyyo', 'obboxxxxyyyyyo', 'obboxxxgyyyyyo', 'obboxxxxyyyyyo', 'obboxxxxyyyyyo', 'obbooooooooooo', 'obbo', 'obbo', 'obbo', 'obbo', 'obbo', '.oo.'])],
+        'flag_br' => ['front' => px_l(15, -12, ['.oo...........', 'obbooooooooooo', 'obboxxxxyxxxxo', 'obboxxxyyyxxxo', 'obboxxyyzyyxxo', 'obboxxxyyyxxxo', 'obboxxxxyxxxxo', 'obbooooooooooo', 'obbo', 'obbo', 'obbo', 'obbo', 'obbo', '.oo.'])],
+        'captain' => ['front' => px_m(-1, -4, ['....ooooo', '..ooxxxxx', '.oxxxxxxx', 'oxxXxxxxx', 'oyyyyyyyy', 'ooooooooo', '.oeeeeeee',
+            '..ooooooo'])],
+        'fireman' => ['front' => px_m(-2, -5, ['......oooo', '....ooxxxx', '...oxxxxoo', '..oxxXxoyy', '..oxxxxoyy', '.oxxxxxxoo', 'oxxxxxxxxx',
+            'oooooooooo', 'oxxxxxxxxx', '.ooooooooo'])],
         'cone' => ['front' => px_m(3, -12, ['....o', '...ox', '...ol', '..oxx', '..oll', '..oxx', '.oxxx', '.olll', '.oxxx', 'oyyyy', 'ooooo'])],
         'catears' => ['front' => px_m(0, -4, ['..o.....', '.oxo....', '.oyxo...', 'oyyxo...', 'oxxxo...'])],
         'rabbit' => ['front' => px_m(0, -10, ['...oo...', '..oxxo..', '..oyxo..', '..oyxo..', '..oyxo..', '..oyxo..', '..oyxo..',

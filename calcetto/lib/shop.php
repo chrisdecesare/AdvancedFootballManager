@@ -545,8 +545,9 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bo
         if ($left < $price) {
             return 'Ti servono ' . $price . ' KOIN, ne hai ' . $left . ($eco ? ' in «' . eco_label($eco) . '»' : '') . '. Vai a scommettere!';
         }
-        q('INSERT INTO player_items (player_id, item_key, price) VALUES (?, ?, ?)', [$playerId, $key, $price]);
         $fromCredits = min($credits, $price);   // prima si spendono i crediti del negozio, poi i KOIN
+        // quanto è stato pagato in crediti e in quale economia il resto: alla vendita (shop_sell) si rimborsa nella stessa moneta
+        q('INSERT INTO player_items (player_id, item_key, price, paid_credits, paid_eco) VALUES (?, ?, ?, ?, ?)', [$playerId, $key, $price, $fromCredits, $eco]);
         if ($fromCredits > 0) {
             q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref, shop_only) VALUES (?, 0, ?, 'acquisto', ?, 1)", [$playerId, -$fromCredits, 'buy-' . $key]);
         }
@@ -555,6 +556,73 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bo
         }
         return null;
     });
+}
+
+/** Quanto si riprende vendendo un oggetto: questa parte di quanto l'aveva pagato. */
+const SHOP_SELL_RATE = 0.5;
+
+/**
+ * Cosa rende la vendita di un oggetto comprato: [crediti dell'Avatar, KOIN, economia dei KOIN], dalla riga di player_items.
+ * La parte pagata con i crediti torna in crediti (che non valgono per le scommesse), il resto in KOIN della stessa economia.
+ */
+function shop_sell_value(array $row): array
+{
+    $credits = max(0, min((int) $row['price'], (int) $row['paid_credits']));
+    return [(int) floor($credits * SHOP_SELL_RATE), (int) floor(((int) $row['price'] - $credits) * SHOP_SELL_RATE), (int) ($row['paid_eco'] ?? 0)];
+}
+
+/** Oggetti comprati (che si possono vendere): chiave => riga di player_items. Gratis e premi non si vendono. */
+function shop_sellable(int $playerId): array
+{
+    $out = [];
+    foreach (q('SELECT * FROM player_items WHERE player_id = ? AND price > 0', [$playerId])->fetchAll() as $r) {
+        $out[$r['item_key']] = $r;
+    }
+    return $out;
+}
+
+/**
+ * Vende un oggetto comprato: torna SHOP_SELL_RATE di quanto era stato pagato (shop_sell_value) e, se lo indossava, se lo toglie.
+ * Si può ricomprare dopo, al prezzo di quel momento. Ritorna il messaggio d'errore oppure null; in $got [crediti, KOIN] resi.
+ */
+function shop_sell(int $playerId, string $kind, string $key, ?array &$got = null): ?string
+{
+    if ((!isset(shop_kinds()[$kind]) && !isset(avatar_kinds()[$kind])) || shop_kind_of($key) !== $kind) {
+        return 'Oggetto non trovato.';
+    }
+    return bet_atomic(function () use ($playerId, $kind, $key, &$got) {
+        q('SELECT id FROM players WHERE id = ? FOR UPDATE', [$playerId]);   // due vendite insieme non rimborsano due volte
+        $row = q('SELECT * FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $key])->fetch();
+        if (!$row) {
+            return 'Non ce l\'hai.';
+        }
+        if ((int) $row['price'] <= 0) {
+            return 'Questo non si vende: non l\'hai pagato (è un premio o un regalo).';
+        }
+        [$credits, $koin, $eco] = shop_sell_value($row);
+        q('DELETE FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $key]);
+        // il ref «buy-» dell'acquisto si libera, così l'oggetto si può ricomprare (il ref è unico per giocatore ed economia)
+        q('UPDATE wallet_moves SET ref = NULL WHERE player_id = ? AND ref = ?', [$playerId, 'buy-' . $key]);
+        if ($credits > 0) {
+            q("INSERT INTO wallet_moves (player_id, eco, delta, kind, shop_only) VALUES (?, 0, ?, 'vendita', 1)", [$playerId, $credits]);
+        }
+        if ($koin > 0) {
+            q("INSERT INTO wallet_moves (player_id, eco, delta, kind) VALUES (?, ?, ?, 'vendita')", [$playerId, $eco, $koin]);
+        }
+        if (isset(shop_kinds()[$kind])) {   // se lo indossava, se lo toglie
+            q('UPDATE players SET ' . shop_column($kind) . ' = NULL WHERE id = ? AND ' . shop_column($kind) . ' = ?', [$playerId, $key]);
+        } elseif ((avatar_look(get_player($playerId))[$kind] ?? null) === $key) {
+            avatar_set($playerId, $kind, null);
+        }
+        $got = [$credits, $koin];
+        return null;
+    });
+}
+
+/** «12 KOIN», «12 KOIN e 30 crediti», «30 crediti»: cosa rende una vendita. */
+function shop_sell_label(int $credits, int $koin): string
+{
+    return implode(' e ', array_filter([$koin ? $koin . ' KOIN' : '', $credits ? $credits . ($credits === 1 ? ' credito' : ' crediti') : ''])) ?: '0 KOIN';
 }
 
 /**

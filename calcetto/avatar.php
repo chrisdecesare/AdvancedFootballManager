@@ -68,6 +68,12 @@ if (is_post()) {
                 log_activity('negozio', $kind . ' · ' . $item['name']);
             }
             flash($err ? 'err' : 'ok', $err ?: 'Comprato e indossato: «' . $item['name'] . '»!');
+        } elseif ($do === 'sell' && $item) {   // vendita: torna metà di quanto l'aveva pagato (lib/shop.php: shop_sell)
+            $err = shop_sell($me, $kind, $key, $got);
+            if (!$err) {
+                log_activity('negozio', 'venduto · ' . $item['name']);
+            }
+            flash($err ? 'err' : 'ok', $err ?: 'Venduto «' . $item['name'] . '»: hai ripreso ' . shop_sell_label(...$got) . '.');
         } elseif ($do === 'wish' && $item) {
             $on = shop_wish_toggle($me, $key);
             if (($_SERVER['HTTP_ACCEPT'] ?? '') === 'application/json') {   // il cuoricino premuto senza ricaricare la pagina
@@ -101,6 +107,7 @@ $avCredits = shop_credit_balance($me);
 $catalog = shop_catalog();
 $number = $mp['shirt_number'];
 $wish = shop_wishlist($me);
+$sellable = shop_sellable($me);   // oggetti comprati: si possono rivendere a metà prezzo
 $wishN = shop_market()['wish'];
 $admin = is_admin();
 
@@ -190,7 +197,7 @@ $stateOf = function (string $key, array $item) use ($cat, $owned, $wornKey): str
 };
 
 /** Il pannello sotto l'avatar: nome, rarità, descrizione e il pulsante giusto (compra, indossa, già tuo). */
-$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $avCredits, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN): string {
+$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $avCredits, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN, $sellable): string {
     [$rk, $rl] = avatar_rarity($item['price']);
     $desc = $item['desc'] ?? ($cat === 'jersey'
         ? $jerseyKind[$item['kind']] . (($item['pattern'] ?? 'solid') !== 'solid' ? ' · ' . mb_strtolower($patterns[$item['pattern']]) : '') . '.'
@@ -227,6 +234,16 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
     } else {
         $act = '<p class="av-state"><i class="ti ti-' . ($state === 'free' ? 'gift' : 'hanger') . '"></i> ' . ($state === 'free' ? 'Incluso per tutti' : 'Nel tuo guardaroba') . '</p>'
             . $form('wear', $word[0], 'btn-primary');
+    }
+    if (isset($sellable[$key])) {   // comprato: si può rivendere a metà di quanto l'ha pagato
+        [$svC, $svK] = shop_sell_value($sellable[$key]);
+        $svl = shop_sell_label($svC, $svK);
+        $act .= '<form method="post" class="av-act av-sell">' . csrf_field()
+            . '<input type="hidden" name="do" value="sell"><input type="hidden" name="kind" value="' . h($cat) . '"><input type="hidden" name="key" value="' . h($key) . '">'
+            . '<input type="hidden" name="v" value="' . h($view) . '"><input type="hidden" name="r" value="' . h($rar) . '"><input type="hidden" name="o" value="' . h($sort) . '">'
+            . '<input type="hidden" name="p" value="' . $page . '">'
+            . '<button class="btn btn-ghost btn-sm btn-block" data-confirm="Vendere «' . h($item['name']) . '» per ' . h($svl) . '? Se lo rivuoi, lo ricompri al prezzo di quel momento.">'
+            . '<i class="ti ti-receipt-refund"></i> Vendi · ' . h($svl) . '</button></form>';
     }
     return '<div class="av-info-top"><span class="av-info-kind">' . h($kinds[$cat]) . '</span>' . $wishBtn . '<span class="rar rar-' . $rk . '">' . $rl . '</span></div>'
         . '<h2 class="av-info-name">' . h($item['name']) . '</h2>'
