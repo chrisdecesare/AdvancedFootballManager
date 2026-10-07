@@ -102,7 +102,7 @@ img { max-width: 100%; }
   .nav-many .me span:not(.avatar) { display: none; }
   .nav-many .nav a { padding: 6px 9px; }
 }
-/* nomi o sole icone lo decide app.js in base allo spazio che c'è davvero (classe .nav-compact, vedi sotto) */
+/* i nomi delle schede si vedono sempre: se non ci stanno, il menu va su una riga sua (app.js, classe .topbar-wrap, vedi sotto) */
 /* pallino delle iscrizioni sull'icona del profilo: serve solo sui telefoni, dove la scheda Admin sta in fondo
    al menu scorrevole e può restare fuori schermo; altrove il pallino è accanto ad "Admin" */
 .userbox .pending-dot { display: none; position: absolute; top: -7px; left: 20px; margin: 0; z-index: 2; }
@@ -135,16 +135,15 @@ img { max-width: 100%; }
 /* rete di sicurezza (app.js): se le schede non ci stanno comunque, il menu va su una riga sua */
 /* il titolo è inclinato e il pallone ha l'ombra: non deve mai toccare le schede */
 .brand { flex: none; margin-right: 6px; }
-/* solo icone (app.js, quando i nomi non ci stanno): il nome resta sulla scheda attiva e nel tooltip */
-.nav-compact .nav a { padding: 6px 10px; }
-.nav-compact .nav .nav-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.nav-compact .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
-/* ultima risorsa: il menu su una riga sua, staccato dal titolo */
+/* le schede hanno sempre il nome accanto all'icona: se non ci stanno accanto al titolo, il menu va su una riga sua (app.js) */
 .topbar-wrap .topbar-inner { row-gap: 10px; column-gap: 8px; }
 .topbar-wrap .nav { order: 3; flex-basis: 100%; padding-top: 6px; border-top: 2px dashed rgba(31, 26, 46, .25); }
 .topbar-wrap .brand { flex: 1 0 auto; }
-.topbar-wrap:not(.nav-compact) .nav a { padding: 6px 12px; }
-.topbar-wrap:not(.nav-compact) .nav .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+.topbar-wrap .nav { gap: 1px; }
+.topbar-wrap .nav a { padding: 6px 7px; }
+/* ... e se neanche lì ci stanno, su più righe */
+.nav-lines .nav { flex-wrap: wrap; row-gap: 4px; overflow: visible; }
+.nav-lines .nav a { padding: 5px 10px; }
 
 /* ---------- layout ---------- */
 .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px; }
@@ -604,12 +603,12 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .howto li::marker { color: var(--grass-d); }
 
 /* l'intestazione fissa non deve coprire le sezioni raggiunte con #ancora */
-[id] { scroll-margin-top: 130px; }
+[id] { scroll-margin-top: calc(var(--topbar-h, 76px) + 54px); }
 
 /* ---------- home ---------- */
 .home { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 22px; align-items: start; }
 .home > .card { margin: 0; }
-.home .recap { position: sticky; top: 96px; }
+.home .recap { position: sticky; top: calc(var(--topbar-h, 76px) + 20px); }
 @media (max-width: 980px) {
   .home { grid-template-columns: 1fr; }
   .home .recap { position: static; }
@@ -622,7 +621,7 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 /* ---------- campo con le pedine ---------- */
 .pitch-wrap { margin: 0 auto 16px; max-width: 460px; }
 .pitch {
-  position: relative; aspect-ratio: 2 / 3; border: var(--b); border-radius: 18px; overflow: hidden; box-shadow: var(--sh);
+  position: relative; isolation: isolate; aspect-ratio: 2 / 3; border: var(--b); border-radius: 18px; overflow: hidden; box-shadow: var(--sh);
   background: repeating-linear-gradient(0deg, #3fcf7a 0 11.11%, #36c270 11.11% 22.22%);
 }
 .pl { position: absolute; border: 3px solid rgba(255, 255, 255, .85); pointer-events: none; }
@@ -1193,7 +1192,7 @@ html.menu-open .betslip, html.tour-open .betslip { display: none; }
 /* ==== fine negozio generato ==== */
 
 /* negozio: anteprima sempre visibile, schede e miniature dei bordi */
-.shop-bar { position: sticky; top: 74px; z-index: 10;   /* sotto l'intestazione (z-index 20), altrimenti copre il menu a tendina */
+.shop-bar { position: sticky; top: calc(var(--topbar-h, 76px) - 2px); z-index: 10;   /* sotto l'intestazione (z-index 20), altrimenti copre il menu a tendina */
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px; padding: 14px 20px 14px 14px; margin: 14px 0 12px; background: var(--yellow); }
 .shop-bar .wallet-num { font-size: 2rem; }
 .shop-bar .wallet-num .ti { font-size: 1.6rem; }
@@ -1292,7 +1291,12 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 
 /* pagina */
 .av-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start; }
-.av-side { position: sticky; top: 84px; scroll-margin-top: 84px; }
+.av-side { position: sticky; top: calc(var(--topbar-h, 76px) + 8px); scroll-margin-top: calc(var(--topbar-h, 76px) + 8px); }
+/* il riquadro dell'avatar resta fermo mentre si scorre il catalogo: se è più alto dello schermo scorre da solo (rotellina sopra il
+   riquadro), così il pulsante «Compra» si raggiunge senza arrivare in fondo alla pagina. Il margine lascia spazio all'ombra */
+@media (min-width: 900px) {
+  .av-side { max-height: calc(100vh - var(--topbar-h, 76px) - 24px); overflow-y: auto; overscroll-behavior: contain; padding: 0 8px 10px 0; margin-right: -8px; scrollbar-width: thin; }
+}
 @media (max-width: 899px) { .av-layout { grid-template-columns: 1fr; } .av-side { position: static; } }
 .av-panel { margin: 0; padding: 0; overflow: hidden; }
 .av-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 10px 16px;
@@ -1332,6 +1336,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .av-price span { font: 800 .85rem var(--font); color: var(--muted); }
 .av-short { color: var(--red); margin: 8px 0 0; }
 .av-act { margin: 0; }
+.av-sell { margin-top: 8px; }
 .btn[disabled] { opacity: .55; cursor: not-allowed; transform: none; box-shadow: var(--sh-sm); }
 
 .av-tabs { margin-top: 0; align-items: center; }
@@ -1408,7 +1413,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .pitch-view-toggle { display: flex; gap: 6px; }
 .pitch-view-toggle .btn.is-on { background: var(--yellow); }
 .pitch-av-wrap { max-width: 680px; margin: 0 auto 16px; }
-.pitch-av { position: relative; aspect-ratio: 400 / 330; margin: 10px 0; border: var(--b); border-radius: 18px; overflow: hidden; box-shadow: var(--sh); background: #4a4360; }
+.pitch-av { position: relative; isolation: isolate; aspect-ratio: 400 / 330; margin: 10px 0; border: var(--b); border-radius: 18px; overflow: hidden; box-shadow: var(--sh); background: #4a4360; }
 .pitch-av-field { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pav { position: absolute; width: calc(11.5% * var(--s, 1)); transform: translate(-50%, -97%); display: block; transition: transform .12s; }
 .pav:hover { transform: translate(-50%, -99%) scale(1.06); z-index: 200 !important; }
@@ -1457,7 +1462,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .drop-acts form, .drop-withdraw { margin: 0; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .drop-acts input[type=number] { width: 64px; }
 .drop-acts label, .drop-pick-bar label { font-weight: 700; font-size: .85rem; display: inline-flex; gap: 4px; align-items: center; }
-.drop-pick-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px; position: sticky; top: 76px; z-index: 5; }
+.drop-pick-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0 0 14px; position: sticky; top: var(--topbar-h, 76px); z-index: 5; }
 .drop-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .drop-item { margin: 0; display: grid; gap: 6px; justify-items: center; text-align: center; padding: 10px; cursor: pointer; position: relative; }
 .drop-item input { position: absolute; top: 10px; left: 10px; width: 18px; height: 18px; }

@@ -344,6 +344,8 @@ CREATE TABLE IF NOT EXISTS player_items (
   player_id INT NOT NULL,
   item_key VARCHAR(16) NOT NULL,
   price INT NOT NULL,
+  paid_credits INT NOT NULL DEFAULT 0,             -- di cui pagati con i crediti dell'Avatar (alla vendita tornano in crediti)
+  paid_eco INT NOT NULL DEFAULT 0,                 -- economia dei KOIN con cui è stato pagato il resto (alla vendita tornano lì)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (player_id, item_key),
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE

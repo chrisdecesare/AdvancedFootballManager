@@ -28,6 +28,12 @@ if (is_post()) {
             log_activity('negozio', $kind . ' · ' . ($item['name'] ?? $key));
         }
         flash($err ? 'err' : 'ok', $err ?: 'Comprato: «' . $item['name'] . '»! Ora puoi indossarlo.');
+    } elseif ($do === 'sell' && $item) {   // vendita: torna metà di quanto l'aveva pagato (lib/shop.php: shop_sell)
+        $err = shop_sell($me, $kind, $key, $got);
+        if (!$err) {
+            log_activity('negozio', 'venduto · ' . $item['name']);
+        }
+        flash($err ? 'err' : 'ok', $err ?: 'Venduto «' . $item['name'] . '»: hai ripreso ' . shop_sell_label(...$got) . '.');
     } elseif ($do === 'wear') {
         $err = shop_equip($me, $kind, $key);
         flash($err ? 'err' : 'ok', $err ?: '«' . $item['name'] . '» indossato: guarda il tuo profilo.');
@@ -64,6 +70,7 @@ $shopCr = $me ? shop_credit_balance($me) : 0;   // crediti dell'Avatar: valgono 
 $balFor = fn(string $kind) => $balance + (isset(avatar_kinds()[$kind]) ? $shopCr : 0);
 $inPlay = $me ? wallet_in_play($me) : 0;
 $owned = $me ? shop_owned($me) : [];
+$sellable = $me ? shop_sellable($me) : [];   // oggetti comprati: si possono rivendere a metà prezzo
 $progress = $me ? shop_progress($me) : [];
 $wish = $me ? shop_wishlist($me) : [];
 $admin = is_admin();
@@ -221,6 +228,11 @@ layout_start('Negozio', 'shop');
           <button class="btn btn-primary btn-sm"<?= $balFor($tab) < $item['now'] ? ' title="Non hai abbastanza KOIN"' : '' ?>>Compra</button>
         <?php endif; ?>
       </form>
+      <?php if (isset($sellable[$key])): $sv = shop_sell_value($sellable[$key]); $svl = shop_sell_label($sv[0], $sv[1]); ?>
+      <form method="post"><?= csrf_field() ?><input type="hidden" name="kind" value="<?= $tab ?>"><input type="hidden" name="key" value="<?= h($key) ?>"><input type="hidden" name="f" value="<?= h($filter) ?>">
+        <input type="hidden" name="p" value="<?= $page ?>"><input type="hidden" name="do" value="sell">
+        <button class="btn btn-ghost btn-sm" title="Lo rivendi a metà di quanto l'hai pagato" data-confirm="Vendere «<?= h($item['name']) ?>» per <?= h($svl) ?>? Se lo rivuoi, lo ricompri al prezzo di quel momento."><i class="ti ti-receipt-refund"></i> Vendi · <?= h($svl) ?></button></form>
+      <?php endif; ?>
     </div>
     <?php endif; ?>
   </article>

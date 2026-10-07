@@ -44,6 +44,28 @@ function int_get(string $k): int
     return isset($_GET[$k]) ? (int) $_GET[$k] : 0;
 }
 
+/**
+ * Il link «indietro» verso la pagina del sito da cui si è arrivati (es. la Home dalle formazioni), invece che sempre verso la stessa:
+ * [indirizzo, etichetta]. Vale solo un referer di questo sito (si usa solo il percorso: niente indirizzi esterni) e non una delle
+ * pagine $skip (es. la scheda stessa dopo un salvataggio); altrimenti [$fallback, $fallbackLabel]. In pagina il link ha data-back:
+ * assets/app.js torna indietro nella cronologia, così si ritrova anche il punto della pagina dove si era.
+ */
+function back_link(string $fallback, string $fallbackLabel, array $skip = []): array
+{
+    $ref = is_string($_SERVER['HTTP_REFERER'] ?? null) ? parse_url($_SERVER['HTTP_REFERER']) : false;
+    if (!$ref || ($ref['host'] ?? '') !== parse_url('//' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST) || !isset($ref['path'])) {
+        return [$fallback, $fallbackLabel];
+    }
+    $page = preg_replace('/(\.php|-\d+)$/', '', basename($ref['path']));   // «match.php» e «partita-12» (indirizzi leggibili) -> match, partita
+    if (in_array($page, $skip, true)) {
+        return [$fallback, $fallbackLabel];
+    }
+    $labels = ['' => 'Home', 'index' => 'Home', 'match' => 'Partita', 'partita' => 'Partita', 'matches' => 'Partite', 'partite' => 'Partite',
+        'standings' => 'Classifica', 'classifica' => 'Classifica', 'players' => 'Rosa', 'rosa' => 'Rosa', 'fanta' => 'Fanta', 'fantacalcio' => 'Fanta',
+        'bets' => 'Scommesse', 'scommesse' => 'Scommesse', 'curiosities' => 'Curiosità', 'curiosita' => 'Curiosità'];
+    return [$ref['path'] . (isset($ref['query']) ? '?' . $ref['query'] : ''), $labels[$page] ?? 'Indietro'];
+}
+
 const GIORNI = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 const MESI = ['', 'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio',
     'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];

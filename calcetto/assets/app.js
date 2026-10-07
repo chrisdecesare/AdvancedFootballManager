@@ -79,6 +79,15 @@ document.addEventListener('DOMContentLoaded', () => {
     voteDone.addEventListener('animationend', e => { if (e.target === voteDone) voteDone.remove(); });
   });
 
+  // «indietro» verso la pagina da cui si è arrivati (lib/helpers.php: back_link): si torna nella cronologia, così la pagina
+  // si ritrova al punto dove si era (es. le formazioni in Home); se la cronologia non c'è, vale il link normale
+  document.querySelectorAll('a[data-back]').forEach(a => a.addEventListener('click', e => {
+    if (history.length > 1 && document.referrer.startsWith(location.origin + '/')) {
+      e.preventDefault();
+      history.back();
+    }
+  }));
+
   document.querySelectorAll('[data-confirm]').forEach(el => {
     el.addEventListener('click', e => {
       if (!confirm(el.dataset.confirm)) e.preventDefault();
@@ -330,20 +339,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const bar = document.querySelector('.topbar');
   const navEl = bar && bar.querySelector('.nav');
   if (navEl) {
-    // Il menu deve stare tutto, senza sovrapporsi al titolo: 1) nomi completi su una riga; 2) se non ci stanno, solo icone
-    // (il nome resta sulla scheda attiva e nel tooltip); 3) solo se neanche così, il menu va su una riga sua sotto il titolo,
-    // di nuovo prima con i nomi e poi con le sole icone. Con tante schede (admin) si arriva spesso al punto 2 o 3.
+    // Il menu deve stare tutto, senza sovrapporsi al titolo, e sempre con i nomi accanto alle icone (con le sole icone non si
+    // trovava subito la sezione): 1) su una riga accanto al titolo; 2) se non ci sta, su una riga sua sotto il titolo;
+    // 3) se neanche così, su più righe. Con tante schede (admin) si arriva spesso al punto 2.
     const overflowing = () => navEl.scrollWidth > navEl.clientWidth + 1;
     const fit = () => {
-      bar.classList.remove('topbar-wrap', 'nav-compact');
+      bar.classList.remove('topbar-wrap', 'nav-lines');
       const burger = bar.querySelector('.nav-toggle');
-      if (burger && getComputedStyle(burger).display !== 'none') return;   // menu a panino: niente da controllare
-      if (!overflowing()) return;
-      bar.classList.add('nav-compact');
-      if (!overflowing()) return;
-      bar.classList.remove('nav-compact');
-      bar.classList.add('topbar-wrap');
-      if (overflowing()) bar.classList.add('nav-compact');
+      if (!(burger && getComputedStyle(burger).display !== 'none') && overflowing()) {   // col menu a panino non c'è niente da controllare
+        bar.classList.add('topbar-wrap');
+        if (overflowing()) bar.classList.add('nav-lines');
+      }
+      // altezza vera dell'intestazione (con il menu su una o due righe): la usano gli elementi che restano attaccati sotto (style.css)
+      document.documentElement.style.setProperty('--topbar-h', bar.offsetHeight + 'px');
     };
     fit();
     window.addEventListener('resize', fit);
