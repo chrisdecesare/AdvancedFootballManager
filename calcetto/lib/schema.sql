@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS players (
   avatar_look TEXT NULL,                           -- Personaggio (avatar.php): cosa indossa, JSON tipo => chiave del catalogo (lib/avatar.php)
   is_guest TINYINT(1) NOT NULL DEFAULT 0,          -- 1 = Ospite: gioca una partita sola, fuori da rosa e statistiche (lib/guests.php)
   guest_email VARCHAR(190) NULL,                   -- email dell'Ospite: se poi si iscrive con questa, la partita passa al suo profilo
-  guest_match_id INT NULL,                         -- la partita a cui e' invitato
+  guest_match_id INT NULL,                         -- la partita a cui e' invitato (l'ultima, se e' un giocatore libero)
+  guest_saved TINYINT(1) NOT NULL DEFAULT 0,       -- 1 = l'ospite ha tenuto l'account: non scade ed e' tra i giocatori liberi (lib/guests.php)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -86,6 +87,7 @@ CREATE TABLE IF NOT EXISTS match_players (
   assists TINYINT UNSIGNED NOT NULL DEFAULT 0,
   own_goals TINYINT UNSIGNED NOT NULL DEFAULT 0,
   paid TINYINT(1) NOT NULL DEFAULT 0,
+  votes_ok TINYINT(1) NULL DEFAULT 1,              -- i suoi voti (dati e ricevuti) contano per la lega? Ospiti: NULL finche' chi gestisce la lega non decide
   PRIMARY KEY (match_id, player_id),
   FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
   FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
@@ -157,6 +159,18 @@ CREATE TABLE IF NOT EXISTS player_groups (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO squad_groups (id, name) VALUES (1, 'Principale');
+
+-- inviti in lega ai giocatori liberi (ospiti che hanno tenuto l'account, lib/guests.php)
+CREATE TABLE IF NOT EXISTS league_invites (
+  group_id INT NOT NULL,
+  player_id INT NOT NULL,
+  invited_by INT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_id, player_id),
+  INDEX (player_id),
+  FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- assist tra due giocatori in una partita (facoltativo): "assister ha servito scorer per n gol"
 CREATE TABLE IF NOT EXISTS match_links (

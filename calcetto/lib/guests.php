@@ -7,18 +7,27 @@
  * che lo tiene fuori da rosa, classifiche, statistiche, intesa e scommesse: tutte quelle pagine leggono i giocatori
  * "del gruppo". Dove serve, il resto è escluso a mano (voti, MVP, scommesse: cerca is_guest).
  *
- * Cosa può fare: vedere la SUA partita (data, campo, in che squadra gioca, risultato e la formazione in campo) e dire
- * se ci sarà. Non vede le presenze né i voti, non vota, non scommette, e gli altri non possono votarlo né scommettere su di lui.
+ * Cosa può fare: vedere le SUE partite (data, campo, in che squadra gioca, risultato e la formazione in campo) e dire
+ * se ci sarà. Non vede le presenze, non scommette e gli altri non possono scommettere su di lui.
  *
- * Dopo GUEST_KEEP_DAYS giorni dalla partita l'account sparisce. Se l'admin aveva scritto la sua email, il giocatore
- * resta nella partita (con il nome): se un giorno si iscrive davvero con quella email confermata, la partita gli
- * compare tra quelle giocate (guest_merge). Senza email sparisce del tutto.
+ * Voti: vota e viene votato come gli altri (così riceve un feedback), ma per la lega i suoi voti, quelli che dà e quelli
+ * che riceve (media, MVP, premi), contano solo se chi gestisce la lega li accetta: match_players.votes_ok (NULL = da decidere,
+ * 1 = contano, 0 = no; per chi è della lega vale 1). Vedi lib/stats.php: votes_ok_sql.
+ *
+ * Account salvato (players.guest_saved): l'ospite può scegliere di tenere l'account (con una password sua). Non scade più e,
+ * finché non è in nessuna lega, sta tra i «giocatori liberi» (free_agents): chi amministra una lega lo può chiamare a una
+ * partita (guest_call) o invitare nella lega (league_invites); se accetta l'invito diventa un giocatore normale (guest_join_league).
+ *
+ * Dopo GUEST_KEEP_DAYS giorni dall'ultima partita l'account di chi non l'ha salvato sparisce. Se l'admin aveva scritto la sua
+ * email, il giocatore resta nella partita (con il nome): se un giorno si iscrive davvero con quella email confermata, la partita
+ * gli compare tra quelle giocate (guest_merge). Senza email sparisce del tutto.
  */
 
 const GUEST_KEEP_DAYS = 7;
 
 /** Pagine che un Ospite può aprire (tutte le altre lo riportano alla sua partita). */
-const GUEST_PAGES = ['match.php', 'action.php', 'account.php', 'logout.php', 'push.php', 'verify_email.php'];
+const GUEST_PAGES = ['match.php', 'guest.php', 'action.php', 'account.php', 'logout.php', 'push.php', 'verify_email.php'];
+const LEAGUE_INVITES_PER_DAY = 20;   // inviti in lega che una lega può mandare ai giocatori liberi in 24 ore
 
 function is_guest(): bool
 {
@@ -33,19 +42,40 @@ function guest_match_id(): ?int
     return ($u && $u['role'] === 'ospite' && !empty($u['guest_match_id'])) ? (int) $u['guest_match_id'] : null;
 }
 
-/** Chiamata da require_login/require_view: un Ospite vede solo la sua partita, ogni altra pagina lo riporta lì. */
+/** L'Ospite collegato ha salvato l'account? */
+function guest_saved(): bool
+{
+    $pid = is_guest() ? my_player_id() : null;
+    return $pid !== null && (bool) q('SELECT guest_saved FROM players WHERE id = ?', [$pid])->fetchColumn();
+}
+
+/** L'Ospite $playerId gioca (o è chiamato a) questa partita? */
+function guest_in_match(int $playerId, int $matchId): bool
+{
+    return (bool) q('SELECT 1 FROM match_players WHERE match_id = ? AND player_id = ?', [$matchId, $playerId])->fetch();
+}
+
+/**
+ * Chiamata da require_login/require_view: un Ospite vede solo le sue partite e la sua area (guest.php), ogni altra pagina lo
+ * riporta alla sua ultima partita (o alla sua area, se ha salvato l'account e non ne ha).
+ */
 function guest_gate(): void
 {
     if (!is_guest()) {
         return;
     }
     $mid = guest_match_id();
-    if ($mid === null) {
+    if ($mid !== null && !get_match($mid)) {
+        $mid = null;
+    }
+    $saved = guest_saved();
+    if ($mid === null && !$saved) {
         redirect('logout.php');      // la partita è stata eliminata: non c'è più niente da vedere
     }
+    $home = $mid !== null ? 'match.php?id=' . $mid : 'guest.php';
     $script = basename($_SERVER['SCRIPT_NAME'] ?? '');
-    if (!in_array($script, GUEST_PAGES, true) || ($script === 'match.php' && int_get('id') !== $mid)) {
-        redirect('match.php?id=' . $mid);
+    if (!in_array($script, GUEST_PAGES, true) || ($script === 'match.php' && !guest_in_match((int) my_player_id(), int_get('id')))) {
+        redirect($home);
     }
 }
 
@@ -123,7 +153,7 @@ function guest_create(array $match, array $in): array
         $pid = (int) db()->lastInsertId();
         q("INSERT INTO users (username, password_hash, role, player_id, tour_done) VALUES (?, ?, 'ospite', ?, 1)",
             [$username, password_hash($password, PASSWORD_DEFAULT), $pid]);
-        q('INSERT INTO match_players (match_id, player_id) VALUES (?, ?)', [$match['id'], $pid]);
+        q('INSERT INTO match_players (match_id, player_id, votes_ok) VALUES (?, ?, NULL)', [$match['id'], $pid]);   // i suoi voti: li decide chi gestisce la lega
         db()->commit();
     } catch (Throwable $e) {
         db()->rollBack();
@@ -148,10 +178,34 @@ function guest_delete(int $playerId): bool
     return true;
 }
 
+/**
+ * Toglie un Ospite da una partita. Se è la sua unica partita e non ha salvato l'account, sparisce del tutto (guest_delete);
+ * altrimenti esce solo da questa partita e l'account resta.
+ */
+function guest_remove_from_match(int $playerId, int $matchId): bool
+{
+    $g = q('SELECT id, guest_saved, guest_match_id FROM players WHERE id = ? AND is_guest = 1', [$playerId])->fetch();
+    if (!$g || !guest_in_match($playerId, $matchId)) {
+        return false;
+    }
+    $others = (int) q('SELECT COUNT(*) FROM match_players WHERE player_id = ? AND match_id <> ?', [$playerId, $matchId])->fetchColumn();
+    if (!$g['guest_saved'] && !$others) {
+        return guest_delete($playerId);
+    }
+    q('DELETE FROM match_players WHERE match_id = ? AND player_id = ?', [$matchId, $playerId]);
+    if ((int) $g['guest_match_id'] === $matchId) {   // la sua «partita di casa» diventa l'ultima che gli resta
+        $last = q('SELECT m.id FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE mp.player_id = ? ORDER BY m.match_date DESC LIMIT 1',
+            [$playerId])->fetchColumn();
+        q('UPDATE players SET guest_match_id = ? WHERE id = ?', [$last ?: null, $playerId]);
+    }
+    assign_formation($matchId);
+    return true;
+}
+
 /** Ospiti di una partita (con il giocatore), per l'elenco dell'admin. */
 function match_guests(int $matchId): array
 {
-    return q("SELECT p.id, p.name, p.guest_email, u.username, mp.availability
+    return q("SELECT p.id, p.name, p.guest_email, p.guest_saved, u.username, mp.availability
               FROM players p JOIN match_players mp ON mp.player_id = p.id AND mp.match_id = ?
               LEFT JOIN users u ON u.player_id = p.id
               WHERE p.is_guest = 1 ORDER BY p.name", [$matchId])->fetchAll();
@@ -160,16 +214,18 @@ function match_guests(int $matchId): array
 /* ---------------------------------------------------------------- scadenza e collegamento con l'account vero */
 
 /**
- * Toglie gli account degli Ospiti la cui partita è di più di GUEST_KEEP_DAYS giorni fa (o è stata eliminata).
+ * Toglie gli account degli Ospiti (che non l'hanno salvato) la cui ultima partita è di più di GUEST_KEEP_DAYS giorni fa (o è stata eliminata).
  * Il giocatore resta solo se c'è la sua email (per il collegamento futuro), altrimenti sparisce.
  * @return int account tolti
  */
 function guests_cleanup(): int
 {
     $limit = date('Y-m-d H:i:s', time() - GUEST_KEEP_DAYS * 86400);
+    // l'ultima partita a cui è stato chiamato (non solo la prima); chi ha salvato l'account non scade
     $rows = q("SELECT u.id AS uid, p.id AS pid, p.guest_email
-               FROM users u LEFT JOIN players p ON p.id = u.player_id LEFT JOIN matches m ON m.id = p.guest_match_id
-               WHERE u.role = 'ospite' AND (p.id IS NULL OR m.id IS NULL OR m.match_date < ?)", [$limit])->fetchAll();
+               FROM users u LEFT JOIN players p ON p.id = u.player_id
+               WHERE u.role = 'ospite' AND (p.id IS NULL OR (p.guest_saved = 0 AND COALESCE((SELECT MAX(m.match_date) FROM match_players mp
+                     JOIN matches m ON m.id = mp.match_id WHERE mp.player_id = p.id), '1970-01-01') < ?))", [$limit])->fetchAll();
     foreach ($rows as $r) {
         q('DELETE FROM users WHERE id = ?', [$r['uid']]);          // con lui se ne vanno sessioni, cookie e notifiche
         if ($r['pid'] === null) {
@@ -242,4 +298,161 @@ function guests_merge_for_user(int $userId): int
         guest_merge((int) $gid, (int) $u['player_id']);
     }
     return count($ids);
+}
+
+/* ---------------------------------------------------------------- account salvato e giocatori liberi */
+
+/**
+ * L'Ospite tiene l'account: sceglie una password sua (quella di prima la conosceva chi l'ha invitato), l'account non scade
+ * più ed entra tra i giocatori liberi. Ritorna l'errore, oppure null.
+ */
+function guest_save_account(int $uid, string $password, string $password2): ?string
+{
+    $u = q("SELECT u.id, u.username, u.player_id FROM users u JOIN players p ON p.id = u.player_id WHERE u.id = ? AND u.role = 'ospite' AND p.is_guest = 1",
+        [$uid])->fetch();
+    if (!$u) {
+        return 'Solo un ospite può salvare il suo account.';
+    }
+    if ($err = password_error($password, $u['username'])) {
+        return $err;
+    }
+    if ($password !== $password2) {
+        return 'Le due password non coincidono.';
+    }
+    q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $uid]);
+    security_reset_sessions($uid);   // gli altri dispositivi (anche di chi conosceva la vecchia password) devono rifare l'accesso
+    q('UPDATE players SET guest_saved = 1 WHERE id = ?', [$u['player_id']]);
+    log_activity('account', 'ospite: account salvato', null, $uid);
+    return null;
+}
+
+/** L'Ospite non vuole più essere tra i giocatori liberi: l'account torna a scadere GUEST_KEEP_DAYS giorni dopo l'ultima partita. */
+function guest_unsave_account(int $playerId): void
+{
+    q('UPDATE players SET guest_saved = 0 WHERE id = ? AND is_guest = 1', [$playerId]);
+    q('DELETE FROM league_invites WHERE player_id = ?', [$playerId]);
+}
+
+/**
+ * Feedback ricevuto da un Ospite: tutti i voti che gli hanno dato (anche quelli che la lega non ha fatto contare), a votazioni
+ * chiuse. @return array{matches: int, votes: int, avg: ?float, mvp: int}
+ */
+function guest_feedback(int $playerId, ?int $matchId = null): array
+{
+    $where = $matchId ? ' AND m.id = ' . (int) $matchId : '';
+    $r = q("SELECT COUNT(r.vote) AS n, AVG(r.vote) AS a FROM ratings r JOIN matches m ON m.id = r.match_id
+            WHERE r.rated_id = ? AND m.status = 'giocata' AND m.voting_open = 0" . $where, [$playerId])->fetch();
+    $matches = (int) q("SELECT COUNT(*) FROM match_players mp JOIN matches m ON m.id = mp.match_id
+                        WHERE mp.player_id = ? AND mp.team IS NOT NULL AND m.status = 'giocata'" . $where, [$playerId])->fetchColumn();
+    $mvp = (int) q("SELECT COUNT(*) FROM mvp_votes v JOIN matches m ON m.id = v.match_id WHERE v.voted_id = ? AND m.voting_open = 0" . $where,
+        [$playerId])->fetchColumn();
+    return ['matches' => $matches, 'votes' => (int) $r['n'], 'avg' => $r['n'] ? (float) $r['a'] : null, 'mvp' => $mvp];
+}
+
+/**
+ * Giocatori liberi: Ospiti che hanno salvato l'account e non sono in nessuna lega (né hanno già un account vero con la loro
+ * email). Con $gid, per ognuno anche se la lega l'ha già invitato. @return array<int, array> id => giocatore + feedback
+ */
+function free_agents(?int $gid = null): array
+{
+    $out = [];
+    foreach (q("SELECT p.id, p.name, p.position, p.position2, p.foot, p.photo, p.avatar_look, p.hat_key, p.gender, p.is_guest
+                FROM players p JOIN users u ON u.player_id = p.id AND u.role = 'ospite' AND u.status = 'attivo'
+                WHERE p.is_guest = 1 AND p.guest_saved = 1
+                  AND NOT EXISTS (SELECT 1 FROM player_groups pg WHERE pg.player_id = p.id)
+                  AND NOT EXISTS (SELECT 1 FROM users x WHERE p.guest_email IS NOT NULL AND x.email = p.guest_email AND x.role <> 'ospite')
+                ORDER BY p.name")->fetchAll() as $p) {
+        $p['feedback'] = guest_feedback((int) $p['id']);
+        $p['invited'] = $gid ? (bool) q('SELECT 1 FROM league_invites WHERE group_id = ? AND player_id = ?', [$gid, $p['id']])->fetch() : false;
+        $out[(int) $p['id']] = $p;
+    }
+    return $out;
+}
+
+/** Chiama un giocatore libero a una partita in programma: entra tra le presenze (in attesa) e riceve una notifica. */
+function guest_call(array $match, int $playerId, ?int $actorUser = null): ?string
+{
+    if ($match['status'] !== 'programmata') {
+        return 'I giocatori liberi si chiamano solo alle partite in programma.';
+    }
+    if (!isset(free_agents()[$playerId])) {
+        return 'Questo giocatore non è più libero.';
+    }
+    if (!q('INSERT IGNORE INTO match_players (match_id, player_id, votes_ok) VALUES (?, ?, NULL)', [$match['id'], $playerId])->rowCount()) {
+        return 'È già in questa partita.';
+    }
+    q('UPDATE players SET guest_match_id = ? WHERE id = ?', [$match['id'], $playerId]);   // la sua «partita di casa» diventa questa
+    $league = group_name((int) $match['group_id']);
+    push_defer(function () use ($playerId, $match, $league) {
+        push_notify_users(push_users_of_players([$playerId]), [
+            'title' => 'Ti hanno chiamato a giocare!',
+            'body' => $league . ' ti vuole per la partita di ' . fmt_date_long($match['match_date']) . ' alle ' . fmt_time($match['match_date']) . '. Dici se ci sei?',
+            'url' => 'match.php?id=' . (int) $match['id'], 'tag' => 'guest-call-' . (int) $match['id'],
+        ], 'normal', 'ospite chiamato');
+    });
+    log_activity('partita', 'chiamato un giocatore libero', (int) $match['group_id'], $actorUser);
+    return null;
+}
+
+/** Invita un giocatore libero nella lega: lo vede nella sua area (guest.php) e accetta o rifiuta. */
+function league_invite_free_agent(int $gid, int $playerId, int $actorUser): ?string
+{
+    if (!isset(free_agents()[$playerId])) {
+        return 'Questo giocatore non è più libero.';
+    }
+    $today = (int) q('SELECT COUNT(*) FROM league_invites WHERE group_id = ? AND created_at > ?', [$gid, date('Y-m-d H:i:s', time() - 86400)])->fetchColumn();
+    if ($today >= LEAGUE_INVITES_PER_DAY) {
+        return 'La lega ha già mandato tanti inviti oggi: riprova domani.';
+    }
+    if (!q('INSERT IGNORE INTO league_invites (group_id, player_id, invited_by) VALUES (?, ?, ?)', [$gid, $playerId, $actorUser])->rowCount()) {
+        return 'L\'hai già invitato: aspetta che risponda.';
+    }
+    $league = group_name($gid);
+    push_defer(function () use ($playerId, $league) {
+        push_notify_users(push_users_of_players([$playerId]), [
+            'title' => 'Invito in una lega',
+            'body' => $league . ' ti invita a entrare nella lega. Rispondi dalla tua area.',
+            'url' => 'guest.php', 'tag' => 'guest-invite',
+        ], 'normal', 'invito in lega');
+    });
+    log_activity('lega_giocatore', 'invitato un giocatore libero', $gid, $actorUser);
+    return null;
+}
+
+/** Inviti in lega che l'Ospite ha ricevuto: [[group_id, name, created_at], ...]. */
+function guest_league_invites(int $playerId): array
+{
+    return q('SELECT li.group_id, g.name, li.created_at FROM league_invites li JOIN squad_groups g ON g.id = li.group_id
+              WHERE li.player_id = ? ORDER BY li.created_at DESC', [$playerId])->fetchAll();
+}
+
+/**
+ * L'Ospite accetta l'invito: diventa un giocatore della lega con un account normale (le partite giocate da ospite restano sue).
+ * Ritorna l'errore, oppure null.
+ */
+function guest_join_league(int $uid, int $gid): ?string
+{
+    $u = q("SELECT u.id, u.player_id FROM users u JOIN players p ON p.id = u.player_id WHERE u.id = ? AND u.role = 'ospite' AND p.is_guest = 1",
+        [$uid])->fetch();
+    if (!$u || !q('SELECT 1 FROM league_invites WHERE group_id = ? AND player_id = ?', [$gid, $u['player_id']])->fetch()) {
+        return 'L\'invito non c\'è più.';
+    }
+    $pid = (int) $u['player_id'];
+    db()->beginTransaction();
+    try {
+        q("UPDATE users SET role = 'player', tour_done = 0 WHERE id = ?", [$uid]);
+        q('UPDATE players SET is_guest = 0, guest_saved = 0, guest_match_id = NULL, guest_email = NULL WHERE id = ?', [$pid]);
+        q('DELETE FROM league_invites WHERE player_id = ?', [$pid]);
+        db()->commit();
+    } catch (Throwable $e) {
+        db()->rollBack();
+        error_log('guest_join_league: ' . $e->getMessage());
+        return 'Non sono riuscito a farti entrare: riprova.';
+    }
+    league_add_player($pid, $gid);
+    // nelle partite della lega non ancora giocate ora è uno della lega: i suoi voti contano (quelle già giocate restano come deciso)
+    q("UPDATE match_players mp JOIN matches m ON m.id = mp.match_id SET mp.votes_ok = 1 WHERE mp.player_id = ? AND m.group_id = ? AND m.status = 'programmata'",
+        [$pid, $gid]);
+    log_activity('lega_ingresso', 'da giocatore libero', $gid, $uid);
+    return null;
 }

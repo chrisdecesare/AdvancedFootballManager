@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 48;
+const SCHEMA_VERSION = 49;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -859,6 +859,22 @@ function ensure_schema(): void
             FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
             FOREIGN KEY (voter_id) REFERENCES players(id) ON DELETE CASCADE,
             FOREIGN KEY (voted_id) REFERENCES players(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    if ($v < 49) {
+        // ospiti (lib/guests.php): account salvato (giocatori liberi), voti che contano per la lega solo se accettati, inviti in lega
+        $add('players', 'guest_saved', 'TINYINT(1) NOT NULL DEFAULT 0');
+        $add('match_players', 'votes_ok', 'TINYINT(1) NULL DEFAULT 1');
+        db()->exec('UPDATE match_players mp JOIN players p ON p.id = mp.player_id SET mp.votes_ok = NULL WHERE p.is_guest = 1');
+        db()->exec('CREATE TABLE IF NOT EXISTS league_invites (
+            group_id INT NOT NULL,
+            player_id INT NOT NULL,
+            invited_by INT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (group_id, player_id),
+            INDEX (player_id),
+            FOREIGN KEY (group_id) REFERENCES squad_groups(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

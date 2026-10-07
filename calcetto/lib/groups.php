@@ -172,7 +172,7 @@ function match_access(array $m): bool
         return defined('PUBLIC_READ') && PUBLIC_READ;
     }
     if (is_guest()) {
-        return (int) ($m['id'] ?? 0) === guest_match_id();   // un ospite non ha gruppi: vede solo la sua partita
+        return guest_in_match((int) my_player_id(), (int) ($m['id'] ?? 0));   // un ospite non ha gruppi: vede solo le partite a cui è chiamato
     }
     $gid = (int) ($m['group_id'] ?? 0);
     if (!in_array($gid, allowed_group_ids(), true)) {

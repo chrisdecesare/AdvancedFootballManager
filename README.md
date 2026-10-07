@@ -426,6 +426,28 @@ acquisti nel negozio, schede dei giocatori, pagamenti, modifiche di email/passwo
 presenze, voti, giocatori o leghe (intercettata in `q()`, `lib/db.php`) alza la versione in `meta.stats_ver` a fine richiesta. Così le pagine
 non ricalcolano tutto lo storico a ogni visita, anche con anni di partite e tante leghe.
 
+## Ospiti e giocatori liberi
+
+Chi amministra una lega aggiunge un **ospite** a una partita in programma (scheda della partita → Presenze → *Aggiungi un ospite*): riceve utente e
+password, vede la sua partita, in che squadra gioca e la formazione, e dice se ci sarà (`lib/guests.php`). Non è in nessuna lega, quindi resta fuori
+da rosa, classifiche, statistiche, Fanta e scommesse.
+
+- **Voti:** dopo la partita l'ospite vota e viene votato come gli altri, così riceve un **feedback** (media dei voti ricevuti, voti come MVP), che vede
+  alla chiusura delle votazioni. Per la lega però i suoi voti, **quelli che dà e quelli che riceve** (medie, MVP, miglior difensore/portiere, punti Fanta,
+  scommesse sull'MVP), contano solo se chi gestisce la lega li accetta: nella sezione *Voti* della partita c'è il riquadro «Voti degli ospiti» con
+  «Fai contare» / «Non far contare». Finché non si decide non contano (`match_players.votes_ok`: NULL da decidere, 1 contano, 0 no; per i membri vale 1;
+  filtro in `lib/stats.php: votes_ok_sql`). Se si cambia idea a votazioni chiuse, le scommesse sull'MVP si ripagano.
+- **Account salvato:** l'ospite può tenere l'account (dalla sua partita o da *La tua area*, `guest.php`) scegliendo una password sua, perché quella di
+  prima la conosceva chi l'ha invitato; gli altri dispositivi vengono scollegati. Da allora l'account non scade (`players.guest_saved`) e, finché non è
+  in nessuna lega, è un **giocatore libero**. Può uscire dall'elenco quando vuole («Non voglio più essere chiamato»): l'account torna a scadere.
+- **Giocatori liberi:** chi amministra una lega li vede (nome, ruoli, piede, partite da ospite, media dei voti ricevuti) nella scheda della partita
+  (*Giocatori liberi*, tra gli ospiti) e in *La mia lega*. Può **chiamarne uno a una partita in programma** (entra tra le presenze come ospite e riceve
+  una notifica) oppure **invitarlo nella lega** (al massimo `LEAGUE_INVITES_PER_DAY` inviti al giorno per lega, tabella `league_invites`). L'ospite trova
+  gli inviti in *La tua area*: se accetta diventa un giocatore normale della lega, con le partite giocate da ospite che restano sue, ed esce dalle partite
+  in programma delle altre leghe a cui era chiamato.
+- **Scadenza:** l'account di chi non l'ha salvato sparisce `GUEST_KEEP_DAYS` giorni dopo la sua ultima partita. Togliere un ospite da una partita (o
+  eliminare la partita) cancella l'account solo se non l'ha salvato e non gioca altre partite.
+
 ## Ruoli: admin, manager e giocatore
 
 Il **manager** è un giocatore con qualche potere in più: da *Admin → Account* (o da *Modifica profilo → Ruolo*) l'admin può promuovere un account a manager.

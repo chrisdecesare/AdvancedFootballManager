@@ -62,7 +62,7 @@ if (is_post()) {
         flash('err', 'La partita è annullata: per cambiarla riportala prima a "programmata".');
         redirect($self);
     }
-    if ($canAdmin || !in_array($do, ['toggle_paid', 'add_guest', 'remove_guest', 'delete'], true)) {   // quelle rifiutate sotto non contano
+    if ($canAdmin || !in_array($do, ['toggle_paid', 'add_guest', 'remove_guest', 'call_free_agent', 'invite_free_agent', 'delete'], true)) {   // quelle rifiutate sotto non contano
         log_activity('partita', $do . ' · ' . fmt_date_short($match['match_date']), $gid);
     }
     switch ($do) {
@@ -335,12 +335,44 @@ if (is_post()) {
             }
             redirect($self . '#presenze');
 
+        case 'call_free_agent':   // un giocatore libero (ospite che ha salvato l'account) chiamato a questa partita
+            if (!$canAdmin) {
+                flash('err', 'Gli ospiti li aggiunge solo un admin.');
+                break;
+            }
+            $err = guest_call($match, $pid, $actor);
+            flash($err ? 'err' : 'ok', $err ?? 'Giocatore chiamato: gli è arrivata una notifica e ora deve dire se c\'è.');
+            redirect($self . '#presenze');
+
+        case 'invite_free_agent':   // ... oppure invitato nella lega
+            if (!$canAdmin) {
+                flash('err', 'Nella lega invita solo chi la amministra.');
+                break;
+            }
+            $err = league_invite_free_agent($gid, $pid, $actor);
+            flash($err ? 'err' : 'ok', $err ?? 'Invito mandato: se accetta entra nella lega.');
+            redirect($self . '#presenze');
+
+        case 'guest_votes':   // i voti di un ospite contano per la lega? (dati e ricevuti)
+            $ok = !empty($_POST['ok']) ? 1 : 0;
+            if (!q('SELECT 1 FROM match_players mp JOIN players p ON p.id = mp.player_id WHERE mp.match_id = ? AND mp.player_id = ? AND p.is_guest = 1', [$id, $pid])->fetch()) {
+                flash('err', 'Ospite non trovato in questa partita.');
+                break;
+            }
+            q('UPDATE match_players SET votes_ok = ? WHERE match_id = ? AND player_id = ?', [$ok, $id, $pid]);
+            if ($match['status'] === 'giocata' && !$match['voting_open']) {   // l'MVP può cambiare: le scommesse sull'MVP si ripagano
+                bets_unsettle($id, ['mvp']);
+                bets_settle($id, ['mvp']);
+            }
+            flash('ok', $ok ? 'Ora i voti dell\'ospite contano per la lega.' : 'I voti dell\'ospite non contano per la lega (lui vede comunque il suo feedback).');
+            redirect($self . '#voti');
+
         case 'remove_guest':
             if (!$canAdmin) {
                 flash('err', 'Gli ospiti li toglie solo un admin.');
                 break;
             }
-            $removed = guest_delete($pid);
+            $removed = guest_remove_from_match($pid, $id);
             flash($removed ? 'ok' : 'err', $removed ? 'Ospite tolto dalla partita.' : 'Ospite non trovato.');
             redirect($self . '#presenze');
 
@@ -351,7 +383,7 @@ if (is_post()) {
             }
             push_notify_match_cancelled($match, $actor);   // prima di cancellare: dopo non si saprebbe più a chi mandarla
             foreach (match_guests($id) as $g) {
-                guest_delete((int) $g['id']);              // gli ospiti se ne vanno con la partita
+                guest_remove_from_match((int) $g['id'], $id);   // gli ospiti se ne vanno con la partita (chi ha salvato l'account lo tiene)
             }
             q('DELETE FROM wallet_moves WHERE ref = ?', ['premio-m' . $id]);   // i premi per gol e assist se ne vanno con la partita
             q('DELETE FROM matches WHERE id = ?', [$id]);
@@ -369,13 +401,9 @@ function handle_vote(array $match, ?int $me): void
         flash('err', 'Le votazioni per questa partita sono chiuse.');
         return;
     }
-    if (is_guest()) {
-        flash('err', 'Gli ospiti non votano.');
-        return;
-    }
     $mates = [];
     foreach (match_roster($id) as $r) {
-        if ($r['team'] && !$r['is_guest']) {   // chi vota e chi viene votato: solo i giocatori della lega
+        if ($r['team']) {   // chi vota e chi viene votato: chi ha giocato, ospiti compresi (i loro voti contano se la lega li accetta)
             $mates[(int) $r['player_id']] = true;
         }
     }
@@ -428,6 +456,7 @@ if ($match['status'] === 'programmata') {
     sync_match_players($id);
 }
 $isGuest = is_guest();
+$guestSaved = $isGuest && guest_saved();
 $roster = match_roster($id);
 $stats = $isGuest ? [] : compute_stats([(int) $match['group_id']]);
 $byStatus = ['confermato' => [], 'in_attesa' => [], 'assente' => []];
@@ -481,7 +510,8 @@ $awardTags = fn(int $pid) => implode('', array_map(fn($a) => '<span class="tag t
     . h(MATCH_AWARDS[$a]['name']) . '</span>', $awardOf[$pid] ?? []));
 $voters = $played ? array_map('intval', q('SELECT voter_id FROM mvp_votes WHERE match_id = ?', [$id])->fetchAll(PDO::FETCH_COLUMN)) : [];
 $participants = array_merge($teams['A'], $teams['B']);
-$voteParticipants = array_values(array_filter($participants, fn($r) => !$r['is_guest']));   // gli ospiti non votano e non si votano
+$voteParticipants = $participants;   // anche gli ospiti votano e si votano (per la lega contano se chi la gestisce li accetta)
+$guestPlayers = array_values(array_filter($participants, fn($r) => $r['is_guest']));
 $chem = !$played && $hasTeams && !$isGuest ? chemistry([(int) $match['group_id']]) : ['pairs' => [], 'players' => []];
 $nameOf = short_names($roster);
 $links = $hasTeams ? q('SELECT ml.assister_id, ml.scorer_id, ml.n, a.name AS an, s.name AS sn FROM match_links ml
@@ -572,6 +602,36 @@ if (!empty($_SESSION['vote_done'])):
   <?= availability_buttons($match, $myRow['availability'] ?? null, $self) ?>
 </section>
 
+<?php
+// modulo dei voti: per i giocatori della lega (sezione Voti) e per l'ospite (la sua vista)
+$voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards, $awardOptions, $match) { ?>
+    <form method="post" class="vote-form">
+      <?= csrf_field() ?><input type="hidden" name="do" value="vote">
+      <p class="muted">Dai un voto da 1 a 10 a ogni compagno e avversario, poi scegli l'MVP<?= !empty($awardOptions['por']) ? ', il miglior difensore e il miglior portiere' : ' e il miglior difensore' ?>. <?= $myMvp ? '<strong>Hai già votato:</strong> puoi modificare.' : '' ?> <span class="small">Se non voti entro la chiusura, a tutti gli altri viene dato <?= default_vote_label() ?> d'ufficio.</span></p>
+      <?php foreach ($voteParticipants as $r): $pid = (int) $r['player_id']; if ($pid === $me) continue;
+        $val = $myVotes[$pid] ?? 6; ?>
+        <div class="vote-row">
+          <div class="vote-who"><?= avatar($r, 'sm') ?><span><?= h($r['name']) ?></span><span class="team-dot team-<?= strtolower($r['team']) ?>"></span></div>
+          <input type="range" min="1" max="10" step="0.5" name="vote[<?= $pid ?>]" value="<?= h($val) ?>" class="vote-range" aria-label="Voto a <?= h($r['name']) ?>">
+          <output class="vote <?= vote_class($val) ?>"><?= fmt_num($val) ?></output>
+          <label class="mvp-pick" title="MVP"><input type="radio" name="mvp" value="<?= $pid ?>" <?= (int) $myMvp === $pid ? 'checked' : '' ?> required><span><i class="ti ti-star-filled"></i></span></label>
+        </div>
+      <?php endforeach; ?>
+      <div class="award-picks">
+      <?php foreach (MATCH_AWARDS as $award => $aw): $opts = array_values(array_diff($awardOptions[$award] ?? [], [$me])); if (!$opts) continue; ?>
+        <label class="field award-pick"><span><i class="ti ti-<?= $aw['icon'] ?>"></i> <?= h($aw['name']) ?></span>
+          <select name="award[<?= $award ?>]" required>
+            <option value="">Scegli…</option>
+            <?php foreach ($voteParticipants as $r): $pid = (int) $r['player_id']; if (!in_array($pid, $opts, true)) continue; ?>
+              <option value="<?= $pid ?>" <?= ($myAwards[$award] ?? 0) === $pid ? 'selected' : '' ?>><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option>
+            <?php endforeach; ?>
+          </select></label>
+      <?php endforeach; ?>
+      </div>
+      <button class="btn btn-primary btn-block">Invia voti</button>
+    </form>
+<?php };
+?>
 <?php if ($isGuest): // l'ospite vede la sua partita e in che squadra gioca, non la rosa ?>
 <section class="card guest-card">
   <h2><i class="ti ti-shirt"></i> La tua squadra</h2>
@@ -585,9 +645,40 @@ if (!empty($_SESSION['vote_done'])):
   <?php else: ?>
     <p class="muted">Le squadre non sono ancora state fatte: quando l'admin le decide, qui vedrai in quale giochi.<?= ($myRow['availability'] ?? '') === 'confermato' ? ' Intanto la tua presenza è confermata.' : ' Ricordati di dire se ci sei.' ?></p>
   <?php endif; ?>
-  <p class="small muted"><i class="ti ti-info-circle"></i> Sei un ospite: vedi questa partita e la formazione in campo, ma non le presenze, e non voti né scommetti.
-    Il tuo accesso resta attivo fino al <?= h(date('d/m', strtotime($match['match_date']) + GUEST_KEEP_DAYS * 86400)) ?>.</p>
+  <p class="small muted"><i class="ti ti-info-circle"></i> Sei un ospite: vedi questa partita e la formazione in campo (non le presenze) e, dopo la partita, voti
+    e vieni votato. <?= $guestSaved ? 'Hai salvato il tuo account: non scade.' : 'Il tuo accesso resta attivo fino al ' . h(date('d/m', strtotime($match['match_date']) + GUEST_KEEP_DAYS * 86400)) . ', a meno che non lo salvi.' ?>
+    <a href="guest.php">La tua area</a></p>
 </section>
+<?php if ($played && $myRow && $myRow['team']): ?>
+<section class="card" id="voti">
+  <h2>Voti <?= $votingOpen ? '<span class="tag tag-live">aperti</span>' : '<span class="tag">chiusi</span>' ?></h2>
+  <?php if ($votingOpen): ?>
+    <?php if ($match['voting_ends_at']): ?><p class="vote-deadline"><i class="ti ti-alarm"></i> Le votazioni terminano <strong><?= h(push_when($match['voting_ends_at'])) ?></strong></p><?php endif; ?>
+    <?php $voteForm(); ?>
+    <p class="small muted"><i class="ti ti-info-circle"></i> Il tuo feedback (i voti che ricevi) lo vedi qui alla chiusura delle votazioni. Per la classifica della lega i tuoi voti contano solo se chi la gestisce li accetta.</p>
+  <?php else: $fb = guest_feedback((int) $me, $id); $ok = $myRow['votes_ok']; ?>
+    <div class="guest-feedback">
+      <div><span class="vote <?= vote_class($fb['avg']) ?>"><?= fmt_num($fb['avg']) ?></span></div>
+      <p><strong>Il tuo feedback:</strong> media dei voti che hai ricevuto da <?= $fb['votes'] ?> <?= $fb['votes'] === 1 ? 'giocatore' : 'giocatori' ?><?= $fb['mvp'] ? ', e ' . $fb['mvp'] . ($fb['mvp'] === 1 ? ' voto' : ' voti') . ' come MVP' : '' ?>.
+        <br><span class="small muted"><?= $ok === null ? 'La lega non ha ancora deciso se far contare i tuoi voti.' : ((int) $ok ? 'La lega ha fatto contare i tuoi voti.' : 'Per la lega i tuoi voti non contano, ma il feedback resta tuo.') ?></span></p>
+    </div>
+  <?php endif; ?>
+</section>
+<?php endif; ?>
+<?php if (!$guestSaved): ?>
+<section class="card guest-save" id="salva">
+  <h2><i class="ti ti-user-check"></i> Vuoi tenere il tuo account?</h2>
+  <p>Se lo salvi non scade più. Finché non entri in una lega sei tra i <strong>giocatori liberi</strong>: chi gestisce le altre leghe vede il tuo nome,
+    i tuoi ruoli, quante partite hai giocato da ospite e la media dei voti ricevuti, e può chiamarti a una partita o invitarti nella sua lega.</p>
+  <p class="small muted">Scegli una password tua: quella di adesso la conosce chi ti ha invitato.</p>
+  <form method="post" action="guest.php" class="form form-grid">
+    <?= csrf_field() ?><input type="hidden" name="do" value="save">
+    <label class="field"><span>Nuova password</span><input type="password" name="password" required minlength="8" maxlength="72" autocomplete="new-password"></label>
+    <label class="field"><span>Ripeti la password</span><input type="password" name="password2" required minlength="8" maxlength="72" autocomplete="new-password"></label>
+    <div class="span-2"><button class="btn btn-primary btn-sm"><i class="ti ti-device-floppy"></i> Salva il mio account</button></div>
+  </form>
+</section>
+<?php endif; ?>
 <?php if ($hasTeams): ?>
 <section class="card" id="squadre">
   <h2><i class="ti ti-layout-grid"></i> Formazione</h2>
@@ -712,15 +803,17 @@ if (!empty($_SESSION['vote_done'])):
     <h3><i class="ti ti-user-plus"></i> Ospiti <span class="count"><?= count($guests) ?></span></h3>
     <?php foreach ($guests as $g): ?>
       <div class="pline-row">
-        <span><strong><?= h($g['name']) ?></strong> <span class="muted small">· utente <code><?= h($g['username'] ?? '—') ?></code><?= $g['guest_email'] ? ' · ' . h($g['guest_email']) : '' ?></span></span>
+        <span><strong><?= h($g['name']) ?></strong> <span class="muted small">· <?= $g['guest_saved'] ? 'giocatore libero' : 'utente <code>' . h($g['username'] ?? '—') . '</code>' . ($g['guest_email'] ? ' · ' . h($g['guest_email']) : '') ?></span></span>
         <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="remove_guest"><input type="hidden" name="player_id" value="<?= (int) $g['id'] ?>">
-          <button class="icon-btn" title="Togli l'ospite" data-confirm="Togliere <?= h($g['name']) ?> dalla partita? Il suo accesso viene cancellato."><i class="ti ti-x"></i></button></form>
+          <button class="icon-btn" title="Togli l'ospite" data-confirm="Togliere <?= h($g['name']) ?> dalla partita?<?= $g['guest_saved'] ? ' Il suo account resta.' : ' Se non gioca altre partite, il suo accesso viene cancellato.' ?>"><i class="ti ti-x"></i></button></form>
       </div>
     <?php endforeach; ?>
     <details class="collapsible">
       <summary><strong>Aggiungi un ospite</strong></summary>
-      <p class="muted small">Per chi gioca solo questa partita e non fa parte della lega. Riceve un utente e una password: vede la partita, in che squadra gioca e la formazione in campo (non le presenze), può dire se ci sarà, ma non vota e non scommette, e gli altri non possono votarlo né scommettere su di lui.
-        L'accesso sparisce <?= GUEST_KEEP_DAYS ?> giorni dopo la partita. Se scrivi la sua email e un giorno si iscrive davvero (e la conferma), questa partita gli comparirà tra quelle giocate.</p>
+      <p class="muted small">Per chi gioca solo questa partita e non fa parte della lega. Riceve un utente e una password: vede la partita, in che squadra gioca e la formazione in campo (non le presenze) e può dire se ci sarà.
+        Dopo la partita vota e viene votato, ma per la lega i suoi voti contano solo se li accetti (sezione Voti). Non scommette e nessuno può scommettere su di lui.
+        L'accesso sparisce <?= GUEST_KEEP_DAYS ?> giorni dopo la partita, a meno che non decida di salvarlo: allora diventa un giocatore libero che le leghe possono chiamare.
+        Se scrivi la sua email e un giorno si iscrive davvero (e la conferma), questa partita gli comparirà tra quelle giocate.</p>
       <form method="post" class="form form-grid">
         <?= csrf_field() ?><input type="hidden" name="do" value="add_guest">
         <label class="field span-2"><span>Nome e cognome</span><input name="name" required maxlength="80" autocomplete="off"></label>
@@ -738,6 +831,26 @@ if (!empty($_SESSION['vote_done'])):
         <div class="span-2"><button class="btn btn-primary btn-sm"><i class="ti ti-user-plus"></i> Crea l'ospite</button></div>
       </form>
     </details>
+    <?php $free = array_filter(free_agents($gid), fn($p) => !in_array((int) $p['id'], array_map(fn($g) => (int) $g['id'], $guests), true)); ?>
+    <?php if ($free): ?>
+    <details class="collapsible" id="liberi">
+      <summary><strong>Giocatori liberi</strong> <span class="count"><?= count($free) ?></span></summary>
+      <p class="muted small">Ospiti di altre partite che hanno tenuto l'account e non sono in nessuna lega. Puoi chiamarli a questa partita (giocano da ospiti) o invitarli nella lega.</p>
+      <?php foreach ($free as $fa): $fb = $fa['feedback']; ?>
+        <div class="pline-row free-agent">
+          <span><?= avatar($fa, 'sm') ?> <strong><?= h($fa['name']) ?></strong>
+            <span class="muted small">· <?= h(implode(' / ', array_filter([$fa['position'], $fa['position2']]))) ?> · <?= h($fa['foot']) ?> · <?= $fb['matches'] ?> <?= $fb['matches'] === 1 ? 'partita' : 'partite' ?> da ospite</span>
+            <?php if ($fb['avg'] !== null): ?><span class="vote <?= vote_class($fb['avg']) ?>" title="Media dei voti ricevuti (<?= $fb['votes'] ?>)"><?= fmt_num($fb['avg']) ?></span><?php endif; ?></span>
+          <span class="btn-row">
+            <?php if ($match['status'] === 'programmata'): ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="call_free_agent"><input type="hidden" name="player_id" value="<?= (int) $fa['id'] ?>">
+              <button class="btn btn-ghost btn-sm"><i class="ti ti-phone-call"></i> Chiama alla partita</button></form><?php endif; ?>
+            <?php if ($fa['invited']): ?><span class="tag">invitato in lega</span><?php else: ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="invite_free_agent"><input type="hidden" name="player_id" value="<?= (int) $fa['id'] ?>">
+              <button class="btn btn-ghost btn-sm"><i class="ti ti-user-plus"></i> Invita in lega</button></form><?php endif; ?>
+          </span>
+        </div>
+      <?php endforeach; ?>
+    </details>
+    <?php endif; ?>
   </div>
   <?php endif; ?>
 </section>
@@ -931,31 +1044,7 @@ if (!empty($_SESSION['vote_done'])):
   <?php endif; ?>
 
   <?php if ($votingOpen && $iPlayed): ?>
-    <form method="post" class="vote-form">
-      <?= csrf_field() ?><input type="hidden" name="do" value="vote">
-      <p class="muted">Dai un voto da 1 a 10 a ogni compagno e avversario, poi scegli l'MVP<?= !empty($awardOptions['por']) ? ', il miglior difensore e il miglior portiere' : ' e il miglior difensore' ?>. <?= $myMvp ? '<strong>Hai già votato:</strong> puoi modificare.' : '' ?> <span class="small">Se non voti entro la chiusura, a tutti gli altri viene dato <?= default_vote_label() ?> d'ufficio.</span></p>
-      <?php foreach ($voteParticipants as $r): $pid = (int) $r['player_id']; if ($pid === $me) continue;
-        $val = $myVotes[$pid] ?? 6; ?>
-        <div class="vote-row">
-          <div class="vote-who"><?= avatar($r, 'sm') ?><span><?= h($r['name']) ?></span><span class="team-dot team-<?= strtolower($r['team']) ?>"></span></div>
-          <input type="range" min="1" max="10" step="0.5" name="vote[<?= $pid ?>]" value="<?= h($val) ?>" class="vote-range" aria-label="Voto a <?= h($r['name']) ?>">
-          <output class="vote <?= vote_class($val) ?>"><?= fmt_num($val) ?></output>
-          <label class="mvp-pick" title="MVP"><input type="radio" name="mvp" value="<?= $pid ?>" <?= (int) $myMvp === $pid ? 'checked' : '' ?> required><span><i class="ti ti-star-filled"></i></span></label>
-        </div>
-      <?php endforeach; ?>
-      <div class="award-picks">
-      <?php foreach (MATCH_AWARDS as $award => $aw): $opts = array_values(array_diff($awardOptions[$award] ?? [], [$me])); if (!$opts) continue; ?>
-        <label class="field award-pick"><span><i class="ti ti-<?= $aw['icon'] ?>"></i> <?= h($aw['name']) ?></span>
-          <select name="award[<?= $award ?>]" required>
-            <option value="">Scegli…</option>
-            <?php foreach ($voteParticipants as $r): $pid = (int) $r['player_id']; if (!in_array($pid, $opts, true)) continue; ?>
-              <option value="<?= $pid ?>" <?= ($myAwards[$award] ?? 0) === $pid ? 'selected' : '' ?>><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option>
-            <?php endforeach; ?>
-          </select></label>
-      <?php endforeach; ?>
-      </div>
-      <button class="btn btn-primary btn-block">Invia voti</button>
-    </form>
+    <?php $voteForm(); ?>
   <?php elseif ($votingOpen): ?>
     <p class="muted">Votano solo i giocatori che hanno partecipato. I risultati si vedono alla chiusura delle votazioni.</p>
   <?php endif; ?>
@@ -981,7 +1070,8 @@ if (!empty($_SESSION['vote_done'])):
       <tbody>
       <?php foreach ($rank as $r): $pid = (int) $r['player_id']; $a = $avgs[$pid] ?? null; ?>
         <tr class="<?= $mvp === $pid ? 'row-mvp' : '' ?>">
-          <td><a class="tname" href="player.php?id=<?= $pid ?>"><?= avatar($r, 'xs') ?> <?= h($r['name']) ?></a> <?= $mvp === $pid ? '<span class="tag tag-mvp">MVP</span>' : '' ?><?= $awardTags($pid) ?></td>
+          <td><?php if ($r['is_guest']): ?><span class="tname"><?= avatar($r, 'xs') ?> <?= h($r['name']) ?></span> <span class="tag">ospite</span><?php if (!(int) $r['votes_ok']): ?> <span class="tag tag-muted" title="I voti di questo ospite non contano per la lega">non conta</span><?php endif; ?>
+            <?php else: ?><a class="tname" href="player.php?id=<?= $pid ?>"><?= avatar($r, 'xs') ?> <?= h($r['name']) ?></a><?php endif; ?> <?= $mvp === $pid ? '<span class="tag tag-mvp">MVP</span>' : '' ?><?= $awardTags($pid) ?></td>
           <td><span class="vote <?= vote_class($a['avg'] ?? null) ?>"><?= fmt_num($a['avg'] ?? null) ?></span></td>
           <td><?= $a['n'] ?? 0 ?></td>
           <td><?= $mvpCounts[$pid] ?? 0 ?></td>
@@ -992,6 +1082,27 @@ if (!empty($_SESSION['vote_done'])):
       <?php endforeach; ?>
       </tbody>
     </table></div>
+  <?php endif; ?>
+
+  <?php if ($canManage && $guestPlayers): ?>
+  <div class="guest-votes">
+    <h3><i class="ti ti-user-question"></i> Voti degli ospiti</h3>
+    <p class="small muted">Gli ospiti votano e vengono votati, così ricevono un feedback. Per la lega (medie, MVP, premi, Fanta, scommesse) i loro voti, quelli che danno
+      e quelli che ricevono, contano solo se li accetti tu. Finché non decidi, non contano.</p>
+    <?php foreach ($guestPlayers as $g): $gid2 = (int) $g['player_id']; $fb = guest_feedback($gid2, $id); $ok = $g['votes_ok']; $raw = q('SELECT AVG(vote) FROM ratings WHERE match_id = ? AND rated_id = ?', [$id, $gid2])->fetchColumn(); ?>
+      <div class="pline-row guest-votes-row">
+        <span><?= avatar($g, 'xs') ?> <strong><?= h($g['name']) ?></strong>
+          <span class="muted small">· <?= in_array($gid2, $voters, true) ? 'ha votato' : 'non ha votato' ?> · media ricevuta <?= $raw !== null && $raw !== false ? fmt_num((float) $raw) : '–' ?></span>
+          <?= $ok === null ? '<span class="tag">da decidere</span>' : ((int) $ok ? '<span class="tag tag-ok">contano</span>' : '<span class="tag tag-muted">non contano</span>') ?></span>
+        <span class="btn-row">
+          <?php if ($ok === null || !(int) $ok): ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="guest_votes"><input type="hidden" name="player_id" value="<?= $gid2 ?>"><input type="hidden" name="ok" value="1">
+            <button class="btn btn-ghost btn-sm"><i class="ti ti-check"></i> Fai contare</button></form><?php endif; ?>
+          <?php if ($ok === null || (int) $ok): ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="guest_votes"><input type="hidden" name="player_id" value="<?= $gid2 ?>"><input type="hidden" name="ok" value="0">
+            <button class="btn btn-ghost btn-sm"><i class="ti ti-x"></i> Non far contare</button></form><?php endif; ?>
+        </span>
+      </div>
+    <?php endforeach; ?>
+  </div>
   <?php endif; ?>
 
   <?php if ($votingOpen && $canManage): ?>
