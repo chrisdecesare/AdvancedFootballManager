@@ -180,6 +180,7 @@ function match_cancel(array $match, string $reason, bool $noFee, ?int $actorUser
             . ($noFee ? ', fee = 0' : '') . ' WHERE id = ?', [$reason !== '' ? $reason : null, $id]);
         bets_void_match($id);
         match_rewards_sync($id);   // la partita non conta: niente premi per gol e assist
+        fanta_win_credits_sync($id);   // né crediti fanta per la vittoria
     });
 }
 

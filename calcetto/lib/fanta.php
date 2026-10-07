@@ -10,6 +10,7 @@
  *  - Rosa: FANTA_ROSTER figurine (FANTA_STARTERS titolari e una in panchina) con FANTA_BUDGET crediti fanta di partenza
  *    (separati dai KOIN del portafoglio, salvati in fanta_teams). Si compra e si vende quando si vuole, sempre alla quota attuale:
  *    chi compra basso e rivende alto guadagna crediti. Tra i titolari si sceglie un capitano, che raddoppia bonus e malus.
+ *    Chi vince una partita della lega guadagna FANTA_WIN_CREDITS crediti (fanta_win_credits_sync).
  *  - Scambi: un fantallenatore propone «ti do X, mi dai Y» a un altro, che accetta o rifiuta. Nessuno dei due può ritrovarsi
  *    due volte la stessa figurina. I crediti non cambiano: ognuno tiene i suoi.
  *  - Formazioni: al calcio d'inizio di ogni partita della lega (o quando si inserisce il risultato, se succede prima dell'orario
@@ -28,6 +29,8 @@ const FANTA_STARTERS = 5;
 const FANTA_BONUS = ['goal' => 3, 'assist' => 1, 'mvp' => 3, 'win' => 1, 'own_goal' => -2];
 const FANTA_PRIZE_RANKS = 5;
 const FANTA_DUPLICATE_KOIN = 60;   // premio già vinto in una stagione precedente: al suo posto questi KOIN
+const FANTA_WIN_CREDITS = 1;      // crediti fanta a chi vince una partita della lega (anche senza figurine in rosa)
+const FANTA_WIN_CREDITS_FROM = '2026-10-07 00:00:00';   // contano le partite da allora in poi (le vittorie di prima no)
 const FANTA_MAX_OPEN_TRADES = 5;   // proposte di scambio in attesa per fantallenatore
 // quote (fanta_quote_of): punti fanta della partita da cui si vale 2, 3 e 4 (sotto il primo si vale 1)...
 const FANTA_QUOTE_PTS = [6.5, 9.5, 13.0];
@@ -474,6 +477,51 @@ function fanta_credits_set(int $seasonId, int $managerId, int $credits): void
 {
     q('INSERT INTO fanta_teams (season_id, manager_id, credits) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE credits = VALUES(credits)',
         [$seasonId, $managerId, $credits]);
+}
+
+/**
+ * Crediti per la vittoria: ogni fantallenatore che vince una partita della lega (giocata nella stagione aperta) guadagna
+ * FANTA_WIN_CREDITS crediti fanta. Uno per giocatore e partita (fanta_win_credits), che si toglie se il risultato viene corretto,
+ * se la partita torna "programmata", viene annullata o eliminata. Si può richiamare quante volte si vuole (lib/bets.php:
+ * match_rewards_sync, insieme ai premi per gol e assist). Contano le partite da FANTA_WIN_CREDITS_FROM in poi.
+ */
+function fanta_win_credits_sync(int $matchId): void
+{
+    $m = get_match($matchId);
+    $want = [];
+    $sid = null;
+    if ($m && $m['status'] === 'giocata' && $m['match_date'] >= FANTA_WIN_CREDITS_FROM && ($s = fanta_season((int) $m['group_id']))
+        && $m['match_date'] >= $s['started_at']) {
+        $sid = (int) $s['id'];
+        $managers = fanta_managers((int) $m['group_id']);
+        foreach (q('SELECT player_id, team FROM match_players WHERE match_id = ? AND team IS NOT NULL', [$matchId])->fetchAll() as $r) {
+            if (isset($managers[(int) $r['player_id']]) && result_for($m, $r['team']) === 'V') {
+                $want[(int) $r['player_id']] = true;
+            }
+        }
+    }
+    bet_atomic(function () use ($matchId, $want, $sid) {
+        $have = q("SELECT w.manager_id, w.season_id FROM fanta_win_credits w JOIN fanta_seasons s ON s.id = w.season_id AND s.status = 'aperta'
+                   WHERE w.match_id = ?", [$matchId])->fetchAll();
+        foreach ($have as $h) {   // via i crediti di chi non ha più vinto (a stagione chiusa non si toccano)
+            $mgr = (int) $h['manager_id'];
+            $hs = (int) $h['season_id'];
+            if (isset($want[$mgr]) && $hs === $sid) {
+                unset($want[$mgr]);   // ce l'ha già
+                continue;
+            }
+            fanta_lock($mgr);
+            if (q('DELETE FROM fanta_win_credits WHERE match_id = ? AND manager_id = ?', [$matchId, $mgr])->rowCount()) {
+                fanta_credits_set($hs, $mgr, max(0, fanta_credits_left($hs, $mgr) - FANTA_WIN_CREDITS));
+            }
+        }
+        foreach (array_keys($want) as $mgr) {
+            fanta_lock($mgr);
+            if (q('INSERT IGNORE INTO fanta_win_credits (match_id, manager_id, season_id) VALUES (?, ?, ?)', [$matchId, $mgr, $sid])->rowCount()) {
+                fanta_credits_set($sid, $mgr, fanta_credits_left($sid, $mgr) + FANTA_WIN_CREDITS);
+            }
+        }
+    });
 }
 
 /** Rimette a posto ruoli e capitano: fino a FANTA_STARTERS titolari, il resto in panchina; un capitano tra i titolari. */

@@ -444,6 +444,17 @@ CREATE TABLE IF NOT EXISTS fanta_teams (
   FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- crediti fanta vinti con le partite: uno a chi vince (lib/fanta.php: fanta_win_credits_sync); niente chiave esterna sulla partita,
+-- così quando viene eliminata il credito si toglie dopo
+CREATE TABLE IF NOT EXISTS fanta_win_credits (
+  match_id INT NOT NULL,
+  manager_id INT NOT NULL,
+  season_id INT NOT NULL,
+  PRIMARY KEY (match_id, manager_id),
+  FOREIGN KEY (season_id) REFERENCES fanta_seasons(id) ON DELETE CASCADE,
+  FOREIGN KEY (manager_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- partite di cui si è già fatta la foto delle formazioni (al calcio d'inizio)
 CREATE TABLE IF NOT EXISTS fanta_snapshots (
   match_id INT NOT NULL PRIMARY KEY,

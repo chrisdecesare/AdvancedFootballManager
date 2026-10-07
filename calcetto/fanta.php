@@ -170,7 +170,7 @@ layout_start('Fanta', 'fanta');
   <?php if (!fanta_public()): ?><span class="tag tag-admin"><i class="ti ti-flask"></i> in prova · solo admin fino a <?= h(fmt_date_long(FANTA_LAUNCH_AT)) ?> alle <?= fmt_time(FANTA_LAUNCH_AT) ?></span><?php endif; ?>
   <?php if ($season && $canPlay): ?>
   <div class="fz-head-info">
-    <span class="fz-budget" title="Crediti fanta (non sono KOIN): si parte da <?= FANTA_BUDGET ?>, e comprando basso e rivendendo alto aumentano"><i class="ti ti-wallet"></i> <strong><?= $left ?></strong> <?= $left === 1 ? 'credito' : 'crediti' ?></span>
+    <span class="fz-budget" title="Crediti fanta (non sono KOIN): si parte da <?= FANTA_BUDGET ?>, aumentano comprando basso e rivendendo alto, e <?= fanta_cr(FANTA_WIN_CREDITS) ?> in più per ogni partita che vinci"><i class="ti ti-wallet"></i> <strong><?= $left ?></strong> <?= $left === 1 ? 'credito' : 'crediti' ?></span>
     <?php if ($myRank): ?><span class="fz-rank"><i class="ti ti-trophy"></i> <?= $myRank['rank'] ?>° · <?= fanta_fmt($myRank['total']) ?> pt</span><?php endif; ?>
   </div>
   <?php endif; ?>
@@ -441,7 +441,7 @@ if ($withCards):
       <li><strong>Quote:</strong> ogni figurina vale da 1 a 4 crediti in base alla sua ultima partita (voto e bonus, appena si chiudono le votazioni): 1 a chi ha perso senza fare granché,
         2 a una partita normale, 3 a una bella partita (per esempio un gol e la vittoria, o un voto da <?= fmt_num(FANTA_QUOTE_VOTE[3]) ?>), 4 a una prestazione sontuosa (una doppietta, l'MVP, un voto da <?= fmt_num(FANTA_QUOTE_VOTE[4]) ?>).
         La quota base è quella che aveva all'apertura della stagione. Chi non ha ancora giocato vale 1.</li>
-      <li><strong>Mercato:</strong> compri e vendi quando vuoi, sempre alla quota attuale: se compri a 1 e rivendi a 4 hai 3 crediti in più da spendere. Per ogni partita conta la squadra che hai al calcio d'inizio.</li>
+      <li><strong>Mercato:</strong> compri e vendi quando vuoi, sempre alla quota attuale: se compri a 1 e rivendi a 4 hai 3 crediti in più da spendere. E ogni partita della lega che vinci in campo ti dà <?= fanta_cr(FANTA_WIN_CREDITS) ?> in più. Per ogni partita conta la squadra che hai al calcio d'inizio.</li>
       <li><strong>Punti:</strong> media dei voti ricevuti in partita, più <?= FANTA_BONUS['goal'] ?> a gol, <?= FANTA_BONUS['assist'] ?> ad assist, <?= FANTA_BONUS['mvp'] ?> all'MVP, <?= FANTA_BONUS['win'] ?> se vince, <?= FANTA_BONUS['own_goal'] ?> ad autogol. Chi non gioca fa 0. Finché le votazioni sono aperte i punti sono provvisori (l'MVP conta alla chiusura).</li>
       <li><strong>Capitano:</strong> un titolare con bonus e malus doppi (un gol vale +<?= 2 * FANTA_BONUS['goal'] ?>, un autogol <?= 2 * FANTA_BONUS['own_goal'] ?>).</li>
       <li><strong>Panchina:</strong> entra al posto del primo titolare che non gioca (una sostituzione a partita).</li>
