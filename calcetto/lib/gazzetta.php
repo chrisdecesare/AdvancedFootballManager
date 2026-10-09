@@ -5,8 +5,10 @@
  * lega ed edizione, gazzetta_push_due). Le pagine si calcolano al momento, così chi la apre il giovedì vede i dati di adesso:
  *  - Prima pagina: la prossima partita, quanti sono confermati e i titoli delle altre pagine;
  *  - Infermeria: chi è segnato infortunato nel profilo e chi si è fatto male in partita nelle ultime 2 settimane;
- *  - Novità: l'ultima partita (risultato, MVP, bomber), i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
+ *  - Spogliatoio: i pensieri di chi ha giocato l'ultima partita (lib/pensieri.php: glieli chiede un messaggio a comparsa);
+ *  - Novità: i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
  *  - Mercato KOIN: i passaggi di KOIN tra giocatori della settimana (lib/passaggi.php);
+ *  - Borsa KOIN: il grafico dei KOIN a testa, l'inflazione e quanto si muovono i prezzi del Negozio (gazzetta_borsa);
  *  - Posti vacanti: quanti posti mancano per la prossima partita (la misura tipica della lega) e chi non ha ancora risposto;
  *  - Probabili formazioni: se le squadre non ci sono ancora, le prova il bilanciamento (lib/balance.php) con rating e intesa
  *    (lib/chemistry.php) tra i confermati, completati da chi non ha risposto ma gioca più spesso («in dubbio»);
@@ -127,20 +129,19 @@ function gazzetta(int $gid): array
         'lead' => $nInj ? 'Gli acciacchi della settimana: forza e rimettetevi presto!' : 'Nessun infortunio: tutti arruolabili.',
         'items' => array_values($inj), 'teams' => null];
 
+    /* ---- spogliatoio: i pensieri di chi ha giocato l'ultima partita (lib/pensieri.php; della partita la Gazzetta non racconta altro) */
+    if ($last) {
+        $thoughts = match_thoughts((int) $last['id']);
+        $slides['spogliatoio'] = ['kind' => 'spogliatoio', 'kicker' => 'Spogliatoio', 'icon' => 'message-circle',
+            'title' => 'La voce dello spogliatoio',
+            'lead' => $thoughts ? 'I pensieri di chi ha giocato ' . fmt_date_long($last['match_date']) . '.'
+                : 'Ancora nessun pensiero: chi ha giocato può scriverlo dal messaggio che gli compare sul sito.',
+            'items' => [], 'teams' => null,
+            'quotes' => array_map(fn($t) => ['pid' => (int) $t['player_id'], 'name' => $t['name'], 'body' => $t['body'], 'team' => $t['team']], array_slice($thoughts, 0, 8))];
+    }
+
     /* ---- novità */
     $news = [];
-    if ($last && strtotime($last['match_date']) >= $now - GAZZETTA_DAYS * 86400) {
-        $news[] = $item(null, 'Ultima partita', team_name('A', $last) . ' ' . (int) $last['score_a'] . '–' . (int) $last['score_b'] . ' ' . team_name('B', $last)
-            . ' (' . fmt_date_long($last['match_date']) . ')');
-        if (!$last['voting_open'] && ($mvp = match_mvp((int) $last['id'])) && ($mp = get_player($mvp))) {
-            $news[] = $item($mvp, $mp['name'], 'MVP dell\'ultima partita', 'gold');
-        }
-        $top = q('SELECT mp.player_id, mp.goals, p.name FROM match_players mp JOIN players p ON p.id = mp.player_id
-                  WHERE mp.match_id = ? AND mp.goals > 0 ORDER BY mp.goals DESC, p.name LIMIT 1', [$last['id']])->fetch();
-        if ($top) {
-            $news[] = $item((int) $top['player_id'], $top['name'], 'bomber di giornata con ' . gz_n((int) $top['goals'], 'gol', 'gol'), 'ok');
-        }
-    }
     foreach ($people as $pid => $p) {
         if ($p['created_at'] >= $since) {
             $news[] = $item($pid, $p['name'], 'nuovo acquisto: benvenuto in rosa!', 'ok');
@@ -152,7 +153,7 @@ function gazzetta(int $gid): array
     }
     $slides['novita'] = ['kind' => 'novita', 'kicker' => 'Novità', 'icon' => 'news',
         'title' => $news ? 'Le notizie della settimana' : 'Settimana tranquilla',
-        'lead' => $news ? 'Cosa è successo negli ultimi ' . GAZZETTA_DAYS . ' giorni.' : 'Niente di nuovo sotto il sole: la notizia la fate voi giovedì.',
+        'lead' => $news ? 'Cosa è successo negli ultimi ' . GAZZETTA_DAYS . ' giorni.' : 'Nessun nuovo arrivo né oggetti nuovi nel Negozio: la notizia la fate voi in campo.',
         'items' => $news, 'teams' => null];
 
     /* ---- mercato KOIN */
@@ -163,6 +164,18 @@ function gazzetta(int $gid): array
         'lead' => $passes ? 'Chi ha passato KOIN a chi in settimana.' : 'Nessun passaggio di KOIN in settimana: tutti tirchi? Si passano da Scommesse.',
         'items' => array_map(fn($x) => $item((int) $x['to_id'], ($x['from'] ?? '?') . ' → ' . $x['to'],
             $x['amount'] . ' KOIN' . ($x['note'] ? ' «' . $x['note'] . '»' : ''), 'gold'), $passes), 'teams' => null];
+
+    /* ---- borsa KOIN: andamento dei KOIN a testa, inflazione e prezzi del Negozio (subito dopo il mercato) */
+    $b = gazzetta_borsa(eco_of_group($gid));
+    if ($b['points']) {
+        $infl = $b['inflation'];
+        $slides['borsa'] = ['kind' => 'borsa', 'kicker' => 'Borsa KOIN', 'icon' => 'chart-line',
+            'title' => $infl === null ? 'Il primo listino dei KOIN' : (abs($infl) < 0.005 ? 'KOIN stabili in settimana'
+                : 'Inflazione ' . gz_pct($infl) . ' in settimana'),
+            'lead' => 'KOIN a testa: ' . number_format($b['now']['avg'], 0, ',', '.') . ($b['prev'] ? ' (una settimana fa ' . number_format($b['prev']['avg'], 0, ',', '.') . ')' : '')
+                . '. Sopra ' . SHOP_PRICE_REF . ' a testa i prezzi del Negozio salgono, sotto scendono.',
+            'items' => [], 'teams' => null, 'borsa' => $b];
+    }
 
     /* ---- prossima partita: posti vacanti, probabili formazioni, turnover */
     if ($next) {
@@ -251,7 +264,7 @@ function gazzetta(int $gid): array
     }
 
     /* ---- prima pagina: i titoli delle altre pagine, nell'ordine in cui si sfogliano */
-    $order = ['infermeria', 'posti', 'formazioni', 'turnover', 'novita', 'mercato'];
+    $order = ['infermeria', 'posti', 'formazioni', 'turnover', 'spogliatoio', 'novita', 'mercato', 'borsa'];
     $slides = array_filter(array_replace(array_flip($order), $slides), 'is_array');
     $heads = array_map(fn($s) => $item(null, $s['kicker'], $s['title']), array_values($slides));
     $cover = ['kind' => 'cover', 'kicker' => 'Prima pagina', 'icon' => 'news',
@@ -260,6 +273,143 @@ function gazzetta(int $gid): array
             : 'Settimana di riposo: ne approfittiamo per le chiacchiere.',
         'items' => $heads, 'teams' => null];
     return ['group' => $gid, 'edition' => gazzetta_edition(), 'match' => $next, 'slides' => [$cover, ...array_values($slides)]];
+}
+
+/** «+4,2%» / «−1,0%» */
+function gz_pct(float $x, int $dec = 1): string
+{
+    return ($x >= 0 ? '+' : '−') . number_format(abs($x) * 100, $dec, ',', '.') . '%';
+}
+
+/**
+ * Borsa KOIN di un'economia: un punto a settimana per le ultime $weeks settimane (l'ultimo è adesso) con i KOIN in circolo
+ * (somma dei saldi), i giocatori con un portafoglio, la media a testa e il fattore «KOIN in circolo» dei prezzi del Negozio
+ * (lib/shop.php: shop_price, media / SHOP_PRICE_REF tra ×0,8 e ×1,6). Poi l'inflazione della settimana (media a testa adesso /
+ * una settimana fa), di quanto quel fattore ha mosso i prezzi, quanto costa adesso in media il Negozio rispetto al listino
+ * e da dove sono entrati e usciti i KOIN in settimana (i passaggi tra giocatori no: spostano, non creano).
+ */
+function gazzetta_borsa(int $eco, int $weeks = 8): array
+{
+    $now = time();
+    $pts = [];
+    for ($i = $weeks - 1; $i >= 0; $i--) {
+        $t = $now - $i * 7 * 86400;
+        $r = q('SELECT COALESCE(SUM(delta), 0) AS s, COUNT(DISTINCT player_id) AS n FROM wallet_moves WHERE eco = ? AND shop_only = 0 AND created_at <= ?',
+            [$eco, date('Y-m-d H:i:s', $t)])->fetch();
+        if ((int) $r['n'] === 0) {
+            continue;   // la lega non aveva ancora portafogli
+        }
+        $avg = (int) $r['s'] / (int) $r['n'];
+        $pts[] = ['t' => $t, 'total' => (int) $r['s'], 'players' => (int) $r['n'], 'avg' => $avg, 'f' => max(.8, min(1.6, $avg / SHOP_PRICE_REF))];
+    }
+    $cur = $pts ? $pts[count($pts) - 1] : null;
+    $prev = count($pts) > 1 ? $pts[count($pts) - 2] : null;
+    // il Negozio adesso rispetto al listino: media di prezzo / prezzo di catalogo degli oggetti in vendita (prezzo per chi ha la media dei KOIN)
+    $ratios = [];
+    foreach (shop_catalog() as $items) {
+        foreach ($items as $k => $it) {
+            if (empty($it['price']) || isset($it['goal']) || isset($it['owner_player_id']) || !shop_released((string) $k, $it)) {
+                continue;
+            }
+            [$p] = shop_price((string) $k, $it, null, $eco);
+            $ratios[] = $p / $it['price'];
+        }
+    }
+    $flows = ['in' => [], 'out' => []];
+    foreach (q("SELECT kind, SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END) AS i, SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END) AS o
+                FROM wallet_moves WHERE eco = ? AND shop_only = 0 AND kind <> 'passaggio' AND created_at > ? GROUP BY kind",
+        [$eco, date('Y-m-d H:i:s', $now - 7 * 86400)])->fetchAll() as $r) {
+        if ((int) $r['i']) {
+            $flows['in'][$r['kind']] = (int) $r['i'];
+        }
+        if ((int) $r['o']) {
+            $flows['out'][$r['kind']] = (int) $r['o'];
+        }
+    }
+    arsort($flows['in']);
+    arsort($flows['out']);
+    return ['points' => $pts, 'now' => $cur, 'prev' => $prev,
+        'inflation' => $prev && $prev['avg'] > 0 ? $cur['avg'] / $prev['avg'] - 1 : null,
+        'total_change' => $prev && $prev['total'] > 0 ? $cur['total'] / $prev['total'] - 1 : null,
+        'price_week' => $prev ? $cur['f'] / $prev['f'] - 1 : null,
+        'price_list' => $ratios ? array_sum($ratios) / count($ratios) - 1 : null,
+        'flows' => $flows];
+}
+
+/**
+ * La pagina «Borsa KOIN»: tre riquadri (KOIN in circolo, inflazione, prezzi del Negozio), il grafico dei KOIN a testa settimana per
+ * settimana (una serie: linea 2px con area leggera, base a zero, linea di riferimento a SHOP_PRICE_REF, etichetta solo sull'ultimo
+ * punto, il dettaglio di ogni settimana passandoci sopra), i flussi della settimana e la tabella con tutti i valori.
+ */
+function gazzetta_borsa_html(array $b): string
+{
+    $pts = $b['points'];
+    $fmt = fn($n) => number_format((float) $n, 0, ',', '.');
+    $kinds = ['vincita' => 'vincite', 'premio' => 'premi', 'benvenuto' => 'benvenuti', 'sussidio' => 'sussidi', 'regalo' => 'regali',
+        'vendita' => 'vendite', 'rimborso' => 'rimborsi', 'puntata' => 'puntate', 'acquisto' => 'acquisti'];
+    $flowTxt = fn(array $f) => implode(', ', array_map(fn($k, $v) => ($kinds[$k] ?? $k) . ' ' . $fmt($v), array_keys(array_slice($f, 0, 3, true)), array_slice($f, 0, 3, true)));
+    // grafico: viewBox 320 × 150
+    $W = 320; $H = 150; $L = 34; $R = 34; $T = 12; $B = 22;
+    $max = max(array_merge(array_column($pts, 'avg'), [SHOP_PRICE_REF * 1.15]));
+    $raw = $max / 4;   // circa quattro righe della griglia, a numeri tondi (1, 2, 5 × 10^n)
+    $mag = 10 ** floor(log10(max(1, $raw)));
+    $step = 10 * $mag;
+    foreach ([1, 2, 5] as $m) {
+        if ($raw <= $m * $mag) {
+            $step = $m * $mag;
+            break;
+        }
+    }
+    $top = ceil($max / $step) * $step;
+    $n = count($pts);
+    $x = fn($i) => $n > 1 ? $L + $i * ($W - $L - $R) / ($n - 1) : $L + ($W - $L - $R) / 2;
+    $y = fn($v) => $T + ($H - $T - $B) * (1 - $v / $top);
+    ob_start(); ?>
+<div class="gz-kpis">
+  <div class="gz-kpi"><span>KOIN in circolo</span><b><?= $fmt($b['now']['total']) ?></b><?php if ($b['total_change'] !== null): ?><small><?= gz_pct($b['total_change']) ?> in settimana</small><?php endif; ?></div>
+  <div class="gz-kpi"><span>Inflazione</span><b><?= $b['inflation'] !== null ? gz_pct($b['inflation']) : '—' ?></b><small>KOIN a testa in settimana</small></div>
+  <div class="gz-kpi"><span>Prezzi del Negozio</span><b><?= $b['price_list'] !== null ? gz_pct($b['price_list'], 0) : '—' ?></b><small>sul listino<?= $b['price_week'] !== null ? ', ' . gz_pct($b['price_week']) . ' in settimana' : '' ?></small></div>
+</div>
+<?php if ($n >= 2): ?>
+<figure class="gz-chart">
+  <figcaption>KOIN a testa, settimana per settimana</figcaption>
+  <svg viewBox="0 0 <?= $W ?> <?= $H ?>" role="img" aria-label="Andamento dei KOIN a testa nelle ultime <?= $n ?> settimane: da <?= $fmt($pts[0]['avg']) ?> a <?= $fmt($pts[$n - 1]['avg']) ?>">
+    <?php for ($v = 0; $v <= $top; $v += $step): ?>
+      <line class="gz-grid" x1="<?= $L ?>" x2="<?= $W - $R ?>" y1="<?= round($y($v), 1) ?>" y2="<?= round($y($v), 1) ?>"/>
+      <text class="gz-tick" x="<?= $L - 5 ?>" y="<?= round($y($v), 1) + 3 ?>" text-anchor="end"><?= $fmt($v) ?></text>
+    <?php endfor; ?>
+    <line class="gz-ref" x1="<?= $L ?>" x2="<?= $W - $R ?>" y1="<?= round($y(SHOP_PRICE_REF), 1) ?>" y2="<?= round($y(SHOP_PRICE_REF), 1) ?>"/>
+    <text class="gz-tick gz-ref-lbl" x="<?= $L + 3 ?>" y="<?= round($y(SHOP_PRICE_REF), 1) - 3 ?>">prezzi di listino</text>
+    <?php $line = ''; foreach ($pts as $i => $pt) { $line .= ($i ? 'L' : 'M') . round($x($i), 1) . ' ' . round($y($pt['avg']), 1); } ?>
+    <path class="gz-area" d="<?= $line ?>L<?= round($x($n - 1), 1) ?> <?= round($y(0), 1) ?>L<?= round($x(0), 1) ?> <?= round($y(0), 1) ?>Z"/>
+    <path class="gz-line" d="<?= $line ?>"/>
+    <circle class="gz-dot" cx="<?= round($x($n - 1), 1) ?>" cy="<?= round($y($pts[$n - 1]['avg']), 1) ?>" r="4"/>
+    <text class="gz-end" x="<?= round($x($n - 1), 1) + 7 ?>" y="<?= round($y($pts[$n - 1]['avg']), 1) + 4 ?>"><?= $fmt($pts[$n - 1]['avg']) ?></text>
+    <?php foreach ([0, $n - 1] as $i): ?>
+      <text class="gz-tick" x="<?= round($x($i), 1) ?>" y="<?= $H - 6 ?>" text-anchor="<?= $i ? 'end' : 'start' ?>"><?= $i === $n - 1 ? 'oggi' : date('j/n', $pts[$i]['t']) ?></text>
+    <?php endforeach; ?>
+    <?php foreach ($pts as $i => $pt): $w = ($W - $L - $R) / max(1, $n - 1); ?>
+      <rect class="gz-hit" x="<?= round($x($i) - $w / 2, 1) ?>" y="<?= $T ?>" width="<?= round($w, 1) ?>" height="<?= $H - $T - $B ?>"><title><?= h(($i === $n - 1 ? 'Oggi' : 'Settimana al ' . date('j/n', $pt['t'])) . ': ' . $fmt($pt['avg']) . ' KOIN a testa · '
+          . $fmt($pt['total']) . ' in circolo · prezzi ×' . number_format($pt['f'], 2, ',', '')) ?></title></rect>
+    <?php endforeach; ?>
+  </svg>
+</figure>
+<?php endif; ?>
+<?php if ($b['flows']['in'] || $b['flows']['out']): ?>
+<ul class="gz-items gz-flows">
+  <?php if ($b['flows']['in']): ?><li class="gz-ok"><b>Entrati +<?= $fmt(array_sum($b['flows']['in'])) ?></b> <span><?= h($flowTxt($b['flows']['in'])) ?></span></li><?php endif; ?>
+  <?php if ($b['flows']['out']): ?><li class="gz-bad"><b>Usciti −<?= $fmt(array_sum($b['flows']['out'])) ?></b> <span><?= h($flowTxt($b['flows']['out'])) ?></span></li><?php endif; ?>
+</ul>
+<?php endif; ?>
+<details class="gz-table">
+  <summary>Tabella</summary>
+  <table class="table">
+    <thead><tr><th>Settimana</th><th>A testa</th><th>In circolo</th><th>Prezzi</th></tr></thead>
+    <tbody><?php foreach (array_reverse($pts) as $pt): ?><tr><td><?= date('j/n', $pt['t']) ?></td><td><?= $fmt($pt['avg']) ?></td><td><?= $fmt($pt['total']) ?></td><td>×<?= number_format($pt['f'], 2, ',', '') ?></td></tr><?php endforeach; ?></tbody>
+  </table>
+</details>
+<?php
+    return (string) ob_get_clean();
 }
 
 /** HTML della Gazzetta: testata e slider a pagine (stesso slider dei momenti salienti, assets/app.js). */
@@ -290,6 +440,15 @@ function gazzetta_html(array $g, bool $page = false): string
               </div>
             <?php endforeach; ?>
           </div>
+        <?php elseif (!empty($s['quotes'])): ?>
+          <div class="gz-quotes">
+            <?php foreach ($s['quotes'] as $qt): ?>
+              <blockquote class="gz-quote"><p><?= nl2br(h($qt['body'])) ?></p>
+                <footer><?php if ($qt['team']): ?><span class="team-dot team-<?= strtolower(h($qt['team'])) ?>"></span><?php endif; ?><a href="player.php?id=<?= $qt['pid'] ?>"><?= h($qt['name']) ?></a></footer></blockquote>
+            <?php endforeach; ?>
+          </div>
+        <?php elseif (!empty($s['borsa'])): ?>
+          <?= gazzetta_borsa_html($s['borsa']) ?>
         <?php elseif ($s['items']): ?>
           <ul class="gz-items">
             <?php foreach ($s['items'] as $it): ?>

@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 58;
+const SCHEMA_VERSION = 59;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -962,6 +962,20 @@ function ensure_schema(): void
     if ($v < 58) {
         // passaggi di KOIN tra giocatori (lib/passaggi.php): l'altro giocatore del passaggio, su tutte e due le mosse
         $add('wallet_moves', 'peer_id', 'INT NULL AFTER given_by');
+    }
+    if ($v < 59) {
+        // il pensiero sulla partita di chi l'ha giocata (lib/pensieri.php), per la Gazzetta del mercoledì
+        db()->exec("CREATE TABLE IF NOT EXISTS match_thoughts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            match_id INT NOT NULL,
+            player_id INT NOT NULL,
+            body VARCHAR(400) NULL,
+            skipped TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_thought (match_id, player_id),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
