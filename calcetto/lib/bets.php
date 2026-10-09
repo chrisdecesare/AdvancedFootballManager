@@ -42,6 +42,9 @@ const BET_FLATTEN = 0.3;         // quanto i gol attesi dei giocatori vengono av
                                  // a calcetto (portieri volanti) tutti prima o poi tirano, le differenze non devono essere estreme
 const BET_REWARD_GOAL = 25;      // KOIN a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
 const BET_REWARD_ASSIST = 10;    // e per ogni assist
+const SHOP_CREDIT_GOAL = 100;    // crediti dell'Avatar (solo negozio, non per scommettere) a chi segna, per ogni gol...
+const SHOP_CREDIT_ASSIST = 50;   // ...e per ogni assist, in più dei KOIN
+const BET_CONSOLATION = 100;     // KOIN di consolazione a chi ha perso tutte le puntate su una partita (bets_consolation_sync)
 const BET_BOOST_MULT = 1.17;     // prime partite (più incertezza): quota finale = quota x 1,17 + c...
 const BET_BOOST_C = [0.2, 0.5];  // ...con c tra 0,2 e 0,5, diverso per ogni scelta (vedi bet_boost)
 const BET_OPEN_HOURS = 48;       // le scommesse su una partita si aprono 48 ore prima del calcio d'inizio (e da lì i ruoli sono bloccati)
@@ -817,6 +820,7 @@ function bets_settle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'mvp
         });
         combo_legs_settle_for_match($matchId, $market, $win);   // le stesse selezioni contano anche dentro le multiple
     }
+    bets_consolation_sync($matchId);
 }
 
 /**
@@ -852,6 +856,7 @@ function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'm
            WHERE status <> 'aperta' AND EXISTS (SELECT 1 FROM combo_legs cl WHERE cl.combo_id = cb.id AND cl.match_id = ? AND cl.market IN ($in))",
             array_merge([$matchId], $markets));
     });
+    bets_consolation_sync($matchId);   // le puntate tornano aperte: la consolazione, se c'era, si toglie
 }
 
 /**
@@ -886,19 +891,24 @@ function bets_resettle_result(int $matchId): void
 }
 
 /**
- * Premi della partita: BET_REWARD_GOAL KOIN per ogni gol e BET_REWARD_ASSIST per ogni assist, a chi li ha fatti (ospiti esclusi).
- * Una mossa del portafoglio per giocatore e partita (ref "premio-m<id>"), che si aggiorna se il risultato viene corretto e sparisce
- * se la partita torna "programmata" o viene eliminata. Si può richiamare quante volte si vuole.
+ * Premi della partita, a chi ha segnato o fatto assist (ospiti esclusi):
+ *  - KOIN: BET_REWARD_GOAL per ogni gol e BET_REWARD_ASSIST per ogni assist (ref "premio-m<id>");
+ *  - crediti dell'Avatar, che valgono solo nel negozio: SHOP_CREDIT_GOAL a gol e SHOP_CREDIT_ASSIST ad assist (ref "premio-cr-m<id>").
+ * Una mossa del portafoglio per giocatore, partita e tipo di premio, che si aggiorna se il risultato viene corretto e sparisce
+ * se la partita torna "programmata", viene annullata o eliminata. Si può richiamare quante volte si vuole.
  */
 function match_rewards_sync(int $matchId): void
 {
     $ref = 'premio-m' . $matchId;
+    $refCr = 'premio-cr-m' . $matchId;
     $m = get_match($matchId);
     $want = [];
+    $wantCr = [];
     if ($m && $m['status'] === 'giocata') {
         foreach (q('SELECT mp.player_id, mp.goals, mp.assists FROM match_players mp JOIN players p ON p.id = mp.player_id
                     WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0 AND (mp.goals > 0 OR mp.assists > 0)', [$matchId])->fetchAll() as $r) {
             $want[(int) $r['player_id']] = (int) $r['goals'] * BET_REWARD_GOAL + (int) $r['assists'] * BET_REWARD_ASSIST;
+            $wantCr[(int) $r['player_id']] = (int) $r['goals'] * SHOP_CREDIT_GOAL + (int) $r['assists'] * SHOP_CREDIT_ASSIST;
         }
     }
     $eco = $m ? eco_of_match($m) : 0;   // i premi restano nei KOIN della lega della partita
@@ -908,6 +918,55 @@ function match_rewards_sync(int $matchId): void
     $keep = array_keys($want);
     // via i premi di chi non li merita più, e quelli finiti in un'altra economia (partite pagate prima che le leghe avessero i propri KOIN)
     q('DELETE FROM wallet_moves WHERE ref = ? AND (eco <> ?' . ($keep ? ' OR player_id NOT IN (' . implode(',', array_map('intval', $keep)) . ')' : ' OR 1=1') . ')', [$ref, $eco]);
+    // crediti dell'Avatar: valgono in tutte le economie (eco 0, shop_only)
+    foreach ($wantCr as $pid => $delta) {
+        q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref, shop_only) VALUES (?, 0, ?, 'premio', ?, 1) ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$pid, $delta, $refCr]);
+    }
+    q('DELETE FROM wallet_moves WHERE ref = ?' . ($wantCr ? ' AND player_id NOT IN (' . implode(',', array_map('intval', array_keys($wantCr))) . ')' : ''), [$refCr]);
+}
+
+/**
+ * Consolazione: BET_CONSOLATION KOIN a chi, con le votazioni chiuse, ha perso tutte le puntate fatte su questa partita (e non ne
+ * ha vinta nessuna). Le puntate su una partita sono le singole e le gambe delle multiple che la riguardano; le rimborsate non
+ * contano. Finché una è ancora aperta (per esempio l'MVP, che si paga alla chiusura dei voti) non si decide. Una mossa per
+ * giocatore (ref "consolazione-m<id>") nei KOIN della lega della partita; sparisce se la condizione non vale più (risultato
+ * corretto, voti riaperti, partita annullata). Si può richiamare quante volte si vuole: la notifica parte una volta sola per giocatore.
+ */
+function bets_consolation_sync(int $matchId): void
+{
+    $ref = 'consolazione-m' . $matchId;
+    $m = get_match($matchId);
+    $eligible = [];
+    if ($m && $m['status'] === 'giocata' && !(int) $m['voting_open']) {
+        $by = [];
+        foreach (q("SELECT player_id, status FROM bets WHERE match_id = ?
+                    UNION ALL SELECT cb.player_id, cl.status FROM combo_legs cl JOIN combo_bets cb ON cb.id = cl.combo_id WHERE cl.match_id = ?",
+            [$matchId, $matchId])->fetchAll() as $r) {
+            $by[(int) $r['player_id']][$r['status']] = true;
+        }
+        foreach ($by as $pid => $st) {
+            if (isset($st['persa']) && !isset($st['vinta']) && !isset($st['aperta'])) {
+                $eligible[] = $pid;
+            }
+        }
+    }
+    $eco = $m ? eco_of_match($m) : 0;
+    $new = [];
+    foreach ($eligible as $pid) {
+        q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'consolazione', ?)", [$pid, $eco, BET_CONSOLATION, $ref]);
+        if (q("INSERT IGNORE INTO push_log (kind, match_id, player_id) VALUES ('consol', ?, ?)", [$matchId, $pid])->rowCount()) {
+            $new[] = $pid;   // avvisato una volta sola, anche se il risultato viene corretto e la mossa rifatta
+        }
+    }
+    q('DELETE FROM wallet_moves WHERE ref = ?' . ($eligible ? ' AND player_id NOT IN (' . implode(',', array_map('intval', $eligible)) . ')' : ''), [$ref]);
+    if ($new) {
+        push_defer(function () use ($new, $matchId) {
+            push_notify_users(array_values(push_users_of_players($new)), [
+                'title' => 'Premio di consolazione',
+                'body' => 'Le scommesse su questa partita sono andate male: ti spettano ' . BET_CONSOLATION . ' KOIN di consolazione.',
+                'url' => 'bets.php', 'tag' => 'consolation-' . $matchId], 'normal', 'consolazione');
+        });
+    }
 }
 
 /** KOIN vinti da un giocatore con gol e assist (premi di tutte le partite). */
