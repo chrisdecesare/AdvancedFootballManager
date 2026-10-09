@@ -3,7 +3,8 @@
  * Fanta: il fantacalcio della lega (regole e calcoli in lib/fanta.php). Schede:
  *  - squadra: la mia rosa (titolari, panchina, capitano), il budget e i punti partita per partita;
  *  - mercato: tutte le figurine della lega con prezzo e rendimento, da comprare e vendere;
- *  - classifica: tutti contro tutti, e la rosa di ogni squadra (?m=id);
+ *  - classifica: tutti contro tutti, e la rosa di ogni squadra (?m=id) con i punti di ogni figurina nella partita attuale
+ *    (l'ultima già «fotografata» della stagione, con la formazione che aveva al calcio d'inizio);
  *  - scambi: proposte ricevute e fatte, e una nuova proposta a una squadra (?con=id);
  *  - premi: cosa si vince, regolamento e albo d'oro.
  * Chi amministra la lega apre e chiude le stagioni da qui.
@@ -132,8 +133,23 @@ $next = q("SELECT * FROM matches WHERE group_id = ? AND status = 'programmata' A
 $trades = $season && $canPlay ? fanta_open_trades($sid, $me) : [];
 $incoming = count(array_filter($trades, fn($t) => (int) $t['to_id'] === $me));
 
+// partita attuale: l'ultima della stagione già «fotografata» (calcio d'inizio passato), in corso o giocata; conta la formazione fotografata
+$cur = $seasonMatches[0] ?? null;
+$curPts = $cur ? fanta_match_points((int) $cur['id']) : [];
+$curLineups = $cur ? fanta_lineups((int) $cur['id']) : [];
+/** Punteggio di un fantallenatore nella partita attuale (null se la partita non è ancora giocata o non aveva la squadra). */
+$curScore = fn(int $mgr): ?array => $curPts && !empty($curLineups[$mgr]) ? fanta_lineup_score($curLineups[$mgr], $curPts) : null;
+/** Le sue figurine nella partita attuale: [id giocatore => riga del punteggio]. */
+$curRows = function (int $mgr) use ($curScore): array {
+    $out = [];
+    foreach ($curScore($mgr)['rows'] ?? [] as $row) {
+        $out[$row['player_id']] = $row;
+    }
+    return $out;
+};
+
 /** La figurina: il giocatore in pixel art, quota attuale (e base), nome, numeri; $extra sotto (pulsanti). 'cost' = quanto l'hai pagata. */
-$card = function (int $pid, string $extra = '', array $o = []) use ($pl, $prices, $quotes, $form, $seasonPts, $owners, $season): string {
+$card = function (int $pid, string $extra = '', array $o = []) use ($pl, $prices, $quotes, $form, $seasonPts, $owners, $season, $cur, $curPts): string {
     $p = $pl($pid);
     $f = $form[$pid] ?? ['avg' => 0, 'apps' => 0, 'rate' => 0];
     $price = $quotes[$pid] ?? 1;
@@ -150,6 +166,11 @@ $card = function (int $pid, string $extra = '', array $o = []) use ($pl, $prices
         . '<div class="fz-quote">' . ($season ? '<span title="Quota all\'apertura della stagione">base ' . (int) $base . '</span>' : '')
         . ($trend ? ' <i class="ti ti-trending-' . ($trend > 0 ? 'up is-up' : 'down is-down') . '" title="' . ($trend > 0 ? 'In salita' : 'In discesa') . '"></i>' : '')
         . (isset($o['cost']) ? ' <span title="Quanto l\'hai pagata">· pagata ' . (int) $o['cost'] . '</span>' : '') . '</div>'
+        . (isset($o['mp']) ? '<div class="fz-mpts' . ($o['mp']['played'] ? '' : ' is-zero') . '" title="Punti fanta in ' . h(team_name('A', $cur)) . '–' . h(team_name('B', $cur))
+            . ($curPts && reset($curPts)['provisional'] ? ' (provvisori: votazioni aperte)' : '') . '"><span>Partita</span> <strong>'
+            . ($o['mp']['played'] ? fanta_fmt((float) $o['mp']['pts']) . ' pt' : 'non ha giocato') . '</strong>'
+            . (!empty($o['mp']['captain']) && $o['mp']['played'] ? ' <em>capitano</em>' : '') . (!empty($o['mp']['sub']) ? ' <em>dalla panchina</em>' : '')
+            . (!empty($o['mp']['bench']) ? ' <em>non è servita</em>' : '') . '</div>' : '')
         . '<dl class="fz-stats">'
         . ($season ? '<div><dt>Stagione</dt><dd>' . fanta_fmt((float) ($seasonPts[$pid] ?? 0)) . '</dd></div>' : '')
         . '<div><dt title="Punti fanta a partita giocata, ultime ' . FANTA_FORM_MATCHES . ' partite">Media</dt><dd>' . ($f['apps'] ? fanta_fmt($f['avg']) : '–') . '</dd></div>'
@@ -157,6 +178,24 @@ $card = function (int $pid, string $extra = '', array $o = []) use ($pl, $prices
         . '% delle ultime ' . FANTA_FORM_MATCHES . ' partite della lega">' . $pct . '%</span></div>'
         . ($season ? '<div><dt title="In quante squadre del Fanta c\'è">Rose</dt><dd>' . ($owners[$pid] ?? 0) . '</dd></div>' : '')
         . '</dl>' . $extra . '</article>';
+};
+/** Tabella voto + bonus + punti delle figurine di una formazione in una partita ($sc = fanta_lineup_score, $pts = fanta_match_points). */
+$lineupTable = function (array $sc, array $pts) use ($pl): string {
+    ob_start(); ?>
+        <table class="table fz-table"><thead><tr><th>Figurina</th><th>Voto</th><th>Bonus</th><th>Punti</th></tr></thead><tbody>
+          <?php foreach ($sc['rows'] as $row): $p = $pts[$row['player_id']] ?? null; ?>
+          <tr class="<?= !empty($row['bench']) ? 'is-bench' : '' ?>">
+            <td><?= h($pl($row['player_id'])['name']) ?><?= $row['captain'] ? ' <span class="fz-badge fz-cap">C</span>' : '' ?><?= $row['sub'] ? ' <span class="tag">entra dalla panchina</span>' : '' ?><?= !empty($row['bench']) ? ' <span class="tag">panchina</span>' : '' ?></td>
+            <?php if ($p && $row['played'] && empty($row['bench'])): ?>
+            <td><?= fmt_num($p['vote']) ?></td>
+            <td title="<?= h(implode(', ', array_filter(array_map(fn($k, $n) => $n ? $n . ' ' . ['goal' => 'gol', 'assist' => 'assist', 'mvp' => 'MVP', 'win' => 'vittoria', 'own_goal' => 'autogol'][$k] : '', array_keys($p['events']), $p['events'])))) ?>"><?= $p['bonus'] >= 0 ? '+' : '' ?><?= $p['bonus'] ?><?= $row['captain'] && $p['bonus'] ? ' ×2' : '' ?></td>
+            <td><strong><?= fanta_fmt($row['pts']) ?></strong></td>
+            <?php else: ?><td colspan="3" class="muted"><?= !empty($row['bench']) ? ($row['played'] ? 'non è servita' : 'non ha giocato') : 'non ha giocato' ?></td><?php endif; ?>
+          </tr>
+          <?php endforeach; ?>
+        </tbody></table>
+<?php
+    return (string) ob_get_clean();
 };
 $form_btn = function (string $do, int $pid, string $label, string $cls = 'btn-ghost', string $confirm = '') use ($gid): string {
     return '<form method="post" class="fz-act">' . csrf_field() . '<input type="hidden" name="g" value="' . $gid . '"><input type="hidden" name="do" value="' . $do . '">'
@@ -248,10 +287,21 @@ if ($withCards):
     <p class="empty card"><?= !$season ? 'Quando si apre la stagione, qui fai la tua squadra.' : 'Non hai una squadra in questa lega.' ?></p>
   <?php else:
       $starters = array_values(array_filter($myRoster, fn($r) => $r['role'] === 'T'));
-      $benchRow = array_values(array_filter($myRoster, fn($r) => $r['role'] === 'P'))[0] ?? null; ?>
+      $benchRow = array_values(array_filter($myRoster, fn($r) => $r['role'] === 'P'))[0] ?? null;
+      $myCur = $curRows($me); ?>
+    <?php if ($cur && $curScore($me)): ?>
+    <p class="small fz-curline"><i class="ti ti-ball-football"></i> Partita attuale (<?= h(team_name('A', $cur)) ?> <?= (int) $cur['score_a'] ?>–<?= (int) $cur['score_b'] ?> <?= h(team_name('B', $cur)) ?>):
+      la tua squadra ha fatto <strong><?= fanta_fmt($curScore($me)['total']) ?> pt</strong>. Sulle figurine vedi i punti di ognuna.</p>
+    <?php endif; ?>
     <p class="muted small fz-lock"><i class="ti ti-lock-clock"></i>
       <?php if ($next): ?>Per la prossima partita (<?= h(fmt_date_long($next['match_date'])) ?> alle <?= fmt_time($next['match_date']) ?>) conta la squadra che hai al calcio d'inizio: fino ad allora cambi quello che vuoi.
       <?php else: ?>Nessuna partita in programma: per ogni partita conta la squadra che hai al calcio d'inizio.<?php endif; ?></p>
+    <?php $others = array_filter($standings, fn($r) => $r['manager_id'] !== $me && fanta_roster($sid, $r['manager_id'])); ?>
+    <?php if ($others): ?>
+    <nav class="sortbar fz-others"><i class="ti ti-eye"></i> Guarda le altre squadre:
+      <?php foreach ($others as $r): ?><a href="<?= h('fanta.php?t=classifica&g=' . $gid . '&m=' . $r['manager_id']) ?>"><?= h($pl($r['manager_id'])['name']) ?></a><?php endforeach; ?>
+    </nav>
+    <?php endif; ?>
     <h2 class="fz-h2">Titolari <span class="muted small"><?= count($starters) ?>/<?= FANTA_STARTERS ?></span></h2>
     <div class="fz-grid">
       <?php foreach ($starters as $r):
@@ -260,7 +310,7 @@ if ($withCards):
               . (!(int) $r['captain'] ? $form_btn('captain', $pid, '<i class="ti ti-letter-c"></i> Capitano') : '')
               . (count($myRoster) >= FANTA_ROSTER ? $form_btn('bench', $pid, '<i class="ti ti-armchair"></i> In panchina') : '')
               . $form_btn('sell', $pid, '<i class="ti ti-coin"></i> Vendi (+' . (int) ($quotes[$pid] ?? 1) . ')', 'btn-ghost', 'Vendere ' . $pl($pid)['name'] . '?') . '</div>';
-          echo $card($pid, $btns, ['cost' => (int) $r['cost'], 'captain' => (int) $r['captain'], 'mine' => true]);
+          echo $card($pid, $btns, ['cost' => (int) $r['cost'], 'captain' => (int) $r['captain'], 'mine' => true, 'mp' => $myCur[$pid] ?? null]);
       endforeach; ?>
       <?php for ($i = count($starters); $i < FANTA_STARTERS; $i++): ?>
         <a class="fz-card fz-empty" href="<?= h('fanta.php?t=mercato&g=' . $gid) ?>"><i class="ti ti-plus"></i><span>Compra un titolare</span></a>
@@ -271,7 +321,7 @@ if ($withCards):
       <?php if ($benchRow): $pid = (int) $benchRow['player_id'];
           echo $card($pid, '<p class="small muted fz-note">Entra al posto del primo titolare che non gioca. Per farlo titolare, manda in panchina un altro.</p><div class="fz-btns">'
               . $form_btn('sell', $pid, '<i class="ti ti-coin"></i> Vendi (+' . (int) ($quotes[$pid] ?? 1) . ')', 'btn-ghost', 'Vendere ' . $pl($pid)['name'] . '?') . '</div>',
-              ['cost' => (int) $benchRow['cost'], 'bench' => true, 'mine' => true]);
+              ['cost' => (int) $benchRow['cost'], 'bench' => true, 'mine' => true, 'mp' => $myCur[$pid] ?? null]);
       else: ?>
         <a class="fz-card fz-empty" href="<?= h('fanta.php?t=mercato&g=' . $gid) ?>"><i class="ti ti-armchair"></i><span><?= count($starters) < FANTA_STARTERS ? 'Prima completa i titolari' : 'Compra la riserva' ?></span></a>
       <?php endif; ?>
@@ -279,28 +329,15 @@ if ($withCards):
 
     <?php if ($seasonMatches): ?>
     <h2 class="fz-h2">Partita per partita</h2>
-    <?php foreach ($seasonMatches as $m):
+    <?php foreach ($seasonMatches as $i => $m):
         $pts = fanta_match_points((int) $m['id']);
         $lineup = fanta_lineups((int) $m['id'])[$me] ?? [];
         $sc = $pts && $lineup ? fanta_lineup_score($lineup, $pts) : null; ?>
-      <details class="card fz-match">
+      <details class="card fz-match"<?= $i === 0 ? ' open' : '' ?>>
         <summary><span><?= h(fmt_date_long($m['match_date'])) ?> · <?= h(team_name('A', $m)) ?> <?= $m['status'] === 'giocata' ? (int) $m['score_a'] . '–' . (int) $m['score_b'] : 'vs' ?> <?= h(team_name('B', $m)) ?></span>
           <strong><?= $sc ? fanta_fmt($sc['total']) . ' pt' : ($m['status'] === 'giocata' ? ($lineup ? '0 pt' : 'squadra vuota') : ($m['status'] === 'annullata' ? 'annullata · non conta' : 'in corso')) ?></strong>
           <?php if ($pts && reset($pts)['provisional']): ?><span class="tag">provvisorio: votazioni aperte</span><?php endif; ?></summary>
-        <?php if ($sc): ?>
-        <table class="table fz-table"><thead><tr><th>Figurina</th><th>Voto</th><th>Bonus</th><th>Punti</th></tr></thead><tbody>
-          <?php foreach ($sc['rows'] as $row): $p = $pts[$row['player_id']] ?? null; ?>
-          <tr class="<?= !empty($row['bench']) ? 'is-bench' : '' ?>">
-            <td><?= h($pl($row['player_id'])['name']) ?><?= $row['captain'] ? ' <span class="fz-badge fz-cap">C</span>' : '' ?><?= $row['sub'] ? ' <span class="tag">entra dalla panchina</span>' : '' ?><?= !empty($row['bench']) ? ' <span class="tag">panchina</span>' : '' ?></td>
-            <?php if ($p && $row['played'] && empty($row['bench'])): ?>
-            <td><?= fmt_num($p['vote']) ?></td>
-            <td title="<?= h(implode(', ', array_filter(array_map(fn($k, $n) => $n ? $n . ' ' . ['goal' => 'gol', 'assist' => 'assist', 'mvp' => 'MVP', 'win' => 'vittoria', 'own_goal' => 'autogol'][$k] : '', array_keys($p['events']), $p['events'])))) ?>"><?= $p['bonus'] >= 0 ? '+' : '' ?><?= $p['bonus'] ?><?= $row['captain'] && $p['bonus'] ? ' ×2' : '' ?></td>
-            <td><strong><?= fanta_fmt($row['pts']) ?></strong></td>
-            <?php else: ?><td colspan="3" class="muted"><?= !empty($row['bench']) ? ($row['played'] ? 'non è servita' : 'non ha giocato') : 'non ha giocato' ?></td><?php endif; ?>
-          </tr>
-          <?php endforeach; ?>
-        </tbody></table>
-        <?php endif; ?>
+        <?php if ($sc): ?><?= $lineupTable($sc, $pts) ?><?php endif; ?>
       </details>
     <?php endforeach; ?>
     <?php endif; ?>
@@ -340,8 +377,21 @@ if ($withCards):
     <p><a class="link" href="<?= h('fanta.php?t=classifica&g=' . $gid) ?>"><i class="ti ti-arrow-left"></i> Classifica</a></p>
     <h2 class="fz-h2">La squadra di <?= h($pl($view)['name']) ?></h2>
     <?php if ($canPlay && $view !== $me): ?><p><a class="btn btn-sm btn-primary" href="<?= h('fanta.php?t=scambi&g=' . $gid . '&con=' . $view) ?>"><i class="ti ti-arrows-exchange"></i> Proponi uno scambio</a></p><?php endif; ?>
+    <?php $vrStand = array_values(array_filter($standings, fn($s) => $s['manager_id'] === $view))[0] ?? null; ?>
+    <?php if ($vrStand): ?><p class="muted small"><?= $vrStand['rank'] ?>° in classifica · <strong><?= fanta_fmt($vrStand['total']) ?> pt</strong> in stagione · <?= $vrStand['played'] ?> partite</p><?php endif; ?>
+    <?php if ($cur): $vSc = $curScore($view); ?>
+    <details class="card fz-match" open>
+      <summary><span>Partita attuale · <?= h(fmt_date_long($cur['match_date'])) ?> · <?= h(team_name('A', $cur)) ?> <?= $cur['status'] === 'giocata' ? (int) $cur['score_a'] . '–' . (int) $cur['score_b'] : 'vs' ?> <?= h(team_name('B', $cur)) ?></span>
+        <strong><?= $vSc ? fanta_fmt($vSc['total']) . ' pt' : ($cur['status'] === 'giocata' ? (!empty($curLineups[$view]) ? '0 pt' : 'squadra vuota') : 'in corso') ?></strong>
+        <?php if ($curPts && reset($curPts)['provisional']): ?><span class="tag">provvisorio: votazioni aperte</span><?php endif; ?></summary>
+      <?php if ($vSc): ?><?= $lineupTable($vSc, $curPts) ?>
+      <?php elseif ($cur['status'] !== 'giocata'): ?><p class="muted small fz-note">La partita non è ancora finita: i punti arrivano quando viene inserito il risultato. La formazione che conta è quella al calcio d'inizio.</p><?php endif; ?>
+    </details>
+    <?php endif; ?>
+    <?php $vCur = $curRows($view); ?>
+    <h2 class="fz-h2">La rosa <span class="muted small">adesso<?= $vCur ? ' · sulle figurine i punti della partita attuale' : '' ?></span></h2>
     <div class="fz-grid">
-      <?php foreach ($vr as $r) echo $card((int) $r['player_id'], '', ['cost' => (int) $r['cost'], 'captain' => (int) $r['captain'], 'bench' => $r['role'] === 'P']); ?>
+      <?php foreach ($vr as $r) echo $card((int) $r['player_id'], '', ['cost' => (int) $r['cost'], 'captain' => (int) $r['captain'], 'bench' => $r['role'] === 'P', 'mp' => $vCur[(int) $r['player_id']] ?? null]); ?>
     </div>
   <?php elseif (!$standings): ?>
     <p class="empty card">Nessuno ha ancora fatto la squadra: sii il primo!</p>

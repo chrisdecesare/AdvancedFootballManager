@@ -1612,6 +1612,13 @@ tr.is-new td { background: #fffbe6; }
 .fz-quote { font-size: .78rem; font-weight: 800; color: var(--muted); min-height: 1.1em; }
 .fz-quote .is-up { color: var(--grass-d); }
 .fz-quote .is-down { color: var(--red); }
+.fz-mpts { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 2px 6px; margin: 4px 0 0; padding: 3px 8px; width: 100%;
+  background: var(--yellow); border: var(--b2); border-radius: 10px; font-size: .78rem; font-weight: 800; }
+.fz-mpts strong { font: 400 1.05rem var(--font-d); }
+.fz-mpts em { font-style: normal; font-size: .7rem; color: var(--muted); }
+.fz-mpts.is-zero { background: transparent; color: var(--muted); }
+.fz-curline { margin: 0 0 8px; }
+.fz-others { margin: 0 0 10px; }
 .fz-pct { display: inline-block; min-width: 46px; padding: 0 8px; border: var(--b2); border-radius: 999px; font-weight: 900; text-align: center; line-height: 1.5; }
 .fz-pct.is-hi { background: #bdf0cf; color: #146b38; }
 .fz-pct.is-mid { background: #ffe89a; color: #7a5a00; }
