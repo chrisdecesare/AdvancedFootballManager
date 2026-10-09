@@ -54,6 +54,9 @@ const BET_REWARD_ASSIST = 50;    // e per ogni assist (stessi importi dei credit
 const SHOP_CREDIT_GOAL = 100;    // crediti dell'Avatar (solo negozio, non per scommettere) a chi segna, per ogni gol...
 const SHOP_CREDIT_ASSIST = 50;   // ...e per ogni assist, in più dei KOIN
 const BET_CONSOLATION = 100;     // KOIN di consolazione a chi ha perso tutte le puntate su una partita (bets_consolation_sync)
+const BET_REWARD_MVP = 1000;     // KOIN a chi vince l'MVP della partita (alla chiusura dei voti: match_vote_prizes_sync)...
+const BET_REWARD_DIF = 250;      // ...e a chi vince il premio «Miglior difensore». KOIN veri del portafoglio: si spendono in tutto il Negozio, Avatar compreso
+const VOTE_PRIZES_FROM = '2026-10-08 00:00:00';   // i premi MVP e miglior difensore valgono per le partite da allora in poi
 const BET_BOOST_MULT = 1.17;     // prime partite (più incertezza): quota finale = quota x 1,17 + c...
 const BET_BOOST_C = [0.2, 0.5];  // ...con c tra 0,2 e 0,5, diverso per ogni scelta (vedi bet_boost)
 const BET_OPEN_HOURS = 48;       // le scommesse su una partita si aprono 48 ore prima del calcio d'inizio (e da lì i ruoli sono bloccati)
@@ -924,6 +927,7 @@ function bets_settle(int $matchId, array $markets = [...BET_RESULT_MARKETS, ...B
         combo_legs_settle_for_match($matchId, $market, $win);   // le stesse selezioni contano anche dentro le multiple
     }
     bets_consolation_sync($matchId);
+    match_vote_prizes_sync($matchId);
 }
 
 /**
@@ -960,6 +964,7 @@ function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, ..
             array_merge([$matchId], $markets));
     });
     bets_consolation_sync($matchId);   // le puntate tornano aperte: la consolazione, se c'era, si toglie
+    match_vote_prizes_sync($matchId);   // e se i voti si riaprono o la partita non conta più, i premi MVP e difensore si tolgono
 }
 
 /**
@@ -1072,11 +1077,67 @@ function bets_consolation_sync(int $matchId): void
     }
 }
 
+/**
+ * Premi dei voti, a votazioni chiuse: BET_REWARD_MVP KOIN a chi vince l'MVP e BET_REWARD_DIF a chi vince il «Miglior difensore»
+ * (ospiti esclusi; solo partite da VOTE_PRIZES_FROM). KOIN normali del portafoglio della lega della partita, quindi spendibili in
+ * tutto il Negozio, Avatar compreso. Una mossa per premio e partita (ref "premio-mvp-m<id>" / "premio-dif-m<id>") che cambia
+ * giocatore se il vincitore cambia (es. voti di un ospite accettati dopo) e sparisce se i voti si riaprono o la partita non conta più.
+ * Si può richiamare quante volte si vuole: la notifica parte una volta sola per giocatore e premio. Al giocatore, alla prima pagina
+ * che apre, esce la sovraimpressione di congratulazioni (lib/guess.php: match_prizes_unseen, layout.php).
+ */
+function match_vote_prizes_sync(int $matchId): void
+{
+    $m = get_match($matchId);
+    $prizes = [   // chiave => [ref, importo, vincitore]
+        'mvp' => ['premio-mvp-m' . $matchId, BET_REWARD_MVP, null],
+        'dif' => ['premio-dif-m' . $matchId, BET_REWARD_DIF, null],
+    ];
+    if ($m && $m['status'] === 'giocata' && !(int) $m['voting_open'] && $m['match_date'] >= VOTE_PRIZES_FROM) {
+        $prizes['mvp'][2] = match_mvp($matchId);
+        $prizes['dif'][2] = match_award_winners($matchId)['dif'] ?? null;
+        foreach ($prizes as $k => $p) {   // gli ospiti non incassano
+            if ($p[2] && !q('SELECT 1 FROM players WHERE id = ? AND is_guest = 0', [$p[2]])->fetch()) {
+                $prizes[$k][2] = null;
+            }
+        }
+    }
+    $eco = $m ? eco_of_match($m) : 0;
+    $new = [];
+    foreach ($prizes as $k => [$ref, $amount, $winner]) {
+        // via la mossa di chi non vince più (o finita in un'altra economia), poi quella del vincitore se non c'è già
+        q('DELETE FROM wallet_moves WHERE ref = ?' . ($winner ? ' AND NOT (player_id = ? AND eco = ?)' : ''), $winner ? [$ref, $winner, $eco] : [$ref]);
+        if ($winner) {
+            q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'premio', ?)", [$winner, $eco, $amount, $ref]);
+            if (q('INSERT IGNORE INTO push_log (kind, match_id, player_id) VALUES (?, ?, ?)', [$k . 'win', $matchId, $winner])->rowCount()) {
+                $new[$k] = [$winner, $amount];   // avvisato una volta sola, anche se la mossa viene rifatta
+            }
+        }
+    }
+    if ($new) {
+        push_defer(function () use ($new, $matchId) {
+            foreach ($new as $k => [$pid, $amount]) {
+                push_notify_users(array_values(push_users_of_players([$pid])), [
+                    'title' => $k === 'mvp' ? 'Congratulazioni, sei l\'MVP!' : 'Congratulazioni, miglior difensore!',
+                    'body' => ($k === 'mvp' ? 'Hai vinto l\'MVP della partita' : 'Hai vinto il premio miglior difensore') . ': ti spettano ' . $amount . ' KOIN.',
+                    'url' => 'bets.php', 'tag' => $k . 'win-' . $matchId], 'normal', 'premio');
+            }
+        });
+    }
+}
+
 /** KOIN vinti da un giocatore con gol e assist (premi di tutte le partite). */
 function player_rewards_total(int $playerId, ?int $eco = null): int
 {
     $eco ??= current_eco($playerId);
     return (int) q("SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND eco = ? AND kind = 'premio' AND ref LIKE 'premio-m%'",
+        [$playerId, $eco])->fetchColumn();
+}
+
+/** KOIN vinti da un giocatore come MVP e miglior difensore (premi di tutte le partite). */
+function player_vote_prizes_total(int $playerId, ?int $eco = null): int
+{
+    $eco ??= current_eco($playerId);
+    return (int) q("SELECT COALESCE(SUM(delta), 0) FROM wallet_moves WHERE player_id = ? AND eco = ? AND kind = 'premio' AND (ref LIKE 'premio-mvp-m%' OR ref LIKE 'premio-dif-m%')",
         [$playerId, $eco])->fetchColumn();
 }
 

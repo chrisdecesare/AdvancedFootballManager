@@ -370,7 +370,7 @@ if (is_post()) {
             foreach (match_guests($id) as $g) {
                 guest_remove_from_match((int) $g['id'], $id);   // gli ospiti se ne vanno con la partita (chi ha salvato l'account lo tiene)
             }
-            q('DELETE FROM wallet_moves WHERE ref IN (?, ?, ?)', ['premio-m' . $id, 'premio-cr-m' . $id, 'consolazione-m' . $id]);   // premi per gol e assist e consolazione se ne vanno con la partita
+            q('DELETE FROM wallet_moves WHERE ref IN (?, ?, ?, ?, ?)', ['premio-m' . $id, 'premio-cr-m' . $id, 'consolazione-m' . $id, 'premio-mvp-m' . $id, 'premio-dif-m' . $id]);   // premi per gol, assist, MVP, miglior difensore e consolazione se ne vanno con la partita
             q('DELETE FROM matches WHERE id = ?', [$id]);
             fanta_win_credits_sync($id);   // i crediti fanta della vittoria se ne vanno con la partita
             flash('ok', 'Partita eliminata.');
