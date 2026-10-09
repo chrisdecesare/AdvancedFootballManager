@@ -279,6 +279,12 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   aggiorna pulsanti, selettore dell'over/under e selezioni già messe, con una freccia ▲/▼ quando una quota cambia; le partite ormai chiuse escono
   dalla schedina. Se al momento di puntare la quota è diversa da quella vista, il messaggio lo dice. Le quote mostrate sono quelle con cui si
   punta davvero (senza contare le proprie puntate nella domanda).
+- **Over/under che si muove tutto insieme**: prima la domanda abbassava solo la soglia giocata, e l'over 9,5 molto giocato finiva sotto
+  l'over 8,5 (che è più facile). Ora i KOIN puntati spostano i **gol attesi** della partita, come fanno i bookmaker con la linea: più KOIN
+  sugli over che sugli under li alzano (fino al 25%, `BET_OU_SHIFT`), e con loro cambiano le quote di tutte le soglie, over e under. Ogni
+  puntata pesa per quanto è in bilico la sua soglia (`bet_ou_lean`): tanti KOIN sull'over 20,5 non spostano il mercato. Sulla singola
+  soglia la domanda pesa meno che negli altri mercati (`BET_OU_DEMAND`), e alla fine `bet_ou_monotone` garantisce l'ordine: più è alta la
+  soglia, più paga l'over e meno l'under (se due soglie vicine si invertono, la più facile scende a quella della più difficile).
 - **Ruolo meno pesante**: i gol attesi di partenza per ruolo sono vicini tra loro (portieri volanti: chi è in porta prima o poi tira), i gol
   attesi dei giocatori si avvicinano del 30% alla media della partita (`BET_FLATTEN`) e i tetti delle quote sono più bassi (gol ×15,
   doppietta ×35, tripletta ×75, MVP ×40).
