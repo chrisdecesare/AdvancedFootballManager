@@ -1637,10 +1637,3 @@ tr.is-new td { background: #fffbe6; }
 .av-figure-opt { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: var(--b2); border-radius: 999px; background: var(--white);
   font: 800 .85rem var(--font); cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
 .av-figure-opt.is-on { background: var(--ink); color: var(--yellow); }
-
-/* partita: importa la cronaca (anteprima prima di salvare) */
-.import-table td select { max-width: 100%; }
-.import-errors { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 4px; color: var(--red); font-weight: 800; }
-.import-summary { border: var(--b2); border-radius: 12px; background: var(--paper); padding: 10px 14px; margin: 12px 0; }
-.import-summary p { margin: 0 0 6px; }
-.import-summary ul { margin: 6px 0; padding-left: 18px; columns: 2 220px; }

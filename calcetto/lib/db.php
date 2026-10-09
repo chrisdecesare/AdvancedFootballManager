@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 53;
+const SCHEMA_VERSION = 54;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -903,6 +903,19 @@ function ensure_schema(): void
                 WHERE w.player_id = pi.player_id AND w.ref = CONCAT('buy-', pi.item_key) AND w.shop_only = 1), 0)),
             pi.paid_eco = COALESCE((SELECT MAX(w.eco) FROM wallet_moves w
                 WHERE w.player_id = pi.player_id AND w.ref = CONCAT('buy-', pi.item_key) AND w.shop_only = 0), 0)");
+    }
+    if ($v < 54) {
+        // una tantum: gol e assist della partita dell'8 ottobre 2026 (lib/match_result.php). Una sola richiesta lo fa (chi prenota il
+        // segnaposto in meta); se qualcosa non torna non salva niente e il motivo resta in meta e nel registro delle attività.
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_oct8', 'in corso')")->rowCount()) {
+            try {
+                $msg = match_oneoff_goals_oct8();
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_oct8', mb_substr($msg, 0, 250));
+            log_activity('partita', 'gol e assist 8 ottobre · ' . $msg);
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
