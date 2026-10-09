@@ -22,13 +22,19 @@
  *  - overunder: i gol totali della partita stanno sopra o sotto una soglia scelta da chi punta (es. 8,5), si paga a fine partita.
  *    Il sito dà una quota per ogni soglia possibile e la soglia viene salvata dentro la scelta ("O8.5" / "U8.5");
  *  - autogol: un giocatore fa almeno un autogol, si paga a fine partita (evento raro: quote alte; su se stessi non si punta);
- *  - mvp: chi sarà l'MVP, si paga alla chiusura delle votazioni.
+ *  - assist: un giocatore fa almeno un assist, si paga a fine partita;
+ *  - golassist: un giocatore fa almeno un gol E almeno un assist nella stessa partita, si paga a fine partita;
+ *  - over35: un giocatore segna più di 3,5 gol, cioè almeno 4 (evento rarissimo: quote altissime), si paga a fine partita;
+ *  - mvp: chi sarà l'MVP, si paga alla chiusura delle votazioni;
+ *  - difensore: chi vincerà il premio «Miglior difensore» votato dai giocatori insieme all'MVP (MATCH_AWARDS in lib/stats.php), si paga
+ *    alla chiusura delle votazioni; non si punta sui portieri fissi, che hanno il loro premio.
  */
 
 const BET_START = 100;       // KOIN di benvenuto
 const BET_DOLE_BELOW = 20;   // chi scende sotto questa cifra (e non ha puntate in corso)...
 const BET_DOLE = 30;         // ...riceve il "sussidio" (una volta a settimana)
-const BET_MARGIN = ['esito' => 0.06, 'gol' => 0.12, 'doppietta' => 0.15, 'tripletta' => 0.18, 'autogol' => 0.20, 'overunder' => 0.06, 'mvp' => 0.15];   // margine del banco (overround) per mercato, come nei bookmaker veri
+const BET_MARGIN = ['esito' => 0.06, 'gol' => 0.12, 'doppietta' => 0.15, 'tripletta' => 0.18, 'autogol' => 0.20, 'overunder' => 0.06, 'mvp' => 0.15,
+                    'assist' => 0.12, 'golassist' => 0.18, 'over35' => 0.20, 'difensore' => 0.15];   // margine del banco (overround) per mercato, come nei bookmaker veri
 const BET_RATING_K = 0.25;       // quanto pesa la differenza di rating tra le squadre sui gol attesi
 const BET_FORM = ['hot' => 1.12, 'ok' => 1.0, 'cold' => 0.88, 'none' => 1.0];   // effetto dello stato di forma (ultime 5 partite) su gol attesi e MVP
 const BET_DRAW_BOOST = 1.15;     // i pareggi sono più frequenti di quanto dica Poisson puro (correzione tipo Dixon-Coles)
@@ -40,6 +46,9 @@ const BET_DEMAND_FLOOR = 0.55;   // la domanda da sola non può mai abbassare un
 const BET_MIN_ODDS = 1.01;       // nessuna quota scende mai sotto ×1,01: chi indovina deve sempre guadagnare almeno qualcosa
 const BET_FLATTEN = 0.3;         // quanto i gol attesi dei giocatori vengono avvicinati alla media della partita (0 = niente, 1 = tutti uguali):
                                  // a calcetto (portieri volanti) tutti prima o poi tirano, le differenze non devono essere estreme
+const BET_DEF_ROLE = ['POR' => 0.5, 'DIF' => 2.5, 'CEN' => 1.0, 'ATT' => 0.5, 'JOL' => 1.0];   // quanto pesa il ruolo preferito sul premio miglior difensore
+const BET_ASSIST_PRIOR = 0.6;        // assist per gol finché il gruppo ne ha visti pochi (a calcetto non ogni gol ha l'assist)...
+const BET_ASSIST_PRIOR_GOALS = 10;   // ...pesano come tanti gol
 const BET_REWARD_GOAL = 25;      // KOIN a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
 const BET_REWARD_ASSIST = 10;    // e per ogni assist
 const SHOP_CREDIT_GOAL = 100;    // crediti dell'Avatar (solo negozio, non per scommettere) a chi segna, per ogni gol...
@@ -61,20 +70,28 @@ function bet_markets(): array
         'tripletta' => ['label' => 'Chi fa tripletta?', 'icon' => 'square-number-3', 'when' => 'segna almeno 3 gol'],
         'autogol' => ['label' => 'Chi fa autogol?', 'icon' => 'mood-sad', 'when' => 'fa almeno un autogol'],
         'overunder' => ['label' => 'Over/Under', 'icon' => 'arrows-up-down', 'when' => 'gol totali della partita'],
+        'assist' => ['label' => 'Chi fa assist?', 'icon' => 'hand-finger', 'when' => 'fa almeno un assist'],
+        'golassist' => ['label' => 'Chi fa gol + assist?', 'icon' => 'target-arrow', 'when' => 'segna e fa assist nella stessa partita'],
+        'over35' => ['label' => 'Chi fa over 3,5 gol?', 'icon' => 'flame', 'when' => 'segna più di 3,5 gol (almeno 4)'],
         'mvp' => ['label' => 'Chi sarà l\'MVP?', 'icon' => 'star', 'when' => 'alla chiusura dei voti'],
+        'difensore' => ['label' => 'Miglior difensore?', 'icon' => 'shield', 'when' => 'premio votato, alla chiusura dei voti'],
     ];
 }
 
 /** Mercati in cui si punta su un giocatore (le scelte sono id di giocatori). */
-const BET_PLAYER_MARKETS = ['gol', 'doppietta', 'tripletta', 'autogol', 'mvp'];
+const BET_PLAYER_MARKETS = ['gol', 'doppietta', 'tripletta', 'over35', 'assist', 'golassist', 'autogol', 'mvp', 'difensore'];
 /** Mercati sui gol di un giocatore: stesso giocatore in due di questi nella stessa multipla non si può (uno implica l'altro). */
-const BET_SCORER_MARKETS = ['gol', 'doppietta', 'tripletta'];
+const BET_SCORER_MARKETS = ['gol', 'doppietta', 'tripletta', 'over35', 'golassist'];
+/** Mercati sugli assist di un giocatore: idem («gol + assist» comprende «assist»). */
+const BET_ASSISTER_MARKETS = ['assist', 'golassist'];
 const BET_OU_MIN_LINES = 25;   // over/under: soglie proposte almeno da 0,5 a 25,5 gol (di più se la partita promette tanti gol)
 const BET_OU_PLAYERS_W = 0.7;  // quanto pesa "chi gioca" sui gol attesi totali (0 = solo media del gruppo, 1 = pieno)
 const BET_OU_FULL_ROSTER = 10; // con almeno tanti giocatori in lista quel peso vale in pieno, con meno scala (la lista è ancora incompleta)
 
-/** Mercati che si pagano col risultato (gli altri, cioè l'MVP, alla chiusura dei voti). */
-const BET_RESULT_MARKETS = ['esito', 'gol', 'doppietta', 'tripletta', 'autogol', 'overunder'];
+/** Mercati che si pagano col risultato (gli altri, cioè MVP e miglior difensore, alla chiusura dei voti). */
+const BET_RESULT_MARKETS = ['esito', 'gol', 'doppietta', 'tripletta', 'over35', 'assist', 'golassist', 'autogol', 'overunder'];
+/** Mercati che si pagano alla chiusura delle votazioni. */
+const BET_VOTE_MARKETS = ['mvp', 'difensore'];
 
 /** Scelta dell'over/under: "O8.5" / "U8.5" => ['O', 8.5], null se non valida. */
 function bet_ou_parse(string $pick): ?array
@@ -373,7 +390,7 @@ function bet_poisson_1x2(float $la, float $lb): array
 }
 
 /**
- * Quote di una partita: ['esito' => [A, X, B], 'gol' / 'doppietta' / 'tripletta' / 'autogol' / 'mvp' => [id giocatore],
+ * Quote di una partita: ['esito' => [A, X, B], 'gol' / 'doppietta' / 'tripletta' / 'over35' / 'assist' / 'golassist' / 'autogol' / 'mvp' / 'difensore' => [id giocatore],
  * 'overunder' => ["O8.5", "U8.5"]] => quota decimale.
  *
  *  - esito: dalla differenza di rating medio delle due squadre (se non sono ancora fatte, partita in equilibrio) si ricavano i gol
@@ -420,7 +437,10 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         'A' => bet_odds($pw, 'esito', 1.05, 30),
         'X' => bet_odds($pd, 'esito', 1.05, 30),
         'B' => bet_odds($pl, 'esito', 1.05, 30),
-    ], 'gol' => [], 'doppietta' => [], 'tripletta' => [], 'autogol' => [], 'overunder' => [], 'mvp' => []];
+    ], 'gol' => [], 'doppietta' => [], 'tripletta' => [], 'over35' => [], 'assist' => [], 'golassist' => [], 'autogol' => [],
+        'overunder' => [], 'mvp' => [], 'difensore' => []];
+    // miglior difensore: si vota tra tutti tranne gli ospiti e, con i portieri fissi, i portieri (che hanno il loro premio)
+    $keepers = array_flip(match_award_options($match, $roster)['por']);
 
 
     // gol e MVP
@@ -428,7 +448,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
     $den = 0.0;
     foreach ($betRoster as $r) {
         $pid = (int) $r['player_id'];
-        $s = $stats[$pid] ?? ['apps' => 0, 'goals' => 0, 'mvp' => 0, 'avg_vote' => null, 'last5' => [], 'goals_last5' => 0, 'avg_vote_last5' => null, 'form' => 'none'];
+        $s = $stats[$pid] ?? ['apps' => 0, 'goals' => 0, 'assists' => 0, 'mvp' => 0, 'avg_vote' => null, 'last5' => [], 'goals_last5' => 0, 'avg_vote_last5' => null, 'form' => 'none'];
         $here = $r['availability'] === 'confermato' ? 1.0 : 0.7;
         // gol a partita: media stagionale "stabilizzata" (chi ha giocato poco si avvicina al valore del suo ruolo), mescolata al rendimento
         // delle ultime 5 partite (tirato verso la media stagionale) e corretta dallo stato di forma. Chi segna spesso ed è in forma ha
@@ -436,7 +456,7 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $season = ($s['goals'] + bet_goal_prior($r['position'], match_keepers($match)) * 3) / ($s['apps'] + 3);
         $recent = ($s['goals_last5'] + $season * 2) / (count($s['last5']) + 2);
         $w = (0.65 * $season + 0.35 * $recent) * BET_FORM[$s['form'] ?? 'none'];
-        $rows[$pid] = ['s' => $s, 'here' => $here, 'w' => $w, 'team' => in_array($r['team'], ['A', 'B'], true) ? $r['team'] : null];
+        $rows[$pid] = ['s' => $s, 'pos' => $r['position'], 'here' => $here, 'w' => $w, 'team' => in_array($r['team'], ['A', 'B'], true) ? $r['team'] : null];
     }
     // differenze attenuate: ognuno si avvicina un po' alla media della partita (nessuno a quote assurde solo per il ruolo o
     // per qualche partita storta)
@@ -446,11 +466,12 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $den += $x['here'] * $rows[$pid]['w'];
     }
     // over/under: gol attesi totali, poi una quota over e una under per ogni soglia
-    $apps = $goals = $ownGoals = 0;
+    $apps = $goals = $ownGoals = $assistsAll = 0;
     foreach ($stats as $st) {
         $apps += (int) ($st['apps'] ?? 0);
         $goals += (int) ($st['goals'] ?? 0);
         $ownGoals += (int) ($st['own_goals'] ?? 0);
+        $assistsAll += (int) ($st['assists'] ?? 0);
     }
     // autogol per giocatore e partita nel gruppo (con un valore di partenza finché sono pochi)
     $ogGroup = ($ownGoals + BET_OG_PRIOR * BET_OG_PRIOR_APPS) / ($apps + BET_OG_PRIOR_APPS);
@@ -481,14 +502,34 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $out['overunder'][bet_ou_pick('U', $k + 0.5)] = bet_odds(1 - $pOver, 'overunder', 1.02, 50);
     }
 
+    // assist: solo una parte dei gol ha l'assist (quota ricavata dal gruppo, con un valore di partenza finché i dati sono pochi) e gli
+    // assist attesi della partita si ripartiscono come i gol: chi ne fa spesso pesa di più, con le differenze attenuate come per i gol
+    $assistShare = max(0.2, min(0.9, ($assistsAll + BET_ASSIST_PRIOR * BET_ASSIST_PRIOR_GOALS) / ($goals + BET_ASSIST_PRIOR_GOALS)));
+    $aGroup = $assistShare * ($apps > 0 ? max(0.2, $goals / $apps) : 0.5);   // assist a presenza del giocatore medio
+    foreach ($rows as $pid => $x) {
+        $rows[$pid]['wa'] = ($x['s']['assists'] + $aGroup * 3) / ($x['s']['apps'] + 3);
+    }
+    $avgWa = $rows ? array_sum(array_column($rows, 'wa')) / count($rows) : 0.0;
+    $denA = 0.0;
+    foreach ($rows as $pid => $x) {
+        $rows[$pid]['wa'] = (1 - BET_FLATTEN) * $x['wa'] + BET_FLATTEN * $avgWa;
+        $denA += $x['here'] * $rows[$pid]['wa'];
+    }
+
     $mvpW = [];
+    $defW = [];
     foreach ($rows as $pid => $x) {
         // gol attesi del giocatore: quota dei 2*mu gol della partita, aggiustata dalla forza della sua squadra
         $goals = $den > 0 ? $x['here'] * 2 * $mu * $x['w'] / $den * ($x['team'] ? $lam[$x['team']] / $mu : 1.0) : 0.0;
+        $assists = $denA > 0 ? $x['here'] * $assistShare * 2 * $mu * $x['wa'] / $denA * ($x['team'] ? $lam[$x['team']] / $mu : 1.0) : 0.0;
         // tetti più bassi di prima (erano 50 / 100 / 200): una quota da 200 su un giocatore che comunque tira non ha senso
         $out['gol'][$pid] = bet_odds(1 - exp(-$goals), 'gol', 1.05, 15);
         $out['doppietta'][$pid] = bet_odds(bet_poisson_at_least($goals, 2), 'doppietta', 1.20, 35);
         $out['tripletta'][$pid] = bet_odds(bet_poisson_at_least($goals, 3), 'tripletta', 1.50, 75);
+        $out['over35'][$pid] = bet_odds(bet_poisson_at_least($goals, 4), 'over35', 2.50, 150);   // almeno 4 gol: rarissimo
+        $out['assist'][$pid] = bet_odds(1 - exp(-$assists), 'assist', 1.10, 20);
+        // gol + assist: i due eventi si trattano come indipendenti (probabilità di uno per probabilità dell'altro)
+        $out['golassist'][$pid] = bet_odds((1 - exp(-$goals)) * (1 - exp(-$assists)), 'golassist', 1.50, 60);
         // autogol: storico del giocatore mescolato alla media del gruppo (pesa quanto BET_OG_OWN_APPS presenze)
         $ogRate = (((int) ($x['s']['own_goals'] ?? 0)) + $ogGroup * BET_OG_OWN_APPS) / ((int) ($x['s']['apps'] ?? 0) + BET_OG_OWN_APPS);
         $out['autogol'][$pid] = bet_odds(1 - exp(-$ogRate * $x['here']), 'autogol', 2.00, 40);
@@ -498,10 +539,20 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         $vote = ($v5 !== null && $v > 0) ? 0.5 * $v + 0.5 * (float) $v5 : $v;   // media voto: metà stagione, metà ultime partite
         $form = exp(0.4 * ($vote > 0 ? $vote - 6 : 0)) * BET_FORM[$x['s']['form'] ?? 'none'];
         $mvpW[$pid] = $rate * $form * (1 + $goals) * (0.6 + 0.8 * ($x['team'] ? $winish[$x['team']] : 0.5)) * ($x['here'] >= 1 ? 1.0 : 0.6);
+        if (!isset($keepers[$pid])) {   // voti e forma contano, i gol no; il ruolo pesa molto (i difensori ricevono più voti per il premio)
+            $defW[$pid] = $form * BET_DEF_ROLE[position_abbr((string) $x['pos'])] * (0.6 + 0.8 * ($x['team'] ? $winish[$x['team']] : 0.5)) * ($x['here'] >= 1 ? 1.0 : 0.6);
+        }
     }
     $tot = array_sum($mvpW);
     foreach ($mvpW as $pid => $x) {
         $out['mvp'][$pid] = bet_odds($x / $tot, 'mvp', 1.10, 40);
+    }
+    // con un solo candidato non c'è nulla da scommettere: il mercato compare da due in su
+    if (count($defW) >= 2) {
+        $totD = array_sum($defW);
+        foreach ($defW as $pid => $x) {
+            $out['difensore'][$pid] = bet_odds($x / $totD, 'difensore', 1.10, 40);
+        }
     }
 
     // il banco si protegge: la quota di ogni scelta scende un po' per ogni KOIN già puntato su di lei in questa partita
@@ -739,6 +790,45 @@ function bet_cancel(array $match, int $playerId, string $market, string $pick): 
     return null;
 }
 
+/**
+ * Chi amministra la lega cambia l'importo di una puntata singola ancora aperta: la quota presa resta quella, cambia solo quanto si
+ * gioca (e quindi la vincita). Il portafoglio segue: la mossa della puntata viene riscritta, e i KOIN in più devono esserci.
+ * Ritorna il messaggio d'errore oppure null se è andata.
+ */
+function bet_admin_set_stake(int $betId, int $stake): ?string
+{
+    if ($stake < 1) {
+        return 'L\'importo deve essere almeno 1 KOIN.';
+    }
+    try {
+        return bet_atomic(function () use ($betId, $stake) {
+            $b = q("SELECT * FROM bets WHERE id = ? AND status = 'aperta' FOR UPDATE", [$betId])->fetch();
+            $match = $b ? get_match((int) $b['match_id']) : null;
+            if (!$b || !$match) {
+                return 'Puntata non trovata o già decisa.';
+            }
+            if (!can_admin_group((int) $match['group_id'])) {
+                return 'Non puoi modificare le puntate di questa lega.';
+            }
+            if ($match['status'] !== 'programmata') {
+                return 'La partita è già chiusa: la puntata non si può più modificare.';
+            }
+            q('SELECT id FROM players WHERE id = ? FOR UPDATE', [(int) $b['player_id']]);
+            $eco = (int) $b['eco'];
+            $available = wallet_balance((int) $b['player_id'], $eco) + (int) $b['stake'];   // i KOIN già puntati tornano disponibili
+            if ($stake > $available) {
+                return 'Al giocatore restano solo ' . $available . ' KOIN per questa puntata.';
+            }
+            q('UPDATE bets SET stake = ? WHERE id = ?', [$stake, $betId]);
+            q("UPDATE wallet_moves SET delta = ? WHERE bet_id = ? AND kind = 'puntata'", [-$stake, $betId]);
+            return null;
+        });
+    } catch (PDOException $e) {
+        error_log('bet_admin_set_stake: ' . $e->getMessage());
+        return 'Modifica non riuscita: riprova.';
+    }
+}
+
 /* ---------------------------------------------------------------- pagare */
 
 /**
@@ -761,9 +851,22 @@ function bet_winning_picks(array $match, string $market): array|false|null
     if ($market === 'autogol') {
         return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND own_goals >= 1', [$id])->fetchAll(PDO::FETCH_COLUMN));
     }
-    $minGoals = ['gol' => 1, 'doppietta' => 2, 'tripletta' => 3][$market] ?? null;
+    $minGoals = ['gol' => 1, 'doppietta' => 2, 'tripletta' => 3, 'over35' => 4][$market] ?? null;
     if ($minGoals) {
         return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND goals >= ?', [$id, $minGoals])->fetchAll(PDO::FETCH_COLUMN));
+    }
+    if ($market === 'assist') {
+        return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND assists >= 1', [$id])->fetchAll(PDO::FETCH_COLUMN));
+    }
+    if ($market === 'golassist') {
+        return array_map('strval', q('SELECT player_id FROM match_players WHERE match_id = ? AND goals >= 1 AND assists >= 1', [$id])->fetchAll(PDO::FETCH_COLUMN));
+    }
+    if ($market === 'difensore') {
+        if ($match['voting_open']) {
+            return null;   // si decide alla chiusura delle votazioni, come l'MVP
+        }
+        $winner = match_award_winners($id)['dif'] ?? null;
+        return $winner ? [(string) $winner] : false;   // nessuno ha votato il premio: puntate annullate
     }
     if ($market === 'overunder') {
         if ($match['score_a'] === null || $match['score_b'] === null) {
@@ -788,7 +891,7 @@ function bet_winning_picks(array $match, string $market): array|false|null
 }
 
 /** Paga le puntate ancora aperte dei mercati indicati (quelli già decisi restano com'è). Si può richiamare senza danni. */
-function bets_settle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'mvp']): void
+function bets_settle(int $matchId, array $markets = [...BET_RESULT_MARKETS, ...BET_VOTE_MARKETS]): void
 {
     $match = get_match($matchId);
     if (!$match) {
@@ -830,16 +933,16 @@ function bets_settle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'mvp
 function bets_settle_pending(): void
 {
     $ids = q("SELECT DISTINCT b.match_id FROM bets b JOIN matches m ON m.id = b.match_id
-              WHERE b.status = 'aperta' AND m.status = 'giocata' AND (m.voting_open = 0 OR b.market <> 'mvp')")->fetchAll(PDO::FETCH_COLUMN);
+              WHERE b.status = 'aperta' AND m.status = 'giocata' AND (m.voting_open = 0 OR b.market NOT IN ('" . implode("','", BET_VOTE_MARKETS) . "'))")->fetchAll(PDO::FETCH_COLUMN);
     $ids2 = q("SELECT DISTINCT cl.match_id FROM combo_legs cl JOIN combo_bets cb ON cb.id = cl.combo_id JOIN matches m ON m.id = cl.match_id
-               WHERE cl.status = 'aperta' AND cb.status = 'aperta' AND m.status = 'giocata' AND (m.voting_open = 0 OR cl.market <> 'mvp')")->fetchAll(PDO::FETCH_COLUMN);
+               WHERE cl.status = 'aperta' AND cb.status = 'aperta' AND m.status = 'giocata' AND (m.voting_open = 0 OR cl.market NOT IN ('" . implode("','", BET_VOTE_MARKETS) . "'))")->fetchAll(PDO::FETCH_COLUMN);
     foreach (array_unique(array_merge($ids, $ids2)) as $id) {
         bets_settle((int) $id);
     }
 }
 
 /** Annulla i pagamenti dei mercati indicati (le puntate tornano aperte): serve se la partita o i voti vengono riaperti. */
-function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'mvp']): void
+function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, ...BET_VOTE_MARKETS]): void
 {
     $in = implode(',', array_fill(0, count($markets), '?'));
     bet_atomic(function () use ($matchId, $markets, $in) {
@@ -866,7 +969,7 @@ function bets_unsettle(int $matchId, array $markets = [...BET_RESULT_MARKETS, 'm
  */
 function bets_void_match(int $matchId): void
 {
-    $markets = [...BET_RESULT_MARKETS, 'mvp'];
+    $markets = [...BET_RESULT_MARKETS, ...BET_VOTE_MARKETS];
     bet_atomic(function () use ($matchId, $markets) {
         bets_unsettle($matchId, $markets);
         foreach (q("SELECT * FROM bets WHERE match_id = ? AND status = 'aperta' FOR UPDATE", [$matchId])->fetchAll() as $b) {
@@ -1079,20 +1182,25 @@ function combo_prepare(array $raw, int $playerId): array
         if ($market === 'autogol') {
             // più giocatori diversi sì (gli autogol sono eventi indipendenti), e lo stesso giocatore può stare anche in «segna»:
             // fare gol e fare autogol non si comprendono a vicenda. La stessa scelta due volte l'ha già scartata il controllo sopra.
-        } elseif (!in_array($market, BET_SCORER_MARKETS, true)) {
+        } elseif (!in_array($market, BET_SCORER_MARKETS, true) && !in_array($market, BET_ASSISTER_MARKETS, true)) {
             $excl = $matchId . '|' . $market;
             if (isset($seen[$excl])) {
                 return [null, 'Nella multipla puoi mettere una sola scelta di «' . bet_markets()[$market]['label'] . '» per partita: si escludono a vicenda. Due marcatori invece sì.'];
             }
             $seen[$excl] = true;
         } else {
-            // stesso giocatore su «segna», «doppietta» e «tripletta» nella stessa multipla no: una implica l'altra (la tripletta
-            // basterebbe da sola), moltiplicarne le quote sarebbe pagare due volte lo stesso evento
-            $scorer = $matchId . '|scorer|' . $pick;
-            if (isset($seen[$scorer])) {
-                return [null, 'Nella multipla lo stesso giocatore può stare in uno solo tra «segna», «doppietta» e «tripletta»: una comprende l\'altra.'];
+            // stesso giocatore su «segna», «doppietta», «tripletta», «over 3,5» e «gol + assist» nella stessa multipla no: una implica
+            // l'altra (la tripletta basterebbe da sola), moltiplicarne le quote sarebbe pagare due volte lo stesso evento. Idem «assist»
+            // con «gol + assist». «Gol + assist» le comprende entrambe, quindi occupa tutte e due le caselle.
+            $kinds = array_merge(in_array($market, BET_SCORER_MARKETS, true) ? ['scorer'] : [], in_array($market, BET_ASSISTER_MARKETS, true) ? ['assister'] : []);
+            foreach ($kinds as $kind) {
+                if (isset($seen[$matchId . '|' . $kind . '|' . $pick])) {
+                    return [null, 'Nella multipla lo stesso giocatore non può stare in due scelte che si comprendono («segna», «doppietta», «tripletta», «over 3,5», «assist», «gol + assist»): togline una.'];
+                }
             }
-            $seen[$scorer] = true;
+            foreach ($kinds as $kind) {
+                $seen[$matchId . '|' . $kind . '|' . $pick] = true;
+            }
         }
         if ($market === 'esito') {
             if (!in_array($pick, ['A', 'X', 'B'], true)) {

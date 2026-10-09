@@ -273,7 +273,7 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
 
 
 **Regole aggiunte:**
-- **Niente scommesse su se stessi** nei mercati sui giocatori (chi segna, doppietta, tripletta, autogol, MVP): i pulsanti non compaiono e il server
+- **Niente scommesse su se stessi** nei mercati sui giocatori (chi segna, doppietta, tripletta, over 3,5, assist, gol + assist, autogol, MVP, miglior difensore): i pulsanti non compaiono e il server
   le rifiuta, anche dentro una multipla.
 - **Quote dal vivo nella schedina**: mentre la pagina è aperta la schedina chiede al server le quote ogni 20 secondi (`bets.php?quote=1`) e
   aggiorna pulsanti, selettore dell'over/under e selezioni già messe, con una freccia ▲/▼ quando una quota cambia; le partite ormai chiuse escono
@@ -286,8 +286,15 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   È un evento raro, quindi le quote sono alte (tra ×2 e ×40, margine del 20%): il tasso di ogni giocatore (autogol a presenza) è tirato forte verso quello di
   tutto il gruppo (`BET_OG_PRIOR`, `BET_OG_PRIOR_APPS`, `BET_OG_OWN_APPS` in `lib/bets.php`). Nella multipla si possono mettere più giocatori, e lo stesso
   giocatore può stare anche in «segna»: fare gol e fare autogol non si comprendono a vicenda.
+- **Mercati «Chi fa assist?», «Chi fa gol + assist?», «Chi fa over 3,5 gol?» e «Miglior difensore?»** (`assist`, `golassist`, `over35`, `difensore`):
+  - `assist`: il giocatore fa almeno un assist. Gli assist attesi della partita sono una quota dei gol (`BET_ASSIST_PRIOR`, poi i dati del gruppo) e si ripartiscono come i gol, con le stesse differenze attenuate.
+  - `golassist`: almeno un gol **e** almeno un assist nella stessa partita; la probabilità è quella del gol per quella dell'assist (come nel sito di riferimento della lega).
+  - `over35`: il giocatore segna più di 3,5 gol, cioè almeno 4. Quote altissime (da ×2,5 a ×150, margine del 20%).
+  - `difensore`: si punta su chi vincerà il premio «Miglior difensore» votato dai giocatori insieme all'MVP (`MATCH_AWARDS`, `award_votes`): vale lo stesso vincitore che compare nella partita (più voti, a parità la media voto più alta). Si paga alla chiusura delle votazioni come l'MVP (`BET_VOTE_MARKETS`); se nessuno ha votato il premio, rimborso. Candidati: tutti tranne gli ospiti e, con i portieri fissi, i portieri; il ruolo preferito pesa sulle quote (`BET_DEF_ROLE`). Il mercato compare con almeno due candidati.
+  - Nella multipla lo stesso giocatore non può stare in due scelte che si comprendono: «segna», «doppietta», «tripletta», «over 3,5» e «gol + assist» tra loro; «assist» e «gol + assist» tra loro. «Miglior difensore» ha una sola scelta per partita, come l'MVP.
+- **Importo modificabile dall'admin**: chi amministra la lega vede, sotto ogni mercato, `Admin: cambia l'importo di una puntata`: cambia solo quanto si gioca (la quota presa resta), il portafoglio si aggiorna (`bet_admin_set_stake`). Solo per puntate singole aperte di partite non ancora giocate.
 - **Chi si ritira porta via le sue scommesse** (`bets_void_for_player`): quando un giocatore si segna «Non ci sono» (da sé, o lo fa chi gestisce la partita),
-  le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, autogol, MVP) vengono cancellate e i KOIN tornano; nelle
+  le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, over 3,5, assist, gol + assist, autogol, MVP, miglior difensore) vengono cancellate e i KOIN tornano; nelle
   multiple si toglie **solo quella selezione**, la multipla resta con le altre e la quota si ricalcola (se non ne restano, sparisce e i KOIN tornano).
   Chi vince, over/under e le scommesse sugli altri giocatori non si toccano.
 - **Premi per gol e assist**: 25 KOIN per ogni gol e 10 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`) a chi li ha fatti, appena

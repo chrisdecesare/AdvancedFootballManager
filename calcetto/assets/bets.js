@@ -128,22 +128,27 @@
 
     multiOddsOut.textContent = '×' + (cart.length ? multiOdds.toFixed(2) : '0');
     multiLegsBox.appendChild(hidden('seen_combo', multiOdds.toFixed(2)));
-    // «chi vince», «over/under» e «MVP»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori invece
-    // si sommano, ma lo stesso giocatore su «segna», «doppietta» e «tripletta» no (una comprende l'altra). Stesse regole del server.
-    const SCORER = ['gol', 'doppietta', 'tripletta'];
+    // «chi vince», «over/under», «MVP» e «miglior difensore»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori
+    // invece si sommano, ma lo stesso giocatore in due scelte che si comprendono («segna», «doppietta», «tripletta», «over 3,5», «assist»,
+    // «gol + assist») no. Stesse regole del server.
+    const SCORER = ['gol', 'doppietta', 'tripletta', 'over35', 'golassist'];
+    const ASSISTER = ['assist', 'golassist'];
     const seen = {};
     let clash = null;
     cart.forEach(l => {
       if (l.market === 'autogol') return;   // più giocatori sì, e anche chi segna può fare autogol: eventi indipendenti
-      const scorer = SCORER.includes(l.market);
-      const k = l.matchId + '|' + (scorer ? 'scorer|' + l.pick : l.market);
-      if (seen[k] && !clash) clash = scorer ? 'scorer' : 'excl';
-      seen[k] = true;
+      const keys = [];
+      if (SCORER.includes(l.market)) keys.push(l.matchId + '|scorer|' + l.pick);
+      if (ASSISTER.includes(l.market)) keys.push(l.matchId + '|assister|' + l.pick);
+      const player = keys.length > 0;
+      if (!player) keys.push(l.matchId + '|' + l.market);
+      if (keys.some(k => seen[k]) && !clash) clash = player ? 'scorer' : 'excl';
+      keys.forEach(k => { seen[k] = true; });
     });
     const multiWarn = document.getElementById('slip-multi-warn');
     multiWarn.hidden = !clash;
-    multiWarn.textContent = clash === 'excl' ? 'Due scelte di «chi vince», «over/under» o «MVP» della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).'
-      : clash === 'scorer' ? 'Lo stesso giocatore può stare in uno solo tra «segna», «doppietta» e «tripletta» nella multipla (una comprende l\'altra): togline uno (restano valide come singole).' : '';
+    multiWarn.textContent = clash === 'excl' ? 'Due scelte di «chi vince», «over/under», «MVP» o «miglior difensore» della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).'
+      : clash === 'scorer' ? 'Lo stesso giocatore non può stare in due scelte che si comprendono («segna», «doppietta», «tripletta», «over 3,5», «assist», «gol + assist») nella multipla: togline una (restano valide come singole).' : '';
     document.getElementById('slip-multi-submit').disabled = clash || cart.length < 2;
     singlesSubmit.disabled = cart.length === 0;
     tabMulti.disabled = cart.length < 2;
