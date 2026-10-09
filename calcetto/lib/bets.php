@@ -49,8 +49,8 @@ const BET_FLATTEN = 0.3;         // quanto i gol attesi dei giocatori vengono av
 const BET_DEF_ROLE = ['POR' => 0.5, 'DIF' => 2.5, 'CEN' => 1.0, 'ATT' => 0.5, 'JOL' => 1.0];   // quanto pesa il ruolo preferito sul premio miglior difensore
 const BET_ASSIST_PRIOR = 0.6;        // assist per gol finché il gruppo ne ha visti pochi (a calcetto non ogni gol ha l'assist)...
 const BET_ASSIST_PRIOR_GOALS = 10;   // ...pesano come tanti gol
-const BET_REWARD_GOAL = 25;      // KOIN a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
-const BET_REWARD_ASSIST = 10;    // e per ogni assist
+const BET_REWARD_GOAL = 100;     // KOIN a chi segna, per ogni gol (fuori dalle scommesse: premio per la partita)
+const BET_REWARD_ASSIST = 50;    // e per ogni assist (stessi importi dei crediti dell'Avatar qui sotto)
 const SHOP_CREDIT_GOAL = 100;    // crediti dell'Avatar (solo negozio, non per scommettere) a chi segna, per ogni gol...
 const SHOP_CREDIT_ASSIST = 50;   // ...e per ogni assist, in più dei KOIN
 const BET_CONSOLATION = 100;     // KOIN di consolazione a chi ha perso tutte le puntate su una partita (bets_consolation_sync)
