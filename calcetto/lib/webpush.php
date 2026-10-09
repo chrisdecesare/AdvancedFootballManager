@@ -691,6 +691,31 @@ function push_notify_goal(int $matchId, string $scorer, ?string $assist, bool $o
     });
 }
 
+/**
+ * Infortunio: lo sanno i compagni di lega (tolti l'infortunato e chi l'ha segnato). $matchId = infortunio segnato in partita
+ * (cronaca, lib/live.php), null = segnato infortunato dal profilo (player_edit.php). $groupIds = leghe a cui dirlo.
+ */
+function push_notify_injury(int $playerId, array $groupIds, string $note = '', ?int $matchId = null, ?int $exceptUser = null): void
+{
+    push_defer(function () use ($playerId, $groupIds, $note, $matchId, $exceptUser) {
+        $p = get_player($playerId);
+        $groupIds = array_values(array_filter(array_map('intval', $groupIds)));
+        if (!$p || !$groupIds) {
+            return;
+        }
+        $pids = q('SELECT DISTINCT p.id FROM players p JOIN player_groups pg ON pg.player_id = p.id
+                   WHERE pg.group_id IN (' . implode(',', $groupIds) . ') AND p.is_guest = 0 AND p.active = 1 AND p.id <> ?', [$playerId])->fetchAll(PDO::FETCH_COLUMN);
+        $users = array_filter(push_users_of_players($pids), fn($uid) => $uid !== $exceptUser);
+        $first = explode(' ', (string) $p['name'])[0];
+        push_notify_users(array_values($users), [
+            'title' => 'Infortunio: ' . $p['name'],
+            'body' => ($matchId ? $p['name'] . ' si è fatto male in partita' : $p['name'] . ' è ai box e salterà le prossime partite')
+                . ($note !== '' ? ' (' . $note . ')' : '') . '. Forza ' . $first . ', rimettiti presto!',
+            'url' => $matchId ? 'match.php?id=' . $matchId . '#diretta' : 'player.php?id=' . $playerId, 'tag' => 'injury-' . $playerId,
+        ], 'normal', 'infortunio');
+    });
+}
+
 /** Partita appena creata a meno di BET_OPEN_HOURS dall'inizio: le scommesse sono già aperte, l'avviso parte subito. */
 function push_notify_bets_open_now(int $matchId): void
 {
@@ -1068,7 +1093,7 @@ function push_run_reminders(): int
  */
 function push_run_due(): int
 {
-    return push_run_reminders() + push_run_bets();
+    return push_run_reminders() + push_run_bets() + gazzetta_push_due();   // il mercoledì anche la Gazzetta (lib/gazzetta.php)
 }
 
 /** Fa partire push_run_due() al massimo una volta ogni 10 minuti (chi arriva per primo, dopo aver ricevuto la pagina). */

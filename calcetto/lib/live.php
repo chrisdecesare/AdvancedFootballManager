@@ -156,6 +156,7 @@ function live_add_injury(array $m, int $playerId, string $note, int $actorUser):
     } else {
         q("INSERT INTO match_events (match_id, kind, team, player_id, note, created_by) VALUES (?, 'infortunio', ?, ?, ?, ?)",
             [$id, $team, $playerId, $note !== '' ? $note : null, $actorUser]);
+        push_notify_injury($playerId, [(int) $m['group_id']], $note, $id, $actorUser);   // lo sanno i compagni di lega
     }
     return null;
 }

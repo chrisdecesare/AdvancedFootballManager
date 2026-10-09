@@ -56,6 +56,8 @@ $mustVote = $last && $last['voting_open'] && $iPlayedLast &&
     !q('SELECT 1 FROM mvp_votes WHERE match_id = ? AND voter_id = ?', [$last['id'], $me])->fetch();
 
 $facts = curiosities_for_home();
+$gzGroup = is_guest() ? null : gazzetta_group();   // la Gazzetta del mercoledì (lib/gazzetta.php), in basso a destra
+$gz = $gzGroup ? gazzetta($gzGroup) : null;
 
 layout_start('Home', 'home');
 ?>
@@ -163,7 +165,7 @@ layout_start('Home', 'home');
   </section>
 
   <?php if ($last): ?>
-  <section class="card recap">
+  <section class="card recap<?= $gz ? ' recap-tall' : '' ?>">
     <div class="card-head">
       <span class="eyebrow"><i class="ti ti-history"></i> L'ultima partita</span>
       <a class="link" href="match.php?id=<?= (int) $last['id'] ?>">Tabellino <i class="ti ti-arrow-right"></i></a>
@@ -231,6 +233,8 @@ layout_start('Home', 'home');
     <?php if (count($facts) > 1): ?><div class="fact-timer" aria-hidden="true"><span data-fact-bar></span></div><?php endif; ?>
   </section>
   <?php endif; ?>
+
+  <?php if ($gz): ?><?= gazzetta_html($gz) ?><?php endif; ?>
 
 </div>
 <?php

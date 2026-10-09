@@ -330,6 +330,7 @@ CREATE TABLE IF NOT EXISTS wallet_moves (
   shop_only TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = crediti validi solo per il negozio, non per le scommesse
   note VARCHAR(200) NULL,                          -- regalo dell'admin: il messaggio per chi lo riceve
   given_by INT NULL,                               -- regalo dell'admin: l'account che l'ha fatto (massimo 500 KOIN al giorno)
+  peer_id INT NULL,                                -- passaggio tra giocatori: l'altro giocatore (lib/passaggi.php)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ref (player_id, ref),
   INDEX (bet_id),

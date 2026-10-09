@@ -920,6 +920,10 @@ a.fact-who:hover { color: var(--grass-d); }
 .wallet-num .ti { font-size: 2rem; align-self: center; }
 .wallet-num span { font: 800 1rem var(--font); text-shadow: none; }
 .wallet-rules { flex-basis: 100%; margin: 0; }
+.pass-koin { flex-basis: 100%; background: var(--white); border: var(--b2); border-radius: 14px; padding: 8px 12px; }
+.pass-log { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.pass-log .is-pos { color: var(--grass-d); font-weight: 900; }
+.pass-log .is-neg { color: var(--red); font-weight: 900; }
 .bet-match .card-head h2 { font-size: 1.15rem; }
 .bet-markets { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 900px) { .bet-markets { grid-template-columns: 1fr; } }
@@ -1650,3 +1654,44 @@ tr.is-new td { background: #fffbe6; }
 .av-figure-opt { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: var(--b2); border-radius: 999px; background: var(--white);
   font: 800 .85rem var(--font); cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
 .av-figure-opt.is-on { background: var(--ink); color: var(--yellow); }
+
+/* ---------- La Gazzetta del mercoledì (lib/gazzetta.php): in Home in basso a destra, sotto le curiosità ---------- */
+.home > .recap-tall { grid-row: span 2; }
+.home > .recap-tall ~ .gazzetta { grid-column: 2; }
+@media (max-width: 980px) {
+  .home > .recap-tall { grid-row: auto; }
+  .home > .recap-tall ~ .gazzetta { grid-column: auto; }
+}
+.gazzetta { --gz-paper: #ffe1ea; --gz-ink: #3a1d2a; --gz-serif: Georgia, "Times New Roman", Times, serif; background: var(--gz-paper); }
+.gz-mast { display: grid; justify-items: center; text-align: center; gap: 2px; padding-bottom: 8px; border-bottom: 3px double var(--gz-ink); color: var(--gz-ink); }
+.gz-title { font: 900 1.6rem/1.05 var(--gz-serif); letter-spacing: -.5px; text-transform: uppercase; }
+.gz-ed, .gz-sub { font: 700 .72rem var(--font); text-transform: uppercase; letter-spacing: .08em; }
+.gz-sub .link { text-transform: none; letter-spacing: 0; }
+.gazzetta .slider { margin-top: 10px; }
+.gz-slide { justify-items: stretch; text-align: left; align-content: start; gap: 6px; background: var(--white); color: var(--gz-ink); padding: 14px 16px; }
+.gz-kicker { justify-self: start; display: inline-flex; align-items: center; gap: 5px; font: 800 .72rem var(--font); text-transform: uppercase; letter-spacing: .08em;
+  color: var(--white); background: var(--gz-ink); border-radius: 6px; padding: 2px 8px; }
+.gz-infermeria .gz-kicker { background: var(--purple); }
+.gz-mercato .gz-kicker { background: #b8860b; }
+.gz-posti .gz-kicker { background: var(--orange); }
+.gz-formazioni .gz-kicker, .gz-turnover .gz-kicker { background: var(--grass-d); }
+.gz-head { margin: 2px 0 0; font: 900 1.35rem/1.15 var(--gz-serif); }
+.gz-lead { margin: 0; font: italic 600 .9rem/1.4 var(--gz-serif); color: var(--ink-2); border-bottom: 1px solid #e6c6d2; padding-bottom: 6px; }
+.gz-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: .9rem; }
+.gz-items li { padding-left: 12px; border-left: 3px solid #e6c6d2; overflow-wrap: anywhere; }
+.gz-items li span { color: var(--ink-2); font-weight: 600; }
+.gz-items .gz-purple { border-color: var(--purple); }
+.gz-items .gz-purple span { color: var(--purple); font-weight: 800; }
+.gz-items .gz-bad { border-color: var(--red); }
+.gz-items .gz-ok { border-color: var(--grass); }
+.gz-items .gz-warn { border-color: var(--orange); }
+.gz-items .gz-gold { border-color: var(--yellow); }
+.gz-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.gz-team { display: grid; gap: 4px; align-content: start; font-size: .88rem; min-width: 0; }
+.gz-team strong { font-weight: 900; overflow-wrap: anywhere; }
+.gz-team ol { margin: 0; padding-left: 20px; }
+.gz-team .gz-doubt { font-style: italic; opacity: .75; }
+.gz-pair { font-size: .78rem; font-weight: 800; color: var(--grass-d); }
+.gazzetta-page .gz-head { font-size: 1.8rem; }
+.gazzetta-page .gz-title { font-size: 2.2rem; }
+@media (max-width: 420px) { .gz-teams { grid-template-columns: 1fr; } }

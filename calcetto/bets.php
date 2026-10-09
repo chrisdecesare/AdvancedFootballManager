@@ -115,6 +115,29 @@ if (is_post()) {
         redirect('bets.php?t=mie');
     }
 
+    if ($do === 'koin_pass') {   // passa KOIN a un compagno (lib/passaggi.php)
+        $to = (int) ($_POST['to'] ?? 0);
+        $amount = (int) ($_POST['amount'] ?? 0);
+        $note = is_string($_POST['note'] ?? null) ? $_POST['note'] : '';
+        if (!$me) {
+            flash('err', 'Il tuo account non è collegato a un giocatore.');
+        } elseif (mb_strlen(trim($note)) > KOIN_PASS_NOTE_MAX) {
+            flash('err', 'Il messaggio può avere al massimo ' . KOIN_PASS_NOTE_MAX . ' caratteri.');
+        } else {
+            $eco = current_eco($me);
+            $err = koin_pass($me, $to, $amount, $note, $eco);
+            if ($err) {
+                flash('err', $err);
+            } else {
+                $toName = (string) (get_player($to)['name'] ?? '');
+                log_activity('gettoni', 'passaggio · ' . $amount . ' KOIN a ' . $toName);
+                koin_pass_notify($me, $to, $amount, trim($note));
+                flash('ok', 'Passati ' . $amount . ' KOIN a ' . $toName . '. Ora ne hai ' . wallet_balance($me, $eco) . '.');
+            }
+        }
+        redirect('bets.php#passa-koin');
+    }
+
     if ($do === 'bet_stake') {   // chi amministra la lega cambia l'importo di una puntata aperta (la quota resta quella presa)
         $betId = (int) ($_POST['bet_id'] ?? 0);
         $stake = max(0, (int) ($_POST['stake'] ?? 0));
@@ -248,6 +271,35 @@ layout_start('Scommesse', 'bets');
         <span class="tag tag-mvp"><i class="ti ti-crown"></i> <?= h(bet_title($balance + $inPlay)) ?></span></div></div>
   <?php else: ?>
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
+  <?php endif; ?>
+  <?php if ($me && ($passTo = koin_pass_recipients($me, current_eco($me)))):
+      $passPre = (int) ($_GET['passa'] ?? 0);
+      $passLog = koin_passes_of($me, current_eco($me));
+      $passLeft = max(0, KOIN_PASS_DAILY_MAX - koin_passed_today($me)); ?>
+    <details class="collapsible pass-koin" id="passa-koin" <?= isset($passTo[$passPre]) ? 'open' : '' ?>>
+      <summary><strong><i class="ti ti-arrows-exchange"></i> Passa KOIN a un compagno</strong></summary>
+      <form method="post" class="form form-grid">
+        <?= csrf_field() ?><input type="hidden" name="do" value="koin_pass">
+        <label class="field"><span>A chi</span><select name="to" required>
+          <option value="">— scegli —</option>
+          <?php foreach ($passTo as $pid => $pname): ?><option value="<?= (int) $pid ?>" <?= $pid === $passPre ? 'selected' : '' ?>><?= h($pname) ?></option><?php endforeach; ?>
+        </select></label>
+        <label class="field"><span>Quanti KOIN (hai <?= (int) $balance ?>, oggi ne puoi passare <?= min($passLeft, (int) $balance) ?>)</span>
+          <input type="number" name="amount" required min="1" max="<?= max(1, min($passLeft, (int) $balance)) ?>" inputmode="numeric" value="<?= min(10, max(1, min($passLeft, (int) $balance))) ?>"></label>
+        <label class="field span-2"><span>Messaggio (facoltativo, lo vede anche la Gazzetta del mercoledì)</span><input name="note" maxlength="<?= KOIN_PASS_NOTE_MAX ?>" placeholder="Es. per la birra di giovedì"></label>
+        <div class="span-2"><button class="btn btn-primary btn-sm" <?= $passLeft < 1 || $balance < 1 ? 'disabled' : '' ?>><i class="ti ti-send"></i> Passa i KOIN</button>
+          <span class="muted small">Si passano solo i KOIN disponibili (non quelli puntati), al massimo <?= KOIN_PASS_DAILY_MAX ?> al giorno. Non si possono riprendere.</span></div>
+      </form>
+      <?php if ($passLog): ?>
+        <ul class="pass-log small">
+          <?php foreach ($passLog as $x): $in = (int) $x['delta'] > 0; ?>
+            <li><span class="<?= $in ? 'is-pos' : 'is-neg' ?>"><?= $in ? '+' : '−' ?><?= abs((int) $x['delta']) ?></span>
+              <?= $in ? 'da' : 'a' ?> <a href="player.php?id=<?= (int) $x['peer_id'] ?>"><?= h((string) $x['other']) ?></a>
+              <span class="muted">· <?= fmt_date_short($x['created_at']) ?></span><?= $x['note'] ? ' <span class="muted">«' . h($x['note']) . '»</span>' : '' ?></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </details>
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con KOIN finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
     (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i KOIN). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni KOIN già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi fa <b>over 3,5 gol</b> (almeno 4 gol, quote altissime), su chi fa un <b>assist</b>, su chi fa <b>gol + assist</b> nella stessa partita, sul <b>miglior difensore</b> (il premio votato dai giocatori a fine partita, che si paga alla chiusura dei voti), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei; quando si punta più sull'over o più sull'under si spostano insieme le quote di tutte le soglie).
