@@ -44,7 +44,6 @@ if ($next) {
 $hasTeams = (bool) array_filter($roster, fn($r) => $r['team']);
 
 $last = last_played_match();
-$slides = $last ? match_highlights($last) : [];
 $lastRoster = $last ? match_roster((int) $last['id']) : [];
 $iPlayedLast = false;
 foreach ($lastRoster as $r) {
@@ -56,7 +55,7 @@ $mustVote = $last && $last['voting_open'] && $iPlayedLast &&
     !q('SELECT 1 FROM mvp_votes WHERE match_id = ? AND voter_id = ?', [$last['id'], $me])->fetch();
 
 $facts = curiosities_for_home();
-$gzGroup = is_guest() ? null : gazzetta_group();   // la Gazzetta del mercoledì (lib/gazzetta.php), in basso a destra
+$gzGroup = is_guest() ? null : gazzetta_group();   // la Gazzetta del calcetto (lib/gazzetta.php), dove c'era il racconto dell'ultima partita
 $gz = $gzGroup ? gazzetta($gzGroup) : null;
 
 layout_start('Home', 'home');
@@ -164,55 +163,21 @@ layout_start('Home', 'home');
     <?php endif; ?>
   </section>
 
-  <?php if ($last): ?>
-  <section class="card recap<?= $gz ? ' recap-tall' : '' ?>">
-    <div class="card-head">
-      <span class="eyebrow"><i class="ti ti-history"></i> L'ultima partita</span>
-      <a class="link" href="match.php?id=<?= (int) $last['id'] ?>">Tabellino <i class="ti ti-arrow-right"></i></a>
-    </div>
-    <div class="score">
-      <div class="score-team team-a"><?= h(team_name('A', $last)) ?></div>
-      <div class="score-num"><?= (int) $last['score_a'] ?> <span>–</span> <?= (int) $last['score_b'] ?></div>
-      <div class="score-team team-b"><?= h(team_name('B', $last)) ?></div>
-    </div>
-    <p class="muted center small"><?= h(ucfirst(fmt_date_long($last['match_date']))) ?><?= $last['location'] ? ' · ' . h($last['location']) : '' ?></p>
-
+  <?php if ($last && $last['voting_open']): // votazioni dell'ultima partita: una striscia a tutta larghezza (il racconto della partita sta nella Gazzetta) ?>
+  <section class="card push-banner vote-banner">
+    <i class="ti ti-writing"></i>
     <?php if ($mustVote): ?>
-      <a class="btn btn-primary btn-block" href="match.php?id=<?= (int) $last['id'] ?>#voti"><i class="ti ti-writing"></i> Vota i compagni e l'MVP</a>
-      <?php if ($last['voting_ends_at']): ?><p class="small center muted vote-deadline"><i class="ti ti-alarm"></i> Hai tempo fino a <?= h(push_when($last['voting_ends_at'])) ?> <?= countdown_html($last['voting_ends_at'], '(mancano ', 'chiusura in corso…', 0, true, 'hourglass', 'countdown-small') ?></p><?php endif; ?>
-    <?php elseif ($last['voting_open']): ?>
-      <p class="small center muted"><i class="ti ti-hourglass"></i> Votazioni in corso: MVP e voti arrivano alla chiusura<?= $last['voting_ends_at'] ? ' (' . h(push_when($last['voting_ends_at'])) . ')' : '' ?>.</p>
-    <?php endif; ?>
-
-    <?php if ($slides): ?>
-      <div class="slider" data-slider>
-        <div class="slides" data-slides>
-          <?php foreach ($slides as $sl): ?>
-            <article class="slide slide-<?= h($sl['kind']) ?>">
-              <div class="slide-title"><i class="ti ti-<?= h($sl['icon']) ?>"></i> <?= h($sl['title']) ?></div>
-              <div class="slide-faces">
-                <?php foreach (array_slice($sl['players'], 0, 4) as $p): ?>
-                  <a href="player.php?id=<?= (int) $p['player_id'] ?>" title="<?= h($p['name']) ?>"><?= avatar($p, count($sl['players']) > 1 ? 'md' : 'lg') ?></a>
-                <?php endforeach; ?>
-              </div>
-              <div class="slide-name"><?= h(implode(', ', array_column(array_slice($sl['players'], 0, 4), 'name'))) ?><?= count($sl['players']) > 4 ? ' e altri' : '' ?></div>
-              <?php if ($sl['big'] !== ''): ?><div class="slide-big"><?= h($sl['big']) ?></div><?php endif; ?>
-              <div class="slide-text"><?= h($sl['text']) ?></div>
-            </article>
-          <?php endforeach; ?>
-        </div>
-        <?php if (count($slides) > 1): ?>
-          <div class="slider-nav">
-            <button type="button" class="icon-btn" data-prev aria-label="Precedente"><i class="ti ti-chevron-left"></i></button>
-            <div class="dots" data-dots>
-              <?php foreach ($slides as $i => $_): ?><button type="button" class="dot" aria-label="Vai alla scheda <?= $i + 1 ?>"></button><?php endforeach; ?>
-            </div>
-            <button type="button" class="icon-btn" data-next aria-label="Successiva"><i class="ti ti-chevron-right"></i></button>
-          </div>
-        <?php endif; ?>
-      </div>
+      <span><strong>Vota i compagni e l'MVP</strong> della partita di <?= h(fmt_date_long($last['match_date'])) ?>
+        <?php if ($last['voting_ends_at']): ?><span class="small muted vote-deadline">· hai tempo fino a <?= h(push_when($last['voting_ends_at'])) ?> <?= countdown_html($last['voting_ends_at'], '(mancano ', 'chiusura in corso…', 0, true, 'hourglass', 'countdown-small') ?></span><?php endif; ?></span>
+      <a class="btn btn-primary btn-sm" href="match.php?id=<?= (int) $last['id'] ?>#voti"><i class="ti ti-writing"></i> Vota</a>
+    <?php else: ?>
+      <span class="small muted">Votazioni in corso per la partita di <?= h(fmt_date_long($last['match_date'])) ?>: MVP e voti arrivano alla chiusura<?= $last['voting_ends_at'] ? ' (' . h(push_when($last['voting_ends_at'])) . ')' : '' ?>.</span>
     <?php endif; ?>
   </section>
+  <?php endif; ?>
+
+  <?php if ($gz): // la Gazzetta del calcetto (lib/gazzetta.php) al posto del racconto dell'ultima partita: a sinistra, le curiosità a destra ?>
+    <?= gazzetta_html($gz, false, $facts ? '' : 'gazzetta-wide') ?>
   <?php endif; ?>
 
   <?php if ($facts): // le curiosità stanno in fondo: prima vengono le informazioni sulle partite. Cambiano da sole ogni FACT_SECONDS secondi ?>
@@ -233,8 +198,6 @@ layout_start('Home', 'home');
     <?php if (count($facts) > 1): ?><div class="fact-timer" aria-hidden="true"><span data-fact-bar></span></div><?php endif; ?>
   </section>
   <?php endif; ?>
-
-  <?php if ($gz): ?><?= gazzetta_html($gz) ?><?php endif; ?>
 
 </div>
 <?php
