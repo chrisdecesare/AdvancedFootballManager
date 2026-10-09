@@ -213,57 +213,6 @@ if (is_post()) {
             }
             redirect($self . '#risultato');
 
-        case 'import_preview':
-        case 'import_apply':
-            // importa la cronaca: il testo si rilegge a ogni passaggio, e a ogni passaggio si rifanno i controlli
-            $importText = (string) ($_POST['text'] ?? '');
-            $picks = [];
-            foreach ((array) ($_POST['pick'] ?? []) as $n => $v) {
-                foreach (['s', 'a'] as $role) {
-                    if (isset($v[$role]) && $v[$role] !== '') {
-                        $picks[(int) $n][$role] = (int) $v[$role];
-                    }
-                }
-            }
-            $rows = array_values(array_filter(match_roster($id), fn($r) => $r['team']));   // chi è in una squadra
-            [$parsed, $skipped] = import_parse($importText);
-            $res = import_resolve($parsed, $rows, $picks);
-            $res['skipped'] = $skipped;
-            $res['totals'] = import_totals($res['events'], $rows);
-            $res['text'] = import_clean_text($parsed);   // solo i nomi buoni: il testo originale non resta nella pagina
-            $res['picks'] = $picks;
-            if (!$parsed) {
-                flash('err', 'Non ho trovato nessun gol nel testo: ogni riga dovrebbe essere tipo «Gol Paolo assist Davide».');
-                redirect($self . '#importa');
-            }
-            if ($do === 'import_preview' || $res['todo'] || $res['errors']) {
-                $importPreview = $res;   // si mostra l'anteprima (o i problemi da sistemare) al posto del redirect
-                if ($do === 'import_apply') {
-                    flash('err', 'Prima di confermare sistema le righe segnate.');
-                }
-                break;
-            }
-            $t = $res['totals'];
-            $stats = ['goals' => [], 'assists' => [], 'own_goals' => []];
-            foreach ($rows as $r) {   // si riscrive tutto: chi non compare nella cronaca torna a zero
-                $pid = (int) $r['player_id'];
-                $stats['goals'][$pid] = $t['goals'][$pid] ?? 0;
-                $stats['assists'][$pid] = $t['assists'][$pid] ?? 0;
-                $stats['own_goals'][$pid] = $t['own'][$pid] ?? 0;
-            }
-            $finish = !empty($_POST['finish']);
-            $err = match_apply_result($match, $stats, $t['score']['A'], $t['score']['B'], $finish, $actor);
-            if ($err) {
-                flash('err', $err);
-                redirect($self . '#importa');
-            }
-            match_replace_links($id, $t['links']);
-            $nGoals = array_sum($t['goals']) + array_sum($t['own']);
-            flash('ok', 'Cronaca importata: ' . $nGoals . ' gol (' . $t['score']['A'] . '–' . $t['score']['B'] . '), ' . array_sum($t['assists']) . ' assist e '
-                . count($t['links']) . ' coppie assist→gol.' . ($finish && $match['status'] !== 'giocata'
-                    ? ' Partita conclusa: votazioni aperte e scommesse pagate per esito e marcatori.' : ''));
-            redirect($self . '#risultato');
-
         case 'add_link':
             $x = (int) ($_POST['assister_id'] ?? 0);
             $y = (int) ($_POST['scorer_id'] ?? 0);
@@ -427,21 +376,7 @@ if (is_post()) {
             flash('ok', 'Partita eliminata.');
             redirect('matches.php');
     }
-    if (empty($importPreview)) {   // l'anteprima dell'importazione si mostra subito, senza ricaricare la pagina
-        redirect($self);
-    }
-}
-
-/** Menu per scegliere il giocatore di un nome non riconosciuto: solo la squadra indicata se è nota, «ignora la riga» in fondo. */
-function import_pick(array $participants, array $match, int $n, string $role, string $label, ?string $team): string
-{
-    $o = '<select name="pick[' . $n . '][' . $role . ']" required aria-label="Chi è «' . h($label) . '»"><option value="">Chi è «' . h($label) . '»?</option>';
-    foreach ($participants as $r) {
-        if ($team === null || $r['team'] === $team) {
-            $o .= '<option value="' . (int) $r['player_id'] . '">' . h($r['name']) . ' (' . h(team_name($r['team'], $match)) . ')</option>';
-        }
-    }
-    return $o . '<option value="0">' . ($role === 's' ? 'Ignora la riga' : 'Senza assist') . '</option></select>';
+    redirect($self);
 }
 
 function handle_vote(array $match, ?int $me): void
@@ -1025,64 +960,6 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
       <?php endif; ?>
     </div>
   </form>
-</section>
-<?php endif; ?>
-
-<?php if ($canManage && $hasTeams): ?>
-<section class="card" id="importa">
-  <h2><i class="ti ti-clipboard-text"></i> Importa la cronaca <span class="muted small">(gol e assist da WhatsApp)</span></h2>
-  <?php if (!empty($importPreview)): $ip = $importPreview; $tt = $ip['totals']; $byId = []; foreach ($participants as $r) { $byId[(int) $r['player_id']] = $r; } ?>
-    <p class="muted small">Controlla prima di confermare: non è ancora stato salvato niente.<?= $ip['skipped'] ? ' Ho saltato ' . (int) $ip['skipped'] . ' righe senza un gol.' : '' ?></p>
-    <?php if ($ip['errors']): ?><ul class="import-errors"><?php foreach ($ip['errors'] as $er): ?><li><i class="ti ti-alert-triangle"></i> <?= h($er) ?></li><?php endforeach; ?></ul><?php endif; ?>
-    <form method="post" class="form" id="import-form">
-      <?= csrf_field() ?><input type="hidden" name="text" value="<?= h($ip['text']) ?>">
-      <?php foreach ($ip['picks'] as $pn => $pr): foreach ($pr as $role => $pv): ?><input type="hidden" name="pick[<?= (int) $pn ?>][<?= h($role) ?>]" value="<?= (int) $pv ?>"><?php endforeach; endforeach; ?>
-      <div class="table-wrap"><table class="table import-table">
-        <thead><tr><th>#</th><th>Gol di</th><th>Assist di</th></tr></thead>
-        <tbody>
-        <?php foreach ($ip['events'] as $e): $n = $e['n']; ?>
-          <tr>
-            <td><?= $n ?></td>
-            <td><?php if ($e['scorer_id']): ?><?= h($byId[$e['scorer_id']]['name']) ?><?= $e['own'] ? ' <span class="tag">autogol</span>' : '' ?>
-              <?php else: ?><?= import_pick($participants, $match, $n, 's', $e['scorer'], $e['team_s']) ?><?php endif; ?></td>
-            <td><?php if ($e['assist'] === null): ?><span class="muted">—</span>
-              <?php elseif ($e['assist_id']): ?><?= h($byId[$e['assist_id']]['name']) ?>
-              <?php else: ?><?= import_pick($participants, $match, $n, 'a', $e['assist'], $e['team_a']) ?><?php endif; ?></td>
-          </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table></div>
-      <div class="import-summary">
-        <p><strong><?= h(team_name('A', $match)) ?> <?= (int) $tt['score']['A'] ?> – <?= (int) $tt['score']['B'] ?> <?= h(team_name('B', $match)) ?></strong>
-          · <?= array_sum($tt['goals']) + array_sum($tt['own']) ?> gol · <?= array_sum($tt['assists']) ?> assist</p>
-        <ul class="small">
-          <?php foreach ($participants as $r): $pid = (int) $r['player_id'];
-              if (empty($tt['goals'][$pid]) && empty($tt['assists'][$pid]) && empty($tt['own'][$pid])) continue; ?>
-            <li><span class="team-dot team-<?= strtolower($r['team']) ?>"></span><?= h($r['name']) ?>: <?= (int) ($tt['goals'][$pid] ?? 0) ?> gol, <?= (int) ($tt['assists'][$pid] ?? 0) ?> assist<?= !empty($tt['own'][$pid]) ? ', ' . (int) $tt['own'][$pid] . ' autogol' : '' ?></li>
-          <?php endforeach; ?>
-        </ul>
-        <?php if ($tt['links']): ?><p class="small"><strong>Chi ha fatto assist a chi:</strong>
-          <?php $lt = []; foreach ($tt['links'] as $k => $c) { [$a, $sc] = explode('>', $k); $lt[] = h($byId[(int) $a]['name'] ?? '?') . ' → ' . h($byId[(int) $sc]['name'] ?? '?') . ($c > 1 ? ' ×' . $c : ''); } echo implode(' · ', $lt); ?></p><?php endif; ?>
-      </div>
-      <?php if (!$played): ?><label class="check"><input type="checkbox" name="finish" value="1" checked> Concludi la partita: apre i voti, paga le scommesse su esito e marcatori e dà i premi per gol e assist</label><?php endif; ?>
-      <p class="muted small">Sostituisce i gol, gli assist e le coppie assist→gol già inseriti per questa partita.</p>
-      <div class="btn-row">
-        <?php if ($ip['todo'] || $ip['errors']): ?>
-          <button class="btn btn-primary" name="do" value="import_preview"><i class="ti ti-refresh"></i> Aggiorna l'anteprima</button>
-        <?php else: ?>
-          <button class="btn btn-primary" name="do" value="import_apply" data-confirm="Salvare la cronaca? Gol, assist e coppie già inseriti vengono sostituiti."><i class="ti ti-check"></i> Conferma e salva</button>
-        <?php endif; ?>
-        <a class="btn btn-ghost" href="<?= h($self) ?>#importa">Annulla</a>
-      </div>
-    </form>
-  <?php else: ?>
-    <p class="muted small">Incolla i messaggi con i gol, per esempio «Gol Paolo assist Davide», «Assist Giovanni gol Luigi» o «Gol Luigi». Se un nome non è chiaro scegli tu il giocatore;
-      poi vedi un'anteprima prima di salvare.</p>
-    <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="do" value="import_preview">
-      <label class="field"><span>Testo della cronaca</span><textarea name="text" rows="8" required placeholder="[08/10, 19:15] Nome: Gol Paolo assist Davide"></textarea></label>
-      <div class="btn-row"><button class="btn btn-primary"><i class="ti ti-eye"></i> Controlla</button></div>
-    </form>
-  <?php endif; ?>
 </section>
 <?php endif; ?>
 

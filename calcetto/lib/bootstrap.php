@@ -76,7 +76,7 @@ require __DIR__ . '/avatar_pixel_art.php';
 require __DIR__ . '/avatar_pixel_parts.php';
 require __DIR__ . '/avatar.php';
 require __DIR__ . '/webpush.php';
-require __DIR__ . '/match_import.php';
+require __DIR__ . '/match_result.php';
 require __DIR__ . '/guests.php';
 require __DIR__ . '/live.php';
 require __DIR__ . '/mail.php';
