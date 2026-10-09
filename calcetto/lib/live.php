@@ -23,6 +23,9 @@ function live_can_edit(array $m, ?int $me, string $kind = 'gol'): bool
     if (!current_user() || is_guest()) {
         return false;
     }
+    if (($m['status'] ?? '') === 'annullata') {
+        return false;   // partita annullata: sola lettura
+    }
     $started = time() >= strtotime($m['match_date']);
     if (can_manage_group((int) $m['group_id'])) {
         return $kind === 'infortunio' ? $started : live_is_on($m);
