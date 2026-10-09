@@ -265,7 +265,7 @@ if (is_post()) {
         case 'open_voting':
             q('UPDATE matches SET voting_open = 1, voting_ends_at = ? WHERE id = ?', [default_voting_end(), $id]);
             q('DELETE FROM ratings WHERE match_id = ? AND is_auto = 1', [$id]);   // i voti d'ufficio si rifanno alla prossima chiusura
-            bets_unsettle($id, ['mvp']);   // l'MVP torna in gioco: le scommesse si ripagano alla prossima chiusura
+            bets_unsettle($id, BET_VOTE_MARKETS);   // l'MVP e il miglior difensore tornano in gioco: le scommesse si ripagano alla prossima chiusura
             push_notify_voting($id, true, $actor);
             flash('ok', 'Votazioni riaperte.');
             break;
@@ -346,8 +346,8 @@ if (is_post()) {
             }
             q('UPDATE match_players SET votes_ok = ? WHERE match_id = ? AND player_id = ?', [$ok, $id, $pid]);
             if ($match['status'] === 'giocata' && !$match['voting_open']) {   // l'MVP può cambiare: le scommesse sull'MVP si ripagano
-                bets_unsettle($id, ['mvp']);
-                bets_settle($id, ['mvp']);
+                bets_unsettle($id, BET_VOTE_MARKETS);
+                bets_settle($id, BET_VOTE_MARKETS);
             }
             flash('ok', $ok ? 'Ora i voti dell\'ospite contano per la lega.' : 'I voti dell\'ospite non contano per la lega (lui vede comunque il suo feedback).');
             redirect($self . '#voti');

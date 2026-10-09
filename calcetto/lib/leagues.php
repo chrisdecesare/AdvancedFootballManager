@@ -405,7 +405,7 @@ function activity_labels(): array
         'lega_rimosso' => 'Tolto dalla lega', 'lega_giocatore' => 'Giocatore aggiunto', 'lega_ceduta' => 'Lega ceduta',
         'lega_eliminata' => 'Lega eliminata',
         'partita_creata' => 'Partita creata', 'partita' => 'Gestione partita', 'presenza' => 'Presenza', 'voto' => 'Voto',
-        'puntata' => 'Scommessa', 'multipla' => 'Multipla', 'puntata_ritirata' => 'Scommessa ritirata',
+        'puntata' => 'Scommessa', 'multipla' => 'Multipla', 'puntata_ritirata' => 'Scommessa ritirata', 'puntata_modificata' => 'Scommessa modificata',
         'negozio' => 'Negozio', 'fanta' => 'Fanta', 'giocatore' => 'Scheda giocatore', 'pagamenti' => 'Pagamenti',
         'account' => 'Account', 'admin' => 'Admin del sito',
         // eventi di sicurezza (lib/security.php)

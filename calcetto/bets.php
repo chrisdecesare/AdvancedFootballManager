@@ -115,6 +115,19 @@ if (is_post()) {
         redirect('bets.php?t=mie');
     }
 
+    if ($do === 'bet_stake') {   // chi amministra la lega cambia l'importo di una puntata aperta (la quota resta quella presa)
+        $betId = (int) ($_POST['bet_id'] ?? 0);
+        $stake = max(0, (int) ($_POST['stake'] ?? 0));
+        $b = q('SELECT b.match_id, b.market, b.pick, b.stake, p.name FROM bets b JOIN players p ON p.id = b.player_id WHERE b.id = ?', [$betId])->fetch();
+        $bm = $b ? get_match((int) $b['match_id']) : null;
+        $err = $bm && match_access($bm) ? bet_admin_set_stake($betId, $stake) : 'Puntata non trovata.';
+        if (!$err) {
+            log_activity('puntata_modificata', $b['name'] . ' · ' . bet_pick_label($bm, $b['market'], (string) $b['pick']) . ' · ' . $b['stake'] . ' → ' . $stake . ' KOIN', (int) $bm['group_id']);
+        }
+        flash($err ? 'err' : 'ok', $err ?: 'Puntata di ' . $b['name'] . ' portata a ' . $stake . ' KOIN (la quota resta quella presa).');
+        redirect('bets.php' . ($bm ? '#m' . (int) $bm['id'] : ''));
+    }
+
     $match = get_match((int) ($_POST['match_id'] ?? 0));
     $market = (string) ($_POST['market'] ?? '');
     $back = ($_POST['from'] ?? '') === 'mie' ? 'bets.php?t=mie' : 'bets.php' . ($match ? '#m' . (int) $match['id'] : '');
@@ -237,10 +250,10 @@ layout_start('Scommesse', 'bets');
     <p class="empty">Il tuo account non è collegato a un giocatore: puoi guardare ma non scommettere.</p>
   <?php endif; ?>
   <p class="muted small wallet-rules">Si scommette solo con KOIN finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i KOIN). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni KOIN già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i KOIN). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni KOIN già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi fa <b>over 3,5 gol</b> (almeno 4 gol, quote altissime), su chi fa un <b>assist</b>, su chi fa <b>gol + assist</b> nella stessa partita, sul <b>miglior difensore</b> (il premio votato dai giocatori a fine partita, che si paga alla chiusura dei voti), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
-    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN e <?= SHOP_CREDIT_GOAL ?> crediti dell'Avatar, ogni assist <?= BET_REWARD_ASSIST ?> KOIN e <?= SHOP_CREDIT_ASSIST ?> crediti, appena viene salvato il risultato. Se perdi tutte le puntate su una partita, alla chiusura dei voti ricevi <?= BET_CONSOLATION ?> KOIN di consolazione. Su te stesso (chi segna, doppietta, tripletta, autogol, MVP) non si scommette.
+    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN e <?= SHOP_CREDIT_GOAL ?> crediti dell'Avatar, ogni assist <?= BET_REWARD_ASSIST ?> KOIN e <?= SHOP_CREDIT_ASSIST ?> crediti, appena viene salvato il risultato. Se perdi tutte le puntate su una partita, alla chiusura dei voti ricevi <?= BET_CONSOLATION ?> KOIN di consolazione. Su te stesso (chi segna, doppietta, tripletta, over 3,5, assist, gol + assist, autogol, MVP, miglior difensore) non si scommette.
     I tuoi KOIN si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> KOIN a settimana.
     Ogni lega creata da un utente ha i suoi KOIN: si puntano e si vincono solo sulle sue partite, e non si mescolano con quelli delle altre leghe.</p>
 </section>
@@ -288,7 +301,18 @@ layout_start('Scommesse', 'bets');
       $myPicks = array_column($myList, 'pick'); ?>
     <div class="bet-market">
       <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
-      <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? bet_pick_label($m, $mk, (string) $b['pick'])) ?><?php endforeach; ?></p><?php endif; ?>
+      <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? bet_pick_label($m, $mk, (string) $b['pick'])) ?><?php endforeach; ?></p>
+        <details class="bet-admin small">
+          <summary class="muted">Admin: cambia l'importo di una puntata</summary>
+          <?php foreach ($list as $b): if ($b['status'] !== 'aperta') { continue; } ?>
+            <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="bet_stake"><input type="hidden" name="bet_id" value="<?= (int) $b['id'] ?>">
+              <span><?= h($b['name']) ?> su <?= h($opts[$b['pick']] ?? bet_pick_label($m, $mk, (string) $b['pick'])) ?> a ×<?= fmt_num($b['odds'], 2) ?></span>
+              <input type="number" name="stake" min="1" value="<?= (int) $b['stake'] ?>" inputmode="numeric" aria-label="KOIN puntati" style="width:5.5em">
+              <button class="btn btn-ghost btn-sm" data-confirm="Cambiare l'importo di questa puntata? La quota resta quella presa.">Salva</button>
+            </form>
+          <?php endforeach; ?>
+        </details>
+      <?php endif; ?>
       <?php if ($canBet && $mk === 'overunder' && $q):
           $ouTable = [];
           foreach ($q as $pk => $qv) {
@@ -315,7 +339,7 @@ layout_start('Scommesse', 'bets');
           <?= $ouBtn('O') ?><?= $ouBtn('U') ?>
           <span class="ou-help muted small">Over: <b class="ou-over-txt"><?= (int) ceil($ouStart) ?> o più gol</b> · Under: <b class="ou-under-txt"><?= (int) floor($ouStart) ?> o meno</b></span>
         </div>
-      <?php elseif ($canBet && $opts): ?>
+      <?php elseif ($canBet && $opts && ($q || $mk !== 'difensore')): ?>
         <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= in_array($mk, BET_PLAYER_MARKETS, true) ? ' (anche più di una: es. due marcatori diversi; su te stesso non si può)' : '' ?>:</p>
         <div class="quota-picks">
           <?php foreach ($opts as $val => $label): if (!isset($q[$val])) { continue; } $qv = $q[$val];
@@ -326,6 +350,8 @@ layout_start('Scommesse', 'bets');
               title="<?= $isMine ? 'Hai già puntato qui' : 'Aggiungi alla schedina' ?>"><?= h($label) ?> <b>×<?= fmt_num($qv, 2) ?></b></button>
           <?php endforeach; ?>
         </div>
+      <?php elseif ($canBet && $mk === 'difensore' && !$q): ?>
+        <p class="muted small" style="margin:0">Il mercato compare quando ci sono almeno due giocatori votabili per il premio in questa partita.</p>
       <?php endif; ?>
       <?php if ($myList): ?>
         <div class="bet-mine-list">
@@ -366,7 +392,7 @@ layout_start('Scommesse', 'bets');
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="from" value="mie">
             <input type="hidden" name="match_id" value="<?= (int) $b['match_id'] ?>"><input type="hidden" name="market" value="<?= h($b['market']) ?>"><input type="hidden" name="pick" value="<?= h((string) $b['pick']) ?>">
             <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button></form>
-        <?php elseif ($b['match_status'] === 'giocata'): ?><span class="tag"><?= $b['market'] === 'mvp' && $b['voting_open'] ? 'aspetta l\'MVP' : 'in attesa del verdetto' ?></span>
+        <?php elseif ($b['match_status'] === 'giocata'): ?><span class="tag"><?= in_array($b['market'], BET_VOTE_MARKETS, true) && $b['voting_open'] ? 'aspetta i voti' : 'in attesa del verdetto' ?></span>
         <?php else: ?><span class="tag tag-live">si gioca</span><?php endif; ?></td></tr>
   <?php endforeach; ?></tbody></table></div></div>
 <?php endif; ?>
