@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (bar) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = ''; }   // la barra riparte da zero
     }, secs * 1000);
   });
-  // slider momenti salienti: frecce, pallini, scorrimento automatico
+  // slider a schede (la Gazzetta del calcetto): frecce, pallini, scorrimento automatico
   document.querySelectorAll('[data-slider]').forEach(slider => {
     const track = slider.querySelector('[data-slides]');
     const slides = [...track.children];

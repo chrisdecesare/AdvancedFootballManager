@@ -150,9 +150,10 @@ sulle partite. La logica è `player_set_injured` in `lib/stats.php` (colonna `pl
 
 ## La Gazzetta del mercoledì
 
-Il "giornale" della lega (`lib/gazzetta.php`): in **Home in basso a destra** (sotto le curiosità, accanto all'ultima partita) e a tutta pagina
-in `gazzetta.php` (*Sfoglia*). È uno slider a pagine, su carta rosa con i titoli da quotidiano:
+Il "giornale" della lega (`lib/gazzetta.php`): in **Home a sinistra**, al posto del vecchio riquadro «L'ultima partita» (curiosità a destra;
+a tutta larghezza se non ci sono curiosità), e a tutta pagina in `gazzetta.php` (*Sfoglia*). È uno slider a pagine, su carta rosa con i titoli da quotidiano:
 - **Prima pagina**: la prossima partita, quanti sono confermati e i titoli delle altre pagine;
+- **L'ultima partita**: risultato e momenti salienti (MVP, bomber, uomo assist, voto più alto, esordi, traguardi: `match_highlights`), con il link al tabellino;
 - **Infermeria**: chi è segnato infortunato nel profilo (rosso, ai box) e chi si è fatto male in partita nelle ultime 2 settimane (viola, con la nota);
 - **Posti vacanti**: quanti posti mancano per la prossima partita e chi non ha ancora risposto. I posti sono quelli dei moduli scelti per
   la partita, altrimenti la misura tipica della lega (mediana dei giocatori delle ultime 5 partite, 10 se non ce ne sono);
@@ -161,12 +162,13 @@ in `gazzetta.php` (*Sfoglia*). È uno slider a pagine, su carta rosa con i titol
   male non entra). Per ogni squadra la forza e la «coppia d'oro» (la coppia con più intesa). Il calcolo resta in `meta` (`gzb_<partita>`)
   finché non cambiano i giocatori o le statistiche;
 - **Turnover**: chi entra e chi esce rispetto all'ultima partita, e perché (infortunato, non ci sarà, non ha ancora risposto);
-- **Novità**: l'ultima partita della settimana (risultato, MVP, bomber), i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
+- **Novità**: i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
 - **Mercato KOIN**: i passaggi di KOIN tra giocatori della settimana, con il messaggio.
 
 Le pagine si calcolano al momento, quindi sono sempre aggiornate. **Ogni mercoledì** esce l'edizione nuova: dalle 10 arriva la notifica
 «È uscita la Gazzetta del mercoledì» ai giocatori di ogni lega con una partita in programma o giocata nell'ultimo mese, una volta per lega
 ed edizione (`gazzetta_push_due`, chiamata da `push_run_due`: cron o al volo mentre qualcuno usa il sito).
+Quando le votazioni dell'ultima partita sono aperte, in Home sopra la Gazzetta c'è una striscia gialla con *Vota* (o «votazioni in corso»).
 
 ## Passaggi di KOIN tra giocatori
 
