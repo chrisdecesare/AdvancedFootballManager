@@ -6,6 +6,8 @@ statistiche avanzate e pagamenti delle quote.
 
 Il codice del sito è nella cartella [`calcetto/`](calcetto/). Serve PHP 8.0+ e MySQL/MariaDB.
 
+Un piano (solo documento, nulla è ancora cambiato) per passare a Next.js, con vantaggi e svantaggi, è in [`docs/piano-migrazione-nextjs.md`](docs/piano-migrazione-nextjs.md).
+
 ## Accesso e iscrizione
 
 Dalla pagina di login chi ha il link può **iscriversi** (nome, username, password, posizioni,
