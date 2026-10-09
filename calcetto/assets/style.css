@@ -1701,3 +1701,42 @@ tr.is-new td { background: #fffbe6; }
 .gazzetta-page .gz-head { font-size: 1.8rem; }
 .gazzetta-page .gz-title { font-size: 2.2rem; }
 @media (max-width: 420px) { .gz-teams { grid-template-columns: 1fr; } }
+
+/* ---------- il pensiero sulla partita (lib/pensieri.php): messaggio a comparsa ---------- */
+.thought-card { width: min(460px, 100%); margin: 0; display: grid; gap: 8px; }
+.thought-card h2 { margin: 0; }
+.thought-card .eyebrow { justify-self: start; }
+.thought-card textarea { width: 100%; min-height: 96px; resize: vertical; }
+.thought-score { margin: 0; display: flex; align-items: center; gap: 6px; font-weight: 800; }
+.thought-score b { font: 400 1.2rem var(--font-d); }
+.thought-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- Gazzetta: Spogliatoio (i pensieri) e Borsa KOIN (grafico) ---------- */
+.gz-quotes { display: grid; gap: 8px; }
+.gz-quote { margin: 0; padding: 6px 10px 6px 12px; border-left: 3px solid var(--gz-ink); background: #fff7fa; border-radius: 0 10px 10px 0; }
+.gz-quote p { margin: 0; font: italic 600 .95rem/1.4 var(--gz-serif); overflow-wrap: anywhere; }
+.gz-quote p::before { content: "«"; }
+.gz-quote p::after { content: "»"; }
+.gz-quote footer { margin-top: 3px; font-size: .8rem; font-weight: 800; display: flex; align-items: center; gap: 4px; }
+.gz-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.gz-kpi { display: grid; gap: 1px; padding: 6px 8px; border: 1px solid #e6c6d2; border-radius: 10px; min-width: 0; }
+.gz-kpi span { font-size: .7rem; font-weight: 800; color: var(--muted); }
+.gz-kpi b { font: 700 1.25rem/1.1 var(--font); color: var(--gz-ink); }
+.gz-kpi small { font-size: .68rem; color: var(--muted); font-weight: 700; }
+.gz-chart { margin: 0; }
+.gz-chart figcaption { font-size: .75rem; font-weight: 800; color: var(--muted); }
+.gz-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.gz-grid { stroke: #f0e3e8; stroke-width: 1; }
+.gz-ref { stroke: #9a8a93; stroke-width: 1; }
+.gz-tick { font: 600 9px var(--font); fill: var(--muted); font-variant-numeric: tabular-nums; }
+.gz-ref-lbl { font-size: 8.5px; }
+.gz-line { fill: none; stroke: #b03a64; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.gz-area { fill: #b03a64; fill-opacity: .1; }
+.gz-dot { fill: #b03a64; stroke: var(--white); stroke-width: 2; }
+.gz-end { font: 800 10px var(--font); fill: var(--gz-ink); }
+.gz-hit { fill: transparent; }
+.gz-hit:hover { fill: rgba(31, 26, 46, .05); }
+.gz-flows { font-size: .82rem; }
+.gz-table summary { cursor: pointer; font-size: .8rem; font-weight: 800; }
+.gz-table .table { font-size: .8rem; margin-top: 4px; }
+@media (max-width: 420px) { .gz-kpis { grid-template-columns: 1fr 1fr; } }

@@ -198,6 +198,28 @@ if ($gift):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta
   </div>
 </div>
 <?php endif; ?>
+<?php
+// il pensiero sulla partita (lib/pensieri.php): a chi ha giocato l'ultima partita, se non c'è già un'altra sovraimpressione
+$thought = $myId && !$gift && !$prizes && !$passes && !is_post() && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'thought.php' ? thought_pending($myId) : null;
+if ($thought):
+    $draft = (string) ($_SESSION['thought_draft'] ?? '');
+    unset($_SESSION['thought_draft']); ?>
+<div class="crop-modal thought-modal" role="dialog" aria-modal="true" aria-labelledby="thought-title">
+  <form method="post" action="thought.php" class="card thought-card">
+    <?= csrf_field() ?><input type="hidden" name="match_id" value="<?= (int) $thought['id'] ?>"><input type="hidden" name="back" value="<?= h($_SERVER['REQUEST_URI'] ?? 'index.php') ?>">
+    <span class="eyebrow"><i class="ti ti-message-circle"></i> Spogliatoio</span>
+    <h2 id="thought-title">Com'è andata <?= h(fmt_date_long($thought['match_date'])) ?>?</h2>
+    <p class="thought-score"><span class="team-dot team-a"></span><?= h(team_name('A', $thought)) ?> <b><?= (int) $thought['score_a'] ?> – <?= (int) $thought['score_b'] ?></b> <?= h(team_name('B', $thought)) ?><span class="team-dot team-b"></span></p>
+    <p class="muted small">Scrivi un pensiero sulla partita, poche righe: lo leggeranno tutti nella <b>Gazzetta del mercoledì</b>.</p>
+    <textarea name="body" rows="4" maxlength="<?= THOUGHT_MAX ?>" placeholder="Es. Partita tiratissima, il gol del pareggio all'ultimo me lo sogno stanotte…" aria-label="Il tuo pensiero sulla partita"><?= h($draft) ?></textarea>
+    <div class="thought-actions">
+      <button class="btn btn-primary btn-sm" name="do" value="save"><i class="ti ti-send"></i> Pubblica</button>
+      <button class="btn btn-ghost btn-sm" name="do" value="later" formnovalidate>Più tardi</button>
+      <button class="btn btn-ghost btn-sm" name="do" value="skip" formnovalidate>No grazie</button>
+    </div>
+  </form>
+</div>
+<?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>
   <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>
 <?php endforeach;

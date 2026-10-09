@@ -161,8 +161,16 @@ alla stessa altezza: `.home-side`, si allunga l'ultima scheda di destra o l'ulti
   male non entra). Per ogni squadra la forza e la «coppia d'oro» (la coppia con più intesa). Il calcolo resta in `meta` (`gzb_<partita>`)
   finché non cambiano i giocatori o le statistiche;
 - **Turnover**: chi entra e chi esce rispetto all'ultima partita, e perché (infortunato, non ci sarà, non ha ancora risposto);
-- **Novità**: l'ultima partita della settimana (risultato, MVP, bomber), i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
-- **Mercato KOIN**: i passaggi di KOIN tra giocatori della settimana, con il messaggio.
+- **Spogliatoio**: i pensieri di chi ha giocato l'ultima partita (della partita la Gazzetta non racconta altro: per quello c'è «L'ultima partita» in Home).
+  A chi ha giocato compare un **messaggio a comparsa** che chiede un pensiero di poche righe (max 280 caratteri, `lib/pensieri.php`,
+  tabella `match_thoughts`, migrazione 59): *Pubblica*, *Più tardi* (non lo chiede più fino alla prossima sessione) o *No grazie* (mai più per
+  quella partita). Lo chiede solo per l'ultima partita della sua lega, per 7 giorni, e non insieme alle sovraimpressioni dei KOIN;
+- **Novità**: i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
+- **Mercato KOIN**: i passaggi di KOIN tra giocatori della settimana, con il messaggio;
+- **Borsa KOIN** (subito dopo il mercato, `gazzetta_borsa`): tre riquadri (KOIN in circolo, inflazione della settimana, quanto costa il Negozio
+  rispetto al listino e quanto si è mosso in settimana), il grafico dei KOIN a testa delle ultime 8 settimane (ricostruito dalle date delle mosse
+  del portafoglio; la linea grigia a 300 è dove i prezzi sono di listino: sopra salgono fino a +60%, sotto scendono fino a −20%), da dove sono
+  entrati e usciti i KOIN in settimana (vincite, premi, acquisti, puntate…; i passaggi tra giocatori no) e la tabella con tutti i valori.
 
 Le pagine si calcolano al momento, quindi sono sempre aggiornate. **Ogni mercoledì** esce l'edizione nuova: dalle 10 arriva la notifica
 «È uscita la Gazzetta del mercoledì» ai giocatori di ogni lega con una partita in programma o giocata nell'ultimo mese, una volta per lega
