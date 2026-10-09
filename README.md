@@ -514,9 +514,12 @@ Codice: `match_cancel()` in `lib/stats.php`, `bets_void_match()` in `lib/bets.ph
 **Diretta (cronaca della partita):** dal calcio d'inizio, nella scheda della partita compare la sezione «Diretta» (`lib/live.php`, tabella `match_events`). Chi gioca
 (fino a 4 ore dall'inizio) e chi gestisce le partite segna i **gol** (con l'assist facoltativo, solo tra compagni) e gli **autogol**: ogni gol aggiorna subito il risultato,
 i gol e gli assist della tabella «Risultato e marcatori» e l'intesa «chi ha servito chi», e manda la notifica a chi non gioca. Si segnano anche gli **infortuni**
-(con una nota facoltativa: «caviglia», «stiramento»...): il giocatore compare con la crocetta rossa nella squadra. Un evento segnato per sbaglio si toglie con la ×
+(con una nota facoltativa: «caviglia», «stiramento»...): il giocatore compare con la crocetta viola nella squadra. Un evento segnato per sbaglio si toglie con la ×
 (chi l'ha segnato o chi gestisce la partita) e i conti tornano indietro. A fine partita il risultato si controlla e si conclude come prima; gli infortuni si possono
-aggiungere anche dopo, da chi gestisce la partita.
+aggiungere anche dopo, da chi gestisce la partita. Gli infortuni della partita sono sempre in **viola**: nel riepilogo di «Partite» una riga sotto la partita
+(«Infortunato: Luca Verdi (caviglia)», `injuries_by_match`), e nel profilo del giocatore una sezione «Infortuni» con le partite e le note (`player_injuries`), la
+crocetta nella tabella delle sue partite e, se si è fatto male nella sua ultima partita, l'etichetta «infortunato nell'ultima partita» in alto. È diverso dalla
+casella **Infortunato** della scheda (etichetta rossa, vedi *Infortunati*), che lo segna assente nelle prossime partite.
 
 **Fine votazioni e conto alla rovescia:** quando la partita viene conclusa (o le votazioni riaperte) si fissa un orario di fine: `VOTING_HOURS` in
 `config.php` (24 ore). Nella scheda «Voti» si vede l'orario con il conto alla rovescia, e chi gestisce la partita lo cambia (o toglie la scadenza) da lì.

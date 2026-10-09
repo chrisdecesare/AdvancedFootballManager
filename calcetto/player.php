@@ -95,6 +95,11 @@ $partnerOf = function (int $pid): ?array {
     return all_players()[$pid] ?? get_player($pid);
 };
 $myGroups = array_map('group_name', player_group_ids($id));
+// infortuni segnati nella cronaca delle partite (lib/live.php)
+$injuries = is_guest() ? [] : player_injuries($id);
+$injuredIn = array_column($injuries, 'note', 'match_id');
+// si è fatto male nella sua ultima partita: lo si vede subito in alto (se non è già segnato infortunato nel profilo)
+$hurtLast = empty($p['injured']) && $injuries && $s['history'] && (int) $s['history'][0]['match_id'] === (int) $injuries[0]['match_id'];
 
 layout_start($p['name'], 'players');
 ?>
@@ -116,6 +121,7 @@ layout_start($p['name'], 'players');
       <span class="tag" title="Genere"><i class="ti ti-<?= h(gender_icon($p['gender'] ?? 'M')) ?>"></i> <?= h(genders()[$p['gender'] ?? 'M'] ?? 'Maschio') ?></span>
       <?php if ($rankPts): ?><span class="tag"><i class="ti ti-trophy"></i> <?= $rankPts ?>° in classifica</span><?php endif; ?>
       <?php if ($rankGoals): ?><span class="tag"><i class="ti ti-ball-football"></i> <?= $rankGoals ?>° marcatore</span><?php endif; ?>
+      <?php if ($hurtLast): ?><a class="tag tag-hurt" href="#infortuni" title="<?= fmt_date_short($injuries[0]['match_date']) ?><?= $injuries[0]['note'] ? ': ' . h($injuries[0]['note']) : '' ?>"><i class="ti ti-first-aid-kit"></i> infortunato nell'ultima partita</a><?php endif; ?>
       <?= form_badge($s['form']) ?>
       <?php foreach ($myGroups as $gn): ?><span class="tag tag-group"><i class="ti ti-users-group"></i> <?= h($gn) ?></span><?php endforeach; ?>
     </div>
@@ -142,6 +148,18 @@ layout_start($p['name'], 'players');
   <?php endforeach; ?>
   <div class="stat"><strong class="vote-big <?= vote_class($s['avg_vote']) ?>-t"><?= fmt_num($s['avg_vote']) ?></strong><span>Media voto</span></div>
 </section>
+
+<?php if ($injuries): ?>
+<section class="card" id="infortuni">
+  <h2><i class="ti ti-first-aid-kit"></i> Infortuni <span class="muted small"><?= count($injuries) ?> in partita</span></h2>
+  <ul class="inj-list">
+  <?php foreach ($injuries as $inj): ?>
+    <li><i class="ti ti-first-aid-kit"></i> <a href="match.php?id=<?= (int) $inj['match_id'] ?>#diretta"><?= h(ucfirst(fmt_date_long($inj['match_date']))) ?></a>
+      <span class="minj"><?= $inj['note'] ? h($inj['note']) : 'infortunato' ?></span></li>
+  <?php endforeach; ?>
+  </ul>
+</section>
+<?php endif; ?>
 
 <?php if ($curiosities || $canEdit): ?>
 <section class="card" id="curiosita">
@@ -242,7 +260,7 @@ layout_start($p['name'], 'players');
           <td><a href="match.php?id=<?= $x['match_id'] ?>"><?= fmt_date_short($x['date']) ?></a></td>
           <td><span class="team-dot team-<?= strtolower($x['team']) ?>"></span><?= h($x['team_label']) ?></td>
           <td class="nowrap"><?= $x['score_a'] ?> – <?= $x['score_b'] ?></td>
-          <td><?= result_chip($x['result']) ?><?= $x['mvp'] ? ' <span class="tag tag-mvp"><i class="ti ti-star-filled"></i></span>' : '' ?></td>
+          <td><?= result_chip($x['result']) ?><?= $x['mvp'] ? ' <span class="tag tag-mvp"><i class="ti ti-star-filled"></i></span>' : '' ?><?= isset($injuredIn[$x['match_id']]) ? ' <i class="ti ti-first-aid-kit inj-cell" title="Infortunato' . ($injuredIn[$x['match_id']] ? ': ' . h($injuredIn[$x['match_id']]) : '') . '"></i>' : '' ?></td>
           <td><?= $x['goals'] ?: '' ?></td>
           <td><?= $x['assists'] ?: '' ?></td>
           <td><?= $x['own_goals'] ?: '' ?></td>
