@@ -290,7 +290,7 @@ if (is_post()) {
             break;
 
         case 'reopen':   // da giocata o da annullata
-            q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL, cancel_reason = NULL, cancelled_at = NULL WHERE id = ?", [$id]);
+            q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL, cancel_reason = NULL, cancelled_at = NULL, fee = COALESCE(fee_before_cancel, fee), fee_before_cancel = NULL WHERE id = ?", [$id]);
             bets_unsettle($id);   // le scommesse tornano aperte e si ripagano quando la partita viene richiusa
             match_rewards_sync($id);   // e i premi per gol e assist si tolgono (tornano quando il risultato viene salvato di nuovo)
             fanta_win_credits_sync($id);   // anche i crediti fanta della vittoria

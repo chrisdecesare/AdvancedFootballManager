@@ -1432,11 +1432,9 @@ function combo_maybe_settle(int $comboId): void
             return;
         }
         // le gambe rimborsate escono dal conto (come i mercati saltati dai bookmaker veri): la quota resta quella delle altre
-        $odds = 1.0;
-        foreach ($won as $l) {
-            $odds *= max(BET_MIN_ODDS, (float) $l['odds']);
-        }
-        $pay = (int) floor((int) $combo['stake'] * min(COMBO_MAX_ODDS, $odds) + 1e-9);
+        // stessa quota (arrotondata a 2 decimali) che la schedina mostra e che la multipla ha salvato: senza l'arrotondamento un
+        // prodotto di 8,9964 compariva come ×9,00 ma pagava 899 invece di 900
+        $pay = bet_payout((int) $combo['stake'], combo_odds($won));
         q("UPDATE combo_bets SET status = 'vinta', payout = ?, settled_at = NOW() WHERE id = ?", [$pay, $comboId]);
         q("INSERT INTO wallet_moves (player_id, eco, combo_id, delta, kind) VALUES (?, ?, ?, ?, 'vincita')", [$combo['player_id'], (int) $combo['eco'], $comboId, $pay]);
     });

@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 54;
+const SCHEMA_VERSION = 55;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -916,6 +916,10 @@ function ensure_schema(): void
             meta_set('oneoff_oct8', mb_substr($msg, 0, 250));
             log_activity('partita', 'gol e assist 8 ottobre · ' . $msg);
         }
+    }
+    if ($v < 55) {
+        // la quota azzerata da «Partita annullata» si ricorda, così «Riporta a programmata» la rimette
+        $add('matches', 'fee_before_cancel', 'DECIMAL(6,2) NULL');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
