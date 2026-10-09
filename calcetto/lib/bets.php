@@ -20,7 +20,8 @@
  *  - gol: un giocatore segna almeno un gol, si paga a fine partita;
  *  - doppietta / tripletta: un giocatore segna almeno 2 / almeno 3 gol, si paga a fine partita;
  *  - overunder: i gol totali della partita stanno sopra o sotto una soglia scelta da chi punta (es. 8,5), si paga a fine partita.
- *    Il sito dà una quota per ogni soglia possibile e la soglia viene salvata dentro la scelta ("O8.5" / "U8.5");
+ *    Il sito dà una quota per ogni soglia possibile e la soglia viene salvata dentro la scelta ("O8.5" / "U8.5"). Qui la domanda sposta
+ *    i gol attesi della partita, quindi tutte le soglie insieme (bet_ou_lean), e le quote restano sempre in ordine (bet_ou_monotone);
  *  - autogol: un giocatore fa almeno un autogol, si paga a fine partita (evento raro: quote alte; su se stessi non si punta);
  *  - assist: un giocatore fa almeno un assist, si paga a fine partita;
  *  - golassist: un giocatore fa almeno un gol E almeno un assist nella stessa partita, si paga a fine partita;
@@ -90,6 +91,8 @@ const BET_ASSISTER_MARKETS = ['assist', 'golassist'];
 const BET_OU_MIN_LINES = 25;   // over/under: soglie proposte almeno da 0,5 a 25,5 gol (di più se la partita promette tanti gol)
 const BET_OU_PLAYERS_W = 0.7;  // quanto pesa "chi gioca" sui gol attesi totali (0 = solo media del gruppo, 1 = pieno)
 const BET_OU_FULL_ROSTER = 10; // con almeno tanti giocatori in lista quel peso vale in pieno, con meno scala (la lista è ancora incompleta)
+const BET_OU_SHIFT = 0.25;     // over/under: di quanto al massimo (25%) i KOIN puntati spostano i gol attesi totali, e con loro tutte le soglie...
+const BET_OU_DEMAND = [0.25, 0.75];   // ...per questo sulla singola soglia la domanda pesa meno che negli altri mercati: [K, minimo] al posto di BET_DEMAND_K e BET_DEMAND_FLOOR
 
 /** Mercati che si pagano col risultato (gli altri, cioè MVP e miglior difensore, alla chiusura dei voti). */
 const BET_RESULT_MARKETS = ['esito', 'gol', 'doppietta', 'tripletta', 'over35', 'assist', 'golassist', 'autogol', 'overunder'];
@@ -498,6 +501,10 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
         }
     }
     $lamTot = max(0.5, ($lam['A'] + $lam['B']) * $factor ** (BET_OU_PLAYERS_W * min(1.0, count($roster) / BET_OU_FULL_ROSTER)));
+    // il mercato sposta la linea, come nei bookmaker veri: se si punta più sull'over che sull'under i gol attesi salgono (e viceversa),
+    // così cambiano insieme le quote di tutte le soglie e non solo quella più giocata
+    $demand = bet_market_demand($id, $excludePlayerId);
+    $lamTot *= 1 + BET_OU_SHIFT * bet_ou_lean($demand['overunder'] ?? [], $lamTot);
     $maxLine = min(60, max(BET_OU_MIN_LINES, (int) ceil(2.5 * $lamTot)));
     for ($k = 0; $k <= $maxLine; $k++) {
         $pOver = bet_poisson_at_least($lamTot, $k + 1);
@@ -560,11 +567,62 @@ function bet_quotes(array $match, ?int $excludePlayerId = null): array
 
     // il banco si protegge: la quota di ogni scelta scende un po' per ogni KOIN già puntato su di lei in questa partita
     // (tranne la propria puntata aperta, se si sta cambiando: cambiare idea non deve penalizzare la nuova quota)
-    $demand = bet_market_demand($id, $excludePlayerId);
     foreach ($out as $mk => $picks) {
-        $out[$mk] = bet_demand_shorten($picks, $demand[$mk] ?? []);
+        $out[$mk] = $mk === 'overunder' ? bet_demand_shorten($picks, $demand[$mk] ?? [], ...BET_OU_DEMAND) : bet_demand_shorten($picks, $demand[$mk] ?? []);
     }
-    return bet_boost_applies($match) ? bet_boost($out, $id) : $out;
+    // l'over/under resta in ordine anche se una soglia è molto più giocata delle vicine (vedi bet_ou_monotone)
+    $out = bet_boost_applies($match) ? bet_boost($out, $id) : $out;
+    if (isset($out['overunder'])) {
+        $out['overunder'] = bet_ou_monotone($out['overunder']);
+    }
+    return $out;
+}
+
+/**
+ * Da che parte pende l'over/under di una partita, tra -1 (tutti sull'under) e 1 (tutti sull'over): (KOIN sugli over - KOIN sugli
+ * under) / (totale + BET_DEMAND_REF), quindi con pochi KOIN pende poco. Ogni puntata pesa per quanto dice qualcosa sui gol attesi
+ * ($lamTot): in pieno sulle soglie in bilico, quasi niente su quelle scontate o impossibili (over 0,5, over 25,5...), così chi
+ * punta tanto su una soglia assurda non sposta tutto il mercato.
+ */
+function bet_ou_lean(array $demand, float $lamTot): float
+{
+    $o = $u = 0.0;
+    foreach ($demand as $pick => $s) {
+        if ($ou = bet_ou_parse((string) $pick)) {
+            $p = bet_poisson_at_least($lamTot, (int) ceil($ou[1]));   // probabilità dell'over a quella soglia
+            $w = 4 * $p * (1 - $p) * $s;                              // 1 per una soglia al 50%, 0 per una certa o impossibile
+            if ($ou[0] === 'O') {
+                $o += $w;
+            } else {
+                $u += $w;
+            }
+        }
+    }
+    return ($o - $u) / ($o + $u + BET_DEMAND_REF);
+}
+
+/**
+ * Ultima garanzia sull'ordine delle quote dell'over/under: più la soglia è alta più l'over paga e meno paga l'under. Arrotondamenti
+ * e la maggiorazione delle prime partite (diversa per ogni scelta) potrebbero invertire due soglie vicine: in quel caso la quota
+ * della soglia più facile scende a quella della più difficile (si abbassa e basta, non si alza mai nulla).
+ */
+function bet_ou_monotone(array $odds): array
+{
+    $lines = [];
+    foreach (array_keys($odds) as $pick) {
+        if ($ou = bet_ou_parse((string) $pick)) {
+            $lines[$ou[0]][] = $ou[1];
+        }
+    }
+    foreach ($lines as $side => $ls) {
+        $side === 'O' ? rsort($ls) : sort($ls);   // dalla soglia più difficile alla più facile
+        $cap = INF;
+        foreach ($ls as $l) {
+            $k = bet_ou_pick($side, $l);
+            $odds[$k] = $cap = min($cap, (float) $odds[$k]);
+        }
+    }
+    return $odds;
 }
 
 /**
@@ -628,16 +686,16 @@ function bet_market_demand(int $matchId, ?int $excludePlayerId = null): array
 
 /**
  * Abbassa le quote di un mercato in base a quanto è già puntato su ogni scelta: quota_finale = quota / (1 + K x KOIN / riferimento),
- * mai sotto BET_DEMAND_FLOOR della quota di apertura. Chi punta per primo su una scelta (0 KOIN già sopra) prende la quota piena.
+ * mai sotto $floor (di solito BET_DEMAND_FLOOR) della quota di apertura. Chi punta per primo su una scelta (0 KOIN già sopra) prende la quota piena.
  */
-function bet_demand_shorten(array $odds, array $demand): array
+function bet_demand_shorten(array $odds, array $demand, float $k = BET_DEMAND_K, float $floor = BET_DEMAND_FLOOR): array
 {
     foreach ($odds as $pick => $o) {
         $staked = $demand[$pick] ?? 0;
         if ($staked > 0) {
-            $adj = $o / (1 + BET_DEMAND_K * $staked / BET_DEMAND_REF);
+            $adj = $o / (1 + $k * $staked / BET_DEMAND_REF);
             // mai sotto il 55% dell'apertura, e comunque mai sotto ×1,01 (una quota di ×1,05 molto puntata scendeva sotto ×1: si perdeva vincendo)
-            $odds[$pick] = round(max(BET_MIN_ODDS, $o * BET_DEMAND_FLOOR, $adj), 2);
+            $odds[$pick] = round(max(BET_MIN_ODDS, $o * $floor, $adj), 2);
         }
     }
     return $odds;
