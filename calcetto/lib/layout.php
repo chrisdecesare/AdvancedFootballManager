@@ -145,9 +145,26 @@ function layout_start(string $title, string $active = ''): void
   <div class="flash flash-warn"><i class="ti ti-shield-lock"></i> <?= is_admin() ? 'Il tuo account gestisce tutto il sito' : 'Il tuo account gestisce una lega' ?>: proteggilo con la
     <a class="link" href="account.php#due-passaggi">verifica in due passaggi</a> (un codice dal telefono oltre alla password). Ci vuole un minuto.</div>
 <?php endif; ?>
-<?php if ($myId && ($gift = coin_gifts_unseen($myId))):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta sola
-    [$giftTot, $giftN, $giftLast, $giftGuess, $giftNotes] = $gift;
-    coin_gifts_seen($myId, $giftLast); ?>
+<?php $gift = $myId ? coin_gifts_unseen($myId) : null;
+$prizes = $myId ? match_prizes_unseen($myId) : [];
+if ($gift || $prizes) {   // regali e premi si segnano come visti insieme (stesso gift_seen_id)
+    coin_gifts_seen($myId, max(array_merge([$gift[2] ?? 0], array_column($prizes, 'id'))));
+}
+if ($prizes):   // congratulazioni per l'MVP o il miglior difensore: sovraimpressione, una volta sola
+    $prizeTot = array_sum(array_column($prizes, 'amount'));
+    $prizeMvp = in_array('mvp', array_column($prizes, 'kind'), true);
+    $prizeDif = in_array('dif', array_column($prizes, 'kind'), true); ?>
+<div class="vote-done coin-gift has-note" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-<?= $prizeMvp ? 'trophy' : 'shield-filled' ?>"></i></span>
+    <div class="vote-done-title">Congratulazioni!</div>
+    <div class="vote-done-sub"><?= $prizeMvp && $prizeDif ? 'Sei stato MVP e miglior difensore della partita' : ($prizeMvp ? 'Sei stato votato MVP della partita' : 'Sei stato votato miglior difensore della partita') ?>:
+      ti sono arrivati <?= $prizeTot ?> KOIN, spendibili in tutto il Negozio e nell'<a class="link" href="avatar.php">Avatar</a>.</div>
+  </div>
+</div>
+<?php endif;
+if ($gift):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta sola
+    [$giftTot, $giftN, $giftLast, $giftGuess, $giftNotes] = $gift; ?>
 <div class="vote-done coin-gift<?= $giftNotes ? ' has-note' : '' ?>" data-vote-done role="status" aria-live="polite">
   <div class="vote-done-card">
     <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>

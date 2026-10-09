@@ -300,6 +300,11 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
 - **Premi per gol e assist**: 100 KOIN per ogni gol e 50 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`), più gli stessi importi in crediti dell'Avatar (`SHOP_CREDIT_GOAL`, `SHOP_CREDIT_ASSIST`), a chi li ha fatti, appena
   il risultato viene salvato; se viene corretto il premio si aggiorna, se la partita torna «programmata» o viene eliminata sparisce. Una mossa
   del portafoglio per giocatore e partita (`kind = 'premio'`). Il totale si vede nella scheda «Scommesse».
+- **Premi MVP e miglior difensore**: alla chiusura dei voti, 1000 KOIN a chi vince l'MVP e 250 a chi vince il miglior difensore (`BET_REWARD_MVP`, `BET_REWARD_DIF`,
+  `match_vote_prizes_sync` in `lib/bets.php`; ospiti esclusi; partite da `VOTE_PRIZES_FROM`). Sono KOIN normali del portafoglio (non crediti dell'Avatar), quindi si spendono
+  in tutto il Negozio e nell'Avatar. Una mossa per premio e partita (`premio-mvp-m<id>`, `premio-dif-m<id>`): cambia giocatore se il vincitore cambia, sparisce se i voti si
+  riaprono, la partita è annullata/riportata a programmata/eliminata. Al vincitore arriva una push e, alla prima pagina che apre, la sovraimpressione «Congratulazioni!»
+  (`match_prizes_unseen` in `lib/guess.php`, `layout.php`; stesso `players.gift_seen_id` dei regali). La migrazione v57 li assegna anche alle partite già chiuse dall'8 ottobre 2026.
 - Al passaggio al nuovo modello (migrazione v26) le puntate ancora aperte sono state riprezzate, quelle su se stessi annullate e rimborsate, e i
   premi assegnati anche per le partite già giocate.
 **Regalare KOIN:** in *Admin → Regala KOIN* l'admin sceglie un giocatore delle sue leghe, una cifra e, se vuole, un **messaggio** (fino a 200 caratteri):

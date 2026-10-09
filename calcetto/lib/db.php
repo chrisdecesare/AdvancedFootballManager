@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 56;
+const SCHEMA_VERSION = 57;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -938,6 +938,25 @@ function ensure_schema(): void
             }
             meta_set('oneoff_rewards_oct8', mb_substr($msg, 0, 250));
             log_activity('partita', 'nuovi premi gol e assist dal 8 ottobre · ' . $msg);
+        }
+    }
+    if ($v < 57) {
+        // una tantum: premi MVP (1000 KOIN) e miglior difensore (250 KOIN) anche per le partite già chiuse dall'8 ottobre 2026
+        // (lib/bets.php: match_vote_prizes_sync). La mossa è una per premio e partita (ref), quindi non si paga due volte; chi li ha
+        // vinti vede le congratulazioni alla prossima pagina che apre. Una sola richiesta lo fa (chi prenota il segnaposto in meta).
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_vote_prizes', 'in corso')")->rowCount()) {
+            try {
+                $n = 0;
+                foreach (q("SELECT id FROM matches WHERE status = 'giocata' AND voting_open = 0 AND match_date >= ? ORDER BY id", [VOTE_PRIZES_FROM])->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+                    match_vote_prizes_sync((int) $mid);
+                    $n++;
+                }
+                $msg = 'premi MVP e difensore su ' . $n . ' partite';
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_vote_prizes', mb_substr($msg, 0, 250));
+            log_activity('partita', 'premi MVP e miglior difensore · ' . $msg);
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

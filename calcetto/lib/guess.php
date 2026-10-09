@@ -241,6 +241,22 @@ function coin_gifts_unseen(int $playerId): ?array
     return [(int) $r['tot'], (int) $r['n'], (int) $r['last'], (bool) $r['guess'], $notes];
 }
 
+/**
+ * Premi MVP e miglior difensore (lib/bets.php: match_vote_prizes_sync) che il giocatore non ha ancora visto, con lo stesso
+ * players.gift_seen_id dei regali: [['id', 'kind' (mvp|dif), 'amount'], ...], dal più vecchio. Vuoto se non ce ne sono.
+ */
+function match_prizes_unseen(int $playerId): array
+{
+    try {
+        $rows = q("SELECT w.id, w.delta, w.ref FROM wallet_moves w JOIN players p ON p.id = w.player_id
+                   WHERE w.player_id = ? AND w.id > p.gift_seen_id AND w.kind = 'premio' AND w.delta > 0
+                     AND (w.ref LIKE 'premio-mvp-m%' OR w.ref LIKE 'premio-dif-m%') ORDER BY w.id", [$playerId])->fetchAll();
+    } catch (Throwable $e) {
+        return [];   // colonna non ancora creata
+    }
+    return array_map(fn($r) => ['id' => (int) $r['id'], 'kind' => str_starts_with($r['ref'], 'premio-mvp') ? 'mvp' : 'dif', 'amount' => (int) $r['delta']], $rows);
+}
+
 /** Ha dei crediti dell'Avatar regalati e non ha ancora visto il messaggio «Il primo giro lo offro io»? Ritorna l'importo, altrimenti null. */
 function credits_intro_unseen(int $playerId): ?int
 {
