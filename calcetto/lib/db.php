@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 55;
+const SCHEMA_VERSION = 56;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -920,6 +920,25 @@ function ensure_schema(): void
     if ($v < 55) {
         // la quota azzerata da «Partita annullata» si ricorda, così «Riporta a programmata» la rimette
         $add('matches', 'fee_before_cancel', 'DECIMAL(6,2) NULL');
+    }
+    if ($v < 56) {
+        // una tantum: premi per gol e assist (ora 100 e 50 KOIN, più altrettanti crediti dell'Avatar) ricalcolati con i nuovi importi
+        // per le partite giocate dall'8 ottobre 2026. match_rewards_sync aggiorna la mossa di ogni giocatore (non ne aggiunge), quindi non
+        // si può pagare due volte. Una sola richiesta lo fa (chi prenota il segnaposto in meta).
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_rewards_oct8', 'in corso')")->rowCount()) {
+            try {
+                $n = 0;
+                foreach (q("SELECT id FROM matches WHERE status = 'giocata' AND match_date >= '2026-10-08 00:00:00' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+                    match_rewards_sync((int) $mid);
+                    $n++;
+                }
+                $msg = 'premi ricalcolati su ' . $n . ' partite';
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_rewards_oct8', mb_substr($msg, 0, 250));
+            log_activity('partita', 'nuovi premi gol e assist dal 8 ottobre · ' . $msg);
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

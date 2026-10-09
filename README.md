@@ -297,7 +297,7 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, over 3,5, assist, gol + assist, autogol, MVP, miglior difensore) vengono cancellate e i KOIN tornano; nelle
   multiple si toglie **solo quella selezione**, la multipla resta con le altre e la quota si ricalcola (se non ne restano, sparisce e i KOIN tornano).
   Chi vince, over/under e le scommesse sugli altri giocatori non si toccano.
-- **Premi per gol e assist**: 25 KOIN per ogni gol e 10 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`) a chi li ha fatti, appena
+- **Premi per gol e assist**: 100 KOIN per ogni gol e 50 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`), più gli stessi importi in crediti dell'Avatar (`SHOP_CREDIT_GOAL`, `SHOP_CREDIT_ASSIST`), a chi li ha fatti, appena
   il risultato viene salvato; se viene corretto il premio si aggiorna, se la partita torna «programmata» o viene eliminata sparisce. Una mossa
   del portafoglio per giocatore e partita (`kind = 'premio'`). Il totale si vede nella scheda «Scommesse».
 - Al passaggio al nuovo modello (migrazione v26) le puntate ancora aperte sono state riprezzate, quelle su se stessi annullate e rimborsate, e i
