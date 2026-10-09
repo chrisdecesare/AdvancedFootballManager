@@ -61,6 +61,38 @@ function live_injured(int $matchId): array
     return $out;
 }
 
+/**
+ * Infortuni di più partite insieme, per il riepilogo in «Partite»: [id partita => [['player_id', 'name', 'note'], ...]].
+ * Una query sola per tutta la lista.
+ */
+function injuries_by_match(array $matchIds): array
+{
+    $matchIds = array_values(array_unique(array_map('intval', $matchIds)));
+    if (!$matchIds) {
+        return [];
+    }
+    $out = [];
+    foreach (q("SELECT e.match_id, e.player_id, e.note, p.name FROM match_events e JOIN players p ON p.id = e.player_id
+                WHERE e.kind = 'infortunio' AND e.match_id IN (" . implode(',', array_fill(0, count($matchIds), '?')) . ')
+                ORDER BY e.created_at, e.id', $matchIds)->fetchAll() as $r) {
+        $out[(int) $r['match_id']][] = ['player_id' => (int) $r['player_id'], 'name' => $r['name'], 'note' => (string) $r['note']];
+    }
+    return $out;
+}
+
+/** Infortuni di un giocatore nelle partite (non annullate), dal più recente: [['match_id', 'match_date', 'note', 'status'], ...]. */
+function player_injuries(int $playerId): array
+{
+    return q("SELECT e.match_id, e.note, m.match_date, m.status FROM match_events e JOIN matches m ON m.id = e.match_id
+              WHERE e.kind = 'infortunio' AND e.player_id = ? AND m.status <> 'annullata' ORDER BY m.match_date DESC, e.id DESC", [$playerId])->fetchAll();
+}
+
+/** Testo breve di un infortunio: «Mario (caviglia)». */
+function injury_label(string $name, string $note): string
+{
+    return $name . ($note !== '' ? ' (' . $note . ')' : '');
+}
+
 /** Squadra (A/B) di un giocatore nella partita, null se non gioca. */
 function live_team_of(int $matchId, int $playerId): ?string
 {

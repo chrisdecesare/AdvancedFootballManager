@@ -237,7 +237,7 @@ body:has(.betslip:not([hidden])) .wrap { padding-bottom: 260px; }
 .pline .pos + .pos { margin-left: 4px; }   /* 2ª scelta accanto alla 1ª */
 .ev { display: inline-flex; align-items: center; gap: 1px; font-size: .85rem; font-weight: 800; white-space: nowrap; }
 .ev-og { color: var(--red); }
-.ev-inj { color: var(--red); }
+.ev-inj { color: var(--purple); }
 /* cronaca in diretta (match.php#diretta) */
 .live-events { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
 .live-ev { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 2px dashed var(--paper-2); }
@@ -429,6 +429,12 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .mdate .m { font-size: .72rem; text-transform: uppercase; font-weight: 900; color: var(--ink-2); }
 .minfo { display: grid; flex: 1; min-width: 0; }
 .minfo strong { font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* infortuni della partita (cronaca, lib/live.php): sempre in viola, nel riepilogo di «Partite» e nel profilo */
+.minj { color: var(--purple); font-weight: 800; font-size: 13px; }
+.tag-hurt { background: var(--purple); color: var(--white); }
+.inj-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.inj-list li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.inj-list .ti, .inj-cell { color: var(--purple); }
 .mside { text-align: right; }
 .match-when { margin-top: 0; }
 .match-when h1 { position: relative; z-index: 1; margin: 10px 0 0; font-size: 2.4rem; text-shadow: 3px 3px 0 var(--ink); -webkit-text-stroke: 1px var(--ink); }
