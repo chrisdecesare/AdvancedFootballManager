@@ -142,10 +142,39 @@ Dalla scheda del giocatore (*Modifica*, per l'admin o chi amministra la lega) c'
 - risulta **assente** in tutte le partite in programma, esce dalle squadre e dal campo, e le scommesse su di lui/lei saltano (come per chi si ritira, vedi sotto *Scommesse*);
 - **non può confermare** la presenza (né da sé né da chi gestisce la partita) finché non viene segnato di nuovo disponibile;
 - nelle partite create dopo (e se cambia lega) entra già come assente (`sync_match_players`);
-- si vede in Rosa (etichetta rossa e riga «Infortunati» in alto) e nel profilo.
+- si vede in Rosa (etichetta rossa e riga «Infortunati» in alto) e nel profilo;
+- i compagni di lega ricevono la notifica («Infortunio: …», `push_notify_injury` in `lib/webpush.php`), come quando un infortunio si segna nella cronaca della partita.
 
 Quando guarisce le sue assenze non cambiano da sole: non si può sapere quali erano dell'infortunio e quali una sua scelta, quindi ridà lui/lei la presenza
 sulle partite. La logica è `player_set_injured` in `lib/stats.php` (colonna `players.injured`, migrazione v27).
+
+## La Gazzetta del mercoledì
+
+Il "giornale" della lega (`lib/gazzetta.php`): in **Home in basso a destra** (sotto le curiosità, accanto all'ultima partita) e a tutta pagina
+in `gazzetta.php` (*Sfoglia*). È uno slider a pagine, su carta rosa con i titoli da quotidiano:
+- **Prima pagina**: la prossima partita, quanti sono confermati e i titoli delle altre pagine;
+- **Infermeria**: chi è segnato infortunato nel profilo (rosso, ai box) e chi si è fatto male in partita nelle ultime 2 settimane (viola, con la nota);
+- **Posti vacanti**: quanti posti mancano per la prossima partita e chi non ha ancora risposto. I posti sono quelli dei moduli scelti per
+  la partita, altrimenti la misura tipica della lega (mediana dei giocatori delle ultime 5 partite, 10 se non ce ne sono);
+- **Probabili formazioni**: se le squadre sono già fatte quelle ufficiali, altrimenti le prova il bilanciamento (rating + intesa, sempre la
+  soluzione migliore) tra i confermati, completati da chi non ha risposto ma gioca più spesso (in corsivo, «in dubbio»; chi si è appena fatto
+  male non entra). Per ogni squadra la forza e la «coppia d'oro» (la coppia con più intesa). Il calcolo resta in `meta` (`gzb_<partita>`)
+  finché non cambiano i giocatori o le statistiche;
+- **Turnover**: chi entra e chi esce rispetto all'ultima partita, e perché (infortunato, non ci sarà, non ha ancora risposto);
+- **Novità**: l'ultima partita della settimana (risultato, MVP, bomber), i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
+- **Mercato KOIN**: i passaggi di KOIN tra giocatori della settimana, con il messaggio.
+
+Le pagine si calcolano al momento, quindi sono sempre aggiornate. **Ogni mercoledì** esce l'edizione nuova: dalle 10 arriva la notifica
+«È uscita la Gazzetta del mercoledì» ai giocatori di ogni lega con una partita in programma o giocata nell'ultimo mese, una volta per lega
+ed edizione (`gazzetta_push_due`, chiamata da `push_run_due`: cron o al volo mentre qualcuno usa il sito).
+
+## Passaggi di KOIN tra giocatori
+
+Da **Scommesse → «Passa KOIN a un compagno»** (o dal profilo di un compagno, *Passagli dei KOIN*) si passa una parte dei propri KOIN a un
+giocatore della stessa lega, con un messaggio facoltativo (`lib/passaggi.php`). Sono due mosse del portafoglio (`wallet_moves.kind = 'passaggio'`,
+`peer_id` = l'altro giocatore, migrazione 58): −N a chi dà, +N a chi riceve. Si passano solo i KOIN disponibili (non quelli puntati), solo dentro
+la stessa economia (i KOIN di una lega restano lì) e al massimo `KOIN_PASS_DAILY_MAX` (1000) al giorno. Chi riceve ha la notifica push e,
+alla prima pagina che apre, la sovraimpressione «+N KOIN!» col nome di chi li ha passati. I passaggi della settimana finiscono nella Gazzetta.
 
 ## Posizioni, squadre bilanciate e calendario
 

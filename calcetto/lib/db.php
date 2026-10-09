@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 57;
+const SCHEMA_VERSION = 58;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -958,6 +958,10 @@ function ensure_schema(): void
             meta_set('oneoff_vote_prizes', mb_substr($msg, 0, 250));
             log_activity('partita', 'premi MVP e miglior difensore · ' . $msg);
         }
+    }
+    if ($v < 58) {
+        // passaggi di KOIN tra giocatori (lib/passaggi.php): l'altro giocatore del passaggio, su tutte e due le mosse
+        $add('wallet_moves', 'peer_id', 'INT NULL AFTER given_by');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

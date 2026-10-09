@@ -147,9 +147,23 @@ function layout_start(string $title, string $active = ''): void
 <?php endif; ?>
 <?php $gift = $myId ? coin_gifts_unseen($myId) : null;
 $prizes = $myId ? match_prizes_unseen($myId) : [];
-if ($gift || $prizes) {   // regali e premi si segnano come visti insieme (stesso gift_seen_id)
-    coin_gifts_seen($myId, max(array_merge([$gift[2] ?? 0], array_column($prizes, 'id'))));
+$passes = $myId ? koin_passes_unseen($myId) : [];   // KOIN passati da un compagno (lib/passaggi.php)
+if ($gift || $prizes || $passes) {   // regali, premi e passaggi si segnano come visti insieme (stesso gift_seen_id)
+    coin_gifts_seen($myId, max(array_merge([$gift[2] ?? 0], array_column($prizes, 'id'), array_column($passes, 'id'))));
 }
+if ($passes):   // un compagno ti ha passato dei KOIN: sovraimpressione col KOIN, una volta sola
+    $passTot = array_sum(array_column($passes, 'amount'));
+    $passFrom = array_values(array_unique(array_filter(array_column($passes, 'from'))));
+    $passNotes = array_slice(array_filter(array_map(fn($x) => (string) $x['note'], $passes)), -3); ?>
+<div class="vote-done coin-gift<?= $passNotes ? ' has-note' : '' ?>" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>
+    <div class="vote-done-title">+<?= $passTot ?> KOIN!</div>
+    <div class="vote-done-sub"><?= h($passFrom ? implode(', ', $passFrom) : 'Un compagno') ?> ti <?= count($passFrom) > 1 ? 'hanno' : 'ha' ?> passato <?= $passTot ?> KOIN.</div>
+    <?php foreach ($passNotes as $note): ?><p class="cg-note">«<?= h($note) ?>»</p><?php endforeach; ?>
+  </div>
+</div>
+<?php endif;
 if ($prizes):   // congratulazioni per l'MVP o il miglior difensore: sovraimpressione, una volta sola
     $prizeTot = array_sum(array_column($prizes, 'amount'));
     $prizeMvp = in_array('mvp', array_column($prizes, 'kind'), true);
