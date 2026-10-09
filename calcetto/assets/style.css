@@ -1661,7 +1661,24 @@ tr.is-new td { background: #fffbe6; }
 .home > .recap { align-self: stretch; display: flex; flex-direction: column; }
 .home > .recap > .slider { flex: 1 1 auto; display: flex; flex-direction: column; }   /* lo spazio in più va alla scheda dei momenti salienti */
 .home > .recap .slides { flex: 1 1 auto; }
-.home > .recap .slide { align-content: center; }
+.home > .recap .slide { align-content: center; gap: 10px; padding: 22px 16px; }
+/* «L'ultima partita» ha molto spazio: momenti salienti più grandi (foto e scritte), un po' meno sui telefoni */
+.home > .recap .slide-title { font-size: 1.35rem; padding: 3px 14px; }
+.home > .recap .slide-faces { margin: 8px 0 4px; }
+.home > .recap .slide-faces a + a { margin-left: -14px; }
+.home > .recap .slide-faces .avatar-lg { width: 112px; height: 112px; font-size: 2.4rem; }
+.home > .recap .slide-faces .avatar-md { width: 76px; height: 76px; font-size: 1.7rem; }
+.home > .recap .slide-name { font-size: 2rem; }
+.home > .recap .slide-big { font-size: 2.8rem; padding: 8px 18px 4px; }
+.home > .recap .slide-text { font-size: 1.1rem; }
+@media (max-width: 520px) {
+  .home > .recap .slide-faces .avatar-lg { width: 92px; height: 92px; font-size: 2rem; }
+  .home > .recap .slide-faces .avatar-md { width: 60px; height: 60px; font-size: 1.35rem; }
+  .home > .recap .slide-faces a + a { margin-left: -10px; }
+  .home > .recap .slide-name { font-size: 1.6rem; }
+  .home > .recap .slide-big { font-size: 2.3rem; }
+  .home > .recap .slide-text { font-size: 1rem; }
+}
 .home-side > .fact { display: flex; flex-direction: column; }
 .home-side > .fact .fact-timer { margin-top: auto; }
 .home-side { display: flex; flex-direction: column; gap: 22px; align-self: stretch; min-width: 0; }
