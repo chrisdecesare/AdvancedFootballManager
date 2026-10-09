@@ -614,8 +614,10 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 /* ---------- home ---------- */
 .home { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 22px; align-items: start; }
 .home > .card { margin: 0; }
+.home .recap { position: sticky; top: calc(var(--topbar-h, 76px) + 20px); }
 @media (max-width: 980px) {
   .home { grid-template-columns: 1fr; }
+  .home .recap { position: static; }
 }
 .hero-vs { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; font: 400 1.2rem var(--font-d); }
 .hero-vs span { background: var(--tc); color: var(--ink); border: var(--b2); border-radius: 10px; padding: 1px 12px; }
@@ -668,7 +670,7 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
   .token-off { width: 17px; height: 17px; font-size: .7rem; top: -5px; left: 6px; }
 }
 
-/* ---------- slider a schede (la Gazzetta del calcetto, lib/gazzetta.php) ---------- */
+/* ---------- slider momenti salienti ---------- */
 .slider { margin-top: 14px; }
 .slides { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; gap: 12px; padding: 4px 4px 10px; scrollbar-width: none; }
 .slides::-webkit-scrollbar { display: none; }
@@ -676,6 +678,21 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
   flex: 0 0 100%; scroll-snap-align: center; display: grid; justify-items: center; text-align: center; gap: 6px;
   padding: 18px 14px; border: var(--b); border-radius: 16px; box-shadow: var(--sh-sm); background: var(--paper-2);
 }
+.slide-mvp { background: var(--yellow); }
+.slide-goal { background: var(--pink); }
+.slide-assist { background: var(--sky); }
+.slide-vote { background: var(--purple); }
+.slide-debut { background: var(--grass); }
+.slide-milestone { background: var(--orange); }
+.slide-streak { background: #ff9f6b; }
+.slide-owngoal { background: #d9dde8; }
+.slide-title { display: inline-flex; align-items: center; gap: 6px; font: 400 1.1rem var(--font-d); background: var(--white); border: var(--b2); border-radius: 10px; padding: 2px 12px; transform: rotate(-2deg); }
+.slide-faces { display: flex; justify-content: center; margin: 6px 0 2px; }
+.slide-faces a + a { margin-left: -10px; }
+.slide-faces .avatar { box-shadow: var(--sh-sm); }
+.slide-name { font: 400 1.4rem/1.1 var(--font-d); }
+.slide-big { font: 400 2rem/1 var(--font-d); background: var(--ink); color: var(--yellow); padding: 6px 14px 3px; border-radius: 12px; transform: rotate(-1.5deg); }
+.slide-text { font-weight: 800; font-size: .9rem; }
 .slider-nav { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 6px; }
 .dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .dot { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 2px solid var(--ink); background: var(--white); cursor: pointer; }
@@ -1017,6 +1034,7 @@ html.menu-open .betslip, html.tour-open .betslip { display: none; }
 
 /* home: la scheda della prossima partita occupa tutta la larghezza (i nomi di chi conferma si leggono per intero) */
 .home > .hero { grid-column: 1 / -1; }
+.home > .recap { position: static; }
 .home > .fact { grid-column: auto; }
 .home .avail-cols { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .home .pline-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.2; }
@@ -1637,11 +1655,19 @@ tr.is-new td { background: #fffbe6; }
   font: 800 .85rem var(--font); cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
 .av-figure-opt.is-on { background: var(--ink); color: var(--yellow); }
 
-/* ---------- La Gazzetta del mercoledì (lib/gazzetta.php): in Home a sinistra, al posto del racconto dell'ultima partita ---------- */
-.home > .gazzetta-wide { grid-column: 1 / -1; }
-.home > .vote-banner { grid-column: 1 / -1; background: var(--yellow); }
-.vote-banner > .ti { font-size: 1.6rem; }
-.vote-banner > span { flex: 1 1 260px; }
+/* ---------- La Gazzetta del mercoledì (lib/gazzetta.php): in Home a destra dell'ultima partita, sopra le curiosità ---------- */
+/* a destra dell'ultima partita: Gazzetta sopra e curiosità sotto, in una colonna che finisce alla stessa altezza dell'ultima partita
+   (le due colonne si allungano fino alla più alta; nella colonna di destra si allunga l'ultima scheda) */
+.home > .recap { align-self: stretch; display: flex; flex-direction: column; }
+.home > .recap > .slider { flex: 1 1 auto; display: flex; flex-direction: column; }   /* lo spazio in più va alla scheda dei momenti salienti */
+.home > .recap .slides { flex: 1 1 auto; }
+.home > .recap .slide { align-content: center; }
+.home-side > .fact { display: flex; flex-direction: column; }
+.home-side > .fact .fact-timer { margin-top: auto; }
+.home-side { display: flex; flex-direction: column; gap: 22px; align-self: stretch; min-width: 0; }
+.home-side > .card { margin: 0; }
+.home-side > .card:last-child { flex: 1 1 auto; }
+.home-side-wide { grid-column: 1 / -1; }
 .gazzetta { --gz-paper: #ffe1ea; --gz-ink: #3a1d2a; --gz-serif: Georgia, "Times New Roman", Times, serif; background: var(--gz-paper); }
 .gz-mast { display: grid; justify-items: center; text-align: center; gap: 2px; padding-bottom: 8px; border-bottom: 3px double var(--gz-ink); color: var(--gz-ink); }
 .gz-title { font: 900 1.6rem/1.05 var(--gz-serif); letter-spacing: -.5px; text-transform: uppercase; }
@@ -1655,7 +1681,6 @@ tr.is-new td { background: #fffbe6; }
 .gz-mercato .gz-kicker { background: #b8860b; }
 .gz-posti .gz-kicker { background: var(--orange); }
 .gz-formazioni .gz-kicker, .gz-turnover .gz-kicker { background: var(--grass-d); }
-.gz-partita .gz-kicker { background: var(--pink); }
 .gz-head { margin: 2px 0 0; font: 900 1.35rem/1.15 var(--gz-serif); }
 .gz-lead { margin: 0; font: italic 600 .9rem/1.4 var(--gz-serif); color: var(--ink-2); border-bottom: 1px solid #e6c6d2; padding-bottom: 6px; }
 .gz-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: .9rem; }

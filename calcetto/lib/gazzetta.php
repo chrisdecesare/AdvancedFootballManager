@@ -1,12 +1,11 @@
 <?php
 /*
- * La Gazzetta del mercoledì: il "giornale" della lega, uno slider a pagine (Home, a sinistra al posto del racconto dell'ultima partita, e gazzetta.php).
+ * La Gazzetta del mercoledì: il "giornale" della lega, uno slider a pagine (Home, a destra dell'ultima partita sopra le curiosità, e gazzetta.php).
  * Ogni mercoledì esce l'edizione nuova: dalle GAZZETTA_PUSH_HOUR arriva la notifica a tutti i giocatori della lega (una volta per
  * lega ed edizione, gazzetta_push_due). Le pagine si calcolano al momento, così chi la apre il giovedì vede i dati di adesso:
  *  - Prima pagina: la prossima partita, quanti sono confermati e i titoli delle altre pagine;
- *  - L'ultima partita: risultato e momenti salienti (match_highlights: MVP, bomber, assist, esordi, traguardi...), con il link al tabellino;
  *  - Infermeria: chi è segnato infortunato nel profilo e chi si è fatto male in partita nelle ultime 2 settimane;
- *  - Novità: i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
+ *  - Novità: l'ultima partita (risultato, MVP, bomber), i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
  *  - Mercato KOIN: i passaggi di KOIN tra giocatori della settimana (lib/passaggi.php);
  *  - Posti vacanti: quanti posti mancano per la prossima partita (la misura tipica della lega) e chi non ha ancora risposto;
  *  - Probabili formazioni: se le squadre non ci sono ancora, le prova il bilanciamento (lib/balance.php) con rating e intesa
@@ -128,26 +127,20 @@ function gazzetta(int $gid): array
         'lead' => $nInj ? 'Gli acciacchi della settimana: forza e rimettetevi presto!' : 'Nessun infortunio: tutti arruolabili.',
         'items' => array_values($inj), 'teams' => null];
 
-    /* ---- l'ultima partita: il racconto (i momenti salienti di lib/stats.php: MVP, bomber, assist, esordi, traguardi...) */
-    if ($last) {
-        $tones = ['mvp' => 'gold', 'goal' => 'ok', 'assist' => 'ok', 'vote' => 'gold', 'debut' => 'ok', 'milestone' => 'gold', 'streak' => 'warn', 'owngoal' => 'bad'];
-        $story = [];
-        foreach (match_highlights($last) as $hl) {
-            $names = array_column(array_slice($hl['players'], 0, 4), 'name');
-            $story[] = $item(count($hl['players']) === 1 ? (int) $hl['players'][0]['player_id'] : null,
-                $hl['title'] . ': ' . implode(', ', $names) . (count($hl['players']) > 4 ? ' e altri' : ''),
-                trim(($hl['big'] !== '' ? $hl['big'] . ' · ' : '') . $hl['text']), $tones[$hl['kind']] ?? '');
-        }
-        $closed = !(int) $last['voting_open'];
-        $slides['partita'] = ['kind' => 'partita', 'kicker' => 'L\'ultima partita', 'icon' => 'history',
-            'title' => team_name('A', $last) . ' ' . (int) $last['score_a'] . '–' . (int) $last['score_b'] . ' ' . team_name('B', $last),
-            'lead' => ucfirst(fmt_date_long($last['match_date'])) . ($last['location'] ? ' · ' . $last['location'] : '')
-                . ($closed ? '' : ' · votazioni in corso: MVP e voti alla chiusura'),
-            'items' => $story, 'teams' => null, 'link' => 'match.php?id=' . (int) $last['id']];
-    }
-
     /* ---- novità */
     $news = [];
+    if ($last && strtotime($last['match_date']) >= $now - GAZZETTA_DAYS * 86400) {
+        $news[] = $item(null, 'Ultima partita', team_name('A', $last) . ' ' . (int) $last['score_a'] . '–' . (int) $last['score_b'] . ' ' . team_name('B', $last)
+            . ' (' . fmt_date_long($last['match_date']) . ')');
+        if (!$last['voting_open'] && ($mvp = match_mvp((int) $last['id'])) && ($mp = get_player($mvp))) {
+            $news[] = $item($mvp, $mp['name'], 'MVP dell\'ultima partita', 'gold');
+        }
+        $top = q('SELECT mp.player_id, mp.goals, p.name FROM match_players mp JOIN players p ON p.id = mp.player_id
+                  WHERE mp.match_id = ? AND mp.goals > 0 ORDER BY mp.goals DESC, p.name LIMIT 1', [$last['id']])->fetch();
+        if ($top) {
+            $news[] = $item((int) $top['player_id'], $top['name'], 'bomber di giornata con ' . gz_n((int) $top['goals'], 'gol', 'gol'), 'ok');
+        }
+    }
     foreach ($people as $pid => $p) {
         if ($p['created_at'] >= $since) {
             $news[] = $item($pid, $p['name'], 'nuovo acquisto: benvenuto in rosa!', 'ok');
@@ -159,7 +152,7 @@ function gazzetta(int $gid): array
     }
     $slides['novita'] = ['kind' => 'novita', 'kicker' => 'Novità', 'icon' => 'news',
         'title' => $news ? 'Le notizie della settimana' : 'Settimana tranquilla',
-        'lead' => $news ? 'Cosa è successo negli ultimi ' . GAZZETTA_DAYS . ' giorni.' : 'Nessun nuovo arrivo né oggetti nuovi nel Negozio: la notizia la fate voi in campo.',
+        'lead' => $news ? 'Cosa è successo negli ultimi ' . GAZZETTA_DAYS . ' giorni.' : 'Niente di nuovo sotto il sole: la notizia la fate voi giovedì.',
         'items' => $news, 'teams' => null];
 
     /* ---- mercato KOIN */
@@ -258,7 +251,7 @@ function gazzetta(int $gid): array
     }
 
     /* ---- prima pagina: i titoli delle altre pagine, nell'ordine in cui si sfogliano */
-    $order = ['partita', 'infermeria', 'posti', 'formazioni', 'turnover', 'novita', 'mercato'];
+    $order = ['infermeria', 'posti', 'formazioni', 'turnover', 'novita', 'mercato'];
     $slides = array_filter(array_replace(array_flip($order), $slides), 'is_array');
     $heads = array_map(fn($s) => $item(null, $s['kicker'], $s['title']), array_values($slides));
     $cover = ['kind' => 'cover', 'kicker' => 'Prima pagina', 'icon' => 'news',
@@ -270,11 +263,11 @@ function gazzetta(int $gid): array
 }
 
 /** HTML della Gazzetta: testata e slider a pagine (stesso slider dei momenti salienti, assets/app.js). */
-function gazzetta_html(array $g, bool $page = false, string $class = ''): string
+function gazzetta_html(array $g, bool $page = false): string
 {
     $slides = $g['slides'];
     ob_start(); ?>
-<section class="card gazzetta<?= $page ? ' gazzetta-page' : '' ?><?= $class !== '' ? ' ' . h($class) : '' ?>" id="gazzetta">
+<section class="card gazzetta<?= $page ? ' gazzetta-page' : '' ?>" id="gazzetta">
   <header class="gz-mast">
     <span class="gz-ed"><?= h(ucfirst(fmt_date_long($g['edition']))) ?></span>
     <span class="gz-title">La Gazzetta del Calcetto</span>
@@ -286,7 +279,7 @@ function gazzetta_html(array $g, bool $page = false, string $class = ''): string
       <article class="slide gz-slide gz-<?= h($s['kind']) ?>">
         <span class="gz-kicker"><i class="ti ti-<?= h($s['icon']) ?>"></i> <?= h($s['kicker']) ?></span>
         <h3 class="gz-head"><?= h($s['title']) ?></h3>
-        <p class="gz-lead"><?= h($s['lead']) ?><?php if (!empty($s['link'])): ?> <a class="link" href="<?= h($s['link']) ?>">Tabellino <i class="ti ti-arrow-right"></i></a><?php endif; ?></p>
+        <p class="gz-lead"><?= h($s['lead']) ?></p>
         <?php if ($s['teams']): ?>
           <div class="gz-teams">
             <?php foreach (['A', 'B'] as $t): $tm = $s['teams'][$t]; ?>
