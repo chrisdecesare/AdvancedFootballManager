@@ -240,7 +240,7 @@ layout_start('Scommesse', 'bets');
     (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i KOIN). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni KOIN già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei).
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
-    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN e ogni assist <?= BET_REWARD_ASSIST ?>, appena viene salvato il risultato. Su te stesso (chi segna, doppietta, tripletta, autogol, MVP) non si scommette.
+    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN e <?= SHOP_CREDIT_GOAL ?> crediti dell'Avatar, ogni assist <?= BET_REWARD_ASSIST ?> KOIN e <?= SHOP_CREDIT_ASSIST ?> crediti, appena viene salvato il risultato. Se perdi tutte le puntate su una partita, alla chiusura dei voti ricevi <?= BET_CONSOLATION ?> KOIN di consolazione. Su te stesso (chi segna, doppietta, tripletta, autogol, MVP) non si scommette.
     I tuoi KOIN si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> KOIN a settimana.
     Ogni lega creata da un utente ha i suoi KOIN: si puntano e si vincono solo sulle sue partite, e non si mescolano con quelli delle altre leghe.</p>
 </section>
@@ -350,7 +350,7 @@ layout_start('Scommesse', 'bets');
 <p class="empty card">Non hai ancora fatto nessuna scommessa: vai su <a class="link" href="bets.php">Partite</a> e tocca una quota.</p>
 <?php else: ?>
 <p class="muted small">Tutte le tue scommesse, singole e multiple: in gioco <b><?= $inPlay ?></b> KOIN · saldo delle scommesse decise <b><?= fmt_signed($net + $comboNet, 0) ?></b>
-  · premi per gol e assist <b>+<?= player_rewards_total($me) ?></b> (<?= BET_REWARD_GOAL ?> a gol, <?= BET_REWARD_ASSIST ?> ad assist).</p>
+  · premi per gol e assist <b>+<?= player_rewards_total($me) ?></b> (<?= BET_REWARD_GOAL ?> a gol, <?= BET_REWARD_ASSIST ?> ad assist; in più <?= SHOP_CREDIT_GOAL ?> e <?= SHOP_CREDIT_ASSIST ?> crediti dell'Avatar).</p>
 
 <h2 class="section-title">Singole in corso</h2>
 <?php if (!$openSingles): ?><p class="empty card">Nessuna singola in corso.</p><?php else: ?>
