@@ -523,6 +523,8 @@ function player_ovr(array $p, array $s): float
 }
 
 const OVERALL_VOTE_SPREAD = 2.2;   // quanto si allargano i voti attorno al 6 (player_overall): i voti stanno quasi sempre tra 6 e 8; con 2,2 chi prende sempre 7 si ferma a circa 82
+const OVERALL_VOTE_KNEE = 7;       // sopra questa media i voti pesano meno (OVERALL_VOTE_TOP): un 8,5 ogni tanto non fa volare l'overall
+const OVERALL_VOTE_TOP = 1.0;      // di quanto cresce il voto allargato per ogni punto di media sopra OVERALL_VOTE_KNEE
 const OVERALL_VOTE_SOFT = 2;       // con n partite votate i voti pesano n / (n + 2)
 
 /**
@@ -530,6 +532,7 @@ const OVERALL_VOTE_SOFT = 2;       // con n partite votate i voti pesano n / (n 
  * dà le quote (player_ovr): quello resta com'è, questo è fatto per far salire chi viene votato bene.
  *  - i voti si allargano attorno al 6 (media 7 vale 8,2): voti e rating base non sono sulla stessa scala, perché quasi nessuno
  *    prende meno di 6 o più di 8;
+ *  - sopra il 7 di media la crescita rallenta: 8 di media vale circa 92, non 99, e un 8,5 ogni tanto non fa volare;
  *  - nelle prime partite si «prendono le misure»: con n partite votate i voti pesano n / (n + 2) (1: 33%, 5: 71%, 10: 83%), il
  *    resto è il rating base (senza partite votate, solo quello);
  *  - il bonus per le vittorie è quello di player_ovr (fino a ±0,5, peso pieno da 10 presenze).
@@ -542,7 +545,9 @@ function player_overall(array $p, array $s): int
     $r = $base;
     if ($n >= 1 && $s['avg_vote'] !== null) {
         $w = $n / ($n + OVERALL_VOTE_SOFT);
-        $r = (1 - $w) * $base + $w * (6 + OVERALL_VOTE_SPREAD * ((float) $s['avg_vote'] - 6));
+        $a = (float) $s['avg_vote'];
+        $v = 6 + OVERALL_VOTE_SPREAD * (min($a, OVERALL_VOTE_KNEE) - 6) + OVERALL_VOTE_TOP * max(0.0, $a - OVERALL_VOTE_KNEE);
+        $r = (1 - $w) * $base + $w * $v;
     }
     if (($s['apps'] ?? 0) > 0) {
         $r += max(-0.5, min(0.5, ($s['win_pct'] - 50) / 100)) * (min($s['apps'], 10) / 10);
