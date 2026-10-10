@@ -13,7 +13,7 @@ uasort($players, function ($a, $b) use ($sort, $stats) {
     switch ($sort) {
         case 'numero': return ((int) ($a['shirt_number'] ?? 999)) <=> ((int) ($b['shirt_number'] ?? 999));
         case 'ruolo': return array_search($a['position'], positions()) <=> array_search($b['position'], positions()) ?: strcmp($a['name'], $b['name']);
-        case 'rating': return $sb['ovr'] <=> $sa['ovr'];
+        case 'rating': return $sb['overall'] <=> $sa['overall'];
         case 'gol': return $sb['goals'] <=> $sa['goals'];
         default: return strcasecmp($a['name'], $b['name']);
     }
@@ -46,7 +46,7 @@ layout_start('Rosa', 'players');
   <a class="pcard role-<?= strtolower(position_abbr($p['position'])) ?><?= str_contains($bgStyle, '--bg-v') ? ' has-bg-image' : '' ?><?= bg_preset_class($p) ?><?= border_class($p) ?> <?= $p['active'] ? '' : 'is-inactive' ?>" href="player.php?id=<?= (int) $p['id'] ?>"<?= $bgStyle !== '' ? ' style="' . $bgStyle . '"' : '' ?>>
     <?= hat_html($p) ?>
     <div class="pcard-top">
-      <span class="pcard-ovr"><?= overall($s['ovr']) ?><small>OVR</small></span>
+      <span class="pcard-ovr"><?= (int) $s['overall'] ?><small>OVR</small></span>
       <?php if ($p['shirt_number'] !== null): ?><span class="pcard-num"><?= (int) $p['shirt_number'] ?></span><?php endif; ?>
     </div>
     <div class="pcard-photo"><?= avatar($p, 'xl') ?></div>

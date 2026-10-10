@@ -367,7 +367,7 @@ function compute_stats($scope = 'current'): array
     }
     // statistiche già calcolate per questo ambito e questa versione dei dati (vedi q() in db.php): il calcolo completo
     // rilegge tutte le partite e le presenze, e con gli anni e le leghe diventerebbe la parte più lenta di ogni pagina
-    $dbKey = substr(scope_key($sc), 0, 191);
+    $dbKey = substr(scope_key($sc), 0, 185) . '|s2';   // «s2»: cambia quando cambiano i campi calcolati (qui: aggiunto overall), così non si rileggono quelli vecchi
     if ($ver > 0) {
         try {
             $row = q('SELECT data FROM stats_cache WHERE scope_key = ? AND ver = ?', [$dbKey, $ver])->fetchColumn();
@@ -483,6 +483,7 @@ function compute_stats($scope = 'current'): array
             'history' => $h,
         ];
         $out['ovr'] = player_ovr($p, $out);
+        $out['overall'] = player_overall($p, $out);
         $stats[$pid] = $out;
     }
     $cache[$ck] = $stats;
@@ -521,6 +522,34 @@ function player_ovr(array $p, array $s): float
     return round($r, 2);
 }
 
+const OVERALL_VOTE_SPREAD = 2.5;   // quanto si allargano i voti attorno al 6 (player_overall): i voti stanno quasi sempre tra 6 e 8
+const OVERALL_VOTE_SOFT = 2;       // con n partite votate i voti pesano n / (n + 2)
+
+/**
+ * L'overall che si vede (1-99, nella scheda, nella Rosa, in classifica e nelle formazioni). Non è quello che bilancia le squadre e
+ * dà le quote (player_ovr): quello resta com'è, questo è fatto per far salire chi viene votato bene.
+ *  - i voti si allargano attorno al 6 (media 7 vale 8,5): voti e rating base non sono sulla stessa scala, perché quasi nessuno
+ *    prende meno di 6 o più di 8;
+ *  - nelle prime partite si «prendono le misure»: con n partite votate i voti pesano n / (n + 2) (1: 33%, 5: 71%, 10: 83%), il
+ *    resto è il rating base (senza partite votate, solo quello);
+ *  - il bonus per le vittorie è quello di player_ovr (fino a ±0,5, peso pieno da 10 presenze).
+ * Esempio: rating base 6, media 7 dopo 5 partite votate e 50% di vittorie => 78.
+ */
+function player_overall(array $p, array $s): int
+{
+    $base = (float) $p['base_rating'];
+    $n = (int) ($s['vote_count'] ?? 0);
+    $r = $base;
+    if ($n >= 1 && $s['avg_vote'] !== null) {
+        $w = $n / ($n + OVERALL_VOTE_SOFT);
+        $r = (1 - $w) * $base + $w * (6 + OVERALL_VOTE_SPREAD * ((float) $s['avg_vote'] - 6));
+    }
+    if (($s['apps'] ?? 0) > 0) {
+        $r += max(-0.5, min(0.5, ($s['win_pct'] - 50) / 100)) * (min($s['apps'], 10) / 10);
+    }
+    return (int) max(1, min(99, round($r * 10)));
+}
+
 /** Classifica: punti, poi % vittorie, poi gol. Solo giocatori con almeno una presenza. */
 function standings(string $sort = 'points'): array
 {
@@ -541,7 +570,7 @@ function standings(string $sort = 'points'): array
         'win_pct' => ['win_pct', 'apps'],
         'mvp' => ['mvp', 'avg_vote'],
         'avg_vote' => ['avg_vote', 'vote_count'],
-        'ovr' => ['ovr', 'avg_vote'],
+        'ovr' => ['overall', 'avg_vote'],
         'own_goals' => ['own_goals', 'apps'],
     ][$sort] ?? ['points', 'win_pct', 'goals'];
     usort($rows, function ($a, $b) use ($keys) {

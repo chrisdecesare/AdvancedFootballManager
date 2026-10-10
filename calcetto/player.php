@@ -119,7 +119,7 @@ layout_start($p['name'], 'players');
       <?= form_badge($s['form']) ?>
       <?php foreach ($myGroups as $gn): ?><span class="tag tag-group"><i class="ti ti-users-group"></i> <?= h($gn) ?></span><?php endforeach; ?>
     </div>
-    <div class="ovr-big" title="Overall: il valore complessivo del giocatore (0-99), da rating base, voti e vittorie"><span><?= overall($s['ovr']) ?></span><small>OVERALL</small></div>
+    <div class="ovr-big" title="Overall: il valore complessivo del giocatore (0-99). Parte dal rating base; più partite vengono votate, più contano i voti. Le vittorie danno un piccolo bonus"><span><?= (int) $s['overall'] ?></span><small>OVERALL</small></div>
     <?php if ($canEdit): ?><a class="btn btn-ghost btn-sm" href="player_edit.php?id=<?= $id ?>"><i class="ti ti-pencil"></i> Modifica profilo</a><?php endif; ?>
     <?php if (my_player_id() === $id): ?><a class="btn btn-ghost btn-sm" href="shop.php"><i class="ti ti-shopping-bag"></i> Negozio</a><?php endif; ?>
   </div>

@@ -894,7 +894,7 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
             if ($showVotes && isset($avgs[$pid])) $extra .= '<span class="vote ' . vote_class($avgs[$pid]['avg']) . '">' . fmt_num($avgs[$pid]['avg']) . '</span>';
             if (!$votingOpen && $mvp === $pid) $extra .= '<span class="tag tag-mvp"><i class="ti ti-star-filled"></i> MVP</span>';
             if (!$votingOpen) $extra .= $awardTags($pid);
-            if (!$played && !$r['is_guest']) $extra .= '<span class="ovr" title="Overall">' . overall($stats[$pid]['ovr'] ?? 6) . '</span>';
+            if (!$played && !$r['is_guest']) $extra .= '<span class="ovr" title="Overall">' . (int) ($stats[$pid]['overall'] ?? 60) . '</span>';
           ?>
             <div class="pline-row">
               <?= player_line($r, $extra) ?>

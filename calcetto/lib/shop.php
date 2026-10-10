@@ -701,9 +701,3 @@ function hat_svg(string $key): string
         '{S}' => 'stroke="#1f1a2e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"']);
     return '<svg class="hat-svg" viewBox="0 0 100 80" focusable="false">' . $svg . '</svg>';
 }
-
-/** Overall del giocatore, in stile videogioco (0-99): il rating (scala 1-10) per dieci. */
-function overall($ovr): int
-{
-    return (int) max(1, min(99, round((float) $ovr * 10)));
-}
