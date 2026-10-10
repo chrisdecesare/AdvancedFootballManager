@@ -522,18 +522,18 @@ function player_ovr(array $p, array $s): float
     return round($r, 2);
 }
 
-const OVERALL_VOTE_SPREAD = 2.5;   // quanto si allargano i voti attorno al 6 (player_overall): i voti stanno quasi sempre tra 6 e 8
+const OVERALL_VOTE_SPREAD = 2.2;   // quanto si allargano i voti attorno al 6 (player_overall): i voti stanno quasi sempre tra 6 e 8; con 2,2 chi prende sempre 7 si ferma a circa 82
 const OVERALL_VOTE_SOFT = 2;       // con n partite votate i voti pesano n / (n + 2)
 
 /**
  * L'overall che si vede (1-99, nella scheda, nella Rosa, in classifica e nelle formazioni). Non è quello che bilancia le squadre e
  * dà le quote (player_ovr): quello resta com'è, questo è fatto per far salire chi viene votato bene.
- *  - i voti si allargano attorno al 6 (media 7 vale 8,5): voti e rating base non sono sulla stessa scala, perché quasi nessuno
+ *  - i voti si allargano attorno al 6 (media 7 vale 8,2): voti e rating base non sono sulla stessa scala, perché quasi nessuno
  *    prende meno di 6 o più di 8;
  *  - nelle prime partite si «prendono le misure»: con n partite votate i voti pesano n / (n + 2) (1: 33%, 5: 71%, 10: 83%), il
  *    resto è il rating base (senza partite votate, solo quello);
  *  - il bonus per le vittorie è quello di player_ovr (fino a ±0,5, peso pieno da 10 presenze).
- * Esempio: rating base 6, media 7 dopo 5 partite votate e 50% di vittorie => 78.
+ * Esempio: rating base 6, media 7 dopo 5 partite votate e 50% di vittorie => 76 (e col tempo, sempre con 7, si ferma a 82: per salire bisogna migliorare).
  */
 function player_overall(array $p, array $s): int
 {
