@@ -145,9 +145,40 @@ function layout_start(string $title, string $active = ''): void
   <div class="flash flash-warn"><i class="ti ti-shield-lock"></i> <?= is_admin() ? 'Il tuo account gestisce tutto il sito' : 'Il tuo account gestisce una lega' ?>: proteggilo con la
     <a class="link" href="account.php#due-passaggi">verifica in due passaggi</a> (un codice dal telefono oltre alla password). Ci vuole un minuto.</div>
 <?php endif; ?>
-<?php if ($myId && ($gift = coin_gifts_unseen($myId))):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta sola
-    [$giftTot, $giftN, $giftLast, $giftGuess, $giftNotes] = $gift;
-    coin_gifts_seen($myId, $giftLast); ?>
+<?php $gift = $myId ? coin_gifts_unseen($myId) : null;
+$prizes = $myId ? match_prizes_unseen($myId) : [];
+$passes = $myId ? koin_passes_unseen($myId) : [];   // KOIN passati da un compagno (lib/passaggi.php)
+if ($gift || $prizes || $passes) {   // regali, premi e passaggi si segnano come visti insieme (stesso gift_seen_id)
+    coin_gifts_seen($myId, max(array_merge([$gift[2] ?? 0], array_column($prizes, 'id'), array_column($passes, 'id'))));
+}
+if ($passes):   // un compagno ti ha passato dei KOIN: sovraimpressione col KOIN, una volta sola
+    $passTot = array_sum(array_column($passes, 'amount'));
+    $passFrom = array_values(array_unique(array_filter(array_column($passes, 'from'))));
+    $passNotes = array_slice(array_filter(array_map(fn($x) => (string) $x['note'], $passes)), -3); ?>
+<div class="vote-done coin-gift<?= $passNotes ? ' has-note' : '' ?>" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>
+    <div class="vote-done-title">+<?= $passTot ?> KOIN!</div>
+    <div class="vote-done-sub"><?= h($passFrom ? implode(', ', $passFrom) : 'Un compagno') ?> ti <?= count($passFrom) > 1 ? 'hanno' : 'ha' ?> passato <?= $passTot ?> KOIN.</div>
+    <?php foreach ($passNotes as $note): ?><p class="cg-note">«<?= h($note) ?>»</p><?php endforeach; ?>
+  </div>
+</div>
+<?php endif;
+if ($prizes):   // congratulazioni per l'MVP o il miglior difensore: sovraimpressione, una volta sola
+    $prizeTot = array_sum(array_column($prizes, 'amount'));
+    $prizeMvp = in_array('mvp', array_column($prizes, 'kind'), true);
+    $prizeDif = in_array('dif', array_column($prizes, 'kind'), true); ?>
+<div class="vote-done coin-gift has-note" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-<?= $prizeMvp ? 'trophy' : 'shield-filled' ?>"></i></span>
+    <div class="vote-done-title">Congratulazioni!</div>
+    <div class="vote-done-sub"><?= $prizeMvp && $prizeDif ? 'Sei stato MVP e miglior difensore della partita' : ($prizeMvp ? 'Sei stato votato MVP della partita' : 'Sei stato votato miglior difensore della partita') ?>:
+      ti sono arrivati <?= $prizeTot ?> KOIN, spendibili in tutto il Negozio e nell'<a class="link" href="avatar.php">Avatar</a>.</div>
+  </div>
+</div>
+<?php endif;
+if ($gift):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta sola
+    [$giftTot, $giftN, $giftLast, $giftGuess, $giftNotes] = $gift; ?>
 <div class="vote-done coin-gift<?= $giftNotes ? ' has-note' : '' ?>" data-vote-done role="status" aria-live="polite">
   <div class="vote-done-card">
     <span class="cg-badge" aria-hidden="true"><i class="ti ti-coin"></i></span>
@@ -165,6 +196,28 @@ function layout_start(string $title, string $active = ''): void
     <div class="vote-done-sub">Ti ho regalato <?= $credIntro ?> crediti per personalizzare il tuo Avatar: capelli, maglie, cappelli e tutto il resto.
       Valgono solo nella sezione <a class="link" href="avatar.php">Avatar</a>, non per le scommesse.</div>
   </div>
+</div>
+<?php endif; ?>
+<?php
+// il pensiero sulla partita (lib/pensieri.php): a chi ha giocato l'ultima partita, se non c'è già un'altra sovraimpressione
+$thought = $myId && !$gift && !$prizes && !$passes && !is_post() && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'thought.php' ? thought_pending($myId) : null;
+if ($thought):
+    $draft = (string) ($_SESSION['thought_draft'] ?? '');
+    unset($_SESSION['thought_draft']); ?>
+<div class="crop-modal thought-modal" role="dialog" aria-modal="true" aria-labelledby="thought-title">
+  <form method="post" action="thought.php" class="card thought-card">
+    <?= csrf_field() ?><input type="hidden" name="match_id" value="<?= (int) $thought['id'] ?>"><input type="hidden" name="back" value="<?= h($_SERVER['REQUEST_URI'] ?? 'index.php') ?>">
+    <span class="eyebrow"><i class="ti ti-message-circle"></i> Spogliatoio</span>
+    <h2 id="thought-title">Com'è andata <?= h(fmt_date_long($thought['match_date'])) ?>?</h2>
+    <p class="thought-score"><span class="team-dot team-a"></span><?= h(team_name('A', $thought)) ?> <b><?= (int) $thought['score_a'] ?> – <?= (int) $thought['score_b'] ?></b> <?= h(team_name('B', $thought)) ?><span class="team-dot team-b"></span></p>
+    <p class="muted small">Scrivi un pensiero sulla partita, poche righe: lo leggeranno tutti nella <b>Gazzetta del mercoledì</b>.</p>
+    <textarea name="body" rows="4" maxlength="<?= THOUGHT_MAX ?>" placeholder="Es. Partita tiratissima, il gol del pareggio all'ultimo me lo sogno stanotte…" aria-label="Il tuo pensiero sulla partita"><?= h($draft) ?></textarea>
+    <div class="thought-actions">
+      <button class="btn btn-primary btn-sm" name="do" value="save"><i class="ti ti-send"></i> Pubblica</button>
+      <button class="btn btn-ghost btn-sm" name="do" value="later" formnovalidate>Più tardi</button>
+      <button class="btn btn-ghost btn-sm" name="do" value="skip" formnovalidate>No grazie</button>
+    </div>
+  </form>
 </div>
 <?php endif; ?>
 <?php foreach (take_flashes() as [$type, $msg]): ?>

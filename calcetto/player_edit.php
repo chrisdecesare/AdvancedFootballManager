@@ -153,6 +153,9 @@ if (is_post()) {
             if ($injuredNow !== (int) ($p['injured'] ?? 0)) {
                 $away = player_set_injured($id, (bool) $injuredNow);   // da infortunato: assente nelle partite in programma, scommesse su di lui annullate
                 log_activity('giocatore', ($injuredNow ? 'infortunato' : 'di nuovo disponibile') . ' · ' . $name, $groupIds[0] ?? null);
+                if ($injuredNow) {
+                    push_notify_injury($id, player_group_ids($id), '', null, (int) current_user()['id']);   // lo sanno i compagni di lega
+                }
                 if ($injuredNow && $away) {
                     flash('ok', $name . ' è segnato infortunato: risulta assente in ' . $away . ($away > 1 ? ' partite' : ' partita') . ' e le scommesse su di lui/lei sono state tolte.');
                 }

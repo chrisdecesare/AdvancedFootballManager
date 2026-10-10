@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 54;
+const SCHEMA_VERSION = 59;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -916,6 +916,66 @@ function ensure_schema(): void
             meta_set('oneoff_oct8', mb_substr($msg, 0, 250));
             log_activity('partita', 'gol e assist 8 ottobre · ' . $msg);
         }
+    }
+    if ($v < 55) {
+        // la quota azzerata da «Partita annullata» si ricorda, così «Riporta a programmata» la rimette
+        $add('matches', 'fee_before_cancel', 'DECIMAL(6,2) NULL');
+    }
+    if ($v < 56) {
+        // una tantum: premi per gol e assist (ora 100 e 50 KOIN, più altrettanti crediti dell'Avatar) ricalcolati con i nuovi importi
+        // per le partite giocate dall'8 ottobre 2026. match_rewards_sync aggiorna la mossa di ogni giocatore (non ne aggiunge), quindi non
+        // si può pagare due volte. Una sola richiesta lo fa (chi prenota il segnaposto in meta).
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_rewards_oct8', 'in corso')")->rowCount()) {
+            try {
+                $n = 0;
+                foreach (q("SELECT id FROM matches WHERE status = 'giocata' AND match_date >= '2026-10-08 00:00:00' ORDER BY id")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+                    match_rewards_sync((int) $mid);
+                    $n++;
+                }
+                $msg = 'premi ricalcolati su ' . $n . ' partite';
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_rewards_oct8', mb_substr($msg, 0, 250));
+            log_activity('partita', 'nuovi premi gol e assist dal 8 ottobre · ' . $msg);
+        }
+    }
+    if ($v < 57) {
+        // una tantum: premi MVP (1000 KOIN) e miglior difensore (250 KOIN) anche per le partite già chiuse dall'8 ottobre 2026
+        // (lib/bets.php: match_vote_prizes_sync). La mossa è una per premio e partita (ref), quindi non si paga due volte; chi li ha
+        // vinti vede le congratulazioni alla prossima pagina che apre. Una sola richiesta lo fa (chi prenota il segnaposto in meta).
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_vote_prizes', 'in corso')")->rowCount()) {
+            try {
+                $n = 0;
+                foreach (q("SELECT id FROM matches WHERE status = 'giocata' AND voting_open = 0 AND match_date >= ? ORDER BY id", [VOTE_PRIZES_FROM])->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+                    match_vote_prizes_sync((int) $mid);
+                    $n++;
+                }
+                $msg = 'premi MVP e difensore su ' . $n . ' partite';
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_vote_prizes', mb_substr($msg, 0, 250));
+            log_activity('partita', 'premi MVP e miglior difensore · ' . $msg);
+        }
+    }
+    if ($v < 58) {
+        // passaggi di KOIN tra giocatori (lib/passaggi.php): l'altro giocatore del passaggio, su tutte e due le mosse
+        $add('wallet_moves', 'peer_id', 'INT NULL AFTER given_by');
+    }
+    if ($v < 59) {
+        // il pensiero sulla partita di chi l'ha giocata (lib/pensieri.php), per la Gazzetta del mercoledì
+        db()->exec("CREATE TABLE IF NOT EXISTS match_thoughts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            match_id INT NOT NULL,
+            player_id INT NOT NULL,
+            body VARCHAR(400) NULL,
+            skipped TINYINT(1) NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_thought (match_id, player_id),
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

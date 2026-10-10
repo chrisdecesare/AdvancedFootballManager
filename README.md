@@ -6,6 +6,8 @@ statistiche avanzate e pagamenti delle quote.
 
 Il codice del sito è nella cartella [`calcetto/`](calcetto/). Serve PHP 8.0+ e MySQL/MariaDB.
 
+Un piano (solo documento, nulla è ancora cambiato) per passare a Next.js, con vantaggi e svantaggi, è in [`docs/piano-migrazione-nextjs.md`](docs/piano-migrazione-nextjs.md).
+
 ## Accesso e iscrizione
 
 Dalla pagina di login chi ha il link può **iscriversi** (nome, username, password, posizioni,
@@ -142,10 +144,47 @@ Dalla scheda del giocatore (*Modifica*, per l'admin o chi amministra la lega) c'
 - risulta **assente** in tutte le partite in programma, esce dalle squadre e dal campo, e le scommesse su di lui/lei saltano (come per chi si ritira, vedi sotto *Scommesse*);
 - **non può confermare** la presenza (né da sé né da chi gestisce la partita) finché non viene segnato di nuovo disponibile;
 - nelle partite create dopo (e se cambia lega) entra già come assente (`sync_match_players`);
-- si vede in Rosa (etichetta rossa e riga «Infortunati» in alto) e nel profilo.
+- si vede in Rosa (etichetta rossa e riga «Infortunati» in alto) e nel profilo;
+- i compagni di lega ricevono la notifica («Infortunio: …», `push_notify_injury` in `lib/webpush.php`), come quando un infortunio si segna nella cronaca della partita.
 
 Quando guarisce le sue assenze non cambiano da sole: non si può sapere quali erano dell'infortunio e quali una sua scelta, quindi ridà lui/lei la presenza
 sulle partite. La logica è `player_set_injured` in `lib/stats.php` (colonna `players.injured`, migrazione v27).
+
+## La Gazzetta del mercoledì
+
+Il "giornale" della lega (`lib/gazzetta.php`): in **Home a destra dell'ultima partita**, con le curiosità sotto (le due colonne finiscono
+alla stessa altezza: `.home-side`, si allunga l'ultima scheda di destra o l'ultima partita) e a tutta pagina in `gazzetta.php` (*Sfoglia*). È uno slider a pagine, su carta rosa con i titoli da quotidiano:
+- **Prima pagina**: la prossima partita, quanti sono confermati e i titoli delle altre pagine;
+- **Infermeria**: chi è segnato infortunato nel profilo (rosso, ai box) e chi si è fatto male in partita nelle ultime 2 settimane (viola, con la nota);
+- **Posti vacanti**: quanti posti mancano per la prossima partita e chi non ha ancora risposto. I posti sono quelli dei moduli scelti per
+  la partita, altrimenti la misura tipica della lega (mediana dei giocatori delle ultime 5 partite, 10 se non ce ne sono);
+- **Probabili formazioni**: se le squadre sono già fatte quelle ufficiali, altrimenti le prova il bilanciamento (rating + intesa, sempre la
+  soluzione migliore) tra i confermati, completati da chi non ha risposto ma gioca più spesso (in corsivo, «in dubbio»; chi si è appena fatto
+  male non entra). Per ogni squadra la forza e la «coppia d'oro» (la coppia con più intesa). Il calcolo resta in `meta` (`gzb_<partita>`)
+  finché non cambiano i giocatori o le statistiche;
+- **Turnover**: chi entra e chi esce rispetto all'ultima partita, e perché (infortunato, non ci sarà, non ha ancora risposto);
+- **Spogliatoio**: i pensieri di chi ha giocato l'ultima partita (della partita la Gazzetta non racconta altro: per quello c'è «L'ultima partita» in Home).
+  A chi ha giocato compare un **messaggio a comparsa** che chiede un pensiero di poche righe (max 280 caratteri, `lib/pensieri.php`,
+  tabella `match_thoughts`, migrazione 59): *Pubblica*, *Più tardi* (non lo chiede più fino alla prossima sessione) o *No grazie* (mai più per
+  quella partita). Lo chiede solo per l'ultima partita della sua lega, per 7 giorni, e non insieme alle sovraimpressioni dei KOIN;
+- **Novità**: i nuovi arrivati nella lega e gli oggetti usciti nel Negozio;
+- **Mercato KOIN**: i passaggi di KOIN tra giocatori della settimana, con il messaggio;
+- **Borsa KOIN** (subito dopo il mercato, `gazzetta_borsa`): tre riquadri (KOIN in circolo, inflazione della settimana, quanto costa il Negozio
+  rispetto al listino e quanto si è mosso in settimana), il grafico dei KOIN a testa delle ultime 8 settimane (ricostruito dalle date delle mosse
+  del portafoglio; la linea grigia a 300 è dove i prezzi sono di listino: sopra salgono fino a +60%, sotto scendono fino a −20%), da dove sono
+  entrati e usciti i KOIN in settimana (vincite, premi, acquisti, puntate…; i passaggi tra giocatori no) e la tabella con tutti i valori.
+
+Le pagine si calcolano al momento, quindi sono sempre aggiornate. **Ogni mercoledì** esce l'edizione nuova: dalle 10 arriva la notifica
+«È uscita la Gazzetta del mercoledì» ai giocatori di ogni lega con una partita in programma o giocata nell'ultimo mese, una volta per lega
+ed edizione (`gazzetta_push_due`, chiamata da `push_run_due`: cron o al volo mentre qualcuno usa il sito).
+
+## Passaggi di KOIN tra giocatori
+
+Da **Scommesse → «Passa KOIN a un compagno»** (o dal profilo di un compagno, *Passagli dei KOIN*) si passa una parte dei propri KOIN a un
+giocatore della stessa lega, con un messaggio facoltativo (`lib/passaggi.php`). Sono due mosse del portafoglio (`wallet_moves.kind = 'passaggio'`,
+`peer_id` = l'altro giocatore, migrazione 58): −N a chi dà, +N a chi riceve. Si passano solo i KOIN disponibili (non quelli puntati), solo dentro
+la stessa economia (i KOIN di una lega restano lì) e al massimo `KOIN_PASS_DAILY_MAX` (1000) al giorno. Chi riceve ha la notifica push e,
+alla prima pagina che apre, la sovraimpressione «+N KOIN!» col nome di chi li ha passati. I passaggi della settimana finiscono nella Gazzetta.
 
 ## Posizioni, squadre bilanciate e calendario
 
@@ -273,12 +312,18 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
 
 
 **Regole aggiunte:**
-- **Niente scommesse su se stessi** nei mercati sui giocatori (chi segna, doppietta, tripletta, autogol, MVP): i pulsanti non compaiono e il server
+- **Niente scommesse su se stessi** nei mercati sui giocatori (chi segna, doppietta, tripletta, over 3,5, assist, gol + assist, autogol, MVP, miglior difensore): i pulsanti non compaiono e il server
   le rifiuta, anche dentro una multipla.
 - **Quote dal vivo nella schedina**: mentre la pagina è aperta la schedina chiede al server le quote ogni 20 secondi (`bets.php?quote=1`) e
   aggiorna pulsanti, selettore dell'over/under e selezioni già messe, con una freccia ▲/▼ quando una quota cambia; le partite ormai chiuse escono
   dalla schedina. Se al momento di puntare la quota è diversa da quella vista, il messaggio lo dice. Le quote mostrate sono quelle con cui si
   punta davvero (senza contare le proprie puntate nella domanda).
+- **Over/under che si muove tutto insieme**: prima la domanda abbassava solo la soglia giocata, e l'over 9,5 molto giocato finiva sotto
+  l'over 8,5 (che è più facile). Ora i KOIN puntati spostano i **gol attesi** della partita, come fanno i bookmaker con la linea: più KOIN
+  sugli over che sugli under li alzano (fino al 25%, `BET_OU_SHIFT`), e con loro cambiano le quote di tutte le soglie, over e under. Ogni
+  puntata pesa per quanto è in bilico la sua soglia (`bet_ou_lean`): tanti KOIN sull'over 20,5 non spostano il mercato. Sulla singola
+  soglia la domanda pesa meno che negli altri mercati (`BET_OU_DEMAND`), e alla fine `bet_ou_monotone` garantisce l'ordine: più è alta la
+  soglia, più paga l'over e meno l'under (se due soglie vicine si invertono, la più facile scende a quella della più difficile).
 - **Ruolo meno pesante**: i gol attesi di partenza per ruolo sono vicini tra loro (portieri volanti: chi è in porta prima o poi tira), i gol
   attesi dei giocatori si avvicinano del 30% alla media della partita (`BET_FLATTEN`) e i tetti delle quote sono più bassi (gol ×15,
   doppietta ×35, tripletta ×75, MVP ×40).
@@ -286,13 +331,25 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   È un evento raro, quindi le quote sono alte (tra ×2 e ×40, margine del 20%): il tasso di ogni giocatore (autogol a presenza) è tirato forte verso quello di
   tutto il gruppo (`BET_OG_PRIOR`, `BET_OG_PRIOR_APPS`, `BET_OG_OWN_APPS` in `lib/bets.php`). Nella multipla si possono mettere più giocatori, e lo stesso
   giocatore può stare anche in «segna»: fare gol e fare autogol non si comprendono a vicenda.
+- **Mercati «Chi fa assist?», «Chi fa gol + assist?», «Chi fa over 3,5 gol?» e «Miglior difensore?»** (`assist`, `golassist`, `over35`, `difensore`):
+  - `assist`: il giocatore fa almeno un assist. Gli assist attesi della partita sono una quota dei gol (`BET_ASSIST_PRIOR`, poi i dati del gruppo) e si ripartiscono come i gol, con le stesse differenze attenuate.
+  - `golassist`: almeno un gol **e** almeno un assist nella stessa partita; la probabilità è quella del gol per quella dell'assist (come nel sito di riferimento della lega).
+  - `over35`: il giocatore segna più di 3,5 gol, cioè almeno 4. Quote altissime (da ×2,5 a ×150, margine del 20%).
+  - `difensore`: si punta su chi vincerà il premio «Miglior difensore» votato dai giocatori insieme all'MVP (`MATCH_AWARDS`, `award_votes`): vale lo stesso vincitore che compare nella partita (più voti, a parità la media voto più alta). Si paga alla chiusura delle votazioni come l'MVP (`BET_VOTE_MARKETS`); se nessuno ha votato il premio, rimborso. Candidati: tutti tranne gli ospiti e, con i portieri fissi, i portieri; il ruolo preferito pesa sulle quote (`BET_DEF_ROLE`). Il mercato compare con almeno due candidati.
+  - Nella multipla lo stesso giocatore non può stare in due scelte che si comprendono: «segna», «doppietta», «tripletta», «over 3,5» e «gol + assist» tra loro; «assist» e «gol + assist» tra loro. «Miglior difensore» ha una sola scelta per partita, come l'MVP.
+- **Importo modificabile dall'admin**: chi amministra la lega vede, sotto ogni mercato, `Admin: cambia l'importo di una puntata`: cambia solo quanto si gioca (la quota presa resta), il portafoglio si aggiorna (`bet_admin_set_stake`). Solo per puntate singole aperte di partite non ancora giocate.
 - **Chi si ritira porta via le sue scommesse** (`bets_void_for_player`): quando un giocatore si segna «Non ci sono» (da sé, o lo fa chi gestisce la partita),
-  le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, autogol, MVP) vengono cancellate e i KOIN tornano; nelle
+  le puntate singole su di lui/lei in quella partita (chi segna, doppietta, tripletta, over 3,5, assist, gol + assist, autogol, MVP, miglior difensore) vengono cancellate e i KOIN tornano; nelle
   multiple si toglie **solo quella selezione**, la multipla resta con le altre e la quota si ricalcola (se non ne restano, sparisce e i KOIN tornano).
   Chi vince, over/under e le scommesse sugli altri giocatori non si toccano.
-- **Premi per gol e assist**: 25 KOIN per ogni gol e 10 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`) a chi li ha fatti, appena
+- **Premi per gol e assist**: 100 KOIN per ogni gol e 50 per ogni assist (`BET_REWARD_GOAL`, `BET_REWARD_ASSIST`), più gli stessi importi in crediti dell'Avatar (`SHOP_CREDIT_GOAL`, `SHOP_CREDIT_ASSIST`), a chi li ha fatti, appena
   il risultato viene salvato; se viene corretto il premio si aggiorna, se la partita torna «programmata» o viene eliminata sparisce. Una mossa
   del portafoglio per giocatore e partita (`kind = 'premio'`). Il totale si vede nella scheda «Scommesse».
+- **Premi MVP e miglior difensore**: alla chiusura dei voti, 1000 KOIN a chi vince l'MVP e 250 a chi vince il miglior difensore (`BET_REWARD_MVP`, `BET_REWARD_DIF`,
+  `match_vote_prizes_sync` in `lib/bets.php`; ospiti esclusi; partite da `VOTE_PRIZES_FROM`). Sono KOIN normali del portafoglio (non crediti dell'Avatar), quindi si spendono
+  in tutto il Negozio e nell'Avatar. Una mossa per premio e partita (`premio-mvp-m<id>`, `premio-dif-m<id>`): cambia giocatore se il vincitore cambia, sparisce se i voti si
+  riaprono, la partita è annullata/riportata a programmata/eliminata. Al vincitore arriva una push e, alla prima pagina che apre, la sovraimpressione «Congratulazioni!»
+  (`match_prizes_unseen` in `lib/guess.php`, `layout.php`; stesso `players.gift_seen_id` dei regali). La migrazione v57 li assegna anche alle partite già chiuse dall'8 ottobre 2026.
 - Al passaggio al nuovo modello (migrazione v26) le puntate ancora aperte sono state riprezzate, quelle su se stessi annullate e rimborsate, e i
   premi assegnati anche per le partite già giocate.
 **Regalare KOIN:** in *Admin → Regala KOIN* l'admin sceglie un giocatore delle sue leghe, una cifra e, se vuole, un **messaggio** (fino a 200 caratteri):
@@ -496,9 +553,12 @@ Codice: `match_cancel()` in `lib/stats.php`, `bets_void_match()` in `lib/bets.ph
 **Diretta (cronaca della partita):** dal calcio d'inizio, nella scheda della partita compare la sezione «Diretta» (`lib/live.php`, tabella `match_events`). Chi gioca
 (fino a 4 ore dall'inizio) e chi gestisce le partite segna i **gol** (con l'assist facoltativo, solo tra compagni) e gli **autogol**: ogni gol aggiorna subito il risultato,
 i gol e gli assist della tabella «Risultato e marcatori» e l'intesa «chi ha servito chi», e manda la notifica a chi non gioca. Si segnano anche gli **infortuni**
-(con una nota facoltativa: «caviglia», «stiramento»...): il giocatore compare con la crocetta rossa nella squadra. Un evento segnato per sbaglio si toglie con la ×
+(con una nota facoltativa: «caviglia», «stiramento»...): il giocatore compare con la crocetta viola nella squadra. Un evento segnato per sbaglio si toglie con la ×
 (chi l'ha segnato o chi gestisce la partita) e i conti tornano indietro. A fine partita il risultato si controlla e si conclude come prima; gli infortuni si possono
-aggiungere anche dopo, da chi gestisce la partita.
+aggiungere anche dopo, da chi gestisce la partita. Gli infortuni della partita sono sempre in **viola**: nel riepilogo di «Partite» una riga sotto la partita
+(«Infortunato: Luca Verdi (caviglia)», `injuries_by_match`), e nel profilo del giocatore una sezione «Infortuni» con le partite e le note (`player_injuries`), la
+crocetta nella tabella delle sue partite e, se si è fatto male nella sua ultima partita, l'etichetta «infortunato nell'ultima partita» in alto. È diverso dalla
+casella **Infortunato** della scheda (etichetta rossa, vedi *Infortunati*), che lo segna assente nelle prossime partite.
 
 **Fine votazioni e conto alla rovescia:** quando la partita viene conclusa (o le votazioni riaperte) si fissa un orario di fine: `VOTING_HOURS` in
 `config.php` (24 ore). Nella scheda «Voti» si vede l'orario con il conto alla rovescia, e chi gestisce la partita lo cambia (o toglie la scadenza) da lì.

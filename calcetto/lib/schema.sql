@@ -330,6 +330,7 @@ CREATE TABLE IF NOT EXISTS wallet_moves (
   shop_only TINYINT(1) NOT NULL DEFAULT 0,         -- 1 = crediti validi solo per il negozio, non per le scommesse
   note VARCHAR(200) NULL,                          -- regalo dell'admin: il messaggio per chi lo riceve
   given_by INT NULL,                               -- regalo dell'admin: l'account che l'ha fatto (massimo 500 KOIN al giorno)
+  peer_id INT NULL,                                -- passaggio tra giocatori: l'altro giocatore (lib/passaggi.php)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_ref (player_id, ref),
   INDEX (bet_id),
@@ -540,3 +541,17 @@ CREATE TABLE IF NOT EXISTS fanta_awards (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT IGNORE INTO meta (k, v) VALUES ('schema', '20');
+
+-- il pensiero sulla partita di chi l'ha giocata (lib/pensieri.php): finisce nella Gazzetta del mercoledì.
+-- body NULL con skipped = 1: ha detto «No grazie» e non glielo si chiede più
+CREATE TABLE IF NOT EXISTS match_thoughts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  match_id INT NOT NULL,
+  player_id INT NOT NULL,
+  body VARCHAR(400) NULL,
+  skipped TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_thought (match_id, player_id),
+  FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
+  FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

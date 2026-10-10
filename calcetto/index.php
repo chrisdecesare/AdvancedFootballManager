@@ -56,6 +56,8 @@ $mustVote = $last && $last['voting_open'] && $iPlayedLast &&
     !q('SELECT 1 FROM mvp_votes WHERE match_id = ? AND voter_id = ?', [$last['id'], $me])->fetch();
 
 $facts = curiosities_for_home();
+$gzGroup = is_guest() ? null : gazzetta_group();   // la Gazzetta del mercoledì (lib/gazzetta.php), a destra sopra le curiosità
+$gz = $gzGroup ? gazzetta($gzGroup) : null;
 
 layout_start('Home', 'home');
 ?>
@@ -213,7 +215,11 @@ layout_start('Home', 'home');
   </section>
   <?php endif; ?>
 
-  <?php if ($facts): // le curiosità stanno in fondo: prima vengono le informazioni sulle partite. Cambiano da sole ogni FACT_SECONDS secondi ?>
+  <?php if ($gz || $facts): // a destra dell'ultima partita: la Gazzetta e sotto le curiosità, una colonna che finisce alla stessa altezza ?>
+  <div class="home-side<?= $last ? '' : ' home-side-wide' ?>">
+  <?php if ($gz): ?><?= gazzetta_html($gz) ?><?php endif; ?>
+
+  <?php if ($facts): // curiosità: cambiano da sole ogni FACT_SECONDS secondi ?>
   <section class="card fact" data-facts data-seconds="<?= FACT_SECONDS ?>">
     <div class="card-head">
       <span class="eyebrow"><i class="ti ti-bulb"></i> Curiosità dalla rosa</span>
@@ -230,6 +236,8 @@ layout_start('Home', 'home');
     </div>
     <?php if (count($facts) > 1): ?><div class="fact-timer" aria-hidden="true"><span data-fact-bar></span></div><?php endif; ?>
   </section>
+  <?php endif; ?>
+  </div>
   <?php endif; ?>
 
 </div>

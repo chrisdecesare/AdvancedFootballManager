@@ -44,6 +44,15 @@ $played = played_matches();
 // annullate: chiuse senza contare, i dati restano (match.php: «Partita annullata»)
 $cancelled = q("SELECT * FROM matches WHERE status = 'annullata' AND " . scope_sql('group_id') . ' ORDER BY match_date DESC, id DESC')->fetchAll();
 $me = my_player_id();
+// infortuni segnati nella cronaca (lib/live.php): una riga viola sotto la partita
+$injuries = is_guest() ? [] : injuries_by_match(array_merge(array_column($upcoming, 'id'), array_column($played, 'id')));
+$injLine = function (int $matchId) use ($injuries): string {
+    if (empty($injuries[$matchId])) {
+        return '';
+    }
+    $who = array_map(fn($x) => injury_label($x['name'], $x['note']), $injuries[$matchId]);
+    return '<span class="minj"><i class="ti ti-first-aid-kit"></i> ' . (count($who) > 1 ? 'Infortunati: ' : 'Infortunato: ') . h(implode(', ', $who)) . '</span>';
+};
 
 layout_start('Partite', 'matches');
 ?>
@@ -84,7 +93,7 @@ layout_start('Partite', 'matches');
     <a class="match-link" href="match.php?id=<?= (int) $m['id'] ?>">
       <div class="mdate"><span class="d"><?= date('j', strtotime($m['match_date'])) ?></span><span class="m"><?= mb_substr(MESI[(int) date('n', strtotime($m['match_date']))], 0, 3) ?></span></div>
       <div class="minfo"><strong><?= h(ucfirst(fmt_date_long($m['match_date']))) ?> · <?= fmt_time($m['match_date']) ?></strong>
-        <span class="muted"><?= h($m['location'] ?: 'Campo da definire') ?> <?= group_tag((int) $m['group_id']) ?></span></div>
+        <span class="muted"><?= h($m['location'] ?: 'Campo da definire') ?> <?= group_tag((int) $m['group_id']) ?></span><?= $injLine((int) $m['id']) ?></div>
       <div class="mside"><span class="count count-yes" title="Confermati"><?= (int) $m['yes_n'] ?></span> <span class="muted small">confermati</span></div>
     </a>
     <?= gcal_icon_button($m) ?>
@@ -101,7 +110,7 @@ layout_start('Partite', 'matches');
   <a class="card match-row" href="match.php?id=<?= (int) $m['id'] ?>">
     <div class="mdate"><span class="d"><?= date('j', strtotime($m['match_date'])) ?></span><span class="m"><?= mb_substr(MESI[(int) date('n', strtotime($m['match_date']))], 0, 3) ?></span></div>
     <div class="minfo"><strong class="mini-score"><span class="team-a"><?= h(team_name('A', $m)) ?></span> <?= (int) $m['score_a'] ?> – <?= (int) $m['score_b'] ?> <span class="team-b"><?= h(team_name('B', $m)) ?></span></strong>
-      <span class="muted"><?= fmt_date_short($m['match_date']) ?> · <?= h($m['location']) ?> <?= group_tag((int) $m['group_id']) ?></span></div>
+      <span class="muted"><?= fmt_date_short($m['match_date']) ?> · <?= h($m['location']) ?> <?= group_tag((int) $m['group_id']) ?></span><?= $injLine((int) $m['id']) ?></div>
     <div class="mside">
       <?php if ($m['voting_open']): ?><span class="tag tag-live"><i class="ti ti-writing"></i> voti aperti</span>
       <?php elseif ($mvpP): ?><span class="tag tag-mvp"><i class="ti ti-star-filled"></i> <?= h($mvpP['name']) ?></span><?php endif; ?>

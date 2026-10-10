@@ -42,6 +42,7 @@ AddType text/javascript .js
   RewriteRule ^crea-maglia$ jersey_creator.php [QSA,L]
   RewriteRule ^uscite$ drops.php [QSA,L]
   RewriteRule ^curiosita$ curiosities.php [QSA,L]
+  RewriteRule ^gazzetta$ gazzetta.php [QSA,L]
   RewriteRule ^indovina$ guess.php [QSA,L]
   RewriteRule ^profilo$ profile.php [QSA,L]
   RewriteRule ^sicurezza$ account.php [QSA,L]

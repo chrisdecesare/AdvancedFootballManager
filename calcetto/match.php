@@ -265,7 +265,7 @@ if (is_post()) {
         case 'open_voting':
             q('UPDATE matches SET voting_open = 1, voting_ends_at = ? WHERE id = ?', [default_voting_end(), $id]);
             q('DELETE FROM ratings WHERE match_id = ? AND is_auto = 1', [$id]);   // i voti d'ufficio si rifanno alla prossima chiusura
-            bets_unsettle($id, ['mvp']);   // l'MVP torna in gioco: le scommesse si ripagano alla prossima chiusura
+            bets_unsettle($id, BET_VOTE_MARKETS);   // l'MVP e il miglior difensore tornano in gioco: le scommesse si ripagano alla prossima chiusura
             push_notify_voting($id, true, $actor);
             flash('ok', 'Votazioni riaperte.');
             break;
@@ -290,7 +290,7 @@ if (is_post()) {
             break;
 
         case 'reopen':   // da giocata o da annullata
-            q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL, cancel_reason = NULL, cancelled_at = NULL WHERE id = ?", [$id]);
+            q("UPDATE matches SET status = 'programmata', voting_open = 0, voting_ends_at = NULL, cancel_reason = NULL, cancelled_at = NULL, fee = COALESCE(fee_before_cancel, fee), fee_before_cancel = NULL WHERE id = ?", [$id]);
             bets_unsettle($id);   // le scommesse tornano aperte e si ripagano quando la partita viene richiusa
             match_rewards_sync($id);   // e i premi per gol e assist si tolgono (tornano quando il risultato viene salvato di nuovo)
             fanta_win_credits_sync($id);   // anche i crediti fanta della vittoria
@@ -346,8 +346,8 @@ if (is_post()) {
             }
             q('UPDATE match_players SET votes_ok = ? WHERE match_id = ? AND player_id = ?', [$ok, $id, $pid]);
             if ($match['status'] === 'giocata' && !$match['voting_open']) {   // l'MVP può cambiare: le scommesse sull'MVP si ripagano
-                bets_unsettle($id, ['mvp']);
-                bets_settle($id, ['mvp']);
+                bets_unsettle($id, BET_VOTE_MARKETS);
+                bets_settle($id, BET_VOTE_MARKETS);
             }
             flash('ok', $ok ? 'Ora i voti dell\'ospite contano per la lega.' : 'I voti dell\'ospite non contano per la lega (lui vede comunque il suo feedback).');
             redirect($self . '#voti');
@@ -370,7 +370,7 @@ if (is_post()) {
             foreach (match_guests($id) as $g) {
                 guest_remove_from_match((int) $g['id'], $id);   // gli ospiti se ne vanno con la partita (chi ha salvato l'account lo tiene)
             }
-            q('DELETE FROM wallet_moves WHERE ref IN (?, ?, ?)', ['premio-m' . $id, 'premio-cr-m' . $id, 'consolazione-m' . $id]);   // premi per gol e assist e consolazione se ne vanno con la partita
+            q('DELETE FROM wallet_moves WHERE ref IN (?, ?, ?, ?, ?)', ['premio-m' . $id, 'premio-cr-m' . $id, 'consolazione-m' . $id, 'premio-mvp-m' . $id, 'premio-dif-m' . $id]);   // premi per gol, assist, MVP, miglior difensore e consolazione se ne vanno con la partita
             q('DELETE FROM matches WHERE id = ?', [$id]);
             fanta_win_credits_sync($id);   // i crediti fanta della vittoria se ne vanno con la partita
             flash('ok', 'Partita eliminata.');
