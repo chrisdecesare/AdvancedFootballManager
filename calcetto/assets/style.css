@@ -1535,6 +1535,19 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .sub-title-row .sub-title { margin: 0; }
 .pitch-view-toggle { display: flex; gap: 6px; }
 .pitch-view-toggle[hidden] { display: none; }
+/* verticale / orizzontale: due icone piccole, al centro sopra il campo */
+.pitch-orient { display: flex; justify-content: center; gap: 6px; margin: 0 0 10px; }
+.orient-btn { width: 34px; height: 30px; display: grid; place-items: center; background: var(--white); border: var(--b2); border-radius: 9px; cursor: pointer; color: var(--ink); font-size: 1.1rem; }
+.orient-btn.is-on { background: var(--yellow); box-shadow: 2px 2px 0 var(--ink); }
+.pitch-av-wrap.is-horizontal .pav-name { font-size: .64rem; max-width: 70px; padding: 0 4px; }
+/* telefono: il campo visto di lato è più largo dello schermo e si scorre di lato (parte centrato, vedi app.js); i nomi delle squadre restano fermi */
+.pitch-av-wrap.is-horizontal .pitch-av { aspect-ratio: 400 / 290; }
+@media (max-width: 600px) {
+  .pitch-av-scroll { overflow-x: auto; padding: 0 6px 8px 0; scrollbar-width: thin; }
+  .pitch-av-wrap.is-horizontal .pitch-av { min-width: 520px; }
+}
+.pitch-av-labels { display: flex; justify-content: space-between; gap: 8px; }
+.pitch-av-labels .pitch-label { margin: 0; }
 .pitch-view-toggle .btn.is-on { background: var(--yellow); }
 .pitch-av-wrap { max-width: 680px; margin: 0 auto 16px; }
 .pitch-av { position: relative; isolation: isolate; aspect-ratio: 400 / 330; margin: 10px 0; border: var(--b); border-radius: 18px; overflow: hidden; box-shadow: var(--sh); background: #4a4360; }

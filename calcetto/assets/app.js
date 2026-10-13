@@ -342,10 +342,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
       document.querySelectorAll('.pitch-wrap').forEach(w => w.classList.toggle('is-horizontal', o === 'h'));
+      document.querySelectorAll('[data-orient-view]').forEach(el => { el.hidden = el.dataset.orientView !== o; });   // campo Avatar: due disegni
+      document.querySelectorAll('.pitch-av-scroll').forEach(w => { w.scrollLeft = (w.scrollWidth - w.clientWidth) / 2; });
       orientBtns.forEach(b => b.classList.toggle('is-on', b.dataset.pitchOrientToggle === o));
       try { localStorage.setItem('pitchOrient', o); } catch (e) {}
     };
     orientBtns.forEach(b => b.addEventListener('click', () => setOrient(b.dataset.pitchOrientToggle)));
+    document.querySelectorAll('[data-pitch-view-toggle]').forEach(b => b.addEventListener('click', () => {
+      document.querySelectorAll('.pitch-av-scroll').forEach(w => { w.scrollLeft = (w.scrollWidth - w.clientWidth) / 2; });
+    }));
     try { if (localStorage.getItem('pitchOrient') === 'h') setOrient('h'); } catch (e) {}
   }
 

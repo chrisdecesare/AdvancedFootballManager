@@ -119,13 +119,15 @@ layout_start('Home', 'home');
             <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-view-toggle="2d"><i class="ti ti-circles"></i> Cerchi</button>
             <button type="button" class="btn btn-ghost btn-sm" data-pitch-view-toggle="fig"><i class="ti ti-users"></i> Avatar</button>
           </div>
-          <div class="pitch-view-toggle" role="group" aria-label="Orientamento del campo" data-orient-group>
-            <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-orient-toggle="v"><i class="ti ti-rectangle-vertical"></i> Verticale</button>
-            <button type="button" class="btn btn-ghost btn-sm" data-pitch-orient-toggle="h"><i class="ti ti-rectangle"></i> Orizzontale</button>
-          </div>
+        </div>
+        <div class="pitch-orient" role="group" aria-label="Orientamento del campo">
+          <button type="button" class="orient-btn is-on" data-pitch-orient-toggle="v" title="Campo in verticale" aria-label="Campo in verticale"><i class="ti ti-rectangle-vertical"></i></button>
+          <button type="button" class="orient-btn" data-pitch-orient-toggle="h" title="Campo in orizzontale" aria-label="Campo in orizzontale"><i class="ti ti-rectangle"></i></button>
         </div>
         <div data-pitch-view="2d"><?= render_pitch($next, $roster) ?></div>
-        <div data-pitch-view="fig" hidden><?= render_pitch_figures($next, $roster) ?>
+        <div data-pitch-view="fig" hidden>
+          <div data-orient-view="v"><?= render_pitch_figures($next, $roster) ?></div>
+          <div data-orient-view="h" hidden><?= render_pitch_figures($next, $roster, true) ?></div>
           <p class="pitch-hint"><i class="ti ti-hand-finger"></i> Tocca un giocatore per farlo esultare, tocca due volte per aprire il suo profilo.</p></div>
         <script src="assets/avatar_px.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar_px.js'), 0, 10)) ?>"></script>
         <script>
@@ -133,7 +135,6 @@ layout_start('Home', 'home');
           const view = btn.dataset.pitchViewToggle;
           document.querySelectorAll('[data-pitch-view-toggle]').forEach(b => b.classList.toggle('is-on', b === btn));
           document.querySelectorAll('[data-pitch-view]').forEach(el => el.hidden = el.dataset.pitchView !== view);
-          document.querySelectorAll('[data-orient-group]').forEach(el => el.hidden = view !== '2d');   // l'orientamento vale per il campo a cerchi
           try { localStorage.setItem('pitchView', view); } catch (e) {}
         }));
         // un tocco: esulta; due tocchi (entro 300 ms): apre il profilo
@@ -155,13 +156,11 @@ layout_start('Home', 'home');
         } catch (e) {}
         </script>
         <?php else: ?>
-          <div class="sub-title-row">
-            <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
-            <div class="pitch-view-toggle" role="group" aria-label="Orientamento del campo">
-              <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-orient-toggle="v"><i class="ti ti-rectangle-vertical"></i> Verticale</button>
-              <button type="button" class="btn btn-ghost btn-sm" data-pitch-orient-toggle="h"><i class="ti ti-rectangle"></i> Orizzontale</button>
-            </div>
-          </div>
+          <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
+          <div class="pitch-orient" role="group" aria-label="Orientamento del campo">
+          <button type="button" class="orient-btn is-on" data-pitch-orient-toggle="v" title="Campo in verticale" aria-label="Campo in verticale"><i class="ti ti-rectangle-vertical"></i></button>
+          <button type="button" class="orient-btn" data-pitch-orient-toggle="h" title="Campo in orizzontale" aria-label="Campo in orizzontale"><i class="ti ti-rectangle"></i></button>
+        </div>
           <?= render_pitch($next, $roster) ?>
         <?php endif; ?>
       <?php endif; ?>

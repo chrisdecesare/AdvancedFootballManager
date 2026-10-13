@@ -363,8 +363,9 @@ function render_pitch(array $match, array $roster, bool $editable = false, bool 
 /**
  * Le formazioni con gli Avatar (lib/avatar.php) in piedi su un campo in prospettiva, nelle stesse posizioni di render_pitch():
  * la squadra A vicina (in basso), la B in fondo. È la vista «Campo» della Home, in alternativa ai cerchi.
+ * Con $horizontal il campo si guarda dal lato lungo: la squadra A a sinistra, la B a destra.
  */
-function render_pitch_figures(array $match, array $roster): string
+function render_pitch_figures(array $match, array $roster, bool $horizontal = false): string
 {
     $teams = ['A' => [], 'B' => []];
     foreach ($roster as $r) {
@@ -392,17 +393,32 @@ function render_pitch_figures(array $match, array $roster): string
             $svg .= '<circle cx="' . (4 + $i * 10 - ($row % 2) * 5) . '" cy="' . (14 + $row * 16) . '" r="4.2" fill="' . $crowd[($i * 7 + $row * 3) % 6] . '"/>';
         }
     }
-    for ($i = 0; $i < 8; $i++) {
-        $svg .= '<polygon points="' . $quad(-1.02, 1.02, $i / 8, ($i + 1) / 8) . '" fill="' . ($i % 2 ? '#36c270' : '#3fcf7a') . '"/>';
+    if ($horizontal) {
+        // visto dal lato lungo: u va da porta a porta (A a sinistra), t dalla linea laterale lontana a quella vicina
+        for ($i = 0; $i < 8; $i++) {
+            $svg .= '<polygon points="' . $quad(-1.02 + $i * 2.04 / 8, -1.02 + ($i + 1) * 2.04 / 8, 0, 1) . '" fill="' . ($i % 2 ? '#36c270' : '#3fcf7a') . '"/>';
+        }
+        $svg .= '<g fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round" opacity=".9">'
+            . '<polygon points="' . $quad(-.94, .94, .03, .97) . '"/>'
+            . '<polyline points="' . $pt(0, .03) . ' ' . $pt(0, .97) . '"/>'
+            . '<ellipse cx="200" cy="' . $y(.5) . '" rx="' . round($half(.5) * .17, 1) . '" ry="24"/>'
+            . '<polyline points="' . $pt(-.94, .22) . ' ' . $pt(-.7, .22) . ' ' . $pt(-.7, .78) . ' ' . $pt(-.94, .78) . '"/>'
+            . '<polyline points="' . $pt(.94, .22) . ' ' . $pt(.7, .22) . ' ' . $pt(.7, .78) . ' ' . $pt(.94, .78) . '"/>'
+            . '</g><g fill="#fff" stroke="#1f1a2e" stroke-width="2">'
+            . '<polygon points="' . $quad(-1.0, -.94, .42, .58) . '"/><polygon points="' . $quad(.94, 1.0, .42, .58) . '"/></g></svg>';
+    } else {
+        for ($i = 0; $i < 8; $i++) {
+            $svg .= '<polygon points="' . $quad(-1.02, 1.02, $i / 8, ($i + 1) / 8) . '" fill="' . ($i % 2 ? '#36c270' : '#3fcf7a') . '"/>';
+        }
+        $svg .= '<g fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round" opacity=".9">'
+            . '<polygon points="' . $quad(-.94, .94, .03, .97) . '"/>'
+            . '<polyline points="' . $pt(-.94, .5) . ' ' . $pt(.94, .5) . '"/>'
+            . '<ellipse cx="200" cy="' . $y(.5) . '" rx="' . round($half(.5) * .24, 1) . '" ry="20"/>'
+            . '<polyline points="' . $pt(-.42, .03) . ' ' . $pt(-.42, .16) . ' ' . $pt(.42, .16) . ' ' . $pt(.42, .03) . '"/>'
+            . '<polyline points="' . $pt(-.42, .97) . ' ' . $pt(-.42, .84) . ' ' . $pt(.42, .84) . ' ' . $pt(.42, .97) . '"/>'
+            . '</g><g fill="#fff" stroke="#1f1a2e" stroke-width="2">'
+            . '<polygon points="' . $quad(-.15, .15, -.035, .03) . '"/><polygon points="' . $quad(-.17, .17, .97, 1) . '"/></g></svg>';
     }
-    $svg .= '<g fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round" opacity=".9">'
-        . '<polygon points="' . $quad(-.94, .94, .03, .97) . '"/>'
-        . '<polyline points="' . $pt(-.94, .5) . ' ' . $pt(.94, .5) . '"/>'
-        . '<ellipse cx="200" cy="' . $y(.5) . '" rx="' . round($half(.5) * .24, 1) . '" ry="20"/>'
-        . '<polyline points="' . $pt(-.42, .03) . ' ' . $pt(-.42, .16) . ' ' . $pt(.42, .16) . ' ' . $pt(.42, .03) . '"/>'
-        . '<polyline points="' . $pt(-.42, .97) . ' ' . $pt(-.42, .84) . ' ' . $pt(.42, .84) . ' ' . $pt(.42, .97) . '"/>'
-        . '</g><g fill="#fff" stroke="#1f1a2e" stroke-width="2">'
-        . '<polygon points="' . $quad(-.15, .15, -.035, .03) . '"/><polygon points="' . $quad(-.17, .17, .97, 1) . '"/></g></svg>';
 
     $pl = [];
     foreach (['A', 'B'] as $t) {
@@ -416,24 +432,31 @@ function render_pitch_figures(array $match, array $roster): string
             $c = $layout[$slots[(int) $r['player_id']] ?? 0];
             $top = $t === 'A' ? 94 - $c['depth'] * 42 : 6 + $c['depth'] * 42;   // come in render_pitch()
             $left = $t === 'A' ? $c['x'] : 100 - $c['x'];
+            if ($horizontal) {
+                $d = .12 + .82 * $left / 100;   // la fascia laterale diventa la profondità: a sinistra della squadra = linea lontana
+                $u = (100 - $top - 50) / 50 * .94;   // la lunghezza del campo corre da sinistra (porta di A) a destra
+                $pl[] = ['r' => $r, 't' => $t, 'top' => $d * 100, 'lx' => $x($u, $d) / 4, 'ly' => $y($d) / 3.3, 's' => .62 + .38 * $d];
+                continue;
+            }
             $d = $top / 100;
             $pl[] = ['r' => $r, 't' => $t, 'top' => $top, 'lx' => $x(($left - 50) / 50 * .9, $d) / 4, 'ly' => $y($d) / 3.3, 's' => .62 + .38 * $d];
         }
     }
     // in prospettiva gli avatar sono alti: chi finirebbe quasi davanti a un altro viene spostato di lato, con un po' d'aria tra i due
     // (una figura è larga circa l'11,5% del campo: ne servono 14 tra un centro e l'altro)
-    for ($pass = 0; $pass < 6; $pass++) {
+    [$lo, $hi] = $horizontal ? [10, 90] : [8, 92];   // in orizzontale i nomi agli estremi non devono uscire dal campo
+    for ($pass = 0; $pass < 8; $pass++) {
         foreach ($pl as $i => $p) {
             foreach ($pl as $j => $q) {
                 if ($j <= $i || abs($pl[$i]['ly'] - $pl[$j]['ly']) > 26) {   // una figura è alta circa un quarto del campo
                     continue;
                 }
                 $dx = $pl[$j]['lx'] - $pl[$i]['lx'];
-                $need = 14 * ($p['s'] + $q['s']) / 2;
+                $need = ($horizontal ? 16 : 14) * ($p['s'] + $q['s']) / 2;   // in orizzontale pesano i nomi, più larghi delle figure
                 if (abs($dx) < $need) {
                     $push = ($need - abs($dx)) / 2 * ($dx >= 0 ? 1 : -1);
-                    $pl[$i]['lx'] = max(8, min(92, $pl[$i]['lx'] - $push));
-                    $pl[$j]['lx'] = max(8, min(92, $pl[$j]['lx'] + $push));
+                    $pl[$i]['lx'] = max($lo, min($hi, $pl[$i]['lx'] - $push));
+                    $pl[$j]['lx'] = max($lo, min($hi, $pl[$j]['lx'] + $push));
                 }
             }
         }
@@ -450,9 +473,11 @@ function render_pitch_figures(array $match, array $roster): string
             ? '<a class="pav team-' . strtolower($p['t']) . '" style="' . $style . '" href="player.php?id=' . $pid . '" title="' . h($r['name']) . '">' . $fig . '</a>'
             : '<span class="pav team-' . strtolower($p['t']) . '" style="' . $style . '" title="' . h($r['name'] . ' · ospite') . '">' . $fig . '</span>';
     }
-    return '<div class="pitch-av-wrap">'
-        . ($teams['B'] ? '<div class="pitch-label team-b">' . h(team_name('B', $match)) . '</div>' : '')
-        . '<div class="pitch-av">' . $svg . $figs . '</div>'
-        . ($teams['A'] ? '<div class="pitch-label team-a">' . h(team_name('A', $match)) . '</div>' : '')
-        . '</div>';
+    $la = $teams['A'] ? '<div class="pitch-label team-a">' . h(team_name('A', $match)) . '</div>' : '';
+    $lb = $teams['B'] ? '<div class="pitch-label team-b">' . h(team_name('B', $match)) . '</div>' : '';
+    if ($horizontal) {
+        return '<div class="pitch-av-wrap is-horizontal"><div class="pitch-av-labels">' . $la . $lb . '</div>'
+            . '<div class="pitch-av-scroll"><div class="pitch-av">' . $svg . $figs . '</div></div></div>';
+    }
+    return '<div class="pitch-av-wrap">' . $lb . '<div class="pitch-av">' . $svg . $figs . '</div>' . $la . '</div>';
 }
