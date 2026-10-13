@@ -1541,7 +1541,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .pitch-av-field { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pav { position: absolute; width: calc(11.5% * var(--s, 1)); transform: translate(-50%, -97%); display: block; transition: transform .12s; }
 .pav:hover { transform: translate(-50%, -99%) scale(1.06); z-index: 200 !important; }
-.pav .avf { width: 100%; height: auto; }
+.pav .avf { width: 100%; height: auto; overflow: visible; }   /* le esultanze (salti, corse) escono dal riquadro dell'avatar */
 .pav-name { position: absolute; left: 50%; top: 96%; transform: translateX(-50%); font: 800 .7rem/1.15 var(--font); white-space: nowrap;
   background: var(--tc); border: 2px solid var(--ink); border-radius: 7px; padding: 1px 6px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 520px) { .pav-name { font-size: .6rem; padding: 0 4px; } }

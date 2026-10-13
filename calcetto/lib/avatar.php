@@ -135,6 +135,7 @@ function avatar_px_look(array $look, ?array $jersey = null): array
  *  - number: numero di maglia;   - crop: un'inquadratura di AVATAR_CROPS (miniature del negozio);
  *  - stage: sul palco della pagina Avatar (posa animata ed esultanza pronta per «Esulta!»);
  *  - idle: posa animata anche fuori dal palco (il campo della Home);
+ *  - cheer: con idle, porta con sé anche l'esultanza scelta, da far partire con PixelAvatar.play() (tocco sul campo della Home);
  *  - ring: sotto i piedi un disco del colore della squadra (var(--tc) di chi lo contiene) invece dell'ombra;
  *  - pose: posa del catalogo al posto di quella scelta;   - hint: esultanza da mostrare ferma nel suo momento più riconoscibile;
  *  - jersey: ['a' =>, 'b' =>, 'pattern' =>] al posto della maglia;   - all_patterns: tutti i motivi coi colori della maglia in
@@ -156,7 +157,7 @@ function avatar_figure(array $look, array $o = []): string
         $c = px_celebration($o['hint']);
         $s = $c['steps'][$c['hint']];
         $static = [$s[0], 0, 0, $s[3], $s[4], $s[5]];
-    } elseif (!empty($o['stage'])) {
+    } elseif (!empty($o['stage']) || !empty($o['cheer'])) {
         $idle = $poseSteps;
         $seq = px_celebration($anim)['steps'];
     } elseif (!empty($o['idle'])) {
