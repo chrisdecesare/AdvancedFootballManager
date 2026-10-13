@@ -119,24 +119,49 @@ layout_start('Home', 'home');
             <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-view-toggle="2d"><i class="ti ti-circles"></i> Cerchi</button>
             <button type="button" class="btn btn-ghost btn-sm" data-pitch-view-toggle="fig"><i class="ti ti-users"></i> Avatar</button>
           </div>
+          <div class="pitch-view-toggle" role="group" aria-label="Orientamento del campo" data-orient-group>
+            <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-orient-toggle="v"><i class="ti ti-rectangle-vertical"></i> Verticale</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-pitch-orient-toggle="h"><i class="ti ti-rectangle"></i> Orizzontale</button>
+          </div>
         </div>
         <div data-pitch-view="2d"><?= render_pitch($next, $roster) ?></div>
-        <div data-pitch-view="fig" hidden><?= render_pitch_figures($next, $roster) ?></div>
+        <div data-pitch-view="fig" hidden><?= render_pitch_figures($next, $roster) ?>
+          <p class="pitch-hint"><i class="ti ti-hand-finger"></i> Tocca un giocatore per farlo esultare, tocca due volte per aprire il suo profilo.</p></div>
         <script src="assets/avatar_px.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar_px.js'), 0, 10)) ?>"></script>
         <script>
         document.querySelectorAll('[data-pitch-view-toggle]').forEach(btn => btn.addEventListener('click', () => {
           const view = btn.dataset.pitchViewToggle;
           document.querySelectorAll('[data-pitch-view-toggle]').forEach(b => b.classList.toggle('is-on', b === btn));
           document.querySelectorAll('[data-pitch-view]').forEach(el => el.hidden = el.dataset.pitchView !== view);
+          document.querySelectorAll('[data-orient-group]').forEach(el => el.hidden = view !== '2d');   // l'orientamento vale per il campo a cerchi
           try { localStorage.setItem('pitchView', view); } catch (e) {}
         }));
+        // un tocco: esulta; due tocchi (entro 300 ms): apre il profilo
+        document.querySelectorAll('[data-pitch-view="fig"] .pav').forEach(pav => {
+          let timer = 0;
+          pav.addEventListener('click', e => {
+            e.preventDefault();
+            if (timer) { clearTimeout(timer); timer = 0; if (pav.href) location.href = pav.href; return; }
+            const svg = pav.querySelector('svg.avf');
+            if (!window.PixelAvatar || !PixelAvatar.play(svg)) {   // niente esultanza disponibile: un saltello
+              pav.classList.remove('is-cheer'); void pav.offsetWidth; pav.classList.add('is-cheer');
+            }
+            timer = setTimeout(() => { timer = 0; }, 300);
+          });
+        });
         try {
           const saved = localStorage.getItem('pitchView');
           if (saved === 'fig') { document.querySelector('[data-pitch-view-toggle="fig"]')?.click(); }
         } catch (e) {}
         </script>
         <?php else: ?>
-          <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
+          <div class="sub-title-row">
+            <h3 class="sub-title"><i class="ti ti-soccer-field"></i> Le formazioni</h3>
+            <div class="pitch-view-toggle" role="group" aria-label="Orientamento del campo">
+              <button type="button" class="btn btn-ghost btn-sm is-on" data-pitch-orient-toggle="v"><i class="ti ti-rectangle-vertical"></i> Verticale</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-pitch-orient-toggle="h"><i class="ti ti-rectangle"></i> Orizzontale</button>
+            </div>
+          </div>
           <?= render_pitch($next, $roster) ?>
         <?php endif; ?>
       <?php endif; ?>

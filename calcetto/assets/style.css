@@ -696,6 +696,28 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .pitch.is-editable .token.is-picked .avatar-token { box-shadow: 0 0 0 5px var(--yellow), 3px 4px 0 5px var(--ink); animation: wobble .5s ease-in-out infinite alternate; }
 @keyframes wobble { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
 @media (prefers-reduced-motion: reduce) { .pitch.is-editable .token.is-picked .avatar-token { animation: none; } }
+/* campo a cerchi in orizzontale: la squadra A a sinistra, la B a destra (le pedine le sposta assets/app.js) */
+.pitch-wrap.is-horizontal { max-width: 640px; }
+.pitch.is-horizontal { aspect-ratio: 3 / 2; background: repeating-linear-gradient(90deg, #3fcf7a 0 11.11%, #36c270 11.11% 22.22%); }
+.pitch.is-horizontal .pl-half { left: 50%; right: auto; top: 0; bottom: 0; width: 0; height: auto; border-width: 0 0 0 3px; }
+.pitch.is-horizontal .pl-circle { width: auto; height: 30%; }
+.pitch.is-horizontal .pl-box { top: 22%; bottom: 22%; left: auto; right: auto; width: 14%; height: auto; }
+.pitch.is-horizontal .pl-box-top { right: -3px; border-radius: 14px 0 0 14px; }
+.pitch.is-horizontal .pl-box-bottom { left: -3px; bottom: 22%; border-radius: 0 14px 14px 0; }
+.pitch.is-horizontal .pl-goal { top: 38%; bottom: 38%; left: auto; right: auto; width: 2.4%; height: auto; }
+.pitch.is-horizontal .pl-goal-top { right: -3px; }
+.pitch.is-horizontal .pl-goal-bottom { left: -3px; bottom: 38%; }
+@media (max-width: 520px) {
+  .pitch.is-horizontal { aspect-ratio: 1 / 1; }
+  /* il campo è largo solo ~310px: pedine più piccole, così le colonne di giocatori non si sovrappongono */
+  .pitch.is-horizontal .token { width: 44px; }
+  .pitch.is-horizontal .avatar-token { width: 28px; height: 28px; font-size: .7rem; }
+  .pitch.is-horizontal .token-name { font-size: .55rem; max-width: 44px; padding: 0 3px; margin-top: 3px; }
+  .pitch.is-horizontal .token-num { min-width: 15px; height: 15px; font-size: .55rem; top: -4px; right: 2px; }
+  .pitch.is-horizontal .token-off { width: 13px; height: 13px; font-size: .55rem; top: -4px; left: 2px; }
+}
+.pav.is-cheer { animation: pav-hop .5s ease-out; }
+@keyframes pav-hop { 0%, 100% { transform: translate(-50%, -97%); } 40% { transform: translate(-50%, -112%); } }
 .pitch-hint { font-size: .85rem; color: var(--ink-2); text-align: center; margin: 12px 0 0; }
 @media (max-width: 520px) {
   .pitch { aspect-ratio: 3 / 5; }
@@ -1512,6 +1534,7 @@ a.kpi:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink)
 .sub-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
 .sub-title-row .sub-title { margin: 0; }
 .pitch-view-toggle { display: flex; gap: 6px; }
+.pitch-view-toggle[hidden] { display: none; }
 .pitch-view-toggle .btn.is-on { background: var(--yellow); }
 .pitch-av-wrap { max-width: 680px; margin: 0 auto 16px; }
 .pitch-av { position: relative; isolation: isolate; aspect-ratio: 400 / 330; margin: 10px 0; border: var(--b); border-radius: 18px; overflow: hidden; box-shadow: var(--sh); background: #4a4360; }

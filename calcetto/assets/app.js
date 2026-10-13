@@ -328,6 +328,27 @@ document.addEventListener('DOMContentLoaded', () => {
     restart();
   });
 
+  // campo a cerchi: orientamento verticale/orizzontale (le pedine hanno left/top in %: in orizzontale la porta di A sta a sinistra)
+  const orientBtns = document.querySelectorAll('[data-pitch-orient-toggle]');
+  if (orientBtns.length) {
+    const setOrient = o => {
+      document.querySelectorAll('.pitch[data-pitch]').forEach(pitch => {
+        pitch.classList.toggle('is-horizontal', o === 'h');
+        pitch.querySelectorAll('.token').forEach(t => {
+          if (!t.dataset.l) { t.dataset.l = parseFloat(t.style.left); t.dataset.t = parseFloat(t.style.top); }
+          const l = +t.dataset.l, tp = +t.dataset.t;
+          t.style.left = (o === 'h' ? 100 - tp : l) + '%';
+          t.style.top = (o === 'h' ? l : tp) + '%';
+        });
+      });
+      document.querySelectorAll('.pitch-wrap').forEach(w => w.classList.toggle('is-horizontal', o === 'h'));
+      orientBtns.forEach(b => b.classList.toggle('is-on', b.dataset.pitchOrientToggle === o));
+      try { localStorage.setItem('pitchOrient', o); } catch (e) {}
+    };
+    orientBtns.forEach(b => b.addEventListener('click', () => setOrient(b.dataset.pitchOrientToggle)));
+    try { if (localStorage.getItem('pitchOrient') === 'h') setOrient('h'); } catch (e) {}
+  }
+
   // campo: l'admin tocca due pedine per scambiarle
   const swapForm = document.getElementById('swap-form');
   if (swapForm) {
