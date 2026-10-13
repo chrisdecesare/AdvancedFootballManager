@@ -27,6 +27,10 @@
   const win = (stake, odds) => Math.floor(stake * odds + 1e-9) * mult;
 
   const hint = document.getElementById('slip-hint');
+  // altezza reale del pannello in basso -> padding della pagina (vedi --slip-h in style.css)
+  const syncSlipH = () => document.documentElement.style.setProperty('--slip-h', slip.hidden ? '0px' : slip.offsetHeight + 'px');
+  if (window.ResizeObserver) new ResizeObserver(syncSlipH).observe(slip);
+  window.addEventListener('resize', syncSlipH);
   const singlesTotal = document.getElementById('slip-singles-total');
   const multiStake = document.getElementById('slip-multi-stake');
   const multiWin = document.getElementById('slip-multi-win');
@@ -160,6 +164,7 @@
     if (cart.length < 2 && tab === 'multipla') showTab('singole');
     slip.hidden = cart.length === 0;
     updateTotals();
+    syncSlipH();
 
     refreshPicked();
   };
