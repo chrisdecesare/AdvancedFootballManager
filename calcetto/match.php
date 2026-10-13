@@ -650,6 +650,9 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
   <?php endif; ?>
 </section>
 <?php endif; ?>
+<?php if (empty($_SESSION['guest_fixed_no']) && ($fixGid = guest_home_group((int) $me))): ?>
+<?= guest_fixed_card($fixGid, $guestSaved, true) ?>
+<?php endif; ?>
 <?php if (!$guestSaved): ?>
 <section class="card guest-save" id="salva">
   <h2><i class="ti ti-user-check"></i> Vuoi tenere il tuo account?</h2>
@@ -704,19 +707,51 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
   <?php endif; ?>
 
   <?php if ($canLive): ?>
-    <form method="post" class="form form-grid live-form" id="live-goal-form">
-      <?= csrf_field() ?><input type="hidden" name="do" value="live_goal">
-      <label class="field"><span><i class="ti ti-ball-football"></i> Chi ha segnato</span><select name="player_id" required data-assist-from>
-        <?php foreach (['A', 'B'] as $t): ?><optgroup label="<?= h(team_name($t, $match)) ?>">
-          <?php foreach ($teams[$t] as $r): ?><option value="<?= (int) $r['player_id'] ?>" data-team="<?= $t ?>"><?= h($r['name']) ?></option><?php endforeach; ?></optgroup><?php endforeach; ?>
-      </select></label>
-      <label class="field"><span>Assist (facoltativo)</span><select name="assist_id" data-assist-to>
-        <option value="">— nessuno —</option>
-        <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>" data-team="<?= h($r['team']) ?>"><?= h($r['name']) ?></option><?php endforeach; ?>
-      </select></label>
-      <label class="field check span-2"><input type="checkbox" name="own" value="1"> Autogol (il gol va all'altra squadra)</label>
-      <div class="span-2"><button class="btn btn-primary"><i class="ti ti-ball-football"></i> Gol!</button></div>
+    <?php // gol in due tocchi: chi ha segnato (un nome), poi chi ha fatto l'assist o «Nessun assist» (il gol si salva subito) ?>
+    <div class="live-pad" id="live-pad" data-live-pad>
+      <p class="live-pad-title"><i class="ti ti-ball-football"></i> <span data-pad-title>Chi ha segnato?</span> <span class="muted small" data-pad-hint>tocca il nome</span></p>
+      <div class="live-teams">
+        <?php foreach (['A', 'B'] as $t): ?>
+          <div class="live-team team-<?= strtolower($t) ?>">
+            <h3><span class="team-dot"></span><?= h(team_name($t, $match)) ?> <span class="live-team-score"><?= (int) ($t === 'A' ? $match['score_a'] : $match['score_b']) ?></span></h3>
+            <div class="live-chips">
+              <?php foreach ($teams[$t] as $r): ?>
+                <button type="button" class="live-chip" data-scorer="<?= (int) $r['player_id'] ?>" data-team="<?= $t ?>" data-name="<?= h($r['name']) ?>"><?= avatar($r, 'sm') ?><span><?= h($nameOf[(int) $r['player_id']] ?? $r['name']) ?></span></button>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <label class="live-og-toggle small"><input type="checkbox" data-og-toggle> <span>Era un <b>autogol</b> (tocca chi l'ha fatto: il gol va all'altra squadra)</span></label>
+    </div>
+    <form method="post" class="live-sheet" id="live-goal-form" hidden>
+      <?= csrf_field() ?><input type="hidden" name="do" value="live_goal"><input type="hidden" name="player_id" value="" data-sheet-player><input type="hidden" name="own" value="" data-sheet-own>
+      <div class="live-sheet-card" role="dialog" aria-modal="true" aria-labelledby="live-sheet-title">
+        <p class="live-sheet-title" id="live-sheet-title"><span data-sheet-icon>⚽</span> <span data-sheet-what>Gol di</span> <b data-sheet-name></b>!</p>
+        <div data-sheet-assist>
+          <p class="muted small">Chi ha fatto l'assist?</p>
+          <div class="live-assists">
+            <button class="live-noassist" name="assist_id" value=""><i class="ti ti-ban"></i> Nessun assist</button>
+            <?php foreach ($participants as $r): ?>
+              <button class="live-chip" name="assist_id" value="<?= (int) $r['player_id'] ?>" data-team="<?= h($r['team']) ?>"><?= avatar($r, 'sm') ?><span><?= h($nameOf[(int) $r['player_id']] ?? $r['name']) ?></span></button>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <div data-sheet-og hidden><button class="btn btn-primary btn-block" name="assist_id" value=""><i class="ti ti-check"></i> Sì, segna l'autogol</button></div>
+        <button type="button" class="btn btn-ghost btn-sm live-sheet-cancel" data-sheet-cancel>Annulla</button>
+      </div>
     </form>
+    <noscript>
+      <form method="post" class="form form-grid live-form">
+        <?= csrf_field() ?><input type="hidden" name="do" value="live_goal">
+        <label class="field"><span>Chi ha segnato</span><select name="player_id" required>
+          <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>"><?= h($r['name']) ?> (<?= h(team_name($r['team'], $match)) ?>)</option><?php endforeach; ?></select></label>
+        <label class="field"><span>Assist</span><select name="assist_id"><option value="">Nessun assist</option>
+          <?php foreach ($participants as $r): ?><option value="<?= (int) $r['player_id'] ?>"><?= h($r['name']) ?></option><?php endforeach; ?></select></label>
+        <label class="field check span-2"><input type="checkbox" name="own" value="1"> Autogol</label>
+        <div class="span-2"><button class="btn btn-primary">Gol!</button></div>
+      </form>
+    </noscript>
   <?php endif; ?>
   <?php if ($canInjury): ?>
     <details class="collapsible">
@@ -734,20 +769,35 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
 </section>
 <?php if ($canLive): ?>
 <script>
-// l'assist lo fa un compagno di chi segna: la lista mostra solo la sua squadra (e niente assist sugli autogol)
+// gol in diretta in due tocchi: si tocca chi ha segnato, poi nel riquadro che compare «Nessun assist» o il compagno che l'ha servito
+// (solo la sua squadra): il gol si salva subito. Con «autogol» spuntato il riquadro chiede solo la conferma.
 (() => {
-  const form = document.getElementById('live-goal-form');
-  if (!form) return;
-  const from = form.querySelector('[data-assist-from]'), to = form.querySelector('[data-assist-to]'), own = form.querySelector('[name=own]');
-  const sync = () => {
-    const team = (from.selectedOptions[0] || {}).dataset?.team;
-    [...to.options].forEach(o => { if (o.value) o.hidden = own.checked || o.dataset.team !== team || o.value === from.value; });
-    if (to.selectedOptions[0]?.hidden) to.value = '';
-    to.disabled = own.checked;
-  };
-  from.addEventListener('change', sync);
-  own.addEventListener('change', sync);
-  sync();
+  const pad = document.querySelector('[data-live-pad]'), sheet = document.getElementById('live-goal-form');
+  if (!pad || !sheet) return;
+  const og = pad.querySelector('[data-og-toggle]');
+  const title = pad.querySelector('[data-pad-title]');
+  og.addEventListener('change', () => {
+    pad.classList.toggle('is-og', og.checked);
+    title.textContent = og.checked ? 'Chi ha fatto autogol?' : 'Chi ha segnato?';
+  });
+  const close = () => { sheet.hidden = true; document.body.classList.remove('live-sheet-open'); };
+  pad.querySelectorAll('[data-scorer]').forEach(chip => chip.addEventListener('click', () => {
+    const own = og.checked;
+    sheet.querySelector('[data-sheet-player]').value = chip.dataset.scorer;
+    sheet.querySelector('[data-sheet-own]').value = own ? '1' : '';
+    sheet.querySelector('[data-sheet-name]').textContent = chip.dataset.name;
+    sheet.querySelector('[data-sheet-what]').textContent = own ? 'Autogol di' : 'Gol di';
+    sheet.querySelector('[data-sheet-icon]').textContent = own ? '🙈' : '⚽';
+    sheet.querySelector('[data-sheet-assist]').hidden = own;
+    sheet.querySelector('[data-sheet-og]').hidden = !own;
+    sheet.querySelectorAll('.live-assists [data-team]').forEach(b => { b.hidden = b.dataset.team !== chip.dataset.team || b.value === chip.dataset.scorer; });
+    sheet.hidden = false;
+    document.body.classList.add('live-sheet-open');
+    (sheet.querySelector(own ? '[data-sheet-og] button' : '.live-noassist') || sheet).focus();
+  }));
+  sheet.querySelector('[data-sheet-cancel]').addEventListener('click', close);
+  sheet.addEventListener('click', e => { if (e.target === sheet) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) close(); });
 })();
 </script>
 <?php endif; ?>

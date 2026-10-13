@@ -243,6 +243,37 @@ body:has(.betslip:not([hidden])) .wrap { padding-bottom: 260px; }
 .live-ev { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 2px dashed var(--paper-2); }
 .live-ev .live-who { flex: 1; min-width: 0; }
 .live-ev form { margin-left: auto; }
+/* gol in diretta in due tocchi (match.php): i nomi delle due squadre, poi il riquadro dell'assist */
+.live-pad { border: var(--b2); border-radius: 16px; background: var(--paper); padding: 10px 12px 12px; display: grid; gap: 10px; }
+.live-pad-title { margin: 0; font: 400 1.2rem var(--font-d); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.live-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.live-team { min-width: 0; }
+.live-team h3 { margin: 0 0 6px; display: flex; align-items: center; font-size: 1.05rem; }
+.live-team-score { margin-left: auto; background: var(--ink); color: var(--white); border-radius: 8px; padding: 0 8px; font: 400 1rem var(--font-d); }
+.live-chips { display: grid; gap: 6px; }
+.live-chip { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; padding: 5px 10px 5px 6px; border: var(--b2); border-radius: 14px;
+  background: color-mix(in srgb, var(--tc, var(--paper-2)) 22%, var(--white)); font: 800 .95rem var(--font); color: var(--ink); text-align: left; cursor: pointer;
+  box-shadow: var(--sh-sm); transition: transform .06s, box-shadow .06s; }
+.live-chip span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-chip:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.live-chip[data-team="A"] { --tc: var(--team-a); }
+.live-chip[data-team="B"] { --tc: var(--team-b); }
+.live-chip[hidden] { display: none; }
+.live-pad.is-og .live-chip { background: #ffe1e1; border-style: dashed; }
+.live-og-toggle { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.live-sheet { position: fixed; inset: 0; z-index: 90; display: grid; align-items: end; justify-items: center; background: rgba(31, 26, 46, .45); padding: 12px; }
+.live-sheet[hidden] { display: none; }
+.live-sheet-card { width: min(520px, 100%); max-height: 86vh; overflow-y: auto; background: var(--white); border: var(--b); border-radius: 20px; box-shadow: var(--sh);
+  padding: 16px 14px calc(14px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 10px; }
+@media (min-width: 700px) { .live-sheet { align-items: center; } }
+.live-sheet-title { margin: 0; font: 400 1.5rem var(--font-d); overflow-wrap: anywhere; }
+.live-sheet-card p { margin: 0; }
+.live-assists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+.live-noassist { grid-column: 1 / -1; min-height: 52px; border: var(--b2); border-radius: 14px; background: var(--yellow); font: 400 1.15rem var(--font-d); color: var(--ink);
+  cursor: pointer; box-shadow: var(--sh-sm); display: flex; align-items: center; justify-content: center; gap: 6px; }
+.live-sheet-cancel { justify-self: center; }
+body.live-sheet-open { overflow: hidden; }
+@media (max-width: 380px) { .live-teams { gap: 6px; } .live-chip { gap: 5px; padding: 4px 6px 4px 4px; font-size: .88rem; } .live-chip .avatar { width: 30px; height: 30px; } }
 .live-min { font: 400 .85rem var(--font-d); min-width: 34px; text-align: right; opacity: .75; }
 .ovr { font: 400 .85rem var(--font-d); background: var(--ink); color: var(--yellow); border-radius: 7px; padding: 1px 7px; }
 
@@ -460,6 +491,10 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .guest-feedback p { margin: 0; }
 .guest-feedback .vote { font-size: 1.5rem; padding: 6px 14px; }
 .guest-save { background: var(--paper-2); }
+.guest-fixed { background: #efe6ff; }
+.guest-fixed h2 { display: flex; align-items: center; gap: 8px; }
+.tag-guestfix { background: var(--purple); color: var(--white); }
+.pcard-guest { display: flex; justify-content: center; margin: -2px 0 4px; }
 .guest-save h2 { display: flex; align-items: center; gap: 8px; }
 .guest-votes { margin-top: 14px; padding-top: 10px; border-top: 2px dashed #e7dcc0; }
 .guest-votes h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; }
@@ -930,6 +965,56 @@ a.fact-who:hover { color: var(--grass-d); }
 .bet-market { border: var(--b2); border-radius: 14px; padding: 12px; background: var(--paper); display: grid; gap: 8px; align-content: start; }
 .bet-market h3 { margin: 0; font-size: 1.05rem; }
 .bet-market p { margin: 0; }
+/* una partita, a categorie (Partita, Marcatori, Assist, Giocatore, Premi): si vede una categoria alla volta (assets/bets.js) */
+.bet-cats { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px 4px; scrollbar-width: none; }
+.bet-cats::-webkit-scrollbar { display: none; }
+.bet-cat { flex: none; display: inline-flex; align-items: center; gap: 5px; border: var(--b2); border-radius: 999px; background: var(--white);
+  padding: 6px 12px; font: 800 .85rem var(--font); cursor: pointer; color: var(--ink); }
+.bet-cat.active { background: var(--ink); color: var(--yellow); }
+.bet-tip { margin: 0 0 10px; }
+.bet-panel { display: grid; gap: 12px; }
+.bet-panel[hidden], .bet-player[hidden] { display: none; }
+.bet-panel > p { margin: 0; }
+.bet-block { border: var(--b2); border-radius: 14px; padding: 10px 12px; background: var(--paper); display: grid; gap: 8px; min-width: 0; }
+.bet-block h3 { margin: 0; font-size: 1.02rem; }
+.bet-block p { margin: 0; }
+.quota-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.quota-row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.quota-row .quota-btn { display: grid; justify-items: center; gap: 1px; border-radius: 12px; padding: 7px 4px; min-width: 0; overflow-wrap: anywhere; }
+.quota-row .quota-btn b { font-size: .95rem; }
+.quota-btn.team-a { background: color-mix(in srgb, var(--team-a) 30%, var(--white)); }
+.quota-btn.team-b { background: color-mix(in srgb, var(--team-b) 30%, var(--white)); }
+.quota-btn.team-a.is-picked, .quota-btn.team-b.is-picked { background: var(--ink); }
+.quota-btn.is-off { cursor: default; color: var(--muted); border-style: dashed; box-shadow: none; transform: none; text-align: center; }
+/* tabella giocatori × mercati (Marcatori, Assist): una riga a testa divisa per squadra */
+.qgrid { display: grid; gap: 4px; }
+.qgrid-head, .qgrid-row { display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--qcols), minmax(58px, 78px)); gap: 6px; align-items: center; }
+.qgrid-head { font: 400 .78rem var(--font-d); letter-spacing: .03em; color: var(--muted); padding: 0 2px; }
+.qgrid-head span:not(:first-child) { text-align: center; }
+.qgrid-team { display: flex; align-items: center; font: 400 1rem var(--font-d); margin-top: 6px; padding-top: 6px; border-top: 2px dashed #e7dcc0; }
+.qgrid-team.team-x .team-dot { background: var(--paper-2); }
+.qgrid-row { padding: 2px 0; }
+.qgrid-name { font-weight: 800; font-size: .9rem; line-height: 1.15; overflow-wrap: break-word; hyphens: auto; min-width: 0; }
+.qgrid-row .quota-btn { padding: 6px 2px; border-radius: 10px; text-align: center; font-size: .82rem; }
+.bet-player-pick { margin: 0; }
+.bet-player { display: grid; gap: 10px; }
+.bet-player .ou-picker { border: var(--b2); border-radius: 14px; padding: 8px 10px; background: var(--paper); }
+.bet-mine-list { margin-top: 12px; padding-top: 10px; border-top: 2px dashed #e7dcc0; }
+.bet-mine-list h3 { margin: 0; }
+.bet-mine .tag { white-space: normal; text-align: left; }
+.bet-admin { margin-top: 10px; display: grid; gap: 6px; }
+.wallet-rules-box { flex-basis: 100%; }
+.wallet-rules-box summary { cursor: pointer; font-weight: 800; }
+.wallet-rules-box .wallet-rules { margin-top: 6px; }
+/* Martedì di fuoco: le puntate di oggi pagano il doppio */
+.fire-banner { display: flex; gap: 12px; align-items: center; background: linear-gradient(120deg, #ff5a1f, #ffb03a); color: var(--ink); }
+.fire-banner strong { font: 400 1.25rem var(--font-d); }
+.fire-icon { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--white); border: var(--b2); font-size: 1.9rem; color: #ff5a1f; }
+.fire-icon .ti { animation: fire-flicker 1.2s ease-in-out infinite alternate; }
+@keyframes fire-flicker { from { transform: scale(1) rotate(-4deg); } to { transform: scale(1.12) rotate(4deg); } }
+@media (prefers-reduced-motion: reduce) { .fire-icon .ti { animation: none; } }
+.slip-fire { margin: 4px 0 0; font-weight: 800; color: #d9480f; }
+.betslip.is-fire { border-color: #ff5a1f; }
 
 /* le quote si cliccano direttamente (come nelle app di scommesse vere): il tap aggiunge/toglie la scelta dalla schedina */
 .quota-picks { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -941,12 +1026,17 @@ a.fact-who:hover { color: var(--grass-d); }
 .quota-btn.is-picked b { color: var(--yellow); }
 .quota-btn.is-mine { border-color: var(--grass-d); border-width: 2px; }
 .bet-mine-list { display: grid; gap: 6px; }
-.ou-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.ou-label { font-weight: 800; }
+/* selettore di una soglia: nome e soglia (− 7,5 +) sopra, Over e Under affiancati sotto */
+.ou-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; gap: 6px 8px; }
+.ou-picker + .ou-picker { margin-top: 4px; padding-top: 8px; border-top: 2px dashed #e7dcc0; }
+.bet-player .ou-picker + .ou-picker { margin-top: 0; padding-top: 8px; border-top: var(--b2); }
+.ou-label { font-weight: 800; min-width: 0; overflow-wrap: anywhere; }
+.ou-line-box { display: inline-flex; align-items: center; gap: 4px; justify-self: end; }
+.ou-picker [data-ou-side] { border-radius: 12px; padding: 7px 6px; text-align: center; }
+.ou-help { grid-column: 1 / -1; }
 .ou-step { width: 30px; height: 30px; border: var(--b2); border-radius: 50%; background: var(--paper-2); font: 900 1.05rem/1 var(--font); cursor: pointer; }
 .ou-step:hover { box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px, -1px); }
-.ou-line { width: 84px; text-align: center; font-weight: 800; }
-.ou-help { flex-basis: 100%; }
+.ou-line { width: 72px; text-align: center; font-weight: 800; }
 .bet-mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 @media (max-width: 640px) { .bet-col-title { display: none; } }
 
@@ -1757,3 +1847,53 @@ tr.is-new td { background: #fffbe6; }
 .gz-table summary { cursor: pointer; font-size: .8rem; font-weight: 800; }
 .gz-table .table { font-size: .8rem; margin-top: 4px; }
 @media (max-width: 420px) { .gz-kpis { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- telefoni: correzioni grafiche ---------- */
+@media (max-width: 700px) {
+  .avail-cols { grid-template-columns: minmax(0, 1fr); }   /* «1fr» lasciava che una riga lunga (nome + menu) uscisse dallo schermo */
+}
+@media (max-width: 560px) {
+  /* nomi su due righe invece dei puntini («Andre...»), nelle presenze e nelle squadre */
+  .pline-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.15; }
+  .pline-row .mini-select { max-width: 104px; flex: none; }
+  .pline { gap: 6px; padding: 4px 2px; }
+  .team .pline-row .icon-btn { width: 32px; height: 32px; }
+  /* partite giocate: il premio MVP va sotto, non sopra la data */
+  a.match-row { flex-wrap: wrap; }
+  a.match-row .mside:not(:empty) { flex: 1 0 100%; text-align: left; padding-left: 70px; margin-top: -4px; }
+  a.match-row .mside .tag { white-space: normal; }
+  /* risultato: le due caselle sulla stessa riga, «Calcola dai gol» sotto */
+  .result-inputs { font-size: 1.05rem; gap: 6px; justify-content: center; }
+  .result-inputs input { width: 58px; font-size: 1.3rem; padding: 4px; }
+  .result-inputs label::before { display: none; }
+  .result-inputs #calc-score { flex-basis: 100%; }
+  /* tabella dei marcatori: la colonna «Squadra» diventa il pallino accanto al nome */
+  .table-inputs th:nth-child(2), .table-inputs td:nth-child(2) { display: none; }
+  .table-inputs tr[data-team="A"] td:first-child { box-shadow: inset 4px 0 0 var(--team-a); }
+  .table-inputs tr[data-team="B"] td:first-child { box-shadow: inset 4px 0 0 var(--team-b); }
+  .table-inputs td, .table-inputs th { padding: 6px 4px; }
+  .table-inputs input { width: 54px; padding: 5px 4px; text-align: center; }
+  /* classifiche e tabelle: nome e posizione restano fermi a sinistra mentre si scorrono i numeri */
+  .table th, .table td { padding: 7px 6px; }
+  .table-sticky td:nth-child(2), .table-sticky th:nth-child(2) { position: sticky; left: 0; z-index: 1; background: var(--white); box-shadow: 2px 0 0 #e7dcc0; }
+  .table-sticky th:nth-child(2) { background: var(--paper-2); }
+  .table-sticky .tname { white-space: normal; line-height: 1.15; min-width: 7.5em; max-width: 9.5em; }
+  .table-sticky td.rank { padding-right: 2px; }
+}
+/* la Gazzetta e gli altri slider sui telefoni: alti quanto la pagina che si vede, non quanto la più lunga (restava un gran buco bianco) */
+@media (max-width: 980px) {
+  .slides.is-fit { align-items: flex-start; transition: height .25s; overflow-y: hidden; }
+}
+/* «Le tue scommesse» sui telefoni: ogni puntata è una schedina (partita e mercato sopra, scelta in grande, numeri in fila) */
+@media (max-width: 560px) {
+  .table-cards thead { display: none; }
+  .table-cards, .table-cards tbody { display: block; }
+  .table-cards tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 2px 8px; padding: 10px 2px; border-bottom: 2px dashed #e7dcc0; align-items: end; }
+  .table-cards td { border: 0; padding: 0; }
+  .table-cards .tc-when, .table-cards .tc-market { grid-column: 1 / -1; font-size: .78rem; color: var(--muted); font-weight: 800; display: inline; }
+  .table-cards .tc-when { grid-row: 1; }
+  .table-cards .tc-market { grid-row: 2; }
+  .table-cards .tc-pick { grid-column: 1 / -1; font-weight: 900; font-size: 1rem; }
+  .table-cards td[data-label]::before { content: attr(data-label); display: block; font-size: .7rem; color: var(--muted); font-weight: 800; }
+  .table-cards .tc-act { grid-column: 4; grid-row: 4; justify-self: end; }
+}

@@ -18,6 +18,11 @@
  * finché non è in nessuna lega, sta tra i «giocatori liberi» (free_agents): chi amministra una lega lo può chiamare a una
  * partita (guest_call) o invitare nella lega (league_invites); se accetta l'invito diventa un giocatore normale (guest_join_league).
  *
+ * Ospite fisso (players.guest_fixed): l'ospite può scegliere di restare nella lega della sua partita come «ospite fisso». Da quel
+ * momento è un giocatore della lega in tutto e per tutto (rosa, classifiche, statistiche, voti che contano, scommesse, Fanta, Negozio),
+ * con l'etichetta «Ospite fisso» accanto al nome (guest_make_fixed). Se cambia idea torna un ospite con l'account salvato, cioè un
+ * giocatore libero (guest_unfix); chi amministra la lega può anche togliere o mettere l'etichetta dalla sua scheda.
+ *
  * Dopo GUEST_KEEP_DAYS giorni dall'ultima partita l'account di chi non l'ha salvato sparisce. Se l'admin aveva scritto la sua
  * email, il giocatore resta nella partita (con il nome): se un giorno si iscrive davvero con quella email confermata, la partita
  * gli compare tra quelle giocate (guest_merge). Senza email sparisce del tutto.
@@ -455,4 +460,117 @@ function guest_join_league(int $uid, int $gid): ?string
         [$pid, $gid]);
     log_activity('lega_ingresso', 'da giocatore libero', $gid, $uid);
     return null;
+}
+
+/* ---------------------------------------------------------------- ospite fisso */
+
+/** Lega in cui l'Ospite può restare come ospite fisso: quella della sua partita (l'ultima a cui è stato chiamato), null se non ce n'è. */
+function guest_home_group(int $playerId): ?int
+{
+    $gid = q('SELECT m.group_id FROM players p JOIN matches m ON m.id = p.guest_match_id WHERE p.id = ?', [$playerId])->fetchColumn()
+        ?: q('SELECT m.group_id FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE mp.player_id = ? ORDER BY m.match_date DESC LIMIT 1',
+            [$playerId])->fetchColumn();
+    return $gid ? (int) $gid : null;
+}
+
+/**
+ * L'Ospite sceglie di restare come ospite fisso nella lega della sua partita: diventa un giocatore della lega con tutto quello che
+ * hanno gli altri (account normale, rosa, statistiche, voti che contano, scommesse), con l'etichetta «Ospite fisso». Se non aveva
+ * ancora salvato l'account sceglie una password sua (quella di prima la conosceva chi l'ha invitato). Ritorna l'errore, oppure null.
+ */
+function guest_make_fixed(int $uid, string $password = '', string $password2 = ''): ?string
+{
+    $u = q("SELECT u.id, u.username, u.player_id, p.guest_saved FROM users u JOIN players p ON p.id = u.player_id
+            WHERE u.id = ? AND u.role = 'ospite' AND p.is_guest = 1", [$uid])->fetch();
+    if (!$u) {
+        return 'Solo un ospite può diventare ospite fisso.';
+    }
+    $pid = (int) $u['player_id'];
+    $gid = guest_home_group($pid);
+    if (!$gid) {
+        return 'Non trovo la lega della tua partita: chiedi a chi ti ha invitato.';
+    }
+    $newPassword = !(int) $u['guest_saved'];
+    if ($newPassword) {
+        if ($err = password_error($password, $u['username'])) {
+            return $err;
+        }
+        if ($password !== $password2) {
+            return 'Le due password non coincidono.';
+        }
+    }
+    db()->beginTransaction();
+    try {
+        if ($newPassword) {
+            q('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $uid]);
+        }
+        q("UPDATE users SET role = 'player', tour_done = 0 WHERE id = ?", [$uid]);
+        q('UPDATE players SET is_guest = 0, guest_saved = 0, guest_fixed = 1, guest_match_id = NULL WHERE id = ?', [$pid]);
+        q('DELETE FROM league_invites WHERE player_id = ?', [$pid]);
+        db()->commit();
+    } catch (Throwable $e) {
+        db()->rollBack();
+        error_log('guest_make_fixed: ' . $e->getMessage());
+        return 'Non sono riuscito a farti restare: riprova.';
+    }
+    if ($newPassword) {
+        security_reset_sessions($uid);   // gli altri dispositivi (anche di chi conosceva la vecchia password) devono rifare l'accesso
+    }
+    league_add_player($pid, $gid);
+    // da adesso i suoi voti contano come quelli di tutti, nelle partite della lega non ancora giocate (quelle giocate restano come deciso)
+    q("UPDATE match_players mp JOIN matches m ON m.id = mp.match_id SET mp.votes_ok = 1 WHERE mp.player_id = ? AND m.group_id = ? AND m.status = 'programmata'",
+        [$pid, $gid]);
+    groups_cache(null, null, true);
+    stats_invalidate();
+    log_activity('lega_ingresso', 'ospite fisso', $gid, $uid);
+    return null;
+}
+
+/**
+ * L'ospite fisso non vuole più esserlo: esce dalle sue leghe e torna un ospite con l'account salvato (un giocatore libero, che le leghe
+ * possono chiamare o invitare). Le partite giocate restano sue. Ritorna l'errore, oppure null.
+ */
+function guest_unfix(int $playerId): ?string
+{
+    $p = q('SELECT id, guest_fixed FROM players WHERE id = ? AND is_guest = 0', [$playerId])->fetch();
+    if (!$p || !(int) $p['guest_fixed']) {
+        return 'Non sei un ospite fisso.';
+    }
+    $last = q('SELECT m.id FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE mp.player_id = ? ORDER BY m.match_date DESC LIMIT 1',
+        [$playerId])->fetchColumn();
+    foreach (player_group_ids($playerId) as $gid) {
+        league_remove_player($playerId, $gid);
+    }
+    q("UPDATE users SET role = 'ospite' WHERE player_id = ? AND role IN ('player', 'manager')", [$playerId]);
+    q('UPDATE players SET is_guest = 1, guest_saved = 1, guest_fixed = 0, guest_match_id = ? WHERE id = ?', [$last ?: null, $playerId]);
+    groups_cache(null, null, true);
+    stats_invalidate();
+    log_activity('account', 'non più ospite fisso');
+    return null;
+}
+
+/** Riquadro «Vuoi restare come ospite fisso?» (area dell'ospite e sua partita): sì con una password sua, oppure no, resto ospite. */
+function guest_fixed_card(int $gid, bool $saved, bool $withNo = false): string
+{
+    ob_start(); ?>
+<section class="card guest-fixed" id="ospite-fisso">
+  <h2><i class="ti ti-user-star"></i> Vuoi restare come ospite fisso?</h2>
+  <p>Diventi un giocatore di <strong><?= h(group_name($gid)) ?></strong> con l'etichetta <span class="tag tag-guestfix">Ospite fisso</span>:
+    hai tutto quello che hanno gli altri (rosa, classifica e statistiche, voti che contano, scommesse e KOIN, Fanta, Negozio e Avatar)
+    e vieni chiamato alle partite come gli altri. Se un giorno cambi idea, lo togli dal tuo profilo.</p>
+  <form method="post" action="guest.php" class="form form-grid">
+    <?= csrf_field() ?><input type="hidden" name="do" value="fixed">
+    <?php if (!$saved): ?>
+      <p class="small muted span-2">Scegli una password tua: quella di adesso la conosce chi ti ha invitato.</p>
+      <label class="field"><span>Nuova password</span><input type="password" name="password" required minlength="8" maxlength="72" autocomplete="new-password"></label>
+      <label class="field"><span>Ripeti la password</span><input type="password" name="password2" required minlength="8" maxlength="72" autocomplete="new-password"></label>
+    <?php endif; ?>
+    <div class="span-2 btn-row"><button class="btn btn-primary"><i class="ti ti-check"></i> Sì, resto ospite fisso</button></div>
+  </form>
+  <?php if ($withNo): ?>
+    <form method="post" action="guest.php" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="not_fixed">
+      <button class="btn btn-ghost btn-sm"><i class="ti ti-x"></i> No, solo questa partita</button></form>
+  <?php endif; ?>
+</section>
+<?php return ob_get_clean();
 }

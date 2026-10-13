@@ -52,6 +52,11 @@ if (is_post()) {
         flash('ok', 'Giocatore eliminato.');
         redirect('players.php');
     }
+    if ($do === 'unfix' && !$isNew && my_player_id() === $id) {   // l'ospite fisso non vuole più esserlo: torna ospite (giocatore libero)
+        $err = guest_unfix($id);
+        flash($err ? 'err' : 'ok', $err ?: 'Non sei più un ospite fisso: sei di nuovo un ospite, tra i giocatori liberi che le leghe possono chiamare.');
+        redirect($err ? 'player_edit.php?id=' . $id : 'guest.php');
+    }
     if ($sharedLock) {
         if ($do === 'save') {
             $keep = array_values(array_diff(player_group_ids($id), array_keys($shownGroups)));
@@ -141,8 +146,8 @@ if (is_post()) {
         log_activity('giocatore', ($isNew ? 'creato · ' : 'modificato · ') . $name, $groupIds[0] ?? null);
         if ($staff) {
             $rating = max(1, min(10, (float) str_replace(',', '.', $_POST['base_rating'] ?? '6')));
-            $sets = ['base_rating = ?', 'active = ?'];
-            $params = [$rating, empty($_POST['active']) ? 0 : 1];
+            $sets = ['base_rating = ?', 'active = ?', 'guest_fixed = ?'];
+            $params = [$rating, empty($_POST['active']) ? 0 : 1, empty($_POST['guest_fixed']) ? 0 : 1];
             foreach ($adjFields as $f => $_) {
                 $sets[] = "$f = ?";
                 $params[] = (int) ($_POST[$f] ?? 0);
@@ -369,6 +374,7 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
       <label class="field"><span>Rating base (1-10)</span><input name="base_rating" inputmode="decimal" value="<?= h(str_replace('.', ',', (string) $p['base_rating'])) ?>"></label>
       <label class="field check"><input type="checkbox" name="active" value="1" <?= $p['active'] ? 'checked' : '' ?>><span>Attivo (compare nelle nuove partite)</span></label>
       <label class="field check"><input type="checkbox" name="injured" value="1" <?= !empty($p['injured']) ? 'checked' : '' ?>><span>Infortunato (non può confermare: risulta assente e le scommesse su di lui/lei saltano)</span></label>
+      <label class="field check"><input type="checkbox" name="guest_fixed" value="1" <?= !empty($p['guest_fixed']) ? 'checked' : '' ?>><span>Ospite fisso (etichetta accanto al nome: per il resto è un giocatore come gli altri)</span></label>
     </div>
     <p class="muted small">Il rating base è il livello di partenza per il bilanciamento delle squadre. Con le partite votate si combina con la media voto e la % di vittorie.</p>
     <h3>Correzioni statistiche</h3>
@@ -387,6 +393,15 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
   </div>
 </form>
 
+<?php if (!$isNew && my_player_id() === $id && !empty($p['guest_fixed'])): ?>
+  <section class="card guest-fixed">
+    <h2><i class="ti ti-user-star"></i> Sei un ospite fisso</h2>
+    <p class="muted small">Giochi con <?= h(implode(', ', array_map('group_name', player_group_ids($id)))) ?> come tutti gli altri, con l'etichetta «Ospite fisso».
+      Se non vuoi più esserlo esci dalla lega e torni un ospite: le partite giocate restano tue e le leghe ti possono ancora chiamare o invitare.</p>
+    <form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="unfix">
+      <button class="btn btn-ghost btn-sm" data-confirm="Non essere più ospite fisso? Esci dalla lega (rosa, classifiche, scommesse) e torni un ospite."><i class="ti ti-user-off"></i> Non voglio più essere ospite fisso</button></form>
+  </section>
+<?php endif; ?>
 <?php if (!$isNew && my_player_id() === $id): ?>
   <?= security_card() ?>
   <?= push_card() ?>

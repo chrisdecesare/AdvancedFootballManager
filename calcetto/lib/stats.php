@@ -111,7 +111,7 @@ function reset_match_responses(int $match_id): void
 
 function match_roster(int $match_id): array
 {
-    return q('SELECT mp.*, p.name, p.photo, p.shirt_number, p.position, p.position2, p.foot, p.is_guest,
+    return q('SELECT mp.*, p.name, p.photo, p.shirt_number, p.position, p.position2, p.foot, p.is_guest, p.guest_fixed,
                      p.avatar_look, p.hat_key, p.gender
               FROM match_players mp JOIN players p ON p.id = mp.player_id
               WHERE mp.match_id = ? ORDER BY p.name', [$match_id])->fetchAll();

@@ -724,7 +724,8 @@ function push_notify_bets_open_now(int $matchId): void
 
 /**
  * Avvisi delle scommesse, a tutti i giocatori del gruppo della partita (sono loro che possono puntare):
- *  - "Scommesse aperte" quando mancano BET_OPEN_HOURS ore (o subito, se la partita è stata creata a ridosso);
+ *  - "Scommesse aperte" quando mancano BET_OPEN_HOURS ore (o subito, se la partita è stata creata a ridosso; nel Martedì di fuoco già
+ *    dal martedì, per le partite fino a venerdì: vedi bets_open_at);
  *  - "Ultima ora per scommettere" quando manca un'ora al calcio d'inizio (se non hanno appena ricevuto il primo).
  * Ognuno si manda una volta per giocatore e partita (push_log). Di notte (23-8) l'apertura aspetta il mattino, se c'è tempo.
  * $onlyMatch = controlla solo quella partita. @return int notifiche mandate
@@ -736,7 +737,7 @@ function push_run_bets(?int $onlyMatch = null): int
     }
     $now = time();
     $sql = "SELECT * FROM matches WHERE status = 'programmata' AND match_date > ? AND match_date <= ?";
-    $params = [date('Y-m-d H:i:s', $now), date('Y-m-d H:i:s', $now + BET_OPEN_HOURS * 3600)];
+    $params = [date('Y-m-d H:i:s', $now), date('Y-m-d H:i:s', bets_open_horizon($now))];   // nel Martedì di fuoco anche quelle dei giorni dopo
     if ($onlyMatch !== null) {
         $sql .= ' AND id = ?';
         $params[] = $onlyMatch;
@@ -744,6 +745,9 @@ function push_run_bets(?int $onlyMatch = null): int
     $hour = (int) date('G', $now);
     $sent = 0;
     foreach (q($sql, $params)->fetchAll() as $m) {
+        if (!bets_open_for($m)) {
+            continue;
+        }
         $mid = (int) $m['id'];
         $left = (strtotime($m['match_date']) - $now) / 3600;
         $pids = array_map('intval', q('SELECT p.id FROM players p JOIN player_groups pg ON pg.player_id = p.id
@@ -774,8 +778,9 @@ function push_run_bets(?int $onlyMatch = null): int
         $when = push_when($m['match_date']) . ($m['location'] !== '' ? ' · ' . $m['location'] : '');
         if ($open) {
             $sent += push_notify_users(array_values($open), [
-                'title' => 'Scommesse aperte',
-                'body' => 'Si gioca ' . $when . '. Quote pronte su risultato, marcatori e MVP: punta entro il calcio d\'inizio!',
+                'title' => bet_fire_day($now) ? 'Martedì di fuoco: scommesse aperte!' : 'Scommesse aperte',
+                'body' => 'Si gioca ' . $when . '. ' . (bet_fire_day($now) ? 'Solo oggi le schedine vincenti pagano il doppio dei KOIN!'
+                    : 'Quote pronte su risultato, marcatori, assist e MVP: punta entro il calcio d\'inizio!'),
                 'url' => 'bets.php#m' . $mid, 'tag' => 'bets-' . $mid,
             ], 'normal', 'scommesse aperte');
             foreach ($open as $pid => $_) {

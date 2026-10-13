@@ -35,7 +35,7 @@ layout_start('Classifica', 'standings');
   <p class="empty card">La classifica si riempie dopo la prima partita giocata.</p>
 <?php else: ?>
 <div class="card table-card">
-  <div class="table-wrap"><table class="table table-standings">
+  <div class="table-wrap"><table class="table table-standings table-sticky">
     <thead><tr>
       <th>#</th><th>Giocatore</th>
       <?php foreach ($cols as $k => [$short, $title]): ?>

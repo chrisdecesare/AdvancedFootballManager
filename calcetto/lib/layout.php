@@ -268,6 +268,8 @@ function player_line(array $p, string $extra = ''): string
     $num = $p['shirt_number'] !== null && $p['shirt_number'] !== '' ? '<span class="num">' . (int) $p['shirt_number'] . '</span>' : '';
     if (!empty($p['is_guest'])) {
         $extra = '<span class="tag" title="Gioca solo questa partita">Ospite</span>' . $extra;
+    } elseif (!empty($p['guest_fixed'])) {
+        $extra = '<span class="tag tag-guestfix" title="Ospite fisso: gioca con la lega come tutti gli altri">Ospite fisso</span>' . $extra;
     }
     $open = empty($p['is_guest']) ? '<a class="pline" href="player.php?id=' . (int) ($p['player_id'] ?? $p['id']) . '">' : '<span class="pline">';
     $close = empty($p['is_guest']) ? '</a>' : '</span>';

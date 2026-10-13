@@ -61,7 +61,7 @@ layout_start('Partite', 'matches');
 
 <?php if (can_manage_matches() && manageable_groups()): ?>
 <details class="card collapsible" id="nuova" <?= $upcoming ? '' : 'open' ?>>
-  <summary><strong>+ Nuova partita</strong></summary>
+  <summary><strong>Nuova partita</strong></summary>
   <form method="post" class="form form-grid">
     <?= csrf_field() ?><input type="hidden" name="do" value="create">
     <label class="field"><span>Data</span><input type="date" name="date" required value="<?= date('Y-m-d', strtotime('next thursday')) ?>"></label>

@@ -300,7 +300,15 @@ document.addEventListener('DOMContentLoaded', () => {
       current = (i + slides.length) % slides.length;
       track.scrollTo({ left: slides[current].offsetLeft - track.offsetLeft - 4, behavior: 'smooth' });
     };
-    const mark = () => dots.forEach((d, i) => d.classList.toggle('is-active', i === current));
+    // sui telefoni la Gazzetta (e gli altri slider) è alta quanto la pagina che si vede: le pagine corte non lasciano un buco bianco
+    const fitQuery = window.matchMedia('(max-width: 980px)');
+    const fit = () => {
+      if (!fitQuery.matches) { track.style.height = ''; return; }
+      track.classList.add('is-fit');
+      track.style.height = (slides[current].offsetHeight + 14) + 'px';
+    };
+    const mark = () => { dots.forEach((d, i) => d.classList.toggle('is-active', i === current)); fit(); };
+    window.addEventListener('resize', fit);
     track.addEventListener('scroll', () => {
       const i = Math.round(track.scrollLeft / (slides[0].offsetWidth + 12));
       if (i !== current) { current = Math.max(0, Math.min(slides.length - 1, i)); }

@@ -32,6 +32,22 @@ if (is_post()) {
             }
             flash('err', $err);
             break;
+        case 'fixed':   // resta come ospite fisso nella lega della sua partita
+            $err = guest_make_fixed($uid, is_string($_POST['password'] ?? null) ? $_POST['password'] : '', is_string($_POST['password2'] ?? null) ? $_POST['password2'] : '');
+            if (!$err) {
+                $gid = guest_home_group($me);
+                if ($gid) {
+                    set_group_filter($gid);
+                }
+                flash('ok', 'Sei un ospite fisso' . ($gid ? ' di ' . group_name($gid) : '') . ': ora hai tutto quello che hanno gli altri giocatori (rosa, classifica, statistiche, scommesse...).');
+                redirect('index.php');
+            }
+            flash('err', $err);
+            break;
+        case 'not_fixed':   // per ora no: resta un ospite (lo può ancora decidere da qui)
+            $_SESSION['guest_fixed_no'] = true;
+            flash('ok', 'Va bene: resti ospite. Se cambi idea, lo trovi qui nella tua area.');
+            break;
         case 'decline':
             q('DELETE FROM league_invites WHERE group_id = ? AND player_id = ?', [(int) ($_POST['group_id'] ?? 0), $me]);
             flash('ok', 'Invito rifiutato.');
@@ -41,6 +57,7 @@ if (is_post()) {
 }
 
 $saved = guest_saved();
+$homeGid = guest_home_group($me);
 $invites = guest_league_invites($me);
 $fb = guest_feedback($me);
 $matches = q('SELECT m.*, mp.team, mp.availability, mp.votes_ok, EXISTS (SELECT 1 FROM mvp_votes v WHERE v.match_id = m.id AND v.voter_id = mp.player_id) AS voted
@@ -67,6 +84,10 @@ layout_start('La tua area', 'guest');
     </div>
   <?php endforeach; ?>
 </section>
+<?php endif; ?>
+
+<?php if ($homeGid): ?>
+<?= guest_fixed_card($homeGid, $saved) ?>
 <?php endif; ?>
 
 <section class="card guest-save" id="salva">

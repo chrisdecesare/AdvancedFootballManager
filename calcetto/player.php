@@ -117,6 +117,7 @@ layout_start($p['name'], 'players');
     <div class="profile-tags">
       <span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>" title="Posizione preferita"><?= h($p['position']) ?></span>
       <?php if ($p['position2']): ?><span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>" title="Seconda scelta"><?= h($p['position2']) ?></span><?php endif; ?>
+      <?php if (!empty($p['guest_fixed'])): ?><span class="tag tag-guestfix" title="Ospite fisso: gioca con la lega come tutti gli altri"><i class="ti ti-user-star"></i> Ospite fisso</span><?php endif; ?>
       <span class="tag"><i class="ti ti-shoe"></i> <?= h($p['foot']) ?></span>
       <span class="tag" title="Genere"><i class="ti ti-<?= h(gender_icon($p['gender'] ?? 'M')) ?>"></i> <?= h(genders()[$p['gender'] ?? 'M'] ?? 'Maschio') ?></span>
       <?php if ($rankPts): ?><span class="tag"><i class="ti ti-trophy"></i> <?= $rankPts ?>° in classifica</span><?php endif; ?>

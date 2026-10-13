@@ -101,7 +101,7 @@ if (is_post()) {
                 }
                 log_activity('multipla', count($legs) . ' scelte · ' . $stake . ' KOIN a ×' . fmt_num($odds, 2), (int) get_match((int) $legs[0]['match_id'])['group_id']);
                 flash('ok', 'Multipla da ' . count($legs) . ' su ' . $stake . ' KOIN a ×' . fmt_num($odds, 2)
-                    . ': se le indovini tutte vinci ' . bet_payout($stake, $odds) . '. Chi non risica...');
+                    . ': se le indovini tutte vinci ' . bet_payout($stake, $odds, bet_fire_day() ? BET_FIRE_MULT : 1) . (bet_fire_day() ? ' (' . BET_FIRE_NAME . ': doppio!)' : '') . '. Chi non risica...');
             }
         }
         redirect('bets.php?t=mie');
@@ -209,6 +209,7 @@ $history = $me ? q("SELECT b.*, m.match_date, m.team_a_name, m.team_b_name FROM 
 $histTotal = $me ? (int) q("SELECT COUNT(*) FROM bets b JOIN matches m ON m.id = b.match_id WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id'), [$me])->fetchColumn() : 0;
 $net = $me ? (int) q("SELECT COALESCE(SUM(b.payout - b.stake), 0) FROM bets b JOIN matches m ON m.id = b.match_id WHERE b.player_id = ? AND b.status <> 'aperta' AND " . scope_sql('m.group_id'), [$me])->fetchColumn() : 0;
 $markets = bet_markets();
+$fireToday = bet_fire_day();
 
 $comboOpen = $me ? combo_open($me) : [];
 $comboHist = $me ? combo_history($me, $showAll ? 1000 : 10) : [];
@@ -240,11 +241,11 @@ function combo_sheet(array $c, array $markets, bool $open): string
           <p><span>Quota totale</span><span class="np-dots" aria-hidden="true"></span><b>×<?= fmt_num($c['odds'], 2) ?></b></p>
           <p><span>Puntata</span><span class="np-dots" aria-hidden="true"></span><b><?= (int) $c['stake'] ?></b></p>
           <?php if ($open): ?>
-            <p class="np-win"><span>Vincita</span><span class="np-dots" aria-hidden="true"></span><b><?= bet_payout((int) $c['stake'], $c['odds']) ?></b></p>
+            <p class="np-win"><span>Vincita<?= !empty($c['fire']) ? ' <i class="ti ti-flame" title="' . h(BET_FIRE_NAME) . ': doppio"></i>' : '' ?></span><span class="np-dots" aria-hidden="true"></span><b><?= bet_payout((int) $c['stake'], $c['odds'], bet_mult($c)) ?></b></p>
           <?php elseif ($c['status'] === 'vinta'): ?>
             <p class="np-win"><span>Vinto</span><span class="np-dots" aria-hidden="true"></span><b>+<?= (int) $c['payout'] - (int) $c['stake'] ?></b></p>
           <?php elseif ($c['status'] === 'persa'): ?>
-            <p class="np-lost"><span>Vincita</span><span class="np-dots" aria-hidden="true"></span><b><s><?= bet_payout((int) $c['stake'], $c['odds']) ?></s></b></p>
+            <p class="np-lost"><span>Vincita</span><span class="np-dots" aria-hidden="true"></span><b><s><?= bet_payout((int) $c['stake'], $c['odds'], bet_mult($c)) ?></s></b></p>
           <?php endif; ?>
         </div>
         <?php if (!$open): ?><span class="np-stamp np-stamp-<?= h($c['status']) ?>"><?= h($c['status']) ?></span><?php endif; ?>
@@ -301,13 +302,16 @@ layout_start('Scommesse', 'bets');
       <?php endif; ?>
     </details>
   <?php endif; ?>
-  <p class="muted small wallet-rules">Si scommette solo con KOIN finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
-    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i KOIN). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni KOIN già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi fa <b>over 3,5 gol</b> (almeno 4 gol, quote altissime), su chi fa un <b>assist</b>, su chi fa <b>gol + assist</b> nella stessa partita, sul <b>miglior difensore</b> (il premio votato dai giocatori a fine partita, che si paga alla chiusura dei voti), su chi farà un <b>autogol</b> (quote alte: capita di rado) e sull'over/under dei gol totali della partita, scegliendo tu la soglia (la quota cambia con lei; quando si punta più sull'over o più sull'under si spostano insieme le quote di tutte le soglie).
+  <details class="wallet-rules-box">
+    <summary class="small"><i class="ti ti-info-circle"></i> Come funzionano le scommesse</summary>
+    <p class="muted small wallet-rules">Si scommette solo con KOIN finti: nessun euro, solo onore e sfottò. Ogni scelta ha la sua <b>quota</b>, calcolata come dai bookmaker (probabilità stimate da gol, forma e voti, più il margine del banco): se indovini vinci puntata × quota, se sbagli perdi la puntata
+    (se manca il dato, per esempio nessuno vota l'MVP, tutti riprendono i KOIN). La quota che vedi quando punti è quella che vale, e si abbassa un po' per ogni KOIN già puntato sulla stessa scelta: prima punti su una scelta affollata, meglio è. Nelle prime partite ogni scelta parte alta, circa <b>3,00×</b>, per l'incertezza iniziale: poi scende, partita dopo partita e puntata dopo puntata, fino a un minimo di <b><?= number_format(BET_MIN_ODDS, 2, ',', '') ?>×</b> (nessuna quota scende mai sotto). Oltre a chi vince e all'MVP puoi puntare su chi segna, chi fa doppietta (almeno 2 gol) o tripletta (almeno 3), su chi fa un <b>assist</b>, su chi fa <b>gol + assist</b> nella stessa partita, sul <b>miglior difensore</b> (il premio votato dai giocatori a fine partita, che si paga alla chiusura dei voti), su chi farà un <b>autogol</b> (quote alte: capita di rado), sulla doppietta e la tripletta di assist e sugli <b>over/under</b>: gol totali della partita, gol e assist di una squadra, gol e assist di un giocatore, scegliendo tu la soglia (la quota cambia con lei; quando si punta di più su una soglia si spostano insieme, in proporzione, le quote di tutte le altre: l'over 8,5 non paga mai più dell'over 9,5). Ogni <b><?= h(BET_FIRE_NAME) ?></b> le schedine giocate quel giorno, se vincono, pagano il doppio dei KOIN, e si aprono già le partite fino a venerdì.
     Sui mercati dei giocatori puoi puntare su più giocatori della stessa partita, ognuno la sua scommessa. Si punta fino al calcio d'inizio.
     Tocca una quota per aggiungerla alla <b>schedina</b> (anche da partite diverse): da lì punti ogni scelta da sola, oppure le combini in una <b>multipla</b> dove le quote si moltiplicano (ma basta sbagliarne una per perdere tutto).
-    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN (per le scommesse) più <?= SHOP_CREDIT_GOAL ?> crediti dell'Avatar, ogni assist <?= BET_REWARD_ASSIST ?> KOIN più <?= SHOP_CREDIT_ASSIST ?> crediti, appena viene salvato il risultato. Chi vince l'MVP riceve <?= BET_REWARD_MVP ?> KOIN e chi vince il miglior difensore <?= BET_REWARD_DIF ?> KOIN, alla chiusura dei voti: si spendono in tutto il Negozio e nell'Avatar. Se perdi tutte le puntate su una partita, alla chiusura dei voti ricevi <?= BET_CONSOLATION ?> KOIN di consolazione. Su te stesso (chi segna, doppietta, tripletta, over 3,5, assist, gol + assist, autogol, MVP, miglior difensore) non si scommette.
+    Ogni gol che segni vale <?= BET_REWARD_GOAL ?> KOIN (per le scommesse) più <?= SHOP_CREDIT_GOAL ?> crediti dell'Avatar, ogni assist <?= BET_REWARD_ASSIST ?> KOIN più <?= SHOP_CREDIT_ASSIST ?> crediti, appena viene salvato il risultato. Chi vince l'MVP riceve <?= BET_REWARD_MVP ?> KOIN e chi vince il miglior difensore <?= BET_REWARD_DIF ?> KOIN, alla chiusura dei voti: si spendono in tutto il Negozio e nell'Avatar. Se perdi tutte le puntate su una partita, alla chiusura dei voti ricevi <?= BET_CONSOLATION ?> KOIN di consolazione. Su te stesso (gol, assist, over/under del giocatore, autogol, MVP, miglior difensore) non si scommette.
     I tuoi KOIN si vedono sempre in alto accanto al profilo e servono per il <a class="link" href="shop.php">Negozio</a>, ora una sezione a parte: sfondi, nickname e copricapi per il profilo. Chi resta al verde riceve un sussidio di <?= BET_DOLE ?> KOIN a settimana.
     Ogni lega creata da un utente ha i suoi KOIN: si puntano e si vincono solo sulle sue partite, e non si mescolano con quelli delle altre leghe.</p>
+  </details>
 </section>
 
 <nav class="shop-tabs">
@@ -317,6 +321,13 @@ layout_start('Scommesse', 'bets');
 </nav>
 
 <?php if ($tab === 'partite'): ?>
+<?php if ($fireToday): ?>
+<section class="card fire-banner">
+  <span class="fire-icon" aria-hidden="true"><i class="ti ti-flame"></i></span>
+  <div><strong><?= h(BET_FIRE_NAME) ?>!</strong> Solo oggi ogni scommessa vincente (singola o multipla) paga <b>il doppio dei KOIN</b>.
+    <span class="small">Le partite fino a venerdì sono già aperte. Vale per le puntate fatte oggi: se domani ne cambi una, torna normale.</span></div>
+</section>
+<?php endif; ?>
 <h2 class="section-title">Da giocare</h2>
 <?php if (!$upcoming): ?><p class="empty card">Nessuna partita in programma: appena ne crea una l'admin, si può puntare.</p><?php endif; ?>
 <?php foreach ($upcoming as $m):
@@ -325,7 +336,96 @@ layout_start('Scommesse', 'bets');
     $cands = bet_candidates($mid);
     $all = can_admin_group((int) $m['group_id']) ? match_bets($mid) : [];   // chi ha puntato su cosa lo vede solo chi amministra la lega: ai giocatori resta la sorpresa
     $quotes = bet_quotes($m, $me);   // come quando si punta: le proprie puntate non abbassano le proprie quote
-    $canBet = $me && $open && (is_admin() || player_in_group($me, (int) $m['group_id'])); ?>
+    $canBet = $me && $open && (is_admin() || player_in_group($me, (int) $m['group_id']));
+    $names = [];
+    foreach ($cands as $c) {
+        $names[(int) $c['player_id']] = $c['name'];
+    }
+    $myBets = [];   // le mie puntate su questa partita, tutte insieme
+    $myPicks = [];  // mercato => scelte su cui ho già puntato (pulsanti segnati)
+    foreach ($mine[$mid] ?? [] as $mk => $list) {
+        foreach ($list as $b) {
+            $myBets[] = $b;
+            $myPicks[$mk][] = (string) $b['pick'];
+        }
+    }
+    $dateLbl = fmt_date_short($m['match_date']);
+    // pulsante-quota: lo si tocca per mettere la scelta nella schedina
+    $qbtn = function (string $mk, string $pick, string $label, ?string $text = null, string $cls = '') use ($quotes, $mid, $dateLbl, $markets, $myPicks): string {
+        $qv = $quotes[$mk][$pick] ?? null;
+        if ($qv === null) {
+            return '<span class="quota-btn is-off ' . $cls . '" aria-hidden="true">–</span>';
+        }
+        $isMine = in_array($pick, $myPicks[$mk] ?? [], true);
+        return '<button type="button" class="quota-btn ' . $cls . ($isMine ? ' is-mine' : '') . '" data-slip-add data-match="' . $mid . '" data-market="' . h($mk) . '"'
+            . ' data-pick="' . h($pick) . '" data-label="' . h($label) . '" data-odds="' . h((string) $qv) . '"'
+            . ' data-match-label="' . h($dateLbl . ' · ' . rtrim($markets[$mk]['label'], '?')) . '" title="' . ($isMine ? 'Hai già puntato qui' : 'Aggiungi alla schedina') . '">'
+            . ($text !== null ? h($text) . ' ' : '') . '<b>×' . fmt_num($qv, 2) . '</b></button>';
+    };
+    // selettore delle soglie (over/under): soglia con − e +, poi Over o Under
+    $picker = function (string $mk, ?string $subject, string $subjectLabel, string $title) use ($quotes, $mid, $dateLbl, $markets, $myPicks): string {
+        $table = [];
+        foreach ($quotes[$mk] ?? [] as $pk => $qv) {
+            $l = bet_line_parse($mk, (string) $pk);
+            if ($l && $l['subject'] === $subject) {
+                $table[number_format($l['line'], 1, '.', '')][$l['side'] === 'O' ? 0 : 1] = (float) $qv;
+            }
+        }
+        if (!$table) {
+            return '';
+        }
+        // soglia di partenza: quella dove over e under sono più alla pari
+        uasort($table, fn($x, $y) => abs(($x[0] ?? 0) - ($x[1] ?? 0)) <=> abs(($y[0] ?? 0) - ($y[1] ?? 0)));
+        $start = (float) array_key_first($table);
+        ksort($table, SORT_NUMERIC);
+        $min = (float) array_key_first($table);
+        $max = (float) array_key_last($table);
+        $unit = BET_LINE_UNIT[$mk];
+        $mine = array_values(array_filter($myPicks[$mk] ?? [], fn($p) => (bet_line_parse($mk, $p)['subject'] ?? false) === $subject));
+        $btn = function (string $side) use ($mk, $subject, $subjectLabel, $start, $table, $mid, $dateLbl, $markets, $unit): string {
+            $pick = bet_line_pick($subject, $side, $start);
+            $o = $table[number_format($start, 1, '.', '')][$side === 'O' ? 0 : 1];
+            return '<button type="button" class="quota-btn" data-slip-add data-ou-side="' . $side . '" data-match="' . $mid . '" data-market="' . h($mk) . '"'
+                . ' data-pick="' . h($pick) . '" data-label="' . h(($subjectLabel !== '' ? $subjectLabel . ': ' : '') . ($side === 'O' ? 'Over ' : 'Under ') . number_format($start, 1, ',', '') . ' ' . $unit) . '"'
+                . ' data-odds="' . h((string) $o) . '" data-match-label="' . h($dateLbl . ' · ' . $markets[$mk]['label']) . '" title="Aggiungi alla schedina">'
+                . ($side === 'O' ? 'Over' : 'Under') . ' <b>×' . fmt_num($o, 2) . '</b></button>';
+        };
+        return '<div class="ou-picker" data-ou="' . h(json_encode($table)) . '" data-mine="' . h(json_encode($mine)) . '" data-prefix="' . h($subject !== null ? $subject . '|' : '') . '"'
+            . ' data-unit="' . h($unit) . '" data-subject-label="' . h($subjectLabel) . '">'
+            . '<span class="ou-label small">' . h($title) . '</span>'
+            . '<span class="ou-line-box"><button type="button" class="ou-step" data-ou-step="-1" aria-label="Soglia più bassa">−</button>'
+            . '<input type="number" class="ou-line" min="' . $min . '" max="' . $max . '" step="1" value="' . $start . '" inputmode="decimal" aria-label="Soglia">'
+            . '<button type="button" class="ou-step" data-ou-step="1" aria-label="Soglia più alta">+</button></span>'
+            . $btn('O') . $btn('U')
+            . '<span class="ou-help muted small">Over: <b class="ou-over-txt">' . (int) ceil($start) . ' o più</b> · Under: <b class="ou-under-txt">' . (int) floor($start) . ' o meno</b></span></div>';
+    };
+    // tabella dei giocatori divisi per squadra: una riga a testa, una colonna per mercato
+    $byTeam = [];
+    foreach ($cands as $c) {
+        $byTeam[in_array($c['team'], ['A', 'B'], true) ? $c['team'] : '-'][] = $c;
+    }
+    ksort($byTeam);
+    $noTeam = count($byTeam) > 1 ? 'Senza squadra' : 'Squadre da fare';
+    $grid = function (array $cols) use ($byTeam, $m, $me, $qbtn, $noTeam): string {
+        $h = '<div class="qgrid" style="--qcols:' . count($cols) . '"><div class="qgrid-head"><span>Giocatore</span>';
+        foreach ($cols as [$mk, $short]) {
+            $h .= '<span>' . h($short) . '</span>';
+        }
+        $h .= '</div>';
+        foreach ($byTeam as $t => $list) {
+            $h .= '<div class="qgrid-team team-' . strtolower($t === '-' ? 'x' : $t) . '"><span class="team-dot"></span>' . h($t === '-' ? $noTeam : team_name($t, $m)) . '</div>';
+            foreach ($list as $c) {
+                $pid = (int) $c['player_id'];
+                $h .= '<div class="qgrid-row"><span class="qgrid-name">' . h($c['name']) . '</span>';
+                foreach ($cols as [$mk, $short]) {
+                    $h .= $pid === (int) $me ? '<span class="quota-btn is-off" title="Su te stesso non si scommette">tu</span>' : $qbtn($mk, (string) $pid, $c['name']);
+                }
+                $h .= '</div>';
+            }
+        }
+        return $h . '</div>';
+    };
+    $hasTeams = !empty($quotes['ousq']); ?>
 <section class="card bet-match" id="m<?= $mid ?>">
   <div class="card-head">
     <h2><a href="match.php?id=<?= $mid ?>"><?= h(ucfirst(fmt_date_long($m['match_date']))) ?> · <?= fmt_time($m['match_date']) ?></a> <?= group_tag((int) $m['group_id']) ?></h2>
@@ -333,91 +433,113 @@ layout_start('Scommesse', 'bets');
     <?php elseif (bets_not_yet_open($m)): ?><span class="tag"><i class="ti ti-clock"></i> si aprono <?= h(push_when(date('Y-m-d H:i:s', bets_open_at($m)))) ?></span>
     <?php else: ?><span class="tag tag-live"><i class="ti ti-lock"></i> scommesse chiuse</span><?php endif; ?>
   </div>
-  <div class="bet-markets">
-  <?php foreach ($markets as $mk => $info):
-      $list = $all[$mk] ?? [];
-      $opts = [];
-      if ($mk === 'esito') {
-          $opts = ['A' => team_name('A', $m), 'X' => 'Pareggio', 'B' => team_name('B', $m)];
-      } elseif ($mk === 'overunder') {
-          // la soglia la sceglie chi punta: niente elenco di pulsanti, c'è il selettore qui sotto (quote per ogni soglia)
-      } else {
-          foreach ($cands as $c) {
-              if ((int) $c['player_id'] !== (int) $me) {   // su se stessi non si scommette
-                  $opts[(string) $c['player_id']] = $c['name'];
-              }
-          }
-      }
-      $q = $quotes[$mk] ?? [];
-      $myList = $mine[$mid][$mk] ?? [];
-      $myPicks = array_column($myList, 'pick'); ?>
-    <div class="bet-market">
-      <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
-      <?php if ($list): ?><p class="bet-friends small muted"><?php foreach ($list as $i => $b): ?><?= $i ? ' · ' : '' ?><?= h($b['name']) ?> <b><?= (int) $b['stake'] ?></b> su <?= h($opts[$b['pick']] ?? bet_pick_label($m, $mk, (string) $b['pick'])) ?><?php endforeach; ?></p>
-        <details class="bet-admin small">
-          <summary class="muted">Admin: cambia l'importo di una puntata</summary>
-          <?php foreach ($list as $b): if ($b['status'] !== 'aperta') { continue; } ?>
-            <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="bet_stake"><input type="hidden" name="bet_id" value="<?= (int) $b['id'] ?>">
-              <span><?= h($b['name']) ?> su <?= h($opts[$b['pick']] ?? bet_pick_label($m, $mk, (string) $b['pick'])) ?> a ×<?= fmt_num($b['odds'], 2) ?></span>
-              <input type="number" name="stake" min="1" value="<?= (int) $b['stake'] ?>" inputmode="numeric" aria-label="KOIN puntati" style="width:5.5em">
-              <button class="btn btn-ghost btn-sm" data-confirm="Cambiare l'importo di questa puntata? La quota resta quella presa.">Salva</button>
-            </form>
-          <?php endforeach; ?>
-        </details>
-      <?php endif; ?>
-      <?php if ($canBet && $mk === 'overunder' && $q):
-          $ouTable = [];
-          foreach ($q as $pk => $qv) {
-              if ($ou = bet_ou_parse((string) $pk)) {
-                  $ouTable[number_format($ou[1], 1, '.', '')][$ou[0] === 'O' ? 0 : 1] = (float) $qv;
-              }
-          }
-          // soglia di partenza: quella dove over e under sono più alla pari
-          uasort($ouTable, fn($x, $y) => abs($x[0] - $x[1]) <=> abs($y[0] - $y[1]));
-          $ouStart = (float) array_key_first($ouTable);
-          ksort($ouTable, SORT_NUMERIC);
-          $ouMax = (float) array_key_last($ouTable);
-          $ouBtn = fn(string $side) => '<button type="button" class="quota-btn" data-slip-add data-ou-side="' . $side . '" data-match="' . $mid . '" data-market="overunder"'
-              . ' data-pick="' . h(bet_ou_pick($side, $ouStart)) . '" data-label="' . h(bet_pick_label($m, 'overunder', bet_ou_pick($side, $ouStart))) . '"'
-              . ' data-odds="' . h((string) $ouTable[number_format($ouStart, 1, '.', '')][$side === 'O' ? 0 : 1]) . '"'
-              . ' data-match-label="' . h(fmt_date_short($m['match_date'])) . ' · ' . h($info['label']) . '" title="Aggiungi alla schedina">'
-              . ($side === 'O' ? 'Over' : 'Under') . ' <b>×' . fmt_num($ouTable[number_format($ouStart, 1, '.', '')][$side === 'O' ? 0 : 1], 2) . '</b></button>'; ?>
-        <p class="muted small" style="margin:0">Scegli quanti gol devono essere superati (o no), poi tocca Over o Under: la quota cambia con la soglia.</p>
-        <div class="ou-picker" data-ou="<?= h(json_encode($ouTable)) ?>" data-mine="<?= h(json_encode(array_values($myPicks))) ?>">
-          <span class="ou-label small">Gol totali</span>
-          <button type="button" class="ou-step" data-ou-step="-1" aria-label="Soglia più bassa">−</button>
-          <input type="number" class="ou-line" min="0.5" max="<?= $ouMax ?>" step="1" value="<?= $ouStart ?>" inputmode="decimal" aria-label="Soglia dei gol totali">
-          <button type="button" class="ou-step" data-ou-step="1" aria-label="Soglia più alta">+</button>
-          <?= $ouBtn('O') ?><?= $ouBtn('U') ?>
-          <span class="ou-help muted small">Over: <b class="ou-over-txt"><?= (int) ceil($ouStart) ?> o più gol</b> · Under: <b class="ou-under-txt"><?= (int) floor($ouStart) ?> o meno</b></span>
-        </div>
-      <?php elseif ($canBet && $opts && ($q || $mk !== 'difensore')): ?>
-        <p class="muted small" style="margin:0">Tocca una quota per aggiungerla alla schedina<?= in_array($mk, BET_PLAYER_MARKETS, true) ? ' (anche più di una: es. due marcatori diversi; su te stesso non si può)' : '' ?>:</p>
-        <div class="quota-picks">
-          <?php foreach ($opts as $val => $label): if (!isset($q[$val])) { continue; } $qv = $q[$val];
-              $isMine = in_array((string) $val, $myPicks, true); ?>
-            <button type="button" class="quota-btn<?= $isMine ? ' is-mine' : '' ?>" data-slip-add
-              data-match="<?= $mid ?>" data-market="<?= $mk ?>" data-pick="<?= h((string) $val) ?>" data-label="<?= h($label) ?>" data-odds="<?= h((string) $qv) ?>"
-              data-match-label="<?= h(fmt_date_short($m['match_date'])) ?> · <?= h($info['label']) ?>"
-              title="<?= $isMine ? 'Hai già puntato qui' : 'Aggiungi alla schedina' ?>"><?= h($label) ?> <b>×<?= fmt_num($qv, 2) ?></b></button>
-          <?php endforeach; ?>
-        </div>
-      <?php elseif ($canBet && $mk === 'difensore' && !$q): ?>
-        <p class="muted small" style="margin:0">Il mercato compare quando ci sono almeno due giocatori votabili per il premio in questa partita.</p>
-      <?php endif; ?>
-      <?php if ($myList): ?>
-        <div class="bet-mine-list">
-        <?php foreach ($myList as $my): ?>
-          <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>">
-            <input type="hidden" name="market" value="<?= $mk ?>"><input type="hidden" name="pick" value="<?= h((string) $my['pick']) ?>">
-            <span class="tag tag-ok"><i class="ti ti-check"></i> <?= (int) $my['stake'] ?> su <?= h($opts[$my['pick']] ?? bet_pick_label($m, $mk, (string) $my['pick'])) ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds']) ?></span>
-            <?php if ($me && bets_before_kickoff($m)): ?><button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button><?php endif; ?></form>
-        <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
-    </div>
-  <?php endforeach; ?>
+  <?php if ($canBet): ?>
+  <div class="bet-cats" role="tablist" data-bet-cats="<?= $mid ?>">
+    <button type="button" class="bet-cat active" data-cat="partita" role="tab"><i class="ti ti-trophy"></i> Partita</button>
+    <button type="button" class="bet-cat" data-cat="gol" role="tab"><i class="ti ti-ball-football"></i> Marcatori</button>
+    <button type="button" class="bet-cat" data-cat="assist" role="tab"><i class="ti ti-hand-finger"></i> Assist</button>
+    <button type="button" class="bet-cat" data-cat="giocatore" role="tab"><i class="ti ti-user"></i> Giocatore</button>
+    <button type="button" class="bet-cat" data-cat="premi" role="tab"><i class="ti ti-star"></i> Premi e altro</button>
   </div>
+  <p class="muted small bet-tip">Tocca una quota per metterla nella <b>schedina</b> (in basso): da lì la giochi da sola o la combini in una multipla.</p>
+
+  <div class="bet-panel" data-cat-panel="partita">
+    <div class="bet-block">
+      <h3><i class="ti ti-<?= $markets['esito']['icon'] ?>"></i> Chi vince?</h3>
+      <div class="quota-row">
+        <?= $qbtn('esito', 'A', team_name('A', $m), team_name('A', $m), 'team-a') ?><?= $qbtn('esito', 'X', 'Pareggio', 'Pareggio') ?><?= $qbtn('esito', 'B', team_name('B', $m), team_name('B', $m), 'team-b') ?>
+      </div>
+    </div>
+    <div class="bet-block">
+      <h3><i class="ti ti-arrows-up-down"></i> Over/Under gol <span class="muted small">· entrambe le squadre insieme</span></h3>
+      <?= $picker('overunder', null, '', 'Gol totali') ?>
+    </div>
+    <div class="bet-block">
+      <h3><i class="ti ti-shirt-sport"></i> Over/Under gol di una squadra</h3>
+      <?php if ($hasTeams): ?>
+        <?= $picker('ousq', 'A', team_name('A', $m), team_name('A', $m)) ?><?= $picker('ousq', 'B', team_name('B', $m), team_name('B', $m)) ?>
+      <?php else: ?><p class="muted small">Si gioca appena sono fatte le squadre.</p><?php endif; ?>
+    </div>
+    <div class="bet-block">
+      <h3><i class="ti ti-hand-finger"></i> Over/Under assist di una squadra</h3>
+      <?php if ($hasTeams): ?>
+        <?= $picker('ouassq', 'A', team_name('A', $m), team_name('A', $m)) ?><?= $picker('ouassq', 'B', team_name('B', $m), team_name('B', $m)) ?>
+      <?php else: ?><p class="muted small">Si gioca appena sono fatte le squadre.</p><?php endif; ?>
+    </div>
+  </div>
+
+  <div class="bet-panel" data-cat-panel="gol" hidden>
+    <p class="muted small">Chi segna almeno 1 gol, almeno 2 (doppietta) o almeno 3 (tripletta). Puoi metterne più di uno nella schedina.</p>
+    <?= $grid([['gol', 'Segna'], ['doppietta', 'Doppietta'], ['tripletta', 'Tripletta']]) ?>
+  </div>
+
+  <div class="bet-panel" data-cat-panel="assist" hidden>
+    <p class="muted small">Chi fa almeno 1 assist, almeno 2 (doppietta di assist) o almeno 3 (tripletta di assist).</p>
+    <?= $grid([['assist', 'Assist'], ['assist2', 'Doppietta'], ['assist3', 'Tripletta']]) ?>
+  </div>
+
+  <div class="bet-panel" data-cat-panel="giocatore" hidden>
+    <?php $others = array_filter($cands, fn($c) => (int) $c['player_id'] !== (int) $me); ?>
+    <?php if (!$others): ?><p class="muted small">Nessun giocatore in lista, per ora.</p><?php else: ?>
+    <label class="field bet-player-pick"><span>Scegli un giocatore</span>
+      <select data-player-select>
+        <?php foreach ($byTeam as $t => $list): ?><optgroup label="<?= h($t === '-' ? $noTeam : team_name($t, $m)) ?>">
+          <?php foreach ($list as $c): if ((int) $c['player_id'] === (int) $me) continue; ?><option value="<?= (int) $c['player_id'] ?>"><?= h($c['name']) ?></option><?php endforeach; ?></optgroup>
+        <?php endforeach; ?>
+      </select></label>
+    <?php $first = true; foreach ($others as $c): $pid = (int) $c['player_id']; $nm = $c['name']; ?>
+      <div class="bet-player" data-player-panel="<?= $pid ?>"<?= $first ? '' : ' hidden' ?>>
+        <?= $picker('ougol', (string) $pid, $nm, 'Gol di ' . $nm) ?>
+        <?= $picker('ouassist', (string) $pid, $nm, 'Assist di ' . $nm) ?>
+        <div class="quota-row quota-row-2">
+          <?= $qbtn('golassist', (string) $pid, $nm, 'Gol + assist') ?><?= $qbtn('autogol', (string) $pid, $nm, 'Autogol') ?>
+        </div>
+      </div>
+    <?php $first = false; endforeach; endif; ?>
+  </div>
+
+  <div class="bet-panel" data-cat-panel="premi" hidden>
+    <?php foreach (['mvp', 'difensore', 'golassist', 'autogol'] as $mk): $info = $markets[$mk]; ?>
+      <div class="bet-block">
+        <h3><i class="ti ti-<?= $info['icon'] ?>"></i> <?= h($info['label']) ?> <span class="muted small">· <?= h($info['when']) ?></span></h3>
+        <?php if ($mk === 'difensore' && empty($quotes[$mk])): ?><p class="muted small">Compare quando ci sono almeno due giocatori votabili per il premio.</p>
+        <?php else: ?><div class="quota-picks">
+          <?php foreach ($cands as $c): $pid = (int) $c['player_id']; if ($pid === (int) $me || !isset($quotes[$mk][$pid])) continue; ?><?= $qbtn($mk, (string) $pid, $c['name'], $c['name']) ?><?php endforeach; ?>
+        </div><?php endif; ?>
+      </div>
+    <?php endforeach; ?>
+  </div>
+  <?php elseif ($me && $open): ?>
+    <p class="muted small">Puoi scommettere solo sulle partite delle tue leghe.</p>
+  <?php endif; ?>
+
+  <?php if ($myBets): ?>
+    <div class="bet-mine-list">
+      <h3 class="small"><i class="ti ti-receipt"></i> Le tue puntate su questa partita</h3>
+      <?php foreach ($myBets as $my): $mk = $my['market']; ?>
+        <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="match_id" value="<?= $mid ?>">
+          <input type="hidden" name="market" value="<?= h($mk) ?>"><input type="hidden" name="pick" value="<?= h((string) $my['pick']) ?>">
+          <span class="tag tag-ok"><?= !empty($my['fire']) ? '<i class="ti ti-flame"></i>' : '<i class="ti ti-check"></i>' ?> <?= h(rtrim($markets[$mk]['label'] ?? $mk, '?')) ?>: <b><?= h(bet_pick_label($m, $mk, (string) $my['pick'], $names)) ?></b>
+            · <?= (int) $my['stake'] ?> a ×<?= fmt_num($my['odds'], 2) ?> = <?= bet_payout((int) $my['stake'], $my['odds'], bet_mult($my)) ?></span>
+          <?php if (bets_before_kickoff($m)): ?><button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button><?php endif; ?></form>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($all): ?>
+    <details class="bet-admin small">
+      <summary class="muted">Admin: chi ha puntato su cosa (e cambia l'importo)</summary>
+      <?php foreach ($all as $mk => $list): foreach ($list as $b): ?>
+        <form method="post" class="bet-mine"><?= csrf_field() ?><input type="hidden" name="do" value="bet_stake"><input type="hidden" name="bet_id" value="<?= (int) $b['id'] ?>">
+          <span><?= h($b['name']) ?> · <?= h(rtrim($markets[$mk]['label'] ?? $mk, '?')) ?>: <?= h(bet_pick_label($m, $mk, (string) $b['pick'], $names)) ?> a ×<?= fmt_num($b['odds'], 2) ?><?= !empty($b['fire']) ? ' <i class="ti ti-flame" title="' . h(BET_FIRE_NAME) . '"></i>' : '' ?></span>
+          <?php if ($b['status'] === 'aperta'): ?>
+            <input type="number" name="stake" min="1" value="<?= (int) $b['stake'] ?>" inputmode="numeric" aria-label="KOIN puntati" style="width:5.5em">
+            <button class="btn btn-ghost btn-sm" data-confirm="Cambiare l'importo di questa puntata? La quota resta quella presa.">Salva</button>
+          <?php else: ?><b><?= (int) $b['stake'] ?></b><?php endif; ?>
+        </form>
+      <?php endforeach; endforeach; ?>
+    </details>
+  <?php endif; ?>
 </section>
 <?php endforeach; ?>
 
@@ -433,15 +555,15 @@ layout_start('Scommesse', 'bets');
 
 <h2 class="section-title">Singole in corso</h2>
 <?php if (!$openSingles): ?><p class="empty card">Nessuna singola in corso.</p><?php else: ?>
-<div class="card table-card"><div class="table-wrap"><table class="table">
+<div class="card table-card"><div class="table-wrap"><table class="table table-cards">
   <thead><tr><th>Partita</th><th>Mercato</th><th>La tua scelta</th><th>Puntati</th><th>Quota</th><th>Vinci</th><th></th></tr></thead><tbody>
   <?php foreach ($openSingles as $b):
       $betOpen = bets_open_for(['status' => $b['match_status'], 'match_date' => $b['match_date']]); ?>
-    <tr><td><a href="match.php?id=<?= (int) $b['match_id'] ?>"><?= fmt_date_short($b['match_date']) ?></a></td>
-      <td><?= h($markets[$b['market']]['label'] ?? $b['market']) ?></td>
-      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td><td>×<?= fmt_num($b['odds'], 2) ?></td>
-      <td><?= bet_payout((int) $b['stake'], $b['odds']) ?></td>
-      <td><?php if ($betOpen): ?>
+    <tr><td class="tc-when"><a href="match.php?id=<?= (int) $b['match_id'] ?>"><?= fmt_date_short($b['match_date']) ?></a></td>
+      <td class="tc-market"><?= h($markets[$b['market']]['label'] ?? $b['market']) ?></td>
+      <td class="tc-pick"><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td data-label="Puntati"><?= (int) $b['stake'] ?></td><td data-label="Quota">×<?= fmt_num($b['odds'], 2) ?></td>
+      <td data-label="Vinci"><?= bet_payout((int) $b['stake'], $b['odds'], bet_mult($b)) ?><?= !empty($b['fire']) ? ' <i class="ti ti-flame" title="' . h(BET_FIRE_NAME) . ': vincita doppia"></i>' : '' ?></td>
+      <td class="tc-act"><?php if ($betOpen): ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="cancel"><input type="hidden" name="from" value="mie">
             <input type="hidden" name="match_id" value="<?= (int) $b['match_id'] ?>"><input type="hidden" name="market" value="<?= h($b['market']) ?>"><input type="hidden" name="pick" value="<?= h((string) $b['pick']) ?>">
             <button class="btn btn-ghost btn-sm" data-confirm="Ritirare la puntata? Vigliacco.">Ritira</button></form>
@@ -459,13 +581,13 @@ layout_start('Scommesse', 'bets');
 
 <?php if ($history): ?>
 <h2 class="section-title">Singole decise <span class="muted small">saldo <?= fmt_signed($net, 0) ?></span></h2>
-<div class="card table-card"><div class="table-wrap"><table class="table">
+<div class="card table-card"><div class="table-wrap"><table class="table table-cards">
   <thead><tr><th>Partita</th><th>Mercato</th><th>Scelta</th><th>Puntati</th><th>Quota</th><th>Esito</th></tr></thead><tbody>
   <?php foreach ($history as $b): ?>
-    <tr><td><a href="match.php?id=<?= (int) $b['match_id'] ?>"><?= fmt_date_short($b['match_date']) ?></a></td>
-      <td><?= h($markets[$b['market']]['label'] ?? $b['market']) ?></td>
-      <td><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?></td><td><?= (int) $b['stake'] ?></td><td>×<?= fmt_num($b['odds'], 2) ?></td>
-      <td><?php if ($b['status'] === 'vinta'): ?><span class="tag tag-ok">vinta +<?= (int) $b['payout'] - (int) $b['stake'] ?></span>
+    <tr><td class="tc-when"><a href="match.php?id=<?= (int) $b['match_id'] ?>"><?= fmt_date_short($b['match_date']) ?></a></td>
+      <td class="tc-market"><?= h($markets[$b['market']]['label'] ?? $b['market']) ?></td>
+      <td class="tc-pick"><?= h(bet_pick_label($b, $b['market'], $b['pick'])) ?><?= !empty($b['fire']) ? ' <i class="ti ti-flame" title="' . h(BET_FIRE_NAME) . '"></i>' : '' ?></td><td data-label="Puntati"><?= (int) $b['stake'] ?></td><td data-label="Quota">×<?= fmt_num($b['odds'], 2) ?></td>
+      <td class="tc-act"><?php if ($b['status'] === 'vinta'): ?><span class="tag tag-ok">vinta +<?= (int) $b['payout'] - (int) $b['stake'] ?></span>
         <?php elseif ($b['status'] === 'persa'): ?><span class="tag tag-live">persa −<?= (int) $b['stake'] ?></span>
         <?php else: ?><span class="tag">rimborsata</span><?php endif; ?></td></tr>
   <?php endforeach; ?></tbody></table></div></div>
@@ -500,7 +622,7 @@ layout_start('Scommesse', 'bets');
 
 <?php endif; ?>
 
-<div id="betslip" class="betslip" data-balance="<?= (int) $balance ?>" data-mode="singole" hidden>
+<div id="betslip" class="betslip<?= $fireToday ? ' is-fire' : '' ?>" data-balance="<?= (int) $balance ?>" data-mult="<?= $fireToday ? BET_FIRE_MULT : 1 ?>" data-mode="singole" hidden>
   <div class="betslip-head">
     <span class="muted small"><i class="ti ti-stack-2"></i> Schedina (<span id="slip-count">0</span>)</span>
     <div class="slip-tabs" role="tablist">
@@ -508,6 +630,7 @@ layout_start('Scommesse', 'bets');
       <button type="button" class="slip-tab" data-slip-tab="multipla" id="slip-tab-multi" role="tab" aria-selected="false" disabled title="Servono almeno 2 selezioni">Multipla</button>
     </div>
   </div>
+  <?php if ($fireToday): ?><p class="slip-fire small"><i class="ti ti-flame"></i> <?= h(BET_FIRE_NAME) ?>: le vincite qui sotto sono già raddoppiate.</p><?php endif; ?>
   <p class="slip-hint muted small" id="slip-hint"></p>
   <div class="betslip-legs" id="slip-legs"></div>
 

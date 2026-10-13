@@ -7,6 +7,7 @@
   const slip = document.getElementById('betslip');
   if (!slip) return;
   const balance = parseInt(slip.dataset.balance, 10) || 0;
+  const mult = parseInt(slip.dataset.mult, 10) || 1;   // Martedì di fuoco: le vincite delle puntate di oggi si moltiplicano
   const legsBox = document.getElementById('slip-legs');
   const countOut = document.getElementById('slip-count');
   const tabSingole = document.querySelector('[data-slip-tab="singole"]');
@@ -23,7 +24,7 @@
   let tab = 'singole';
 
   const hidden = (name, value) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = name; i.value = value; return i; };
-  const win = (stake, odds) => Math.floor(stake * odds + 1e-9);
+  const win = (stake, odds) => Math.floor(stake * odds + 1e-9) * mult;
 
   const hint = document.getElementById('slip-hint');
   const singlesTotal = document.getElementById('slip-singles-total');
@@ -131,24 +132,27 @@
     // «chi vince», «over/under», «MVP» e «miglior difensore»: una sola scelta per partita nella multipla (si escludono a vicenda); i marcatori
     // invece si sommano, ma lo stesso giocatore in due scelte che si comprendono («segna», «doppietta», «tripletta», «over 3,5», «assist»,
     // «gol + assist») no. Stesse regole del server.
-    const SCORER = ['gol', 'doppietta', 'tripletta', 'over35', 'golassist'];
-    const ASSISTER = ['assist', 'golassist'];
+    // Nei mercati a soglia (over/under) una sola soglia per soggetto; l'over/under di un giocatore conta come i suoi gol o i suoi assist.
+    const SCORER = ['gol', 'doppietta', 'tripletta', 'over35', 'golassist', 'ougol'];
+    const ASSISTER = ['assist', 'assist2', 'assist3', 'golassist', 'ouassist'];
     const seen = {};
     let clash = null;
     cart.forEach(l => {
       if (l.market === 'autogol') return;   // più giocatori sì, e anche chi segna può fare autogol: eventi indipendenti
+      const subject = String(l.pick).includes('|') ? String(l.pick).split('|')[0] : null;   // "12|O1.5", "A|U4.5"
+      const who = ['ougol', 'ouassist'].includes(l.market) ? subject : l.pick;
       const keys = [];
-      if (SCORER.includes(l.market)) keys.push(l.matchId + '|scorer|' + l.pick);
-      if (ASSISTER.includes(l.market)) keys.push(l.matchId + '|assister|' + l.pick);
+      if (SCORER.includes(l.market)) keys.push(l.matchId + '|scorer|' + who);
+      if (ASSISTER.includes(l.market)) keys.push(l.matchId + '|assister|' + who);
       const player = keys.length > 0;
-      if (!player) keys.push(l.matchId + '|' + l.market);
+      if (!player) keys.push(l.matchId + '|' + l.market + (subject ? '|' + subject : ''));
       if (keys.some(k => seen[k]) && !clash) clash = player ? 'scorer' : 'excl';
       keys.forEach(k => { seen[k] = true; });
     });
     const multiWarn = document.getElementById('slip-multi-warn');
     multiWarn.hidden = !clash;
-    multiWarn.textContent = clash === 'excl' ? 'Due scelte di «chi vince», «over/under», «MVP» o «miglior difensore» della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).'
-      : clash === 'scorer' ? 'Lo stesso giocatore non può stare in due scelte che si comprendono («segna», «doppietta», «tripletta», «over 3,5», «assist», «gol + assist») nella multipla: togline una (restano valide come singole).' : '';
+    multiWarn.textContent = clash === 'excl' ? 'Due scelte di «chi vince», «MVP», «miglior difensore» o due soglie dello stesso over/under della stessa partita si escludono: togline una per fare la multipla (restano valide come singole).'
+      : clash === 'scorer' ? 'Lo stesso giocatore non può stare in due scelte che si comprendono (sui suoi gol: segna, doppietta, tripletta, over/under gol, gol + assist; sui suoi assist: assist, doppietta/tripletta di assist, over/under assist, gol + assist) nella multipla: togline una (restano valide come singole).' : '';
     document.getElementById('slip-multi-submit').disabled = clash || cart.length < 2;
     singlesSubmit.disabled = cart.length === 0;
     tabMulti.disabled = cart.length < 2;
@@ -171,29 +175,34 @@
     });
   };
 
-  // over/under: chi punta sceglie la soglia (0,5 / 1,5 / ...; se scrive un intero N vale "più di N gol", cioè N,5);
-  // la quota di ogni soglia l'ha già calcolata il server, qui si mostra quella giusta e si aggiornano i pulsanti Over/Under
+  // over/under: chi punta sceglie la soglia (0,5 / 1,5 / ...; se scrive un intero N vale "più di N", cioè N,5);
+  // la quota di ogni soglia l'ha già calcolata il server, qui si mostra quella giusta e si aggiornano i pulsanti Over/Under.
+  // Lo stesso selettore serve per i gol totali, i gol e gli assist di una squadra e quelli di un giocatore: la scelta è il prefisso
+  // del soggetto ("12|", "A|" o niente) + O/U + soglia, l'etichetta «Mario: Over 1,5 gol» (come bet_pick_label sul server).
   document.querySelectorAll('.ou-picker').forEach(box => {
     const table = JSON.parse(box.dataset.ou);
     const lines = Object.keys(table).map(Number).sort((a, b) => a - b);
     const input = box.querySelector('.ou-line');
+    const prefix = box.dataset.prefix || '';
+    const unit = box.dataset.unit || 'gol';
+    const who = box.dataset.subjectLabel ? box.dataset.subjectLabel + ': ' : '';
     const fmt = n => n.toFixed(2).replace('.', ',');
     const set = v => {
       let line = Math.floor(Number.isFinite(v) ? v : lines[0]) + 0.5;
       line = Math.min(lines[lines.length - 1], Math.max(lines[0], line));
       input.value = line;
-      const odds = table[line.toFixed(1)];
+      const odds = table[line.toFixed(1)] || [0, 0];
       box.querySelectorAll('[data-ou-side]').forEach(b => {
         const over = b.dataset.ouSide === 'O';
         const o = odds[over ? 0 : 1];
-        b.dataset.pick = b.dataset.ouSide + line.toFixed(1);
-        b.dataset.label = (over ? 'Over ' : 'Under ') + String(line).replace('.', ',') + ' gol';
+        b.dataset.pick = prefix + b.dataset.ouSide + line.toFixed(1);
+        b.dataset.label = who + (over ? 'Over ' : 'Under ') + String(line).replace('.', ',') + ' ' + unit;
         b.dataset.odds = o;
         const q = document.createElement('b');
         q.textContent = '×' + fmt(o);
         b.replaceChildren((over ? 'Over' : 'Under') + ' ', q);
       });
-      box.querySelector('.ou-over-txt').textContent = Math.ceil(line) + ' o più gol';
+      box.querySelector('.ou-over-txt').textContent = Math.ceil(line) + ' o più';
       box.querySelector('.ou-under-txt').textContent = Math.floor(line) + ' o meno';
       refreshPicked();
     };
@@ -203,6 +212,28 @@
     });
     box.querySelectorAll('[data-ou-step]').forEach(b => b.addEventListener('click', () => set(parseFloat(input.value) + parseInt(b.dataset.ouStep, 10))));
     input.addEventListener('change', () => set(parseFloat(String(input.value).replace(',', '.'))));
+  });
+
+  // categorie di ogni partita (Partita, Marcatori, Assist, Giocatore, Premi): una alla volta, si ricorda l'ultima scelta
+  document.querySelectorAll('[data-bet-cats]').forEach(nav => {
+    const card = nav.closest('.bet-match');
+    const key = 'betCat' + nav.dataset.betCats;
+    const show = cat => {
+      nav.querySelectorAll('[data-cat]').forEach(b => { const on = b.dataset.cat === cat; b.classList.toggle('active', on); b.setAttribute('aria-selected', on); });
+      card.querySelectorAll('[data-cat-panel]').forEach(p => { p.hidden = p.dataset.catPanel !== cat; });
+      try { sessionStorage.setItem(key, cat); } catch (e) {}
+    };
+    nav.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => show(b.dataset.cat)));
+    let saved = null;
+    try { saved = sessionStorage.getItem(key); } catch (e) {}
+    if (saved && nav.querySelector('[data-cat="' + saved + '"]')) show(saved);
+  });
+  // «Giocatore»: si sceglie dal menu e compaiono le sue quote
+  document.querySelectorAll('[data-player-select]').forEach(sel => {
+    const panel = sel.closest('[data-cat-panel]');
+    const show = () => panel.querySelectorAll('[data-player-panel]').forEach(p => { p.hidden = p.dataset.playerPanel !== sel.value; });
+    sel.addEventListener('change', show);
+    show();
   });
 
   document.querySelectorAll('[data-slip-add]').forEach(btn => btn.addEventListener('click', () => {
@@ -237,13 +268,17 @@
     });
     document.querySelectorAll('.ou-picker').forEach(box => {
       const btn = box.querySelector('[data-ou-side]');
-      const ou = btn && (data[btn.dataset.match] || {}).overunder;
+      const ou = btn && (data[btn.dataset.match] || {})[btn.dataset.market];
       if (!ou) return;
+      const prefix = box.dataset.prefix || '';
       const table = {};
       Object.entries(ou).forEach(([pick, o]) => {
-        const line = parseFloat(pick.slice(1)).toFixed(1);
+        if (!pick.startsWith(prefix)) return;
+        const rest = pick.slice(prefix.length);
+        if (!/^[OU]\d{1,2}\.5$/.test(rest)) return;
+        const line = parseFloat(rest.slice(1)).toFixed(1);
         table[line] = table[line] || [0, 0];
-        table[line][pick[0] === 'O' ? 0 : 1] = o;
+        table[line][rest[0] === 'O' ? 0 : 1] = o;
       });
       box.dataset.ou = JSON.stringify(table);
       box.dispatchEvent(new Event('ou:refresh'));

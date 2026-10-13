@@ -52,6 +52,7 @@ layout_start('Rosa', 'players');
     <div class="pcard-photo"><?= avatar($p, 'xl') ?></div>
     <div class="pcard-name"><?= h($p['name']) ?></div>
     <?php if ($nick = nick_html($p)): ?><div class="pcard-nick"><?= $nick ?></div><?php endif; ?>
+    <?php if (!empty($p['guest_fixed'])): ?><div class="pcard-guest"><span class="tag tag-guestfix">Ospite fisso</span></div><?php endif; ?>
     <div class="pcard-sub"><span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>"><?= h($p['position']) ?></span><?php if ($p['position2']): ?> <span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>"><?= position_abbr($p['position2']) ?></span><?php endif; ?> · <?= h($p['foot']) ?></div>
     <div class="pcard-stats">
       <div><strong><?= $s['apps'] ?></strong><span>PG</span></div>

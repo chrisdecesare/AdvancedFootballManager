@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 59;
+const SCHEMA_VERSION = 60;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -976,6 +976,13 @@ function ensure_schema(): void
             FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE,
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+    if ($v < 60) {
+        // Martedì di fuoco (lib/bets.php): le puntate e le multiple fatte quel giorno pagano il doppio
+        $add('bets', 'fire', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER odds');
+        $add('combo_bets', 'fire', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER odds');
+        // ospite fisso (lib/guests.php): un ospite che ha scelto di restare nella lega, con tutto quello che ha un giocatore normale
+        $add('players', 'guest_fixed', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER guest_saved');
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

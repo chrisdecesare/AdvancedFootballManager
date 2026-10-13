@@ -319,11 +319,13 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   dalla schedina. Se al momento di puntare la quota è diversa da quella vista, il messaggio lo dice. Le quote mostrate sono quelle con cui si
   punta davvero (senza contare le proprie puntate nella domanda).
 - **Over/under che si muove tutto insieme**: prima la domanda abbassava solo la soglia giocata, e l'over 9,5 molto giocato finiva sotto
-  l'over 8,5 (che è più facile). Ora i KOIN puntati spostano i **gol attesi** della partita, come fanno i bookmaker con la linea: più KOIN
-  sugli over che sugli under li alzano (fino al 25%, `BET_OU_SHIFT`), e con loro cambiano le quote di tutte le soglie, over e under. Ogni
-  puntata pesa per quanto è in bilico la sua soglia (`bet_ou_lean`): tanti KOIN sull'over 20,5 non spostano il mercato. Sulla singola
-  soglia la domanda pesa meno che negli altri mercati (`BET_OU_DEMAND`), e alla fine `bet_ou_monotone` garantisce l'ordine: più è alta la
-  soglia, più paga l'over e meno l'under (se due soglie vicine si invertono, la più facile scende a quella della più difficile).
+  l'over 8,5 (che è più facile: si era visto over 8,5 a ×1,20 e over 9,5 a ×1,15). Ora sulle soglie i KOIN puntati spostano soltanto la
+  **media** (gol o assist attesi), come fanno i bookmaker con la linea: più KOIN sugli over che sugli under la alzano (fino al 25%,
+  `BET_OU_SHIFT`), e con lei cambiano in proporzione le quote di tutte le soglie, over e under: se si gioca tanto l'over 9,5 scende lui e
+  scendono anche l'over 8,5 e quelli sotto. Ogni puntata pesa per quanto è in bilico la sua soglia (`bet_ou_lean`): tanti KOIN sull'over
+  20,5 non spostano il mercato. Vale per tutti gli over/under (partita, squadra, giocatore), ognuno con la sua media. Alla fine
+  `bet_ou_monotone` garantisce l'ordine anche dopo arrotondamenti e maggiorazioni delle prime partite (la maggiorazione è la stessa per tutte
+  le soglie di un soggetto): più è alta la soglia, più paga l'over e meno l'under, con almeno un centesimo di differenza.
 - **Ruolo meno pesante**: i gol attesi di partenza per ruolo sono vicini tra loro (portieri volanti: chi è in porta prima o poi tira), i gol
   attesi dei giocatori si avvicinano del 30% alla media della partita (`BET_FLATTEN`) e i tetti delle quote sono più bassi (gol ×15,
   doppietta ×35, tripletta ×75, MVP ×40).
@@ -331,6 +333,27 @@ Conviene scrivere nel campo «Campo» nome e indirizzo (es. «Centro sportivo Ro
   È un evento raro, quindi le quote sono alte (tra ×2 e ×40, margine del 20%): il tasso di ogni giocatore (autogol a presenza) è tirato forte verso quello di
   tutto il gruppo (`BET_OG_PRIOR`, `BET_OG_PRIOR_APPS`, `BET_OG_OWN_APPS` in `lib/bets.php`). Nella multipla si possono mettere più giocatori, e lo stesso
   giocatore può stare anche in «segna»: fare gol e fare autogol non si comprendono a vicenda.
+- **Nuovi mercati su assist e over/under** (ottobre 2026):
+  - `assist2` / `assist3`: **doppietta / tripletta di assist** (almeno 2 / almeno 3 assist), come doppietta e tripletta di gol.
+  - `ougol` / `ouassist`: **over/under dei gol o degli assist di un giocatore**, soglia a scelta (0,5 ... 6,5 gol, 0,5 ... 4,5 assist); la
+    scelta è `idGiocatore|O1.5`. L'over 0,5 gol è «segna», l'under 0,5 «non segna». Sostituisce «Chi fa over 3,5 gol?» (`over35`), che non si
+    gioca più (le puntate già fatte si pagano normalmente).
+  - `ousq` / `ouassq`: **over/under dei gol o degli assist di una squadra** (`A|O4.5`), appena le squadre sono fatte; i gol della squadra
+    sono quelli del risultato (autogol degli avversari compresi), gli assist la somma degli assist dei suoi giocatori. La media della squadra
+    segue quella dei gol totali della partita (quindi anche le sue puntate).
+  - L'over/under «di sempre» (`overunder`) è sui gol di **entrambe le squadre insieme**.
+  - Nella multipla: una sola soglia per soggetto e mercato (over 8,5 e over 9,5 della stessa partita no); l'over/under gol di un giocatore
+    conta come i suoi gol (non va con «segna», «doppietta»...), quello degli assist come i suoi assist. Su se stessi non si scommette, e chi
+    si ritira porta via anche gli over/under su di lui.
+  - **Pagina**: ogni partita ha le categorie *Partita* (chi vince, over/under totale, di squadra, assist di squadra), *Marcatori* e *Assist*
+    (tabella per squadra: una riga a giocatore, una quota per segna/doppietta/tripletta), *Giocatore* (si sceglie dal menu: over/under gol e
+    assist, gol + assist, autogol) e *Premi e altro* (MVP, miglior difensore, gol + assist, autogol). Le proprie puntate sulla partita stanno
+    sotto, con «Ritira»; chi amministra la lega vede chi ha puntato su cosa in un riquadro chiuso. Le regole sono in «Come funzionano le scommesse».
+- **Martedì di fuoco** (`BET_FIRE_DOW`, `BET_FIRE_MULT`, `BET_FIRE_AHEAD_DAYS` in `lib/bets.php`): ogni martedì (ora italiana) le scommesse
+  delle partite fino a venerdì si aprono già dalla mezzanotte (`bets_open_at`), e ogni puntata o multipla fatta quel giorno, se vince, paga
+  **il doppio dei KOIN** (colonna `fire` di `bets` e `combo_bets`, `bet_mult`). Rifare una puntata un altro giorno la riporta normale; l'admin
+  che cambia l'importo non tocca il raddoppio. Nella pagina c'è il banner e la schedina mostra le vincite già raddoppiate; l'avviso
+  «Scommesse aperte» del martedì lo dice. Il blocco dei ruoli parte da quando le scommesse sono aperte (`bets_open_horizon`).
 - **Mercati «Chi fa assist?», «Chi fa gol + assist?», «Chi fa over 3,5 gol?» e «Miglior difensore?»** (`assist`, `golassist`, `over35`, `difensore`):
   - `assist`: il giocatore fa almeno un assist. Gli assist attesi della partita sono una quota dei gol (`BET_ASSIST_PRIOR`, poi i dati del gruppo) e si ripartiscono come i gol, con le stesse differenze attenuate.
   - `golassist`: almeno un gol **e** almeno un assist nella stessa partita; la probabilità è quella del gol per quella dell'assist (come nel sito di riferimento della lega).
@@ -501,6 +524,14 @@ Chi amministra una lega aggiunge un **ospite** a una partita in programma (sched
 password, vede la sua partita, in che squadra gioca e la formazione, e dice se ci sarà (`lib/guests.php`). Non è in nessuna lega, quindi resta fuori
 da rosa, classifiche, statistiche, Fanta e scommesse.
 
+- **Ospite fisso:** nella sua partita e in *La tua area* l'ospite trova «Vuoi restare come ospite fisso?»: con «Sì, resto ospite fisso» (e una
+  password sua, se non aveva già salvato l'account) entra nella lega della sua partita come un **giocatore normale**, con tutto quello che hanno
+  gli altri (rosa, classifica e statistiche, voti che contano, scommesse e KOIN, Fanta, Negozio e Avatar, chiamate alle partite), più l'etichetta
+  viola **«Ospite fisso»** accanto al nome, nella Rosa e nel profilo (`players.guest_fixed`, `guest_make_fixed`). Con «No, solo questa partita»
+  resta un ospite (la scelta resta disponibile in *La tua area*). Se cambia idea, da *Modifica profilo* → «Non voglio più essere ospite fisso»
+  esce dalla lega e torna un ospite con l'account salvato, cioè un giocatore libero (`guest_unfix`); le partite giocate restano sue. Chi gestisce
+  la lega può mettere o togliere l'etichetta dalla scheda del giocatore (*Ospite fisso*).
+
 - **Voti:** dopo la partita l'ospite vota e viene votato come gli altri, così riceve un **feedback** (media dei voti ricevuti, voti come MVP), che vede
   alla chiusura delle votazioni. Per la lega però i suoi voti, **quelli che dà e quelli che riceve** (medie, MVP, miglior difensore/portiere, punti Fanta,
   scommesse sull'MVP), contano solo se chi gestisce la lega li accetta: nella sezione *Voti* della partita c'è il riquadro «Voti degli ospiti» con
@@ -551,7 +582,9 @@ compare tra le «Annullate» con il motivo. Chi era in lista riceve la notifica.
 Codice: `match_cancel()` in `lib/stats.php`, `bets_void_match()` in `lib/bets.php`.
 
 **Diretta (cronaca della partita):** dal calcio d'inizio, nella scheda della partita compare la sezione «Diretta» (`lib/live.php`, tabella `match_events`). Chi gioca
-(fino a 4 ore dall'inizio) e chi gestisce le partite segna i **gol** (con l'assist facoltativo, solo tra compagni) e gli **autogol**: ogni gol aggiorna subito il risultato,
+(fino a 4 ore dall'inizio) e chi gestisce le partite segna i **gol** in due tocchi: si tocca il nome di chi ha segnato (le due squadre affiancate,
+con il punteggio), poi nel riquadro che compare **«Nessun assist»** oppure il compagno che l'ha servito (solo la sua squadra) e il gol è salvato.
+Per un **autogol** si spunta «Era un autogol», si tocca chi l'ha fatto e si conferma: ogni gol aggiorna subito il risultato,
 i gol e gli assist della tabella «Risultato e marcatori» e l'intesa «chi ha servito chi», e manda la notifica a chi non gioca. Si segnano anche gli **infortuni**
 (con una nota facoltativa: «caviglia», «stiramento»...): il giocatore compare con la crocetta viola nella squadra. Un evento segnato per sbaglio si toglie con la ×
 (chi l'ha segnato o chi gestisce la partita) e i conti tornano indietro. A fine partita il risultato si controlla e si conclude come prima; gli infortuni si possono

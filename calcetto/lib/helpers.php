@@ -328,8 +328,8 @@ function role_lock_match(int $playerId): ?array
               AND (EXISTS (SELECT 1 FROM player_groups pg WHERE pg.group_id = m.group_id AND pg.player_id = ?)
                    OR EXISTS (SELECT 1 FROM match_players mp WHERE mp.match_id = m.id AND mp.player_id = ?))
             ORDER BY m.match_date LIMIT 1",
-        [date('Y-m-d H:i:s', $now + BET_OPEN_HOURS * 3600), date('Y-m-d H:i:s', $now - 12 * 3600), $playerId, $playerId])->fetch();
-    return $m ?: null;
+        [date('Y-m-d H:i:s', bets_open_horizon($now)), date('Y-m-d H:i:s', $now - 12 * 3600), $playerId, $playerId])->fetch();
+    return $m && (strtotime($m['match_date']) <= $now || bets_open_for($m)) ? $m : null;
 }
 
 function feet(): array

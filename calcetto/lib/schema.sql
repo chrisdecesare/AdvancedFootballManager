@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS players (
   guest_email VARCHAR(190) NULL,                   -- email dell'Ospite: se poi si iscrive con questa, la partita passa al suo profilo
   guest_match_id INT NULL,                         -- la partita a cui e' invitato (l'ultima, se e' un giocatore libero)
   guest_saved TINYINT(1) NOT NULL DEFAULT 0,       -- 1 = l'ospite ha tenuto l'account: non scade ed e' tra i giocatori liberi (lib/guests.php)
+  guest_fixed TINYINT(1) NOT NULL DEFAULT 0,       -- 1 = ospite fisso: e' entrato nella lega come un giocatore normale, con l'etichetta «Ospite fisso»
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -279,6 +280,7 @@ CREATE TABLE IF NOT EXISTS bets (
   pick VARCHAR(12) NOT NULL,                       -- A, X, B oppure l'id del giocatore
   stake INT NOT NULL,
   odds DECIMAL(6,2) NOT NULL DEFAULT 2.00,         -- quota fissata quando si e' puntato
+  fire TINYINT(1) NOT NULL DEFAULT 0,              -- 1 = puntata del Martedi' di fuoco: se vince paga il doppio
   status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
   payout INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -295,6 +297,7 @@ CREATE TABLE IF NOT EXISTS combo_bets (
   player_id INT NOT NULL,
   stake INT NOT NULL,
   odds DECIMAL(8,2) NOT NULL,
+  fire TINYINT(1) NOT NULL DEFAULT 0,              -- 1 = multipla del Martedi' di fuoco: se vince paga il doppio
   status ENUM('aperta','vinta','persa','rimborsata') NOT NULL DEFAULT 'aperta',
   payout INT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
