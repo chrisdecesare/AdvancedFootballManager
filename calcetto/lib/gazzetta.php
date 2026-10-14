@@ -429,7 +429,8 @@ function gazzetta_html(array $g, bool $page = false): string
       <article class="slide gz-slide gz-<?= h($s['kind']) ?>">
         <span class="gz-kicker"><i class="ti ti-<?= h($s['icon']) ?>"></i> <?= h($s['kicker']) ?></span>
         <h3 class="gz-head"><?= h($s['title']) ?></h3>
-        <p class="gz-lead"><?= h($s['lead']) ?></p>
+        <p class="gz-lead" data-clamp><?= h($s['lead']) ?></p>
+        <div class="gz-body" data-clamp>
         <?php if ($s['teams']): ?>
           <div class="gz-teams">
             <?php foreach (['A', 'B'] as $t): $tm = $s['teams'][$t]; ?>
@@ -456,6 +457,7 @@ function gazzetta_html(array $g, bool $page = false): string
             <?php endforeach; ?>
           </ul>
         <?php endif; ?>
+        </div>
       </article>
       <?php endforeach; ?>
     </div>

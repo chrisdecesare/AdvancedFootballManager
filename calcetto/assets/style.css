@@ -619,11 +619,18 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .form-row .small { margin-left: 10px; }
 .bar { height: 12px; background: var(--white); border: var(--b2); border-radius: 99px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: repeating-linear-gradient(135deg, var(--grass) 0 8px, var(--grass-d) 8px 16px); }
-.spark { width: 100%; height: auto; max-height: 190px; }
+.spark { width: 100%; height: auto; max-height: 240px; }
 .spark-grid { stroke: #e7dcc0; stroke-width: 2; stroke-dasharray: 6 6; }
 .spark-lbl { fill: var(--muted); font: 700 12px var(--font); }
 .spark-line { fill: none; stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
 .spark-dot { stroke: var(--ink); stroke-width: 3; }
+.spark-edge { stroke-dasharray: none; stroke: #cdbf9c; }
+.spark-band { fill: var(--ink); fill-opacity: .06; stroke: none; }
+.spark-now { stroke: #cdbf9c; stroke-width: 2; stroke-dasharray: 3 5; }
+.spark-fc-lbl { font-weight: 600; font-style: italic; opacity: .7; }
+.spark-proj { fill: none; stroke: var(--ink); stroke-opacity: .35; stroke-width: 3; stroke-dasharray: 2 8; stroke-linecap: round; }
+.spark-ghost { fill: var(--white); stroke: var(--ink); stroke-opacity: .35; stroke-width: 2; stroke-dasharray: 3 3; }
+.spark-note { margin: 4px 0 0; }
 .spark-dot.v-low { fill: var(--red); }
 .spark-dot.v-mid { fill: var(--yellow); }
 .spark-dot.v-good { fill: var(--grass); }
@@ -1934,3 +1941,26 @@ tr.is-new td { background: #fffbe6; }
   .table-cards td[data-label]::before { content: attr(data-label); display: block; font-size: .7rem; color: var(--muted); font-weight: 800; }
   .table-cards .tc-act { grid-column: 4; grid-row: 4; justify-self: end; }
 }
+/* ---------- schede più basse: il testo lungo finisce con «…» e con un clic si legge per intero (data-clamp, assets/app.js) ---------- */
+.slide-name[data-clamp], .slide-text[data-clamp], .gz-lead[data-clamp] { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.slide-name[data-clamp] { -webkit-line-clamp: 2; line-clamp: 2; }
+.slide-text[data-clamp] { -webkit-line-clamp: 2; line-clamp: 2; }
+.gz-lead[data-clamp] { -webkit-line-clamp: 2; line-clamp: 2; }
+.gz-body[data-clamp] { position: relative; max-height: 9.5em; overflow: hidden; }
+.gz-body[data-clamp].is-clamped::after { content: "…"; position: absolute; right: 0; bottom: 0; padding: 0 6px 0 24px; font-weight: 900;
+  background: linear-gradient(90deg, transparent, var(--white) 55%); }
+.slide-name.is-clamped, .slide-text.is-clamped, .gz-lead.is-clamped, .gz-body.is-clamped { cursor: pointer; }
+.slide-name.is-open, .slide-text.is-open, .gz-lead.is-open { display: block; -webkit-line-clamp: unset; line-clamp: none; overflow: visible; }
+.gz-body.is-open { max-height: none; overflow: visible; }
+.gz-body.is-open::after { content: none; }
+.gz-body[data-clamp] .gz-items { gap: 4px; }
+/* ultima partita: avatar e scritte più piccoli, scheda meno alta */
+.home > .recap .slide { padding: 12px 14px; gap: 6px; }
+.home > .recap .slide-faces { margin: 4px 0 2px; }
+.home > .recap .slide-faces .avatar-lg { width: 76px; height: 76px; font-size: 1.7rem; }
+.home > .recap .slide-faces .avatar-md { width: 54px; height: 54px; font-size: 1.25rem; }
+.home > .recap .slide-name { font-size: 1.35rem; }
+.home > .recap .slide-big { font-size: 1.9rem; padding: 5px 14px 2px; }
+.home > .recap .slide-text { font-size: .95rem; }
+.home > .recap .slide-title { font-size: 1.15rem; }
+.gazzetta .gz-slide { padding: 10px 14px; }

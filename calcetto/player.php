@@ -55,7 +55,11 @@ $rankOf = function (string $sort) use ($id): ?int {
 $rankPts = $rankOf('points');
 $rankGoals = $s['goals'] > 0 ? $rankOf('goals') : null;
 
-/** Andamento voti (dalla più vecchia alla più recente) come linea SVG. */
+/**
+ * Andamento voti (dalla più vecchia alla più recente) come linea SVG, scala fissa 0–10.
+ * In coda un prospetto più chiaro (tratteggiato, con fascia di incertezza) di come potrebbe proseguire la curva:
+ * tendenza lineare sulle ultime partite, smorzata e tirata verso la media del giocatore. È solo indicativo.
+ */
 function vote_sparkline(array $history): string
 {
     $pts = array_values(array_filter(array_reverse($history), fn($x) => $x['vote'] !== null));
@@ -63,27 +67,81 @@ function vote_sparkline(array $history): string
     if (count($pts) < 2) {
         return '<p class="muted small">Il grafico compare dopo almeno 2 partite votate.</p>';
     }
-    $w = 600;
-    $hgt = 140;
-    $pad = 18;
     $n = count($pts);
-    $x = fn($i) => $pad + $i * ($w - 2 * $pad) / ($n - 1);
-    $y = fn($v) => $hgt - $pad - ($v - 1) / 9 * ($hgt - 2 * $pad);
+    $votes = array_map(fn($x) => (float) $x['vote'], $pts);
+    $ahead = 3;   // partite di prospetto
+    $w = 600;
+    $hgt = 180;
+    $padL = 26;
+    $padR = 14;
+    $padT = 14;
+    $padB = 14;
+    $x = fn($i) => $padL + $i * ($w - $padL - $padR) / ($n - 1 + $ahead);
+    $y = fn($v) => $hgt - $padB - max(0, min(10, $v)) / 10 * ($hgt - $padT - $padB);
+
+    // tendenza: regressione lineare sulle ultime 6 partite, pendenza smorzata
+    $k = min(6, $n);
+    $recent = array_slice($votes, -$k);
+    $mx = ($k - 1) / 2;
+    $my = array_sum($recent) / $k;
+    $sxy = 0;
+    $sxx = 0;
+    foreach ($recent as $i => $v) {
+        $sxy += ($i - $mx) * ($v - $my);
+        $sxx += ($i - $mx) ** 2;
+    }
+    $slope = $sxx > 0 ? $sxy / $sxx * 0.6 : 0;
+    $mean = array_sum($votes) / $n;
+    $sd = 0;
+    foreach ($votes as $v) {
+        $sd += ($v - $mean) ** 2;
+    }
+    $sd = max(0.5, sqrt($sd / $n));
+    $cur = $votes[$n - 1];
+    $fc = [];
+    for ($j = 1; $j <= $ahead; $j++) {
+        $cur = $cur + $slope;
+        $cur += ($mean - $cur) * 0.15;   // ritorno graduale verso la media
+        $cur = max(0, min(10, $cur));
+        $fc[$j] = ['v' => $cur, 'e' => min(5, $sd * (0.5 + 0.3 * $j))];
+    }
+
+    $svg = '<svg class="spark" viewBox="0 0 ' . $w . ' ' . $hgt . '" role="img" aria-label="Andamento dei voti, scala da 0 a 10, con prospetto delle prossime partite">';
+    foreach ([0, 2, 4, 6, 8, 10] as $g) {
+        $svg .= '<line x1="' . $padL . '" x2="' . ($w - $padR) . '" y1="' . round($y($g), 1) . '" y2="' . round($y($g), 1) . '" class="spark-grid' . ($g === 0 || $g === 10 ? ' spark-edge' : '') . '"/>' .
+            '<text x="' . ($padL - 6) . '" y="' . round($y($g) + 4, 1) . '" text-anchor="end" class="spark-lbl">' . $g . '</text>';
+    }
+    // fascia di incertezza del prospetto
+    $up = round($x($n - 1), 1) . ',' . round($y($votes[$n - 1]), 1);
+    $top = [$up];
+    $bot = [];
+    foreach ($fc as $j => $f) {
+        $top[] = round($x($n - 1 + $j), 1) . ',' . round($y($f['v'] + $f['e']), 1);
+        array_unshift($bot, round($x($n - 1 + $j), 1) . ',' . round($y($f['v'] - $f['e']), 1));
+    }
+    $svg .= '<polygon class="spark-band" points="' . implode(' ', $top) . ' ' . implode(' ', $bot) . ' ' . $up . '"/>';
+    $svg .= '<line class="spark-now" x1="' . round($x($n - 1), 1) . '" x2="' . round($x($n - 1), 1) . '" y1="' . $padT . '" y2="' . ($hgt - $padB) . '"/>';
+    $svg .= '<text x="' . round($x($n - 1) + 6, 1) . '" y="' . ($padT + 8) . '" class="spark-lbl spark-fc-lbl">prospetto</text>';
+    // proiezione tratteggiata
+    $line = 'M' . round($x($n - 1), 1) . ' ' . round($y($votes[$n - 1]), 1);
+    foreach ($fc as $j => $f) {
+        $line .= ' L' . round($x($n - 1 + $j), 1) . ' ' . round($y($f['v']), 1);
+    }
+    $svg .= '<path d="' . $line . '" class="spark-proj"/>';
+    foreach ($fc as $j => $f) {
+        $svg .= '<circle cx="' . round($x($n - 1 + $j), 1) . '" cy="' . round($y($f['v']), 1) . '" r="4" class="spark-ghost"><title>Prospetto: ' . fmt_num($f['v'], 1) . '</title></circle>';
+    }
+    // voti reali
     $line = '';
     foreach ($pts as $i => $pt) {
         $line .= ($i ? ' L' : 'M') . round($x($i), 1) . ' ' . round($y($pt['vote']), 1);
-    }
-    $svg = '<svg class="spark" viewBox="0 0 ' . $w . ' ' . $hgt . '" role="img" aria-label="Andamento dei voti">';
-    foreach ([6, 8] as $g) {
-        $svg .= '<line x1="' . $pad . '" x2="' . ($w - $pad) . '" y1="' . $y($g) . '" y2="' . $y($g) . '" class="spark-grid"/>' .
-            '<text x="2" y="' . ($y($g) + 4) . '" class="spark-lbl">' . $g . '</text>';
     }
     $svg .= '<path d="' . $line . '" class="spark-line"/>';
     foreach ($pts as $i => $pt) {
         $svg .= '<circle cx="' . round($x($i), 1) . '" cy="' . round($y($pt['vote']), 1) . '" r="5" class="spark-dot ' .
             vote_class($pt['vote']) . '"><title>' . fmt_date_short($pt['date']) . ': ' . fmt_num($pt['vote']) . '</title></circle>';
     }
-    return $svg . '</svg>';
+    return $svg . '</svg><p class="muted small spark-note">Tratteggio chiaro: come potrebbe proseguire la curva nelle prossime ' . $ahead . ' partite, in base alla tendenza recente. È solo indicativo.</p>';
 }
 
 // intesa con i compagni (partite giocate insieme nella stessa squadra)

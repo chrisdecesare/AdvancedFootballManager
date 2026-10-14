@@ -219,9 +219,9 @@ layout_start('Home', 'home');
                   <a href="player.php?id=<?= (int) $p['player_id'] ?>" title="<?= h($p['name']) ?>"><?= avatar($p, count($sl['players']) > 1 ? 'md' : 'lg') ?></a>
                 <?php endforeach; ?>
               </div>
-              <div class="slide-name"><?= h(implode(', ', array_column(array_slice($sl['players'], 0, 4), 'name'))) ?><?= count($sl['players']) > 4 ? ' e altri' : '' ?></div>
+              <div class="slide-name" data-clamp><?= h(implode(', ', array_column(array_slice($sl['players'], 0, 4), 'name'))) ?><?= count($sl['players']) > 4 ? ' e altri' : '' ?></div>
               <?php if ($sl['big'] !== ''): ?><div class="slide-big"><?= h($sl['big']) ?></div><?php endif; ?>
-              <div class="slide-text"><?= h($sl['text']) ?></div>
+              <div class="slide-text" data-clamp><?= h($sl['text']) ?></div>
             </article>
           <?php endforeach; ?>
         </div>
