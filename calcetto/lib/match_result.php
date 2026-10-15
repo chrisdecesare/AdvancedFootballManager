@@ -53,41 +53,54 @@ function match_replace_links(int $matchId, array $links): void
 }
 
 /**
- * Inserimento una tantum dei gol e degli assist della partita dell'8 ottobre 2026 (lo chiama ensure_schema, schema 54, una volta sola).
- * Cerca tra le partite di quel giorno (in programma o giocate) quella in cui tutti i giocatori qui sotto sono in squadra, ognuno
- * riconosciuto dal nome di battesimo, con le due squadre già fatte come qui (cinque contro cinque): se è una sola scrive gol,
- * assist, coppie assist→gol e punteggio e conclude la partita come «Salva e concludi» (voti aperti, scommesse su esito e marcatori
- * pagate, premi per gol e assist). Se qualcosa non torna non salva niente.
+ * Inserimento una tantum dei gol e degli assist di una partita (lo chiama ensure_schema, una volta sola per partita).
+ * Cerca tra le partite di $date (in programma o giocate) quella in cui tutti i giocatori dei dati sono in squadra, ognuno
+ * riconosciuto dal nome (la prima parola, tolti simboli ed emoji, o uno degli $aliases), con gli schieramenti $sides dentro
+ * due squadre diverse già fatte: se è una sola scrive gol, assist, coppie assist→gol e punteggio e conclude la partita come
+ * «Salva e concludi» (voti aperti, scommesse su esito e marcatori pagate, premi per gol e assist). Chi in squadra non compare nei
+ * dati torna a zero e non serve trovarlo. Se qualcosa non torna non salva niente.
+ * @param array<int, array{0: string, 1: ?string}> $events [chi segna, chi fa l'assist (o null)], nell'ordine in cui sono arrivati
+ * @param array<int, string[]> $sides i nomi dei due schieramenti (devono stare in due squadre diverse)
+ * @param array<string, string[]> $aliases nome => altri modi in cui compare nell'app (minuscoli, senza simboli)
  * @return string cosa è successo (va nel registro delle attività)
  */
-function match_oneoff_goals_oct8(): string
+function match_oneoff_goals(string $date, array $events, array $sides, array $aliases = []): string
 {
-    // [chi segna, chi fa l'assist (o null)], nell'ordine in cui sono arrivati
-    $events = [['Giovanni', 'Cristian'], ['Davide', 'Danilo'], ['Cristian', 'Angelo'], ['Paolo', 'Adriano'], ['Angelo', null],
-        ['Cristian', 'Luigi'], ['Luigi', 'Giovanni'], ['Angelo', null], ['Luigi', null], ['Adolfo', null], ['Paolo', 'Adriano'],
-        ['Angelo', 'Adolfo'], ['Adriano', null], ['Giovanni', null], ['Paolo', 'Davide'], ['Luigi', null], ['Paolo', 'Vincenzo'],
-        ['Luigi', 'Adolfo']];
-    $sides = [['Luigi', 'Angelo', 'Giovanni', 'Cristian', 'Adolfo'], ['Paolo', 'Adriano', 'Davide', 'Danilo', 'Vincenzo']];
-    $first = function (string $name): string {
-        $n = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $name)), 'UTF-8');
-        return explode(' ', $n)[0];
+    $word = function (string $name): array {   // prima e ultima parola, minuscole e senza simboli
+        $n = mb_strtolower(trim(preg_replace('/\s+/u', ' ', preg_replace('/[^\p{L}\p{N} ]+/u', '', $name))), 'UTF-8');
+        $t = $n === '' ? [''] : explode(' ', $n);
+        return [$t[0], count($t) > 1 ? end($t) : null];
     };
+    // quali giocatori del dato compaiono davvero (chi non segna e non fa assist non va cercato)
+    $named = [];
+    foreach ($events as [$scorer, $assister]) {
+        $named[$scorer] = true;
+        if ($assister !== null) {
+            $named[$assister] = true;
+        }
+    }
 
     $found = [];
     $why = [];
-    foreach (q("SELECT id FROM matches WHERE DATE(match_date) = '2026-10-08' AND status IN ('programmata', 'giocata') ORDER BY id")->fetchAll(PDO::FETCH_COLUMN) as $mid) {
+    foreach (q("SELECT id FROM matches WHERE DATE(match_date) = ? AND status IN ('programmata', 'giocata') ORDER BY id", [$date])->fetchAll(PDO::FETCH_COLUMN) as $mid) {
         $mid = (int) $mid;
         $roster = q('SELECT mp.player_id, mp.team, p.name FROM match_players mp JOIN players p ON p.id = mp.player_id WHERE mp.match_id = ? AND mp.team IS NOT NULL', [$mid])->fetchAll();
-        $by = [];   // nome di battesimo => id giocatori
-        foreach ($roster as $r) {
-            $by[$first($r['name'])][] = $r;
-        }
         $team = [];
         $ids = [];
         $problem = null;
         foreach ($sides as $i => $names) {
             foreach ($names as $name) {
-                $hit = $by[mb_strtolower($name, 'UTF-8')] ?? [];
+                if (!isset($named[$name])) {
+                    continue;
+                }
+                $want = array_merge([mb_strtolower($name, 'UTF-8')], $aliases[$name] ?? []);
+                $hit = [];
+                foreach ($roster as $r) {
+                    [$first, $last] = $word($r['name']);
+                    if (in_array($first, $want, true) || ($last !== null && mb_strlen($last) >= 4 && in_array($last, $want, true))) {
+                        $hit[] = $r;
+                    }
+                }
                 if (count($hit) !== 1) {
                     $problem = $name . ' ' . (count($hit) ? 'è più di uno' : 'non è in squadra');
                     break 2;
@@ -96,7 +109,7 @@ function match_oneoff_goals_oct8(): string
                 $team[$i][$hit[0]['team']] = true;
             }
         }
-        if (!$problem && (count($team[0]) !== 1 || count($team[1]) !== 1 || array_key_first($team[0]) === array_key_first($team[1]))) {
+        if (!$problem && (count($team[0] ?? []) !== 1 || count($team[1] ?? []) !== 1 || array_key_first($team[0]) === array_key_first($team[1]))) {
             $problem = 'le squadre non sono quelle attese';
         }
         if ($problem) {
@@ -148,4 +161,31 @@ function match_oneoff_goals_oct8(): string
     match_replace_links($mid, $links);
     return 'partita ' . $mid . ' fatta: ' . $score['A'] . '–' . $score['B'] . ', ' . array_sum($stats['goals']) . ' gol, ' . array_sum($stats['assists'])
         . ' assist, ' . count($links) . ' coppie; votazioni aperte';
+}
+
+/** La partita dell'8 ottobre 2026 (schema 54): cinque contro cinque. */
+function match_oneoff_goals_oct8(): string
+{
+    return match_oneoff_goals('2026-10-08', [['Giovanni', 'Cristian'], ['Davide', 'Danilo'], ['Cristian', 'Angelo'], ['Paolo', 'Adriano'],
+        ['Angelo', null], ['Cristian', 'Luigi'], ['Luigi', 'Giovanni'], ['Angelo', null], ['Luigi', null], ['Adolfo', null],
+        ['Paolo', 'Adriano'], ['Angelo', 'Adolfo'], ['Adriano', null], ['Giovanni', null], ['Paolo', 'Davide'], ['Luigi', null],
+        ['Paolo', 'Vincenzo'], ['Luigi', 'Adolfo']],
+        [['Luigi', 'Angelo', 'Giovanni', 'Cristian', 'Adolfo'], ['Paolo', 'Adriano', 'Davide', 'Danilo', 'Vincenzo']]);
+}
+
+/**
+ * La partita del 15 ottobre 2026 (schema 61): Sgommati (Angelo, Agozz, Adriano, Luigi, Paolo, Chris) contro Sgamati (Davide, che in
+ * campo compare come Ruokowski, Giovanni, Vincenzo, Adolfo, Agostino, Nicola, che compare come «N⚡»). 35 gol, 26 assist, 20–15.
+ */
+function match_oneoff_goals_oct15(): string
+{
+    return match_oneoff_goals('2026-10-15', [
+        ['Vincenzo', null], ['Vincenzo', 'Davide'], ['Angelo', 'Luigi'], ['Paolo', 'Angelo'], ['Angelo', 'Luigi'], ['Agozz', 'Paolo'],
+        ['Vincenzo', 'Nicola'], ['Chris', 'Paolo'], ['Adriano', 'Chris'], ['Chris', 'Luigi'], ['Luigi', 'Angelo'], ['Paolo', 'Luigi'],
+        ['Chris', 'Angelo'], ['Agozz', null], ['Vincenzo', 'Nicola'], ['Luigi', 'Chris'], ['Giovanni', 'Adolfo'], ['Luigi', 'Chris'],
+        ['Adolfo', null], ['Adolfo', null], ['Davide', 'Vincenzo'], ['Vincenzo', 'Giovanni'], ['Luigi', 'Paolo'], ['Giovanni', 'Adolfo'],
+        ['Chris', 'Luigi'], ['Adriano', null], ['Paolo', 'Luigi'], ['Vincenzo', 'Giovanni'], ['Paolo', null], ['Vincenzo', 'Adolfo'],
+        ['Giovanni', null], ['Angelo', 'Luigi'], ['Adolfo', null], ['Angelo', 'Luigi'], ['Davide', null]],
+        [['Angelo', 'Agozz', 'Adriano', 'Luigi', 'Paolo', 'Chris'], ['Davide', 'Giovanni', 'Vincenzo', 'Adolfo', 'Nicola']],
+        ['Davide' => ['ruokowski'], 'Nicola' => ['n'], 'Agozz' => ['agoz']]);
 }

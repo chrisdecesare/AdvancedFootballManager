@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 60;
+const SCHEMA_VERSION = 61;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -983,6 +983,19 @@ function ensure_schema(): void
         $add('combo_bets', 'fire', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER odds');
         // ospite fisso (lib/guests.php): un ospite che ha scelto di restare nella lega, con tutto quello che ha un giocatore normale
         $add('players', 'guest_fixed', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER guest_saved');
+    }
+    if ($v < 61) {
+        // una tantum: gol e assist della partita del 15 ottobre 2026 (lib/match_result.php), come per quella dell'8: una sola richiesta
+        // lo fa (chi prenota il segnaposto in meta); se qualcosa non torna non salva niente e il motivo resta in meta e nel registro.
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_oct15', 'in corso')")->rowCount()) {
+            try {
+                $msg = match_oneoff_goals_oct15();
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_oct15', mb_substr($msg, 0, 250));
+            log_activity('partita', 'gol e assist 15 ottobre · ' . $msg);
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
