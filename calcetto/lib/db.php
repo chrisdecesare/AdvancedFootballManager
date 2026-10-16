@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 61;
+const SCHEMA_VERSION = 63;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -996,6 +996,32 @@ function ensure_schema(): void
             meta_set('oneoff_oct15', mb_substr($msg, 0, 250));
             log_activity('partita', 'gol e assist 15 ottobre · ' . $msg);
         }
+    }
+    if ($v < 62) {
+        // Daily access (lib/daily.php): progressione in sequenza. day = numero del regalo (1..30, uno per giocatore);
+        // claim_date = giorno di calendario in cui è stato ritirato (al massimo un ritiro al giorno per giocatore).
+        db()->exec("CREATE TABLE IF NOT EXISTS daily_claims (
+            player_id INT NOT NULL,
+            day INT NOT NULL,
+            claim_date DATE NOT NULL,
+            claimed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (player_id, day),
+            UNIQUE KEY uq_day (player_id, claim_date),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+    if ($v < 63) {
+        // Ruota della fortuna (lib/wheel.php): un giro ogni 24h. Registra ogni giro con i KOIN vinti e l'eventuale premio;
+        // il cooldown parte dall'ultimo spun_at del giocatore.
+        db()->exec("CREATE TABLE IF NOT EXISTS wheel_spins (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            player_id INT NOT NULL,
+            spun_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            koin INT NOT NULL DEFAULT 0,
+            prize VARCHAR(40) NULL,
+            INDEX idx_player_time (player_id, spun_at),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

@@ -82,7 +82,7 @@ foreach (shop_catalog() as $k => $items) {
     }
     foreach ($items as $key => $item) {
         $out = !shop_released((string) $key, $item);
-        if ((!$out || $admin || isset($owned[$key])) && (!isset($item['fanta']) || isset($owned[$key]))) {
+        if ((!$out || $admin || isset($owned[$key])) && (!shop_reward_only($item) || isset($owned[$key]))) {
             $catalog[$k][$key] = $item + ['out' => $out];
         }
     }

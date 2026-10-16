@@ -124,7 +124,7 @@ $itemsOf = function (string $kind) use ($catalog, $me, $owned, $admin): array {
     foreach ($catalog[$kind] as $k => $item) {
         $out = !shop_released((string) $k, $item);
         if ((!isset($item['owner_player_id']) || $item['owner_player_id'] === $me) && (!$out || $admin || isset($owned[$k]))
-            && (!isset($item['fanta']) || isset($owned[$k]))) {   // i premi del Fanta si vedono solo da chi li ha vinti
+            && (!shop_reward_only($item) || isset($owned[$k]))) {   // i premi (Fanta, Daily, Ruota) si vedono solo da chi li ha vinti
             $items[$k] = $item + ['out' => $out];
         }
     }
@@ -211,7 +211,7 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
             . '<button class="btn ' . $cls . ' btn-block"' . ($disabled ? ' disabled' : '') . '>' . $label . '</button></form>';
     };
     [$price, $why] = $key !== '' ? $priceOf($key, $item) : [0, null];
-    $wishBtn = $key !== '' && ($item['price'] ?? 0) > 0 && !isset($item['fanta'])
+    $wishBtn = $key !== '' && ($item['price'] ?? 0) > 0 && !shop_reward_only($item)
         ? '<form method="post" class="av-wish">' . csrf_field() . '<input type="hidden" name="do" value="wish"><input type="hidden" name="kind" value="' . h($cat) . '">'
             . '<input type="hidden" name="key" value="' . h($key) . '"><input type="hidden" name="v" value="' . h($view) . '"><input type="hidden" name="p" value="' . $page . '">'
             . '<button class="wish' . (isset($wish[$key]) ? ' is-on' : '') . '" data-wish aria-pressed="' . (isset($wish[$key]) ? 'true' : 'false') . '" title="'

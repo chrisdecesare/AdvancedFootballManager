@@ -64,6 +64,24 @@ layout_start('Home', 'home');
 <?= group_bar('index.php') ?>
 <div class="home">
 
+  <?php if ($me && is_admin()): // per ora solo admin: due bottoncini affiancati, Calendario (Daily) e Ruota, senza schede nel menu ?>
+  <div class="prize-btns">
+    <?php if (daily_window_open()): $dClaim = daily_claimable($me); ?>
+    <a class="prize-btn<?= $dClaim ? ' prize-btn-live' : '' ?>" href="daily.php">
+      <i class="ti ti-calendar-star"></i>
+      <span><strong>Calendario</strong><span class="muted small"><?= $dClaim ? 'regalo da ritirare' : 'già ritirato oggi' ?></span></span>
+      <?php if ($dClaim): ?><span class="prize-dot" aria-hidden="true"></span><?php endif; ?>
+    </a>
+    <?php endif; ?>
+    <?php $wReady = wheel_ready($me); $wWait = $wReady ? '' : wheel_wait_label($me); ?>
+    <a class="prize-btn<?= $wReady ? ' prize-btn-live' : '' ?>" href="wheel.php">
+      <i class="ti ti-ferris-wheel"></i>
+      <span><strong>Ruota</strong><span class="muted small"><?= $wReady ? 'giro disponibile' : 'tra ' . h($wWait) ?></span></span>
+      <?php if ($wReady): ?><span class="prize-dot" aria-hidden="true"></span><?php endif; ?>
+    </a>
+  </div>
+  <?php endif; ?>
+
   <?php if (current_user() && !is_guest()): // proposte per il sito: una card a parte ?>
   <section class="card ideas-card" id="proposte">
     <h2><i class="ti ti-bulb"></i> Hai un'idea per il sito?</h2>

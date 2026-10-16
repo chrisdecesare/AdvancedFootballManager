@@ -86,6 +86,8 @@ require __DIR__ . '/fanta.php';
 require __DIR__ . '/passaggi.php';
 require __DIR__ . '/pensieri.php';
 require __DIR__ . '/gazzetta.php';
+require __DIR__ . '/daily.php';
+require __DIR__ . '/wheel.php';
 
 if (!defined('NO_CSRF')) {   // push.php la salta solo per il rinnovo dell'abbonamento, che non ha una sessione (vedi push.php)
     verify_csrf();

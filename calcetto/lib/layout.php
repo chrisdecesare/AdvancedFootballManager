@@ -25,6 +25,8 @@ function layout_start(string $title, string $active = ''): void
         // Avatar (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
         $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Avatar', '3d-cube-sphere']] + $nav;
     }
+    // Daily access e Ruota della fortuna (daily.php / wheel.php): per ora niente scheda nel menu, si raggiungono dai
+    // due bottoncini in Home (index.php) e sono visibili solo all'admin.
     $pendingLeague = 0;
     if ($u && !$guest) {
         $owned = my_owned_leagues();
@@ -199,8 +201,29 @@ if ($gift):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta
 </div>
 <?php endif; ?>
 <?php
+// Daily access (lib/daily.php): quando apri la Home e hai un regalo da ritirare, una sovraimpressione come le altre,
+// una volta per sessione al giorno, e solo se non c'è già un'altra sovraimpressione in corso.
+$dailyPop = $myId && is_admin() && !$gift && !$prizes && !$passes
+    && basename($_SERVER['SCRIPT_NAME'] ?? '') === 'index.php'
+    && daily_window_open() && daily_claimable($myId) && empty($_SESSION['daily_pop_' . daily_today()]);
+if ($dailyPop):
+    $_SESSION['daily_pop_' . daily_today()] = 1;
+    $dLabel = daily_catalog()[daily_progress($myId) + 1]['label'] ?? ''; ?>
+<div class="vote-done coin-gift has-note daily-pop" role="dialog" aria-modal="true" aria-labelledby="daily-pop-title">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-gift"></i></span>
+    <div class="vote-done-title" id="daily-pop-title">Regalo di oggi!</div>
+    <div class="vote-done-sub">Il daily access ti aspetta: oggi ti spetta <strong><?= h($dLabel) ?></strong>.</div>
+    <div class="daily-pop-actions">
+      <a class="btn btn-primary btn-sm" href="daily.php"><i class="ti ti-gift"></i> Ritira</a>
+      <a class="btn btn-ghost btn-sm" href="index.php">Più tardi</a>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+<?php
 // il pensiero sulla partita (lib/pensieri.php): a chi ha giocato l'ultima partita, se non c'è già un'altra sovraimpressione
-$thought = $myId && !$gift && !$prizes && !$passes && !is_post() && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'thought.php' ? thought_pending($myId) : null;
+$thought = $myId && !$gift && !$prizes && !$passes && empty($dailyPop) && !is_post() && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'thought.php' ? thought_pending($myId) : null;
 if ($thought):
     $draft = (string) ($_SESSION['thought_draft'] ?? '');
     unset($_SESSION['thought_draft']); ?>

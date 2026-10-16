@@ -121,7 +121,17 @@ function shop_catalog(): array
     foreach (fanta_reward_items() as $kind => $items) {
         $c[$kind] += $items;
     }
+    // i premi esclusivi del Daily access e della Ruota (lib/daily.php): stessa regola, non si comprano e si vedono solo da chi li ha
+    foreach (reward_items() as $kind => $items) {
+        $c[$kind] += $items;
+    }
     return $c;
+}
+
+/** Oggetto-premio che non si compra e si vede solo da chi lo possiede: premi del Fanta, del Daily access e della Ruota. */
+function shop_reward_only(array $item): bool
+{
+    return isset($item['fanta']) || !empty($item['reward']);
 }
 
 /**
@@ -521,8 +531,8 @@ function shop_buy(int $playerId, string $kind, string $key, ?int $eco = null, bo
     if ($item['price'] === null) {
         return 'Questo non si compra: si sblocca con un obiettivo.';
     }
-    if (isset($item['fanta'])) {
-        return 'Questo non si compra: è un premio del Fanta.';
+    if (shop_reward_only($item)) {
+        return 'Questo non si compra: è un premio.';
     }
     if (isset($item['owner_player_id'])) {
         return 'Questa maglia l\'ha creata un altro giocatore: non si compra.';
