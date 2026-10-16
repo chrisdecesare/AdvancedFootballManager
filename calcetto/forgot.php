@@ -24,7 +24,9 @@ if (is_post()) {
         if (trusted_base_url() === '') {
             error_log('forgot.php: indirizzo del sito non ancora fissato (SITE_URL o un accesso dell\'admin): link di recupero non spedito');
         } elseif ($u && rate_hit('__mail_reset_' . $u['id'], 3, 3600)) {
-            send_password_reset((int) $u['id'], $u['email']);
+            $uid = (int) $u['id'];
+            $email = $u['email'];
+            push_defer(fn() => send_password_reset($uid, $email));   // spedita a risposta chiusa: il tempo di mail() non rivela se l'account esiste
         }
         usleep(random_int(150000, 400000));    // tempi simili con o senza account
         $sent = true;                           // la risposta è la stessa in ogni caso: non si scopre chi ha un account

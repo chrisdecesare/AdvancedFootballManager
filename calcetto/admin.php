@@ -258,6 +258,9 @@ if (is_post()) {
             $gPlayer = $gPid ? get_player($gPid) : null;
             if (!$gPlayer || $gRound < 1) {
                 flash('err', 'Giocatore non valido.');
+            } elseif (!q('SELECT 1 FROM feature_guesses WHERE player_id = ? AND round = ?', [$gPid, $gRound])->fetchColumn()) {
+                // il premio è fuori dal tetto giornaliero dei regali: vale solo per un'idea vera, non per un round inventato
+                flash('err', $gPlayer['name'] . ' non ha mandato idee in quel round.');
             } elseif ($gAmount < 1 || $gAmount > 1000) {
                 flash('err', 'Il premio va da 1 a 1000 KOIN.');
             } else {

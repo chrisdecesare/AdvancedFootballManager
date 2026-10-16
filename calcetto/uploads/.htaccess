@@ -1,6 +1,11 @@
 # Cartella delle foto: si servono SOLO immagini, mai codice
 Options -Indexes -ExecCGI
 
+# i file qui li serve Apache, non PHP: senza questo header mancherebbe il nosniff di lib/bootstrap.php
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>
+
 <FilesMatch ".*">
   <IfModule mod_authz_core.c>
     Require all denied

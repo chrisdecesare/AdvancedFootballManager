@@ -37,6 +37,13 @@ if (is_post() && $keyOk) {
     if (mb_strlen($name) > 80) {
         $errors[] = 'Il nome può avere al massimo 80 caratteri.';
     }
+    // due invii insieme non devono creare due admin: si installa uno alla volta e si ricontrolla dentro il lock
+    if (!$errors && (int) q("SELECT GET_LOCK('calcetto_install', 10)")->fetchColumn() !== 1) {
+        $errors[] = 'Un\'altra installazione è in corso: riprova tra qualche secondo.';
+    }
+    if (!$errors && tables_exist() && (int) q('SELECT COUNT(*) FROM users')->fetchColumn() > 0) {
+        redirect('login.php');
+    }
     if (!$errors) {
         $sql = file_get_contents(__DIR__ . '/lib/schema.sql');
         $sql = preg_replace('/^--.*$/m', '', $sql);

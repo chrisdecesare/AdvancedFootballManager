@@ -461,51 +461,52 @@ function save_player_image(array $file, int $player_id, ?string &$error, string 
     }
     $base = $prefix . $player_id . '_' . bin2hex(random_bytes(4));
 
-    if (function_exists('imagecreatetruecolor')) {
-        $loaders = [IMAGETYPE_JPEG => 'imagecreatefromjpeg', IMAGETYPE_PNG => 'imagecreatefrompng',
-            IMAGETYPE_WEBP => 'imagecreatefromwebp', IMAGETYPE_GIF => 'imagecreatefromgif'];
-        $load = $loaders[$info[2]];
-        $src = function_exists($load) ? @$load($file['tmp_name']) : false;
-        if (function_exists($load) && !$src) {
-            $error = "Immagine non leggibile ($what): prova con un altro file.";
-            return null;
-        }
-        if ($src) {
-            if ($info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
-                $exif = @exif_read_data($file['tmp_name']);
-                $rot = [3 => 180, 6 => -90, 8 => 90][$exif['Orientation'] ?? 1] ?? 0;
-                if ($rot) {
-                    $src = imagerotate($src, $rot, 0);
-                }
-            }
-            $sw = imagesx($src);
-            $sh = imagesy($src);
-            $ta = $w / $h;
-            if ($sw / $sh > $ta) {                       // troppo larga: taglia ai lati, dal centro
-                $cw = (int) round($sh * $ta);
-                $ch = $sh;
-                $cx = (int) (($sw - $cw) / 2);
-                $cy = 0;
-            } else {                                     // troppo alta: taglia sopra/sotto
-                $cw = $sw;
-                $ch = (int) round($sw / $ta);
-                $cx = 0;
-                $cy = (int) (($sh - $ch) * $vAlign);
-            }
-            $dst = imagecreatetruecolor($w, $h);
-            imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));   // PNG trasparenti: fondo bianco
-            imagecopyresampled($dst, $src, 0, 0, $cx, $cy, $w, $h, $cw, $ch);
-            $path = 'uploads/players/' . $base . '.jpg';
-            imagejpeg($dst, __DIR__ . '/../' . $path, 85);
-            imagedestroy($src);
-            imagedestroy($dst);
-            return $path;
+    // il file si salva solo ri-codificato da GD: i byte caricati non finiscono mai così come sono in uploads/
+    if (!function_exists('imagecreatetruecolor')) {
+        $error = 'Il server non può elaborare immagini (manca l\'estensione GD di PHP).';
+        return null;
+    }
+    $loaders = [IMAGETYPE_JPEG => 'imagecreatefromjpeg', IMAGETYPE_PNG => 'imagecreatefrompng',
+        IMAGETYPE_WEBP => 'imagecreatefromwebp', IMAGETYPE_GIF => 'imagecreatefromgif'];
+    $load = $loaders[$info[2]];
+    if (!function_exists($load)) {
+        $error = "Il server non può elaborare questo formato ($what): prova con un JPG.";
+        return null;
+    }
+    $src = @$load($file['tmp_name']);
+    if (!$src) {
+        $error = "Immagine non leggibile ($what): prova con un altro file.";
+        return null;
+    }
+    if ($info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
+        $exif = @exif_read_data($file['tmp_name']);
+        $rot = [3 => 180, 6 => -90, 8 => 90][$exif['Orientation'] ?? 1] ?? 0;
+        if ($rot) {
+            $src = imagerotate($src, $rot, 0);
         }
     }
-    $path = 'uploads/players/' . $base . '.' . $types[$info[2]];
-    // senza GD il file resta com'è: a un JPEG si tolgono almeno i metadati (posizione GPS, telefono...)
-    $clean = $info[2] === IMAGETYPE_JPEG ? jpeg_strip_metadata((string) @file_get_contents($file['tmp_name'])) : null;
-    if ($clean !== null ? file_put_contents(__DIR__ . '/../' . $path, $clean) === false : !move_uploaded_file($file['tmp_name'], __DIR__ . '/../' . $path)) {
+    $sw = imagesx($src);
+    $sh = imagesy($src);
+    $ta = $w / $h;
+    if ($sw / $sh > $ta) {                       // troppo larga: taglia ai lati, dal centro
+        $cw = (int) round($sh * $ta);
+        $ch = $sh;
+        $cx = (int) (($sw - $cw) / 2);
+        $cy = 0;
+    } else {                                     // troppo alta: taglia sopra/sotto
+        $cw = $sw;
+        $ch = (int) round($sw / $ta);
+        $cx = 0;
+        $cy = (int) (($sh - $ch) * $vAlign);
+    }
+    $dst = imagecreatetruecolor($w, $h);
+    imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));   // PNG trasparenti: fondo bianco
+    imagecopyresampled($dst, $src, 0, 0, $cx, $cy, $w, $h, $cw, $ch);
+    $path = 'uploads/players/' . $base . '.jpg';
+    $ok = imagejpeg($dst, __DIR__ . '/../' . $path, 85);
+    imagedestroy($src);
+    imagedestroy($dst);
+    if (!$ok) {
         $error = "Impossibile salvare l'immagine (permessi della cartella uploads?).";
         return null;
     }
