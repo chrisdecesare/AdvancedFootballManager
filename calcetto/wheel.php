@@ -31,7 +31,7 @@ layout_start('Ruota della fortuna');
 ?>
 <div class="narrow">
   <div class="card">
-    <h1><i class="ti ti-ferris-wheel"></i> Ruota della fortuna</h1>
+    <h1><i class="ti ti-wheel"></i> Ruota della fortuna</h1>
     <p class="muted">Un giro ogni <strong>24 ore</strong>: vinci KOIN oppure un oggetto esclusivo che non trovi al Negozio.</p>
     <?php if (!$me): ?>
       <p><i class="ti ti-alert-triangle"></i> Il tuo account non è collegato a un giocatore: chiedi all'admin.</p>
@@ -39,7 +39,7 @@ layout_start('Ruota della fortuna');
       <form method="post" class="form">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="spin">
-        <button class="btn btn-primary btn-block"><i class="ti ti-ferris-wheel"></i> Gira la ruota</button>
+        <button class="btn btn-primary btn-block"><i class="ti ti-wheel"></i> Gira la ruota</button>
       </form>
     <?php else: ?>
       <p><i class="ti ti-clock"></i> Hai già girato: torna tra <strong><?= h($wait) ?></strong> per il prossimo giro.</p>

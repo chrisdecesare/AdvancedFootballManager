@@ -75,7 +75,7 @@ layout_start('Home', 'home');
     <?php endif; ?>
     <?php $wReady = wheel_ready($me); $wWait = $wReady ? '' : wheel_wait_label($me); ?>
     <a class="prize-btn<?= $wReady ? ' prize-btn-live' : '' ?>" href="wheel.php">
-      <i class="ti ti-ferris-wheel"></i>
+      <i class="ti ti-wheel"></i>
       <span><strong>Ruota</strong><span class="muted small"><?= $wReady ? 'giro disponibile' : 'tra ' . h($wWait) ?></span></span>
       <?php if ($wReady): ?><span class="prize-dot" aria-hidden="true"></span><?php endif; ?>
     </a>
