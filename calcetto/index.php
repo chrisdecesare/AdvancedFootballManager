@@ -66,13 +66,14 @@ layout_start('Home', 'home');
 
   <?php if ($me && is_admin()): // per ora solo admin: due bottoncini affiancati, Calendario (Daily) e Ruota, senza schede nel menu ?>
   <div class="prize-btns">
-    <?php if (daily_window_open()): $dClaim = daily_claimable($me); ?>
+    <?php // il Calendario (admin, anteprima): visibile anche prima dell'avvio; la pagina mostra «parte il …». Il pallino solo se c'è un regalo da ritirare
+      $dOpen = daily_window_open(); $dClaim = $dOpen && daily_claimable($me);
+      $dNote = !$dOpen ? (strtotime(DAILY_START) > time() ? 'dal ' . date('d/m', strtotime(DAILY_START)) : 'terminato') : ($dClaim ? 'regalo da ritirare' : 'già ritirato oggi'); ?>
     <a class="prize-btn<?= $dClaim ? ' prize-btn-live' : '' ?>" href="daily.php">
       <i class="ti ti-calendar-star"></i>
-      <span><strong>Calendario</strong><span class="muted small"><?= $dClaim ? 'regalo da ritirare' : 'già ritirato oggi' ?></span></span>
+      <span><strong>Calendario</strong><span class="muted small"><?= h($dNote) ?></span></span>
       <?php if ($dClaim): ?><span class="prize-dot" aria-hidden="true"></span><?php endif; ?>
     </a>
-    <?php endif; ?>
     <?php $wReady = wheel_ready($me); $wWait = $wReady ? '' : wheel_wait_label($me); ?>
     <a class="prize-btn<?= $wReady ? ' prize-btn-live' : '' ?>" href="wheel.php">
       <?= wheel_icon() ?>
