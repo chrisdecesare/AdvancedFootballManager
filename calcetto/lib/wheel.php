@@ -8,6 +8,10 @@
 
 const WHEEL_COOLDOWN = 86400;   // 24 ore, in secondi
 
+// TEST (temporaneo): true = nessuna attesa, giri illimitati per provare le animazioni e i premi.
+// RIMETTERE A false prima di pubblicare, così torna il cooldown di 24h.
+const WHEEL_TEST_UNLIMITED = true;
+
 /**
  * Icona della Ruota della fortuna: una ruota a spicchi colorati (SVG inline, così ha più colori di un'icona-font).
  * Si dimensiona con la classe .ico-wheel (assets/style.css). $cls aggiunge classi extra se servono.
@@ -73,6 +77,9 @@ function wheel_next_at(int $playerId): int
 /** true se il giocatore può girare adesso. */
 function wheel_ready(int $playerId): bool
 {
+    if (WHEEL_TEST_UNLIMITED) {
+        return true;
+    }
     return time() >= wheel_next_at($playerId);
 }
 

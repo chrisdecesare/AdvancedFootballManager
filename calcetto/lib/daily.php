@@ -10,6 +10,10 @@
 const DAILY_START = '2026-10-19';   // lunedì: primo giorno della campagna
 const DAILY_DAYS  = 30;
 
+// TEST (temporaneo): true = campagna sempre aperta, così il Daily access è subito disponibile (e mostra il pallino).
+// RIMETTERE A false prima di pubblicare, così vale la finestra che parte da DAILY_START.
+const DAILY_TEST_ALWAYS_OPEN = true;
+
 /*
  * Oggetti esclusivi dei premi (Daily access e Ruota della fortuna): NON si comprano al Negozio e si vedono solo da chi li
  * possiede (marker 'reward', come i premi del Fanta). Sono in formato "già pronto" del catalogo (lib/shop.php: shop_catalog li
@@ -42,6 +46,9 @@ function daily_today(): string
 /** true se oggi la campagna è aperta (dal giorno d'inizio per DAILY_DAYS giorni di calendario). */
 function daily_window_open(): bool
 {
+    if (DAILY_TEST_ALWAYS_OPEN) {
+        return true;
+    }
     $tz = new DateTimeZone('Europe/Rome');
     $start = new DateTimeImmutable(DAILY_START . ' 00:00:00', $tz);
     $today = new DateTimeImmutable('today', $tz);
