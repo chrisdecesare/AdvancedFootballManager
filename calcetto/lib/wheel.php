@@ -9,6 +9,35 @@
 const WHEEL_COOLDOWN = 86400;   // 24 ore, in secondi
 
 /**
+ * Icona della Ruota della fortuna: una ruota a spicchi colorati (SVG inline, così ha più colori di un'icona-font).
+ * Si dimensiona con la classe .ico-wheel (assets/style.css). $cls aggiunge classi extra se servono.
+ */
+function wheel_icon(string $cls = ''): string
+{
+    $wedges = [
+        ['M12 12 L22 12 A10 10 0 0 1 19.07 19.07 Z', '#ff5a5f'],
+        ['M12 12 L19.07 19.07 A10 10 0 0 1 12 22 Z', '#ffd23f'],
+        ['M12 12 L12 22 A10 10 0 0 1 4.93 19.07 Z', '#38d178'],
+        ['M12 12 L4.93 19.07 A10 10 0 0 1 2 12 Z', '#4a90e2'],
+        ['M12 12 L2 12 A10 10 0 0 1 4.93 4.93 Z', '#ff8c42'],
+        ['M12 12 L4.93 4.93 A10 10 0 0 1 12 2 Z', '#a67cf2'],
+        ['M12 12 L12 2 A10 10 0 0 1 19.07 4.93 Z', '#ff5a5f'],
+        ['M12 12 L19.07 4.93 A10 10 0 0 1 22 12 Z', '#ffd23f'],
+    ];
+    $paths = '';
+    foreach ($wedges as [$d, $fill]) {
+        $paths .= '<path d="' . $d . '" fill="' . $fill . '"/>';
+    }
+    $class = 'ico-wheel' . ($cls !== '' ? ' ' . $cls : '');
+    return '<svg class="' . $class . '" viewBox="0 0 24 24" aria-hidden="true">'
+        . '<g stroke="#fff" stroke-width="0.6" stroke-linejoin="round">' . $paths . '</g>'
+        . '<circle cx="12" cy="12" r="10" fill="none" stroke="#2b2540" stroke-width="1.2"/>'
+        . '<circle cx="12" cy="12" r="2.4" fill="#2b2540"/>'
+        . '<polygon points="12,0.5 9.3,4.2 14.7,4.2" fill="#2b2540"/>'   // lancetta in alto
+        . '</svg>';
+}
+
+/**
  * Gli spicchi della ruota: 'w' è il peso (probabilità relativa), 'koin' i KOIN dello spicchio, 'item' l'eventuale oggetto
  * esclusivo [tipo, chiave] (se già posseduto si danno i KOIN), 'label' il testo mostrato.
  * PROPOSTA DA RIVEDERE: pesi e premi sono una bozza, da correggere prima di pubblicare.

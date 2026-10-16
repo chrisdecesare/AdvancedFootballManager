@@ -1982,6 +1982,11 @@ tr.is-new td { background: #fffbe6; }
 .prize-btns { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .prize-btn { flex: 1 1 160px; display: flex; align-items: center; gap: 10px; background: var(--white); border: 1px solid var(--brd); border-radius: 12px; padding: 10px 14px; box-shadow: var(--sh-sm); color: var(--ink); text-decoration: none; position: relative; }
 .prize-btn > i { font-size: 1.4rem; color: var(--yellow); flex: none; }
+.prize-btn > .ico-wheel { width: 1.6rem; height: 1.6rem; }
+
+/* Icona ruota a spicchi colorati (lib/wheel.php: wheel_icon) */
+.ico-wheel { width: 1.25em; height: 1.25em; flex: none; display: inline-block; vertical-align: -0.28em; }
+.ico-wheel-lg { width: 1.3em; height: 1.3em; }
 .prize-btn span { display: flex; flex-direction: column; line-height: 1.2; }
 .prize-btn-live { border-color: var(--yellow); }
 .prize-dot { position: absolute; top: 8px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); }
