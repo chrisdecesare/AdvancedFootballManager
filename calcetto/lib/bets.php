@@ -988,7 +988,7 @@ function bet_place(array $match, int $playerId, string $market, string $pick, in
                 q('DELETE FROM bets WHERE id = ?', [$old['id']]);   // le sue mosse spariscono con lei (rimborso)
             }
             q('INSERT INTO bets (match_id, player_id, eco, market, pick, stake, odds, fire) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [$match['id'], $playerId, $eco, $market, $pick, $stake, $odds, bet_fire_day() ? 1 : 0]);
+                [$match['id'], $playerId, $eco, $market, $pick, $stake, $odds, bet_fire_day() || bet_boosted($playerId, (int) $match['id']) ? 1 : 0]);
             q("INSERT INTO wallet_moves (player_id, eco, bet_id, delta, kind) VALUES (?, ?, ?, ?, 'puntata')", [$playerId, $eco, db()->lastInsertId(), -$stake]);
             return null;
         });

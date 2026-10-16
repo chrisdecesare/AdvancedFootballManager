@@ -115,6 +115,18 @@ if (is_post()) {
         redirect('bets.php?t=mie');
     }
 
+    if ($do === 'use_token') {   // gettone ×2 della ruota (lib/wheel.php): le puntate singole su quella partita pagano il doppio
+        $tm = (int) ($_POST['match_id'] ?? 0) ? get_match((int) $_POST['match_id']) : null;
+        if (!$me || !$tm || !match_access($tm) || (!is_admin() && !player_in_group($me, (int) $tm['group_id']))) {
+            flash('err', 'Partita non valida.');
+        } elseif ($err = bet_token_use($me, $tm)) {
+            flash('err', $err);
+        } else {
+            flash('ok', 'Gettone ×2 attivato: le tue puntate singole su questa partita, se vincono, pagano il doppio.');
+        }
+        redirect('bets.php#m' . (int) ($tm['id'] ?? 0));
+    }
+
     if ($do === 'koin_pass') {   // passa KOIN a un compagno (lib/passaggi.php)
         $to = (int) ($_POST['to'] ?? 0);
         $amount = (int) ($_POST['amount'] ?? 0);
@@ -433,6 +445,14 @@ layout_start('Scommesse', 'bets');
     <?php elseif (bets_not_yet_open($m)): ?><span class="tag"><i class="ti ti-clock"></i> si aprono <?= h(push_when(date('Y-m-d H:i:s', bets_open_at($m)))) ?></span>
     <?php else: ?><span class="tag tag-live"><i class="ti ti-lock"></i> scommesse chiuse</span><?php endif; ?>
   </div>
+  <?php if ($canBet): // gettone ×2 vinto con la ruota (compare solo a chi ne ha o l'ha già attivato) ?>
+    <?php if (bet_boosted($me, $mid)): ?>
+  <p class="token-note small"><i class="ti ti-ticket"></i> <b>Gettone ×2 attivo</b>: le tue puntate singole su questa partita, se vincono, pagano il doppio.</p>
+    <?php elseif (($tokens = wheel_extras($me)['tokens']) > 0): ?>
+  <form method="post" class="token-form"><?= csrf_field() ?><input type="hidden" name="do" value="use_token"><input type="hidden" name="match_id" value="<?= $mid ?>">
+    <button class="btn btn-ghost btn-sm"><i class="ti ti-ticket"></i> Usa un gettone ×2 su questa partita</button> <span class="muted small">ne hai <?= $tokens ?>: le puntate singole, se vincono, pagano il doppio</span></form>
+    <?php endif; ?>
+  <?php endif; ?>
   <?php if ($canBet): ?>
   <div class="bet-cats" role="tablist" data-bet-cats="<?= $mid ?>">
     <button type="button" class="bet-cat active" data-cat="partita" role="tab"><i class="ti ti-trophy"></i> Partita</button>

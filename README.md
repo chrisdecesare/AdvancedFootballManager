@@ -390,6 +390,14 @@ Gli oggetti dell'Avatar usciti prima del suo lancio non si annunciano.
 «top secret» e si dice cos'è (il countdown continua fino all'uscita); da quel momento non si mandano più idee. La card della sorpresa in Home è stata tolta:
 il countdown resta nella pagina «Indovina la funzionalità» (`guess.php`).
 
+## Ruota della fortuna e Daily access
+Per ora solo per l'admin (bottoncini in Home, `wheel.php` e `daily.php`; flag `WHEEL_TEST_UNLIMITED` e `DAILY_TEST_ALWAYS_OPEN` da rimettere a `false` prima di aprire a tutti).
+
+- **Ruota** (`lib/wheel.php`, `assets/ruota.js`): un giro gratis ogni 24 ore. Il server estrae lo spicchio con i pesi di `wheel_slices()` (la probabilità è peso / somma, mostrata nella pagina) e la ruota gira fino a fermarsi con il puntale in alto sullo spicchio estratto. Premi: KOIN, crediti Avatar (solo negozio), oggetti esclusivi (se già posseduti, solo i KOIN dello spicchio), **giro extra** (non fa ripartire le 24 ore), **gettone ×2** e niente.
+- **Gettone ×2**: si attiva su una partita in Scommesse (`bet_token_use`): le puntate singole su quella partita, se vincono, pagano `BET_FIRE_MULT` volte (colonna `bets.fire`, come il Martedì di fuoco, senza sommarsi). Tabelle `player_tokens` (giri extra e gettoni) e `bet_boosts` (schema 64).
+- **Daily access** (`lib/daily.php`, `lib/daily_items.php`): 30 regali in una griglia, uno per giorno di accesso, in sequenza: se salti un giorno non perdi nulla, il giorno dopo ritiri il regalo che ti spettava.
+- In fondo alla Home sta la card «Hai un'idea per il sito?».
+
 ## Fanta (fantacalcio della lega)
 
 La scheda **Fanta** (`fanta.php`, indirizzo `/fantacalcio`, logica in `calcetto/lib/fanta.php`) è il fantacalcio della lega: ogni giocatore con un

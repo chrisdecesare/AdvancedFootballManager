@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 63;
+const SCHEMA_VERSION = 64;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1021,6 +1021,26 @@ function ensure_schema(): void
             prize VARCHAR(40) NULL,
             INDEX idx_player_time (player_id, spun_at),
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+    if ($v < 64) {
+        // Ruota della fortuna, premi nuovi (lib/wheel.php): crediti Avatar, giri extra, gettoni ×2 per le scommesse. Un giro extra non fa
+        // ripartire le 24 ore (extra = 1); player_tokens tiene giri extra e gettoni; bet_boosts le partite su cui il gettone è attivo.
+        $add('wheel_spins', 'credits', 'INT NOT NULL DEFAULT 0 AFTER koin');
+        $add('wheel_spins', 'extra', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER prize');
+        db()->exec("CREATE TABLE IF NOT EXISTS player_tokens (
+            player_id INT NOT NULL PRIMARY KEY,
+            extra_spins INT NOT NULL DEFAULT 0,
+            bet_tokens INT NOT NULL DEFAULT 0,
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        db()->exec("CREATE TABLE IF NOT EXISTS bet_boosts (
+            player_id INT NOT NULL,
+            match_id INT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (player_id, match_id),
+            FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+            FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

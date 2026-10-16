@@ -83,21 +83,6 @@ layout_start('Home', 'home');
   </div>
   <?php endif; ?>
 
-  <?php if (current_user() && !is_guest()): // proposte per il sito: una card a parte ?>
-  <section class="card ideas-card" id="proposte">
-    <h2><i class="ti ti-bulb"></i> Hai un'idea per il sito?</h2>
-    <p class="muted small">Una funzione nuova, un'esultanza, una statistica che manca, un torneo... Proponila: la legge solo l'admin.</p>
-    <form method="post" class="form ideas-form">
-      <?= csrf_field() ?><input type="hidden" name="do" value="proposal">
-      <textarea name="proposal" maxlength="<?= PROPOSAL_MAX ?>" rows="3" required aria-label="La tua proposta" placeholder="Es. Un nuovo tipo di esultanza, una statistica che manca, un torneo..."></textarea>
-      <div class="btn-row"><button class="btn btn-primary btn-sm"><i class="ti ti-send"></i> Invia proposta</button></div>
-    </form>
-    <?php if (is_admin()): $newProposals = proposal_unread_count(); ?>
-    <a class="btn btn-ghost btn-sm ideas-read" href="admin.php#proposte"><i class="ti ti-inbox"></i> Leggi le proposte dei giocatori<?= $newProposals ? ' (' . $newProposals . ' nuove)' : '' ?></a>
-    <?php endif; ?>
-  </section>
-  <?php endif; ?>
-
   <?= push_card(true) ?>
 
   <?php if ($me && empty(current_user()['email'])): ?>
@@ -281,6 +266,21 @@ layout_start('Home', 'home');
   </section>
   <?php endif; ?>
   </div>
+  <?php endif; ?>
+
+  <?php if (current_user() && !is_guest()): // proposte per il sito: una card a parte, in fondo alla Home come footer ?>
+  <section class="card ideas-card" id="proposte">
+    <h2><i class="ti ti-bulb"></i> Hai un'idea per il sito?</h2>
+    <p class="muted small">Una funzione nuova, un'esultanza, una statistica che manca, un torneo... Proponila: la legge solo l'admin.</p>
+    <form method="post" class="form ideas-form">
+      <?= csrf_field() ?><input type="hidden" name="do" value="proposal">
+      <textarea name="proposal" maxlength="<?= PROPOSAL_MAX ?>" rows="3" required aria-label="La tua proposta" placeholder="Es. Un nuovo tipo di esultanza, una statistica che manca, un torneo..."></textarea>
+      <div class="btn-row"><button class="btn btn-primary btn-sm"><i class="ti ti-send"></i> Invia proposta</button></div>
+    </form>
+    <?php if (is_admin()): $newProposals = proposal_unread_count(); ?>
+    <a class="btn btn-ghost btn-sm ideas-read" href="admin.php#proposte"><i class="ti ti-inbox"></i> Leggi le proposte dei giocatori<?= $newProposals ? ' (' . $newProposals . ' nuove)' : '' ?></a>
+    <?php endif; ?>
+  </section>
   <?php endif; ?>
 
 </div>
