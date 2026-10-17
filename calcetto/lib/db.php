@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 64;
+const SCHEMA_VERSION = 65;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1042,6 +1042,19 @@ function ensure_schema(): void
             FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
             FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
+    if ($v < 65) {
+        // una tantum: Luigi capitano nella squadra del Fanta dell'admin, nell'ultima partita e nella rosa (lib/fanta.php): una sola
+        // richiesta lo fa (chi prenota il segnaposto in meta); se qualcosa non torna non salva niente e il motivo resta in meta e nel registro.
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_fanta_luigi', 'in corso')")->rowCount()) {
+            try {
+                $msg = fanta_oneoff_luigi_captain();
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_fanta_luigi', mb_substr($msg, 0, 250));
+            log_activity('fanta', 'Luigi capitano · ' . $msg);
+        }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");
