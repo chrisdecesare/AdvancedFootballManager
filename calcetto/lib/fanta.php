@@ -899,3 +899,82 @@ function fanta_oneoff_luigi_captain(): string
         return $msg . '; capitano anche nella rosa di adesso';
     });
 }
+
+/* ---------------------------------------------------------------- correzione una tantum (schema 66) */
+
+/**
+ * Una tantum (lib/db.php, schema 66): nella partita del 15 ottobre 2026 Luigi entra nella formazione del Fanta dell'admin come titolare
+ * e capitano (al calcio d'inizio non era nella sua squadra, quindi la correzione dello schema 65 non aveva trovato niente da cambiare).
+ * Esce il titolare che in quella partita ha fatto meno punti (a parità, quello che costa meno); la rosa di adesso non cambia.
+ * I punti non sono salvati: partita e classifica si ricalcolano da sole. Se qualcosa non torna non salva niente.
+ * @return string cosa è successo (va nel registro delle attività)
+ */
+function fanta_oneoff_luigi_oct15(): string
+{
+    $first = function (string $name): string {
+        $n = trim(preg_replace('/\s+/u', ' ', preg_replace('/[^\p{L}\p{N} ]+/u', '', mb_strtolower($name, 'UTF-8'))));
+        return explode(' ', $n)[0] ?? '';
+    };
+    $ms = q("SELECT m.id, x.season_id FROM fanta_snapshots x JOIN matches m ON m.id = x.match_id
+             WHERE m.status = 'giocata' AND m.match_date >= '2026-10-15 00:00:00' AND m.match_date < '2026-10-16 00:00:00'")->fetchAll();
+    if (count($ms) !== 1) {
+        return 'partite del 15 ottobre con le formazioni del Fanta: ' . count($ms) . ' (ne serve una): non ho salvato niente';
+    }
+    $mid = (int) $ms[0]['id'];
+    $lineups = fanta_lineups($mid);
+    $admins = array_map('intval', q("SELECT player_id FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL ORDER BY id")->fetchAll(PDO::FETCH_COLUMN));
+    $cands = array_values(array_filter($admins, fn($a) => isset($lineups[$a])));
+    if (count($cands) !== 1) {
+        return 'partita ' . $mid . ': servono un admin attivo con un giocatore collegato e la sua formazione in quella partita (ne ho trovati ' . count($cands) . '): non ho salvato niente';
+    }
+    $mgr = $cands[0];
+    $rows = $lineups[$mgr];
+    // Luigi: chi si chiama Luigi tra quelli che hanno giocato la partita (deve essere uno solo)
+    $luigi = array_values(array_filter(
+        q('SELECT p.id, p.name FROM match_players mp JOIN players p ON p.id = mp.player_id WHERE mp.match_id = ? AND mp.team IS NOT NULL AND p.is_guest = 0', [$mid])->fetchAll(),
+        fn($p) => $first($p['name']) === 'luigi'
+    ));
+    if (count($luigi) !== 1) {
+        return 'partita ' . $mid . ': ' . (count($luigi) ? 'ha giocato più di un Luigi' : 'Luigi non ha giocato') . ': non ho salvato niente';
+    }
+    $lid = (int) $luigi[0]['id'];
+    $names = [];
+    foreach (q('SELECT id, name FROM players WHERE id IN (' . implode(',', array_map('intval', array_column($rows, 'player_id'))) . ')')->fetchAll() as $p) {
+        $names[(int) $p['id']] = $p['name'];
+    }
+    $points = fanta_match_points($mid);
+    $before = fanta_lineup_score($rows, $points)['total'];
+    $mine = array_values(array_filter($rows, fn($r) => (int) $r['player_id'] === $lid));
+    $out = null;   // il titolare che lascia il posto a Luigi
+    if (!$mine || $mine[0]['role'] !== 'T') {
+        $cost = [];
+        foreach (q('SELECT player_id, cost FROM fanta_picks WHERE season_id = ? AND manager_id = ?', [$ms[0]['season_id'], $mgr])->fetchAll() as $c) {
+            $cost[(int) $c['player_id']] = (int) $c['cost'];
+        }
+        $starters = array_values(array_filter($rows, fn($r) => $r['role'] === 'T'));
+        if (!$starters) {
+            return 'partita ' . $mid . ': nessun titolare in formazione: non ho salvato niente';
+        }
+        usort($starters, fn($a, $b) => [$points[(int) $a['player_id']]['pts'] ?? 0.0, $cost[(int) $a['player_id']] ?? 0]
+            <=> [$points[(int) $b['player_id']]['pts'] ?? 0.0, $cost[(int) $b['player_id']] ?? 0]);
+        $out = (int) $starters[0]['player_id'];
+    }
+    return bet_atomic(function () use ($mid, $mgr, $lid, $out, $mine, $points, $before, $names) {
+        fanta_lock($mgr);
+        if ($out !== null) {
+            if ($mine) {
+                // Luigi era in panchina: si scambia con il titolare che esce
+                q("UPDATE fanta_lineups SET role = 'P', captain = 0 WHERE match_id = ? AND manager_id = ? AND player_id = ?", [$mid, $mgr, $out]);
+                q("UPDATE fanta_lineups SET role = 'T' WHERE match_id = ? AND manager_id = ? AND player_id = ?", [$mid, $mgr, $lid]);
+            } else {
+                // Luigi non c'era: prende il posto del titolare che esce (la formazione resta di 6)
+                q('DELETE FROM fanta_lineups WHERE match_id = ? AND manager_id = ? AND player_id = ?', [$mid, $mgr, $out]);
+                q("INSERT INTO fanta_lineups (match_id, manager_id, player_id, role, captain) VALUES (?, ?, ?, 'T', 0)", [$mid, $mgr, $lid]);
+            }
+        }
+        q('UPDATE fanta_lineups SET captain = (player_id = ?) WHERE match_id = ? AND manager_id = ?', [$lid, $mid, $mgr]);
+        $after = fanta_lineup_score(fanta_lineups($mid)[$mgr], $points)['total'];
+        return 'partita ' . $mid . ': Luigi titolare e capitano' . ($out !== null ? ' al posto di ' . ($names[$out] ?? $out) : '')
+            . ', punti ' . fanta_fmt($before) . ' → ' . fanta_fmt($after);
+    });
+}
