@@ -622,3 +622,9 @@ per `install.php` serve comunque `INSTALL_KEY` in `config.local.php`.
 cd calcetto
 php -S localhost:8088
 ```
+
+## Documentazione
+
+- `docs/piano-migrazione-nextjs.md`: piano per passare da PHP a Next.js (solo documento).
+- `docs/ufficio/`: documenti in PDF per l'ufficio (sintesi, hosting, app negli store, conformità, pubblicità, budget, fonti).
+- `docs/ai/README.md`: piano e 10 idee per l'intelligenza artificiale (solo documento).
