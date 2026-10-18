@@ -192,7 +192,7 @@ function avatar_figure(array $look, array $o = []): string
     } else {
         $style = '';
         foreach ($names as $f) {
-            $g .= '<g id="' . $id . '-' . h($f) . '">' . px_svg_paths(px_colorize(px_letters($f, $parts), $pal, $pattern)) . '</g>';
+            $g .= '<g id="' . $id . '-' . h($f) . '">' . px_figure_paths(px_colorize(px_letters($f, $parts), $pal, $pattern)) . '</g>';
         }
         $body = '<defs>' . $g . '</defs>';
         $fx = [];

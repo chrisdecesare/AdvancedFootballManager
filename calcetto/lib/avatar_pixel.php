@@ -750,6 +750,150 @@ function px_svg_paths(array $colors): string
     return $s;
 }
 
+/* ---------------------------------------------------------------- stile «Free pixel» */
+
+/*
+ * Stile della figura: 'free' = pixel art «libera» (contorni colorati, luce sui bordi, diagonali smussate a risoluzione doppia),
+ * '16bit' = il disegno classico con il contorno scuro. Deve restare uguale ad AVATAR_PIXEL_STYLE in next-app/src/lib/avatar/pixel.ts.
+ */
+const AVATAR_PIXEL_STYLE = 'free';
+
+function px_free_hex(float $n): string
+{
+    return sprintf('%02x', max(0, min(255, (int) round($n))));
+}
+
+/** Colore scurito (k < 1) o schiarito verso il bianco (t > 0), con gli stessi arrotondamenti della versione Next. */
+function px_free_scale(string $hex, float $k): string
+{
+    [$r, $g, $b] = px_rgb($hex);
+    return '#' . px_free_hex($r * $k) . px_free_hex($g * $k) . px_free_hex($b * $k);
+}
+
+function px_free_lighten(string $hex, float $t): string
+{
+    [$r, $g, $b] = px_rgb($hex);
+    return '#' . px_free_hex($r + (255 - $r) * $t) . px_free_hex($g + (255 - $g) * $t) . px_free_hex($b + (255 - $b) * $t);
+}
+
+/** Griglia «Free pixel»: contorni «sel-out», luce in alto a sinistra e Scale2x. Ritorna una griglia 2×. */
+function px_free(array $src): array
+{
+    $at = static fn(array $g, int $x, int $y): ?string => ($x < 0 || $y < 0 || $x >= PX_W || $y >= PX_H) ? null : ($g[$y][$x] ?? null);
+    $near = [[0, -1], [1, 0], [0, 1], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+    // 1) contorni: il contorno scuro prende una tonalità scura del primo colore pieno vicino (più scura verso l'esterno)
+    $a = [];
+    for ($y = 0; $y < PX_H; $y++) {
+        for ($x = 0; $x < PX_W; $x++) {
+            $c = $at($src, $x, $y);
+            if ($c !== PX_INK) {
+                $a[$y][$x] = $c;
+                continue;
+            }
+            $best = null;
+            $outside = false;
+            foreach ($near as [$dx, $dy]) {
+                $n = $at($src, $x + $dx, $y + $dy);
+                if ($n === null) {
+                    $outside = true;
+                } elseif ($n !== PX_INK && $best === null) {
+                    $best = $n;
+                }
+            }
+            $a[$y][$x] = $best === null ? '#3a3150' : px_free_scale($best, $outside ? 0.42 : 0.62);
+        }
+    }
+    // 2) luce: i pixel con il vuoto sopra o a sinistra si schiariscono un poco
+    $b = $a;
+    for ($y = 0; $y < PX_H; $y++) {
+        for ($x = 0; $x < PX_W; $x++) {
+            $c = $a[$y][$x];
+            if ($c !== null && ($at($a, $x, $y - 1) === null || $at($a, $x - 1, $y) === null)) {
+                $b[$y][$x] = px_free_lighten($c, 0.18);
+            }
+        }
+    }
+    // 3) Scale2x (EPX): ogni pixel diventa 2×2 e le diagonali si arrotondano senza sfocare
+    $out = [];
+    for ($y = 0; $y < PX_H; $y++) {
+        for ($x = 0; $x < PX_W; $x++) {
+            $P = $b[$y][$x];
+            $A = $at($b, $x, $y - 1);
+            $B = $at($b, $x + 1, $y);
+            $C = $at($b, $x - 1, $y);
+            $D = $at($b, $x, $y + 1);
+            $out[2 * $y][2 * $x] = ($C === $A && $C !== $D && $A !== $B) ? $A : $P;
+            $out[2 * $y][2 * $x + 1] = ($A === $B && $A !== $C && $B !== $D) ? $B : $P;
+            $out[2 * $y + 1][2 * $x] = ($D === $C && $D !== $B && $C !== $A) ? $C : $P;
+            $out[2 * $y + 1][2 * $x + 1] = ($B === $D && $B !== $A && $D !== $C) ? $D : $P;
+        }
+    }
+    return $out;
+}
+
+/**
+ * Come px_svg_paths, per una griglia a risoluzione doppia (mezzi pixel), con le stesse coordinate della figura. Le strisce uguali nelle due
+ * mezze righe di un pixel diventano un solo rettangolo alto 1 (il disegno pesa circa la metà). Identica a pxSvgPathsHalf di Next.
+ */
+function px_svg_paths_half(array $colors): string
+{
+    $num = static fn(float $v): string => (string) ($v == (int) $v ? (int) $v : $v);
+    $runs = static function (?array $row): array {
+        $out = [];
+        $x = 0;
+        while ($x < 2 * PX_W) {
+            $c = $row[$x] ?? null;
+            if ($c === null) {
+                $x++;
+                continue;
+            }
+            $x0 = $x;
+            while ($x < 2 * PX_W && ($row[$x] ?? null) === $c) {
+                $x++;
+            }
+            $out[] = [$c, $x0, $x];
+        }
+        return $out;
+    };
+    $by = [];
+    $add = static function (string $c, int $x0, int $x1, float $y, string $h) use (&$by, $num): void {
+        $len = $num(($x1 - $x0) / 2);
+        $by[$c] = ($by[$c] ?? '') . 'M' . $num($x0 / 2 - PX_OX) . ' ' . $num($y) . 'h' . $len . 'v' . $h . 'h-' . $len . 'z';
+    };
+    for ($gy = 0; $gy < 2 * PX_H; $gy += 2) {
+        $top = $runs($colors[$gy] ?? null);
+        $bottom = $runs($colors[$gy + 1] ?? null);
+        $key = static fn(array $r): string => $r[0] . '|' . $r[1] . '|' . $r[2];
+        $inBottom = array_flip(array_map($key, $bottom));
+        $both = [];
+        foreach ($top as $r) {
+            if (isset($inBottom[$key($r)])) {
+                $both[$key($r)] = true;
+            }
+        }
+        $y = $gy / 2 - PX_OY;
+        foreach ($top as $r) {
+            $add($r[0], $r[1], $r[2], $y, isset($both[$key($r)]) ? '1' : '0.5');
+        }
+        foreach ($bottom as $r) {
+            if (!isset($both[$key($r)])) {
+                $add($r[0], $r[1], $r[2], $y + 0.5, '0.5');
+            }
+        }
+    }
+    $s = '';
+    foreach ($by as $c => $d) {
+        $s .= '<path fill="' . $c . '" d="' . $d . '"/>';
+    }
+    return $s;
+}
+
+/** La figura di un fotogramma nello stile scelto. */
+function px_figure_paths(array $colors): string
+{
+    return AVATAR_PIXEL_STYLE === 'free' ? px_svg_paths_half(px_free($colors)) : px_svg_paths($colors);
+}
+
 /* ---------------------------------------------------------------- pose ed esultanze */
 
 /** Pose da fermo (shop_items 'pose'): passi [fotogramma, ms] ripetuti all'infinito (il respiro, il saluto). */
