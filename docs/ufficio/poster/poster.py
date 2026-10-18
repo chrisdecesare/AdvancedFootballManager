@@ -12,6 +12,10 @@ from pypdf.generic import RectangleObject
 root = pathlib.Path(__file__).parent
 cfg = json.loads((root / 'poster.json').read_text(encoding='utf-8'))
 avatars = json.loads((root / 'avatars.json').read_text(encoding='utf-8'))
+PREVIEW = None
+if len(sys.argv) > 2 and sys.argv[1] == '--preview':
+    PREVIEW = pathlib.Path(sys.argv[2])
+    cfg = {'url': 'https://example.org/calcetto', 'nome': 'Nome Cognome', 'telefono': '000 0000000', 'email': 'nome@example.org'}
 draft = any(('[' in str(v)) or ('INSERISCI' in str(v)) for v in cfg.values())
 esc = lambda s: html.escape(str(s))
 qr = segno.make(cfg['url'], error='h')
@@ -25,7 +29,7 @@ def icon(kind):
         return '<svg viewBox="0 0 48 48"><circle cx="18" cy="24" r="14" fill="#53c8f5" stroke="#1f1a2e" stroke-width="3.5"/><circle cx="30" cy="24" r="14" fill="#ff8c42" stroke="#1f1a2e" stroke-width="3.5" opacity=".92"/></svg>'
     return '<svg viewBox="0 0 48 48"><path d="M14 8h20v10a10 10 0 0 1-20 0z" fill="#ffd23f" stroke="#1f1a2e" stroke-width="3.5" stroke-linejoin="round"/><path d="M14 11H7v4a8 8 0 0 0 8 8M34 11h7v4a8 8 0 0 1-8 8" fill="none" stroke="#1f1a2e" stroke-width="3.5"/><path d="M24 28v8M16 40h16" stroke="#1f1a2e" stroke-width="4" stroke-linecap="round"/></svg>'
 
-ball = '<svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="#fff" stroke="#1f1a2e" stroke-width="3.5"/><path d="M24 14l9 6-3 11H18l-3-11z" fill="#1f1a2e"/><path d="M24 14V5M33 20l9-3M30 31l6 8M18 31l-6 8M15 20l-9-3" stroke="#1f1a2e" stroke-width="3" stroke-linecap="round"/></svg>'
+ball = '<svg viewBox="0 0 100 100"><circle cx="51" cy="51" r="44" fill="#1f1a2e"/><circle cx="46" cy="45" r="42" fill="#fff" stroke="#1f1a2e" stroke-width="6"/><circle cx="46" cy="45" r="29" fill="#fff" stroke="#1f1a2e" stroke-width="5"/><g stroke="#1f1a2e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><line x1="46.0" y1="32.0" x2="46.0" y2="16.0"/><line x1="58.4" y1="41.0" x2="73.6" y2="36.0"/><line x1="53.6" y1="55.5" x2="63.0" y2="68.5"/><line x1="38.4" y1="55.5" x2="29.0" y2="68.5"/><line x1="33.6" y1="41.0" x2="18.4" y2="36.0"/><polygon points="46.0,32.0 58.4,41.0 53.6,55.5 38.4,55.5 33.6,41.0" fill="#fff"/></g></svg>'
 
 fonts = root / 'fonts'
 CSS = """
@@ -39,29 +43,30 @@ html, body { width: %(pw)s; height: calc(%(ph)s - 1mm); overflow: hidden; backgr
 .wrap { position: absolute; left: 0; top: 0; width: %(pw)s; height: calc(%(ph)s - 1mm); overflow: hidden; }
 .stage { position: absolute; left: %(ox)s; top: %(oy)s; width: 216mm; height: 303mm; overflow: hidden; transform-origin: 0 0; transform: scale(%(scale)s); font-family: 'Nunito', sans-serif; color: var(--ink); background: var(--paper); }
 /* il campo: strisce, linee e cerchio di centrocampo */
-.pitch { position: absolute; left: 0; top: 0; width: 216mm; height: 160mm; overflow: hidden; background: repeating-linear-gradient(90deg, #3fcf7a 0 18mm, #36c270 18mm 36mm); border-bottom: 2.4mm solid var(--ink); }
-.lines { position: absolute; left: 13mm; top: 13mm; width: 190mm; height: 134mm; border: 1.6mm solid rgba(255,255,255,.85); border-radius: 3mm; }
+.pitch { position: absolute; left: 0; top: 0; width: 216mm; height: 178mm; overflow: hidden; background: repeating-linear-gradient(90deg, #3fcf7a 0 18mm, #36c270 18mm 36mm); border-bottom: 2.4mm solid var(--ink); }
+.lines { position: absolute; left: 13mm; top: 13mm; width: 190mm; height: 152mm; border: 1.6mm solid rgba(255,255,255,.85); border-radius: 3mm; }
 .circle { position: absolute; left: 50%%; bottom: -40mm; width: 80mm; height: 80mm; margin-left: -40mm; border: 1.6mm solid rgba(255,255,255,.85); border-radius: 50%%; }
-.logo { position: absolute; left: 16mm; top: 17mm; display: flex; align-items: center; gap: 3mm; background: var(--yellow); border: 1mm solid var(--ink); border-radius: 4mm; padding: 2mm 5mm 2mm 3mm; box-shadow: 1.6mm 1.6mm 0 var(--ink); transform: rotate(-2deg); }
-.logo svg { width: 11mm; height: 11mm; }
-.logo b { font: 400 17pt 'Lilita One'; letter-spacing: .2pt; }
-h1 { position: absolute; left: 16mm; right: 16mm; top: 36mm; font: 400 52pt/0.98 'Lilita One'; color: #fff; -webkit-text-stroke: 1.2mm var(--ink); paint-order: stroke fill; text-shadow: 1.6mm 1.6mm 0 var(--ink); letter-spacing: .5pt; }
+.logo { position: absolute; left: 14mm; top: 15mm; display: flex; align-items: center; gap: 5mm; background: var(--yellow); border: 1.2mm solid var(--ink); border-radius: 7mm; padding: 4mm 9mm 4mm 5mm; box-shadow: 2.2mm 2.2mm 0 var(--ink); transform: rotate(-2deg); }
+.logo svg { width: 38mm; height: 38mm; flex: none; }
+.logo b { display: block; font: 400 42pt/0.95 'Lilita One'; letter-spacing: .3pt; }
+h1 { position: absolute; left: 16mm; width: 100mm; top: 71mm; font: 400 35pt/0.98 'Lilita One'; color: #fff; -webkit-text-stroke: 1mm var(--ink); paint-order: stroke fill; text-shadow: 1.3mm 1.3mm 0 var(--ink); letter-spacing: .4pt; }
 h1 em { font-style: normal; color: var(--yellow); }
-.lead { position: absolute; left: 16mm; width: 150mm; top: 76mm; font-weight: 900; font-size: 13.5pt; line-height: 1.25; background: #fff; border: 1mm solid var(--ink); border-radius: 4mm; padding: 3.5mm 5mm; box-shadow: 1.6mm 1.6mm 0 var(--ink); }
-.team { position: absolute; left: 0; right: 0; bottom: 3mm; height: 62mm; }
-.team .av { position: absolute; bottom: 0; width: 34mm; }
+.lead { position: absolute; left: 16mm; width: 86mm; top: 121mm; font-weight: 900; font-size: 12pt; line-height: 1.25; background: #fff; border: 1mm solid var(--ink); border-radius: 4mm; padding: 3.5mm 5mm; box-shadow: 1.6mm 1.6mm 0 var(--ink); }
+.team { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+.team .av { position: absolute; bottom: 6mm; width: 64mm; filter: drop-shadow(0 0 0 transparent); }
 .team svg.avf { width: 100%%; height: auto; display: block; overflow: visible; }
-.pad { position: absolute; left: 16mm; right: 16mm; top: 168mm; }
-.pad h2 { font: 400 22pt 'Lilita One'; margin-bottom: 4mm; }
+.team .ball { position: absolute; width: 13mm; height: 13mm; }
+.team .ball svg { width: 100%%; height: 100%%; }
+.pad { position: absolute; left: 16mm; right: 16mm; top: 187mm; }
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
-.card { background: #fff; border: 1mm solid var(--ink); border-radius: 4mm; padding: 4mm 4mm 4.5mm; box-shadow: 1.6mm 1.6mm 0 var(--ink); }
-.card svg { width: 13mm; height: 13mm; display: block; margin-bottom: 2mm; }
+.card { background: #fff; border: 1mm solid var(--ink); border-radius: 4mm; padding: 3.2mm 4mm 3.8mm; box-shadow: 1.6mm 1.6mm 0 var(--ink); }
+.card svg { width: 11mm; height: 11mm; display: block; margin-bottom: 1.5mm; }
 .card b { display: block; font: 400 14pt/1.05 'Lilita One'; margin-bottom: 1.5mm; }
 .card span { font-weight: 700; font-size: 9.5pt; line-height: 1.25; }
-.centre { margin-top: 5mm; font-weight: 900; font-size: 11.5pt; line-height: 1.3; }
+.centre { margin-top: 4.5mm; font-weight: 900; font-size: 11pt; line-height: 1.3; }
 .centre u { text-decoration-color: var(--yellow); text-decoration-thickness: 1.2mm; text-underline-offset: 1mm; }
-.foot { position: absolute; left: 0; right: 0; bottom: 0; height: 57mm; background: var(--ink); color: #fff; border-top: 2.4mm solid var(--yellow); padding: 5mm 16mm 9mm; display: flex; gap: 8mm; align-items: center; }
-.qr { flex: none; width: 38mm; height: 38mm; background: #fff; border: 1mm solid var(--yellow); border-radius: 4mm; padding: 3mm; }
+.foot { position: absolute; left: 0; right: 0; bottom: 0; height: 54mm; background: var(--ink); color: #fff; border-top: 2.4mm solid var(--yellow); padding: 4mm 16mm 9mm; display: flex; gap: 8mm; align-items: center; }
+.qr { flex: none; width: 36mm; height: 36mm; background: #fff; border: 1mm solid var(--yellow); border-radius: 4mm; padding: 3mm; }
 .qr svg { width: 100%%; height: 100%%; display: block; }
 .cta { flex: 1; min-width: 0; }
 .cta .big { font: 400 24pt/1 'Lilita One'; color: var(--yellow); }
@@ -69,26 +74,28 @@ h1 em { font-style: normal; color: var(--yellow); }
 .cta .who { font-weight: 700; font-size: 10pt; line-height: 1.45; color: #e9e4f7; }
 .cta .who b { color: #fff; font-weight: 900; }
 .tiny { position: absolute; right: 16mm; bottom: 4.5mm; font-weight: 700; font-size: 7.5pt; color: #b9b2d0; }
-.stamp { position: absolute; left: 20mm; top: 118mm; transform: rotate(-22deg); border: 2mm solid var(--red); color: var(--red); background: rgba(255,255,255,.88); border-radius: 4mm; padding: 4mm 8mm; font: 400 30pt/1.05 'Lilita One'; text-align: center; z-index: 9; }
+.stamp { position: absolute; left: 22mm; top: 128mm; transform: rotate(-22deg); border: 2mm solid var(--red); color: var(--red); background: rgba(255,255,255,.88); border-radius: 4mm; padding: 4mm 8mm; font: 400 30pt/1.05 'Lilita One'; text-align: center; z-index: 9; }
 .stamp small { display: block; font: 900 12pt 'Nunito'; }
 .marks { position: absolute; left: 0; top: 0; width: 226mm; height: 313mm; }
 """
 
-AV_POS = [(3, 8), (46, 0), (89, 8), (132, 0), (175, 8)]   # sinistra in mm e altezza da terra: file irregolare per dare vita
+AV_POS = [(98, 0), (142, 0)]   # sinistra in mm e altezza da terra: file irregolare per dare vita
+
+ballsvg = '<svg viewBox="0 0 48 48"><ellipse cx="24" cy="43" rx="15" ry="3" fill="#1f1a2e" opacity=".25"/><circle cx="24" cy="23" r="19" fill="#fff" stroke="#1f1a2e" stroke-width="3.2"/><path d="M24 14l8 5.5-3 9.5H19l-3-9.5z" fill="#1f1a2e"/><path d="M24 14V5M32 19.5l9-3M29 29l5 8M19 29l-5 8M16 19.5l-9-3" stroke="#1f1a2e" stroke-width="2.6" stroke-linecap="round"/></svg>'
 
 def stage(pw, ph, ox, oy, scale, pagebg, extra=''):
-    avs = ''.join('<div class="av" style="left:%dmm;bottom:%dmm">%s</div>' % (x, y, svg) for (x, y), svg in zip(AV_POS, avatars))
+    avs = ''.join('<div class="av" style="left:%dmm">%s</div>' % (x, svg) for (x, y), svg in zip(AV_POS, avatars))
+    avs += '<div class="ball" style="left:131mm;bottom:3mm">' + ballsvg + '</div>'
     css = CSS % dict(pw=pw, ph=ph, ox=ox, oy=oy, scale=scale, pagebg=pagebg)
     body = f'''
 <div class="wrap"><div class="stage">
   <div class="pitch"><div class="lines"></div><div class="circle"></div>
-    <div class="logo">{ball}<b>Calcetto Manager</b></div>
-    <h1>Il vostro calcetto,<br>un vero <em>campionato.</em></h1>
+    <div class="logo">{ball}<b>Calcetto<br>Manager</b></div>
+    <h1>Il vostro calcetto, un vero <em>campionato.</em></h1>
     <div class="lead">Presenze, squadre equilibrate, classifica e Gazzetta della settimana. <u>Gratis</u> per i gruppi che giocano da voi.</div>
     <div class="team">{avs}</div>
   </div>
   <div class="pad">
-    <h2>Come funziona</h2>
     <div class="cards">
       <div class="card">{icon('check')}<b>Chi c'è, chi no</b><span>Ognuno conferma dal telefono. Chi non risponde riceve il promemoria.</span></div>
       <div class="card">{icon('teams')}<b>Squadre giuste</b><span>L'app forma due squadre equilibrate in base al livello dei giocatori.</span></div>
@@ -121,7 +128,7 @@ def marks():
 def render(htmlText, name, w, h):
     f = root / f'_{name}.html'
     f.write_text(htmlText, encoding='utf-8')
-    out = root / f'{name}.pdf'
+    out = (PREVIEW or root) / f'{name}.pdf'
     subprocess.run(['node', str(root / 'topdf.js'), str(f), str(out), w, h], check=True)
     f.unlink()
     return out
