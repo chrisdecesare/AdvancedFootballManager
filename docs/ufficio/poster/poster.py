@@ -6,6 +6,8 @@ Uso: python3 poster.py   (legge poster.json: url del QR e contatti; richiede ava
 Se nel poster.json ci sono ancora i segnaposto, compare il timbro «BOZZA» e il file NON va stampato."""
 import json, pathlib, subprocess, html, sys
 import segno
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / 'marketing'))
+import brand
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import RectangleObject
 
@@ -49,9 +51,15 @@ html, body { width: %(pw)s; height: calc(%(ph)s - 1mm); overflow: hidden; backgr
 .logo { position: absolute; left: 14mm; top: 15mm; display: flex; align-items: center; gap: 5mm; background: var(--yellow); border: 1.2mm solid var(--ink); border-radius: 7mm; padding: 4mm 9mm 4mm 5mm; box-shadow: 2.2mm 2.2mm 0 var(--ink); transform: rotate(-2deg); }
 .logo svg { width: 38mm; height: 38mm; flex: none; }
 .logo b { display: block; font: 400 42pt/0.95 'Lilita One'; letter-spacing: .3pt; }
-h1 { position: absolute; left: 16mm; width: 100mm; top: 71mm; font: 400 35pt/0.98 'Lilita One'; color: #fff; -webkit-text-stroke: 1mm var(--ink); paint-order: stroke fill; text-shadow: 1.3mm 1.3mm 0 var(--ink); letter-spacing: .4pt; }
+h1 { position: absolute; left: 16mm; width: 130mm; top: 67mm; font: 400 45pt/0.98 'Lilita One'; color: #fff; -webkit-text-stroke: 1mm var(--ink); paint-order: stroke fill; text-shadow: 1.3mm 1.3mm 0 var(--ink); letter-spacing: .4pt; }
 h1 em { font-style: normal; color: var(--yellow); }
-.lead { position: absolute; left: 16mm; width: 86mm; top: 121mm; font-weight: 900; font-size: 12pt; line-height: 1.25; background: #fff; border: 1mm solid var(--ink); border-radius: 4mm; padding: 3.5mm 5mm; box-shadow: 1.6mm 1.6mm 0 var(--ink); }
+.lead { position: absolute; left: 16mm; width: 86mm; top: 114mm; font-weight: 900; font-size: 12pt; line-height: 1.25; background: #fff; border: 1mm solid var(--ink); border-radius: 4mm; padding: 3.5mm 5mm; box-shadow: 1.6mm 1.6mm 0 var(--ink); }
+.conf { position: absolute; left: 0; top: 0; width: 216mm; height: 178mm; }
+.conf svg { width: 100%%; height: 100%%; }
+.burst2 { position: absolute; left: 150mm; top: 14mm; width: 52mm; height: 52mm; display: grid; place-items: center; transform: rotate(12deg); }
+.burst2 .bs { position: absolute; left: 0; top: 0; width: 100%%; height: 100%%; }
+.burst2 .bs svg { width: 100%%; height: 100%%; }
+.burst2 span { position: relative; font: 400 14pt/0.95 'Lilita One'; text-align: center; transform: rotate(-4deg); }
 .team { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
 .team .av { position: absolute; bottom: 6mm; width: 64mm; filter: drop-shadow(0 0 0 transparent); }
 .team svg.avf { width: 100%%; height: auto; display: block; overflow: visible; }
@@ -89,10 +97,10 @@ def stage(pw, ph, ox, oy, scale, pagebg, extra=''):
     css = CSS % dict(pw=pw, ph=ph, ox=ox, oy=oy, scale=scale, pagebg=pagebg)
     body = f'''
 <div class="wrap"><div class="stage">
-  <div class="pitch"><div class="lines"></div><div class="circle"></div>
+  <div class="pitch"><div class="lines"></div><div class="circle"></div><div class="conf">{brand.confetti(216, 178, 70, 17, avoid=[(14, 10, 128, 150)], unit=1.0)}</div><div class="burst2"><div class="bs">{brand.burst()}</div><span>GRATIS<br>per i<br>giocatori</span></div>
     <div class="logo">{ball}<b>Calcetto<br>Manager</b></div>
-    <h1>Il vostro calcetto, un vero <em>campionato.</em></h1>
-    <div class="lead">Presenze, squadre equilibrate, classifica e Gazzetta della settimana. <u>Gratis</u> per i gruppi che giocano da voi.</div>
+    <h1>Chi viene stasera? Lo sa <em>l'app.</em></h1>
+    <div class="lead">Presenze con promemoria, squadre equilibrate e classifica per i gruppi che giocano da voi. <u>Gratis</u> per i giocatori.</div>
     <div class="team">{avs}</div>
   </div>
   <div class="pad">
