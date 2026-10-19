@@ -12,7 +12,7 @@ const DAILY_DAYS  = 30;
 
 // TEST (temporaneo): true = campagna sempre aperta, così il Daily access è subito disponibile (e mostra il pallino).
 // RIMETTERE A false prima di pubblicare, così vale la finestra che parte da DAILY_START.
-const DAILY_TEST_ALWAYS_OPEN = true;
+const DAILY_TEST_ALWAYS_OPEN = false;
 
 /*
  * Oggetti esclusivi dei premi (Daily access e Ruota della fortuna): NON si comprano al Negozio e si vedono solo da chi li
@@ -111,8 +111,9 @@ function daily_claim(int $playerId): array
             return [false, 'Hai già ritirato il regalo di oggi: torna domani.', null];
         }
         if (($koin = (int) ($reward['koin'] ?? 0)) > 0) {
-            q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, 0, ?, 'premio', ?)
-               ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$playerId, $koin, 'daily-' . $next . '-' . $playerId]);
+            // nell'economia che il giocatore sta usando (chi gioca solo in una lega creata da utenti non ha le leghe storiche)
+            q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'premio', ?)
+               ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$playerId, current_eco($playerId), $koin, 'daily-' . $next . '-' . $playerId]);
         }
         if (!empty($reward['item'])) {
             if (!q('SELECT 1 FROM player_items WHERE player_id = ? AND item_key = ?', [$playerId, $reward['item']])->fetch()) {
@@ -123,4 +124,21 @@ function daily_claim(int $playerId): array
         log_activity('daily', 'regalo ' . $next . ' · ' . ($reward['label'] ?? ''));
         return [true, 'Ricompensa ritirata: ' . ($reward['label'] ?? ''), $reward];
     });
+}
+
+/**
+ * Una tantum (lib/db.php, schema 67): avviso push dell'apertura del Daily access e della Ruota a tutti gli account attivi con le notifiche
+ * attive (esclusi gli account da ospite). Va in coda: parte subito dopo, a risposta inviata. @return string cosa è successo (registro attività)
+ */
+function daily_announce_launch(): string
+{
+    $users = array_map('intval', q("SELECT DISTINCT ps.user_id FROM push_subscriptions ps JOIN users u ON u.id = ps.user_id
+                                    LEFT JOIN players p ON p.id = u.player_id WHERE u.status = 'attivo' AND (p.id IS NULL OR p.is_guest = 0)")->fetchAll(PDO::FETCH_COLUMN));
+    if (!$users) {
+        return 'nessun account con le notifiche attive: niente da mandare';
+    }
+    $n = push_queue_add($users, ['title' => 'Novità: Calendario e Ruota della fortuna',
+        'body' => 'Ritira ogni giorno il regalo e gira la ruota ogni 24 ore: KOIN, crediti e oggetti esclusivi.',
+        'url' => 'index.php', 'tag' => 'daily-launch'], 'normal', 'novita');
+    return 'notifica in coda per ' . count($users) . ' account (' . $n . ' dispositivi)';
 }

@@ -12,7 +12,7 @@ const WHEEL_COOLDOWN = 86400;   // 24 ore, in secondi
 
 // TEST (temporaneo): true = nessuna attesa, giri illimitati per provare le animazioni e i premi.
 // RIMETTERE A false prima di pubblicare, così torna il cooldown di 24h.
-const WHEEL_TEST_UNLIMITED = true;
+const WHEEL_TEST_UNLIMITED = false;
 
 /**
  * Icona della Ruota della fortuna: una ruota a spicchi colorati (SVG inline, così ha più colori di un'icona-font).
@@ -240,8 +240,9 @@ function wheel_spin(int $playerId): array
             [$playerId, $koin, $credits, $itemGiven ? $slice['label'] : ($type === 'koin' || $type === 'item' ? null : $slice['label']), $isExtra ? 1 : 0]) ? db()->lastInsertId() : 0);
 
         if ($koin > 0) {
-            q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, 0, ?, 'premio', ?)
-               ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$playerId, $koin, 'wheel-' . $spinId]);
+            // nell'economia che il giocatore sta usando (chi gioca solo in una lega creata da utenti non ha le leghe storiche)
+            q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref) VALUES (?, ?, ?, 'premio', ?)
+               ON DUPLICATE KEY UPDATE delta = VALUES(delta)", [$playerId, current_eco($playerId), $koin, 'wheel-' . $spinId]);
         }
         if ($credits > 0) {   // crediti dell'Avatar: valgono in tutte le economie, solo nel negozio (eco 0, shop_only)
             q("INSERT INTO wallet_moves (player_id, eco, delta, kind, ref, shop_only) VALUES (?, 0, ?, 'premio', ?, 1)

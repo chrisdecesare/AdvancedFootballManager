@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 66;
+const SCHEMA_VERSION = 67;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1067,6 +1067,19 @@ function ensure_schema(): void
             }
             meta_set('oneoff_fanta_luigi_oct15', mb_substr($msg, 0, 250));
             log_activity('fanta', 'Luigi capitano 15 ottobre · ' . $msg);
+        }
+    }
+    if ($v < 67) {
+        // una tantum: avviso push dell'apertura di Daily access e Ruota a tutti (lib/daily.php): una sola richiesta lo manda (chi prenota il
+        // segnaposto in meta); l'esito resta in meta e nel registro.
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_daily_push', 'in corso')")->rowCount()) {
+            try {
+                $msg = daily_announce_launch();
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_daily_push', mb_substr($msg, 0, 250));
+            log_activity('daily', 'avviso apertura · ' . $msg);
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);

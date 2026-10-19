@@ -64,9 +64,9 @@ layout_start('Home', 'home');
 <?= group_bar('index.php') ?>
 <div class="home">
 
-  <?php if ($me && is_admin()): // per ora solo admin: due bottoncini affiancati, Calendario (Daily) e Ruota, senza schede nel menu ?>
+  <?php if ($me && !is_guest()): // due bottoncini affiancati, Calendario (Daily) e Ruota, senza schede nel menu (gli ospiti non li hanno) ?>
   <div class="prize-btns">
-    <?php // il Calendario (admin, anteprima): visibile anche prima dell'avvio; la pagina mostra «parte il …». Il pallino solo se c'è un regalo da ritirare
+    <?php // il Calendario: visibile anche prima dell'avvio; la pagina mostra «parte il …». Il pallino solo se c'è un regalo da ritirare
       $dOpen = daily_window_open(); $dClaim = $dOpen && daily_claimable($me);
       $dNote = !$dOpen ? (strtotime(DAILY_START) > time() ? 'dal ' . date('d/m', strtotime(DAILY_START)) : 'terminato') : ($dClaim ? 'regalo da ritirare' : 'già ritirato oggi'); ?>
     <a class="prize-btn<?= $dClaim ? ' prize-btn-live' : '' ?>" href="daily.php">

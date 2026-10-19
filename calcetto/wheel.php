@@ -2,14 +2,14 @@
 /*
  * Ruota della fortuna (logica in lib/wheel.php): un giro ogni 24 ore, si vince KOIN, crediti dell'Avatar, un oggetto esclusivo non
  * acquistabile dal Negozio, un giro extra o un gettone ×2 per le scommesse. Il premio lo estrae il server e la ruota (assets/ruota.js)
- * gira fino a fermarsi con il puntale sullo spicchio estratto. Per ora è visibile solo all'admin e non ha una scheda nel menu: si
- * arriva qui dal bottoncino in Home.
+ * gira fino a fermarsi con il puntale sullo spicchio estratto. Non ha una scheda nel menu: si arriva qui dal bottoncino in Home
+ * (visibile a tutti i giocatori con un account, ospiti esclusi).
  */
 require __DIR__ . '/lib/bootstrap.php';
 require_login();
 
-if (!is_admin()) {   // per ora la Ruota è visibile solo all'admin
-    flash('err', 'La Ruota della fortuna non è ancora disponibile.');
+if (is_guest()) {   // gli ospiti non hanno KOIN: la Ruota è per chi ha un account suo
+    flash('err', 'La Ruota della fortuna è per i giocatori con un account: iscriviti per usarla.');
     redirect('index.php');
 }
 
