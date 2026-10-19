@@ -1,6 +1,14 @@
 Options -Indexes -MultiViews
 DirectoryIndex index.php
 
+# Il gestionale si è trasferito su https://calcettomanager.win (Next.js su Vercel, con i dati copiati da qui il 19/10/2026):
+# ogni indirizzo di questa cartella porta lì, con lo stesso percorso (il sito nuovo conosce sia i .php sia gli indirizzi belli).
+# 302 e non 301: i browser non lo ricordano per sempre, così per tornare indietro basta togliere questo blocco.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(.*)$ https://calcettomanager.win/$1 [R=302,L,QSA]
+</IfModule>
+
 # App installabile e notifiche: il manifest e il service worker vanno serviti con il tipo giusto
 AddType application/manifest+json .webmanifest
 AddType text/javascript .js
