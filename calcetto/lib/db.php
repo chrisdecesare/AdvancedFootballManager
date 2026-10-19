@@ -3,17 +3,24 @@ function db(): PDO
 {
     static $pdo = null;
     if ($pdo === null) {
+        $opts = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ];
         try {
-            $pdo = new PDO(
-                'mysql:host=' . DB_HOST . (defined('DB_PORT') ? ';port=' . DB_PORT : '') . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-                DB_USER,
-                DB_PASS,
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                ]
-            );
+            if (defined('TIDB_PASS')) {
+                // database condiviso con calcettomanager.win (config.tidb.php): TiDB Cloud vuole TLS, certificato verificato con la radice ISRG
+                $pdo = new PDO('mysql:host=' . TIDB_HOST . ';port=' . TIDB_PORT . ';dbname=' . TIDB_NAME . ';charset=utf8mb4', TIDB_USER, TIDB_PASS,
+                    $opts + [PDO::MYSQL_ATTR_SSL_CA => __DIR__ . '/certs/isrgrootx1.pem', PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => true]);
+            } else {
+                $pdo = new PDO(
+                    'mysql:host=' . DB_HOST . (defined('DB_PORT') ? ';port=' . DB_PORT : '') . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+                    DB_USER,
+                    DB_PASS,
+                    $opts
+                );
+            }
             $pdo->exec("SET time_zone = '" . date('P') . "'");
         } catch (PDOException $e) {
             http_response_code(500);

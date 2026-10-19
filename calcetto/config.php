@@ -16,6 +16,11 @@ if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
 if (is_file(__DIR__ . '/config.local.php')) {
     require __DIR__ . '/config.local.php';
 }
+// Database condiviso con il sito nuovo (calcettomanager.win su Vercel): TiDB Cloud. Il file lo scrive il deploy (.github/workflows/deploy.yml)
+// solo se su GitHub c'è il segreto TIDB_PASS; allora lib/db.php usa TIDB_* al posto di DB_* e i due siti vedono gli stessi dati.
+if (is_file(__DIR__ . '/config.tidb.php')) {
+    require __DIR__ . '/config.tidb.php';
+}
 
 defined('DB_HOST') || define('DB_HOST', getenv('DB_HOST') !== false ? getenv('DB_HOST') : 'localhost');
 defined('DB_USER') || define('DB_USER', getenv('DB_USER') ?: 'NOMEUTENTE');

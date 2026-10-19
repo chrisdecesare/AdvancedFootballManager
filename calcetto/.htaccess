@@ -1,13 +1,25 @@
 Options -Indexes -MultiViews
 DirectoryIndex index.php
 
-# Il gestionale si è trasferito su https://calcettomanager.win (Next.js su Vercel, con i dati copiati da qui il 19/10/2026):
-# ogni indirizzo di questa cartella porta lì, con lo stesso percorso (il sito nuovo conosce sia i .php sia gli indirizzi belli).
-# 302 e non 301: i browser non lo ricordano per sempre, così per tornare indietro basta togliere questo blocco.
+# Foto e sfondi caricati dal sito nuovo (calcettomanager.win) non sono in questa cartella: se un file manca, si prende da lì.
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^uploads/players/([A-Za-z0-9_.-]+)$ https://calcettomanager.win/uploads/players/$1 [R=302,L]
+</IfModule>
+
+# >>> redirect-vercel
+# Finché questo sito non usa il database condiviso (TiDB, config.tidb.php) ogni indirizzo porta a https://calcettomanager.win, con lo stesso
+# percorso, così nessuno scrive su un database vecchio. Il deploy toglie questo blocco quando su GitHub c'è il segreto TIDB_PASS.
+# 302 e non 301: i browser non lo ricordano per sempre.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_URI} !tidb-probe\.php$
+  # le foto che ci sono restano scaricabili da qui: il sito nuovo le copia (/cron/foto) e le prende al volo se gli mancano
+  RewriteCond %{REQUEST_URI} !/uploads/players/
   RewriteRule ^(.*)$ https://calcettomanager.win/$1 [R=302,L,QSA]
 </IfModule>
+# <<< redirect-vercel
 
 # App installabile e notifiche: il manifest e il service worker vanno serviti con il tipo giusto
 AddType application/manifest+json .webmanifest

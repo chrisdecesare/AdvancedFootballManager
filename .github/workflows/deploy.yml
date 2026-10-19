@@ -20,6 +20,27 @@ jobs:
       # azioni fissate al commit (non al tag, che chi le pubblica può spostare): il deploy riceve la password FTP
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
 
+      # Database condiviso con calcettomanager.win: se su GitHub c'è il segreto TIDB_PASS, il sito PHP usa TiDB Cloud (config.tidb.php) e il
+      # redirect verso il sito nuovo si toglie; senza il segreto non cambia niente (il redirect resta e nessuno scrive sul database vecchio).
+      - name: Database condiviso (TiDB), se c'è il segreto
+        env:
+          TIDB_PASS: ${{ secrets.TIDB_PASS }}
+        run: |
+          if [ -z "$TIDB_PASS" ]; then echo "TIDB_PASS non impostato: resta il redirect"; exit 0; fi
+          php -r '
+            $v = fn($s) => var_export($s, true);
+            echo "<?php\n// Scritto dal deploy (GitHub Actions): database condiviso con calcettomanager.win. Si può solo includere.\n";
+            echo "if (realpath(\$_SERVER[\"SCRIPT_FILENAME\"] ?? \"\") === __FILE__) { http_response_code(404); exit; }\n";
+            echo "define(\"TIDB_HOST\", " . $v("gateway01.eu-central-1.prod.aws.tidbcloud.com") . ");\n";
+            echo "define(\"TIDB_PORT\", 4000);\n";
+            echo "define(\"TIDB_USER\", " . $v("2reZ9URSTJT9v3t.root") . ");\n";
+            echo "define(\"TIDB_NAME\", " . $v("calcetto") . ");\n";
+            echo "define(\"TIDB_PASS\", " . $v(getenv("TIDB_PASS")) . ");\n";
+          ' > calcetto/config.tidb.php
+          php -l calcetto/config.tidb.php
+          sed -i '/# >>> redirect-vercel/,/# <<< redirect-vercel/d' calcetto/.htaccess
+          ! grep -q 'calcettomanager.win/\$1' calcetto/.htaccess
+
       - name: Carica via FTP
         uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65   # v4.3.5
         with:
