@@ -8,17 +8,6 @@ DirectoryIndex index.php
   RewriteRule ^uploads/players/([A-Za-z0-9_.-]+)$ https://calcettomanager.win/uploads/players/$1 [R=302,L]
 </IfModule>
 
-# Il gestionale si è trasferito su https://calcettomanager.win (Next.js su Vercel, database TiDB): ogni indirizzo porta lì, con lo stesso
-# percorso, così c'è un solo database e nessuno scrive su quello vecchio. Altervista gratuito non può collegarsi a database esterni
-# (le connessioni MySQL finiscono sul suo server locale: provato il 19/10/2026), quindi i due siti non possono condividere i dati.
-# 302 e non 301: i browser non lo ricordano per sempre.
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  # le foto che ci sono restano scaricabili da qui: il sito nuovo le copia (/cron/foto) e le prende al volo se gli mancano
-  RewriteCond %{REQUEST_URI} !/uploads/players/
-  RewriteRule ^(.*)$ https://calcettomanager.win/$1 [R=302,L,QSA]
-</IfModule>
-
 # App installabile e notifiche: il manifest e il service worker vanno serviti con il tipo giusto
 AddType application/manifest+json .webmanifest
 AddType text/javascript .js

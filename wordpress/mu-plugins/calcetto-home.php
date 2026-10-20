@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Calcetto Manager - home
- * Description: L'indirizzo principale del sito porta al gestionale, ora su https://calcettomanager.win.
+ * Description: L'indirizzo principale del sito porta al gestionale in wp-content/calcetto/.
  *
  * Redirect temporaneo (302) solo per la home esatta ("/", senza parametri): il resto di
  * WordPress (wp-admin, wp-login.php, articoli, API) continua a funzionare come prima.
@@ -16,7 +16,7 @@ add_action('template_redirect', function () {
     $path = (string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     $query = (string) ($_SERVER['QUERY_STRING'] ?? '');
     if ($path === '/' && $query === '' && ($method === 'GET' || $method === 'HEAD')) {
-        wp_redirect('https://calcettomanager.win/', 302); // dominio esterno: wp_safe_redirect lo bloccherebbe
+        wp_safe_redirect(home_url('/wp-content/calcetto/'), 302);
         exit;
     }
 });
