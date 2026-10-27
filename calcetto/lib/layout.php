@@ -93,8 +93,6 @@ function layout_start(string $title, string $active = ''): void
 <!-- Tabler Icons: icone disegnate a tratto (tabler.io/icons) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="<?= h($css) ?>">
-<!-- Google AdSense: annunci automatici (si gestiscono dalla dashboard AdSense, Annunci → Per sito) -->
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7565895492945765" crossorigin="anonymous"></script>
 <script src="<?= h($js) ?>" defer></script>
 <noscript><style>@media (max-width: 799px) { .nav-toggle { display: none; } .nav { display: flex; position: static; flex-direction: row; grid-column: 1 / -1; overflow-x: auto; box-shadow: none; background: none; padding: 0 0 6px; border: 0; } .nav-extra { display: none !important; } }</style></noscript>
 </head>
