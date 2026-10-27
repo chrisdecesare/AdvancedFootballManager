@@ -203,6 +203,12 @@ if (is_post()) {
                 break;
             }
             $v = ['city' => trim((string) ($_POST['city'] ?? '')), 'area' => trim((string) ($_POST['area'] ?? '')), 'about' => trim((string) ($_POST['about'] ?? '')), 'discoverable' => !empty($_POST['discoverable'])];
+            $la = trim((string) ($_POST['lat'] ?? ''));
+            $ln = trim((string) ($_POST['lng'] ?? ''));
+            if (is_numeric($la) && is_numeric($ln) && abs((float) $la) <= 90 && abs((float) $ln) <= 180) {
+                $v['lat'] = round((float) $la, 6);
+                $v['lng'] = round((float) $ln, 6);
+            }
             if ($err = league_public_error($v)) {
                 flash('err', $err);
             } else {
@@ -263,13 +269,19 @@ layout_start($league['name'] . ' · gestione', 'league');
   <a class="card admin-link" href="#membri"><span><i class="ti ti-users"></i></span><strong><?= count($members) ?> giocatori</strong><small><?= count($withAccount) ?> con account</small></a>
 </div>
 
-<?php if (discover_visible()): $pub = league_public_get($gid) ?: ['city' => '', 'area' => '', 'about' => '', 'discoverable' => 0]; ?>
+<?php if (discover_visible()): $pub = league_public_get($gid) ?: ['city' => '', 'area' => '', 'about' => '', 'discoverable' => 0, 'lat' => null, 'lng' => null]; ?>
 <section class="card" id="mappa">
   <h2><i class="ti ti-map-pin"></i> Trovami sulla mappa</h2>
   <p class="muted small">Rendi la lega visibile in <a class="link" href="calcetto">Trova una lega</a>: chi cerca una squadra può chiedere di entrare (tu approvi sempre) e le altre leghe possono sfidarti.</p>
   <form method="post" class="form-grid"><?= csrf_field() ?><input type="hidden" name="group_id" value="<?= $gid ?>"><input type="hidden" name="do" value="public">
-    <label>Città <input name="city" required maxlength="80" value="<?= h($pub['city']) ?>"></label>
-    <label>Zona o campo (facoltativo) <input name="area" maxlength="120" value="<?= h($pub['area']) ?>"></label>
+    <div class="place-picker" data-src="assets/comuni-it.json">
+      <label class="field"><span>Città</span><input name="city" data-pp="city" required maxlength="80" autocomplete="off" value="<?= h($pub['city']) ?>" placeholder="Scrivi e scegli dall'elenco"></label>
+      <label class="field"><span>Campo o zona dove giocate</span><span class="inline-form"><input name="area" data-pp="area" maxlength="120" value="<?= h($pub['area']) ?>" placeholder="Centro Sportivo Arechi"> <button type="button" data-pp="find" class="btn btn-ghost btn-sm">Cerca sulla mappa</button></span></label>
+      <input type="hidden" name="lat" data-pp="lat" value="<?= h((string) ($pub['lat'] ?? '')) ?>"><input type="hidden" name="lng" data-pp="lng" value="<?= h((string) ($pub['lng'] ?? '')) ?>">
+      <p class="muted small pp-status">Scegli la città, poi tocca la mappa sul campo (o sulla zona) dove giocate.</p>
+      <div class="pp-map" data-pp="map" role="region" aria-label="Scegli il punto sulla mappa"></div>
+    </div>
+    <script src="assets/place-picker.js" defer></script>
     <label>Presentazione (max 300) <textarea name="about" maxlength="300" rows="2"><?= h($pub['about']) ?></textarea></label>
     <label class="check"><input type="checkbox" name="discoverable" value="1"<?= $pub['discoverable'] ? ' checked' : '' ?>> Visibile a tutti</label>
     <button class="btn btn-primary btn-sm">Salva</button>

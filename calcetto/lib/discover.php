@@ -75,7 +75,7 @@ function centers_in_city(string $citySlug): array
 function league_public_get(int $gid): ?array
 {
     biz_schema_ensure();
-    return q('SELECT city, area, about, logo, discoverable FROM league_public WHERE group_id = ?', [$gid])->fetch() ?: null;
+    return q('SELECT city, area, about, logo, discoverable, lat, lng FROM league_public WHERE group_id = ?', [$gid])->fetch() ?: null;
 }
 
 function league_public_error(array $v): ?string
@@ -95,8 +95,9 @@ function league_public_set(int $gid, array $v): void
 {
     biz_schema_ensure();
     $old = q('SELECT city, area, lat FROM league_public WHERE group_id = ?', [$gid])->fetch();
-    $same = $old && $old['city'] === $v['city'] && $old['area'] === $v['area'] && $old['lat'] !== null;
-    $p = $same ? null : geocode($v['area'], $v['city']);
+    $picked = isset($v['lat'], $v['lng']);   // punto scelto sulla mappa: vale più della ricerca per nome
+    $same = !$picked && $old && $old['city'] === $v['city'] && $old['area'] === $v['area'] && $old['lat'] !== null;
+    $p = $picked ? [$v['lat'], $v['lng']] : ($same ? null : geocode($v['area'], $v['city']));
     q('INSERT INTO league_public (group_id, city, city_slug, area, lat, lng, about, discoverable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE city = VALUES(city), city_slug = VALUES(city_slug), area = VALUES(area), about = VALUES(about), discoverable = VALUES(discoverable),
          lat = IF(? = 1, lat, VALUES(lat)), lng = IF(? = 1, lng, VALUES(lng)), updated_at = CURRENT_TIMESTAMP',
