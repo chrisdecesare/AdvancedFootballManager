@@ -138,6 +138,22 @@ function free_slots_in_city(string $citySlug, int $limit = 30): array
     return array_map(fn ($r) => ['id' => (int) $r['id'], 'label' => substr($r['starts_at'], 8, 2) . '/' . substr($r['starts_at'], 5, 2) . ' ' . substr($r['starts_at'], 11, 5) . ' · ' . $r['name'] . ', campo ' . $r['field_no']], $rows);
 }
 
+/** Anteprima riservata all'admin (come DISCOVER_OPEN sul sito Next): per aprirla a tutti basta mettere true. */
+const DISCOVER_OPEN = false;
+function discover_visible(): bool
+{
+    return DISCOVER_OPEN || (current_user() && is_admin());
+}
+
+/** Per le pagine dell'anteprima: a chi non può vederle risponde 404. */
+function require_discover(): void
+{
+    if (!discover_visible()) {
+        http_response_code(404);
+        exit('Pagina non trovata.');
+    }
+}
+
 const CHALLENGE_SEL = 'SELECT c.*, gf.name AS from_name, gt.name AS to_name FROM league_challenges c JOIN squad_groups gf ON gf.id = c.from_group JOIN squad_groups gt ON gt.id = c.to_group';
 
 /** Crea la sfida; ritorna un messaggio d'errore oppure null. */

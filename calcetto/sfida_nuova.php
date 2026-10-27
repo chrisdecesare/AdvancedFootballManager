@@ -1,6 +1,7 @@
 <?php
 /* Nuova sfida a una lega visibile (come /sfide/nuova del sito Next): si sceglie con quale delle proprie leghe, l'avversaria e un orario libero di un campo o un giorno a scelta. */
 require __DIR__ . '/lib/bootstrap.php';
+require_discover();
 require_login();
 $mine = my_owned_leagues();
 if (!$mine || is_guest()) {

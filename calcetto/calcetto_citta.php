@@ -1,6 +1,7 @@
 <?php
 /* La pagina di una città (come /calcetto/<città> del sito Next): mappa con le leghe visibili e i campi, poi le schede. Chi è dentro chiede di entrare con un tocco. */
 require __DIR__ . '/lib/bootstrap.php';
+require_discover();
 if (!tables_exist()) {
     redirect('install.php');
 }

@@ -199,6 +199,9 @@ if (is_post()) {
             break;
 
         case 'public':   // «Trovami sulla mappa»
+            if (!discover_visible()) {
+                break;
+            }
             $v = ['city' => trim((string) ($_POST['city'] ?? '')), 'area' => trim((string) ($_POST['area'] ?? '')), 'about' => trim((string) ($_POST['about'] ?? '')), 'discoverable' => !empty($_POST['discoverable'])];
             if ($err = league_public_error($v)) {
                 flash('err', $err);
@@ -260,7 +263,7 @@ layout_start($league['name'] . ' · gestione', 'league');
   <a class="card admin-link" href="#membri"><span><i class="ti ti-users"></i></span><strong><?= count($members) ?> giocatori</strong><small><?= count($withAccount) ?> con account</small></a>
 </div>
 
-<?php $pub = league_public_get($gid) ?: ['city' => '', 'area' => '', 'about' => '', 'discoverable' => 0]; ?>
+<?php if (discover_visible()): $pub = league_public_get($gid) ?: ['city' => '', 'area' => '', 'about' => '', 'discoverable' => 0]; ?>
 <section class="card" id="mappa">
   <h2><i class="ti ti-map-pin"></i> Trovami sulla mappa</h2>
   <p class="muted small">Rendi la lega visibile in <a class="link" href="calcetto">Trova una lega</a>: chi cerca una squadra può chiedere di entrare (tu approvi sempre) e le altre leghe possono sfidarti.</p>
@@ -272,6 +275,7 @@ layout_start($league['name'] . ' · gestione', 'league');
     <button class="btn btn-primary btn-sm">Salva</button>
   </form>
 </section>
+<?php endif; ?>
 
 <section class="card" id="invito">
   <h2><i class="ti ti-link"></i> Invita i giocatori</h2>

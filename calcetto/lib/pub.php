@@ -67,7 +67,7 @@ function city_map(array $points, int $height = 380): void
   var pts = <?= $json ?>, colors = { lega: '#38d178', nuova: '#ff6b9a', centro: '#53c8f5', campo: '#ffd23f' };
   if (!window.L || !pts.length) return;
   var m = L.map('citymap', { scrollWheelZoom: false });
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap', referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(m);
   pts.forEach(function (p) {
     var d = document.createElement('div'), a = document.createElement('a');
     a.href = p.href; a.textContent = p.label; a.style.fontWeight = '800'; d.appendChild(a);

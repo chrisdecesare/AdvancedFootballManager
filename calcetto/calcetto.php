@@ -1,6 +1,7 @@
 <?php
 /* Indice delle città con leghe e campi (come /calcetto del sito Next): da qui si va alla pagina di una città con la mappa. */
 require __DIR__ . '/lib/bootstrap.php';
+require_discover();
 if (!tables_exist()) {
     redirect('install.php');
 }

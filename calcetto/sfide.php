@@ -1,6 +1,7 @@
 <?php
 /* Sfide tra leghe (come /sfide del sito Next): quelle ricevute da accettare o rifiutare e quelle inviate. */
 require __DIR__ . '/lib/bootstrap.php';
+require_discover();
 require_login();
 $managed = array_keys(my_owned_leagues());
 if (!$managed || is_guest()) {
