@@ -6,8 +6,8 @@
 require __DIR__ . '/lib/bootstrap.php';
 require_login();
 
-if (!is_admin()) {   // per ora il Daily access è visibile solo all'admin
-    flash('err', 'Il Daily access non è ancora disponibile.');
+if (is_guest()) {   // gli ospiti non hanno KOIN: il Daily access è per chi ha un account suo
+    flash('err', 'Il Daily access è per i giocatori con un account: iscriviti per usarlo.');
     redirect('index.php');
 }
 

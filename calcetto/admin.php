@@ -122,7 +122,11 @@ if (is_post()) {
             } else {
                 q('INSERT INTO users (username, password_hash, role, player_id) VALUES (?, ?, ?, ?)',
                     [$username, password_hash($password, PASSWORD_DEFAULT), $role, $pid]);
-                flash('ok', "Account \"$username\" creato.");
+                $pname = $pid ? q('SELECT name FROM players WHERE id = ?', [$pid])->fetchColumn() : null;
+                invite_set(['name' => (string) ($pname ?: $username), 'username' => $username, 'password' => $password, 'role' => invite_role_word($role),
+                    'leagues' => invite_leagues_of_player($pid), 'by' => invite_by(current_user())]);
+                flash('ok', "Account \"$username\" creato: ecco l'invito da mandargli.");
+                redirect('invito.php?back=admin.php');
             }
             break;
         case 'gift_coins':

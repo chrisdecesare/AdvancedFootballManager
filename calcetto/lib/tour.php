@@ -96,6 +96,21 @@ function tour_steps(array $u): array
             ],
         ],
     ];
+    if (!is_guest()) {   // gli ospiti non hanno KOIN: niente Calendario né Ruota
+        array_splice($steps, 2, 0, [
+            [
+                'sel' => '.prize-btns', 'icon' => 'gift',
+                'title' => 'Regali di ogni giorno',
+                'text' => 'In Home, sopra tutto, trovi due bottoni: Calendario e Ruota. Ogni giorno c\'è qualcosa da ritirare.',
+                'bullets' => [
+                    'Calendario (Daily access): 30 regali, uno per ogni giorno in cui accedi. Se salti un giorno non perdi niente: il giorno dopo ritiri quello che ti spettava. Alcuni danno anche oggetti esclusivi, che non escono nel Negozio.',
+                    'Ruota della fortuna: un giro gratis ogni 24 ore. Si vincono KOIN, crediti per l\'Avatar, oggetti esclusivi, un giro extra o un gettone ×2 per le scommesse (le probabilità sono nella pagina della Ruota).',
+                    'Il gettone ×2 si attiva su una partita in Scommesse: le tue puntate singole su quella partita, se vincono, pagano il doppio.',
+                    'Il pallino rosso su un bottone dice che c\'è qualcosa da ritirare.',
+                ],
+            ]
+        ]);
+    }
     if (($u['role'] ?? '') === 'manager') {
         $steps[] = [
             'sel' => '.nav a[href="matches.php"]', 'icon' => 'clipboard-list',

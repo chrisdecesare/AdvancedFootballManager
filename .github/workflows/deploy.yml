@@ -20,6 +20,22 @@ jobs:
       # azioni fissate al commit (non al tag, che chi le pubblica può spostare): il deploy riceve la password FTP
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
 
+      # Database condiviso con calcettomanager.win: il sito Next legge e scrive il database di Altervista attraverso calcetto/ponte-db.php,
+      # che risponde solo a richieste firmate con DB_BRIDGE_SECRET. Il segreto sta su GitHub (e uguale su Vercel), mai nel repository:
+      # qui diventa calcetto/config.bridge.php. Senza il segreto il file non c'è e il ponte resta spento (404).
+      - name: Segreto del ponte verso il database, se c'è
+        env:
+          DB_BRIDGE_SECRET: ${{ secrets.DB_BRIDGE_SECRET }}
+        run: |
+          if [ -z "$DB_BRIDGE_SECRET" ]; then echo "DB_BRIDGE_SECRET non impostato: ponte spento"; exit 0; fi
+          if [ ${#DB_BRIDGE_SECRET} -lt 32 ]; then echo "DB_BRIDGE_SECRET troppo corto (minimo 32 caratteri)"; exit 1; fi
+          php -r '
+            echo "<?php\n// Scritto dal deploy (GitHub Actions): segreto del ponte verso il database (ponte-db.php). Si può solo includere.\n";
+            echo "if (realpath(\$_SERVER[\"SCRIPT_FILENAME\"] ?? \"\") === __FILE__) { http_response_code(404); exit; }\n";
+            echo "define(\"DB_BRIDGE_SECRET\", " . var_export(getenv("DB_BRIDGE_SECRET"), true) . ");\n";
+          ' > calcetto/config.bridge.php
+          php -l calcetto/config.bridge.php
+
       - name: Carica via FTP
         uses: SamKirkland/FTP-Deploy-Action@8e83cea8672e3fbcbb9fdafff34debf6ae4c5f65   # v4.3.5
         with:

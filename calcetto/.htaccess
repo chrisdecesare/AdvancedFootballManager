@@ -1,6 +1,13 @@
 Options -Indexes -MultiViews
 DirectoryIndex index.php
 
+# Foto e sfondi caricati dal sito nuovo (calcettomanager.win) non sono in questa cartella: se un file manca, si prende da lì.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^uploads/players/([A-Za-z0-9_.-]+)$ https://calcettomanager.win/uploads/players/$1 [R=302,L]
+</IfModule>
+
 # App installabile e notifiche: il manifest e il service worker vanno serviti con il tipo giusto
 AddType application/manifest+json .webmanifest
 AddType text/javascript .js
@@ -24,6 +31,12 @@ AddType text/javascript .js
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
+  RewriteRule ^benvenuto$ benvenuto.php [QSA,L]
+  RewriteRule ^invito$ invito.php [QSA,L]
+  RewriteRule ^calcetto$ calcetto.php [QSA,L]
+  RewriteRule ^calcetto-([a-z0-9-]+)$ calcetto_citta.php?c=$1 [QSA,L]
+  RewriteRule ^sfide$ sfide.php [QSA,L]
+  RewriteRule ^nuova-sfida$ sfida_nuova.php [QSA,L]
   RewriteRule ^partite$ matches.php [QSA,L]
   RewriteRule ^partita-([0-9]+)$ match.php?id=$1 [QSA,L]
   RewriteRule ^partita$ match.php [QSA,L]

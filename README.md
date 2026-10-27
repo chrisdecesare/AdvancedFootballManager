@@ -391,7 +391,7 @@ Gli oggetti dell'Avatar usciti prima del suo lancio non si annunciano.
 il countdown resta nella pagina «Indovina la funzionalità» (`guess.php`).
 
 ## Ruota della fortuna e Daily access
-Per ora solo per l'admin (bottoncini in Home, `wheel.php` e `daily.php`; flag `WHEEL_TEST_UNLIMITED` e `DAILY_TEST_ALWAYS_OPEN` da rimettere a `false` prima di aprire a tutti).
+Aperti a tutti i giocatori con un account (ospiti esclusi: non hanno KOIN) dal 19 ottobre 2026: bottoncini in Home, `wheel.php` e `daily.php`, passo «Regali di ogni giorno» nel tutorial e avviso push una tantum (schema 67, segnaposto `oneoff_daily_push`). I flag di prova `WHEEL_TEST_UNLIMITED` e `DAILY_TEST_ALWAYS_OPEN` sono spenti. I KOIN dei premi vanno nell'economia in uso (`current_eco`).
 
 - **Ruota** (`lib/wheel.php`, `assets/ruota.js`): un giro gratis ogni 24 ore. Il server estrae lo spicchio con i pesi di `wheel_slices()` (la probabilità è peso / somma, mostrata nella pagina) e la ruota gira fino a fermarsi con il puntale in alto sullo spicchio estratto. Premi: KOIN, crediti Avatar (solo negozio), oggetti esclusivi (se già posseduti, solo i KOIN dello spicchio), **giro extra** (non fa ripartire le 24 ore), **gettone ×2** e niente.
 - **Gettone ×2**: si attiva su una partita in Scommesse (`bet_token_use`): le puntate singole su quella partita, se vincono, pagano `BET_FIRE_MULT` volte (colonna `bets.fire`, come il Martedì di fuoco, senza sommarsi). Tabelle `player_tokens` (giri extra e gettoni) e `bet_boosts` (schema 64).
@@ -622,3 +622,9 @@ per `install.php` serve comunque `INSTALL_KEY` in `config.local.php`.
 cd calcetto
 php -S localhost:8088
 ```
+
+## Documentazione
+
+- `docs/piano-migrazione-nextjs.md`: piano per passare da PHP a Next.js (solo documento).
+- `docs/ufficio/`: documenti in PDF per l'ufficio (sintesi, hosting, app negli store, conformità, pubblicità, budget, fonti).
+- `docs/ai/README.md`: piano e 10 idee per l'intelligenza artificiale (solo documento).

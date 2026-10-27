@@ -25,11 +25,19 @@ function layout_start(string $title, string $active = ''): void
         // Avatar (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
         $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Avatar', '3d-cube-sphere']] + $nav;
     }
-    // Daily access e Ruota della fortuna (daily.php / wheel.php): per ora niente scheda nel menu, si raggiungono dai
-    // due bottoncini in Home (index.php) e sono visibili solo all'admin.
+    // Daily access e Ruota della fortuna (daily.php / wheel.php): niente scheda nel menu, si raggiungono dai
+    // due bottoncini in Home (index.php), visibili a tutti i giocatori con un account (ospiti esclusi).
     $pendingLeague = 0;
+    $challPending = 0;
     if ($u && !$guest) {
+        if (discover_visible()) {
+            $nav['find'] = ['calcetto', 'Trova lega', 'map-search'];
+        }
         $owned = my_owned_leagues();
+        if ($owned && discover_visible()) {
+            $challPending = challenges_pending_count(array_keys($owned));
+            $nav['challenges'] = ['sfide', 'Sfide' . ($challPending ? ' (' . $challPending . ')' : ''), 'swords'];
+        }
         if ($owned && !is_admin()) {
             // chi ha creato una lega (o la amministra) la gestisce da qui, senza essere admin del sito
             $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
@@ -203,7 +211,7 @@ if ($gift):   // regalo di KOIN dall'admin: sovraimpressione col KOIN, una volta
 <?php
 // Daily access (lib/daily.php): quando apri la Home e hai un regalo da ritirare, una sovraimpressione come le altre,
 // una volta per sessione al giorno, e solo se non c'è già un'altra sovraimpressione in corso.
-$dailyPop = $myId && is_admin() && !$gift && !$prizes && !$passes
+$dailyPop = $myId && !$gift && !$prizes && !$passes
     && basename($_SERVER['SCRIPT_NAME'] ?? '') === 'index.php'
     && daily_window_open() && daily_claimable($myId) && empty($_SESSION['daily_pop_' . daily_today()]);
 if ($dailyPop):

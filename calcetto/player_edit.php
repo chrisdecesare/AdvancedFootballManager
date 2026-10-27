@@ -181,6 +181,8 @@ if (is_post()) {
                 } else {
                     q('INSERT INTO users (username, password_hash, role, player_id) VALUES (?, ?, ?, ?)',
                         [$username, password_hash($password, PASSWORD_DEFAULT), $role, $id]);
+                    $inviteAfter = ['name' => $name, 'username' => $username, 'password' => $password, 'role' => invite_role_word($role),
+                        'leagues' => invite_leagues_of_player($id), 'by' => invite_by(current_user(), player_group_ids($id)[0] ?? null)];
                 }
             }
         }
@@ -230,6 +232,11 @@ if (is_post()) {
         } else {
             $clearBg();
             q('UPDATE players SET bg_color = NULL WHERE id = ?', [$id]);
+        }
+        if (!empty($inviteAfter)) {   // account appena creato per un altro: la cartolina con i dati da mandargli
+            invite_set($inviteAfter);
+            flash('ok', ($isNew ? 'Giocatore creato' : 'Profilo salvato') . ', con il suo account: ecco l\'invito da mandargli.');
+            redirect('invito.php?back=' . rawurlencode('player.php?id=' . $id));
         }
         flash('ok', $isNew ? 'Giocatore creato.' : 'Profilo salvato.');
         redirect('player.php?id=' . $id);

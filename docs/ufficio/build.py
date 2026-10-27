@@ -7,7 +7,7 @@ root = pathlib.Path(__file__).parent
 src = root / 'src'
 out = root
 VERSION = 'v1.0'
-DATE = '17 ottobre 2026'
+DATE = '18 ottobre 2026'
 
 CSS = """
 @page { size: A4; margin: 22mm 18mm 22mm 18mm; }

@@ -21,6 +21,11 @@ function pretty_routes(): array
 {
     return [
         'index' => ['', null],
+        'benvenuto' => ['benvenuto', null],
+        'invito' => ['invito', null],
+        'calcetto' => ['calcetto', null],
+        'sfide' => ['sfide', null],
+        'sfida_nuova' => ['nuova-sfida', null],
         'matches' => ['partite', null],
         'match' => ['partita', 'id'],
         'players' => ['rosa', null],
