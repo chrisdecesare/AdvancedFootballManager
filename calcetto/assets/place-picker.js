@@ -68,28 +68,39 @@
       setTimeout(function () { map.invalidateSize(); }, 300);
     });
 
-    function suggest() {
-      var v = norm(city.value.trim());
-      if (v.length < 2) { list.hidden = true; return; }
-      loadComuni(root.getAttribute("data-src") || "/comuni-it.json", function (all) {
-        var starts = [], inside = [];
-        for (var i = 0; i < all.length && starts.length < 8; i++) {
-          var n = norm(all[i][0]);
-          if (n.indexOf(v) === 0) starts.push(all[i]); else if (inside.length < 8 && n.indexOf(v) > 0) inside.push(all[i]);
-        }
-        var out = starts.concat(inside).slice(0, 8);
-        list.innerHTML = "";
-        out.forEach(function (c) {
+    /* Elenco completo dei comuni (i più grandi per primi) che si restringe mentre si scrive; si disegna a pezzi da 60 e si prosegue scorrendo. */
+    var matches = [], shown = 0;
+    function pick(c) {
+      city.value = c[0]; list.hidden = true; lat.value = ""; lng.value = "";
+      if (pin && map) { map.removeLayer(pin); pin = null; }
+      go({ city: c[0] }, 13); area.focus();
+    }
+    function more() {
+      for (var end = Math.min(matches.length, shown + 60); shown < end; shown++) {
+        (function (c) {
           var li = document.createElement("li"); li.tabIndex = 0;
           li.textContent = c[0] + " (" + c[1] + ")";
-          var pick = function () { city.value = c[0]; list.hidden = true; lat.value = ""; lng.value = ""; if (pin && map) { map.removeLayer(pin); pin = null; } go({ city: c[0] }, 13); area.focus(); };
-          li.addEventListener("mousedown", function (e) { e.preventDefault(); pick(); });
-          li.addEventListener("keydown", function (e) { if (e.key === "Enter") pick(); });
+          li.addEventListener("mousedown", function (e) { e.preventDefault(); pick(c); });
+          li.addEventListener("keydown", function (e) { if (e.key === "Enter") pick(c); });
           list.appendChild(li);
-        });
-        list.hidden = !out.length;
+        })(matches[shown]);
+      }
+    }
+    function suggest() {
+      var v = norm(city.value.trim());
+      loadComuni(root.getAttribute("data-src") || "/comuni-it.json", function (all) {
+        var starts = [], inside = [];
+        for (var i = 0; i < all.length; i++) {
+          var n = norm(all[i][0]);
+          if (!v || n.indexOf(v) === 0) starts.push(all[i]); else if (n.indexOf(v) > 0) inside.push(all[i]);
+        }
+        matches = starts.concat(inside); shown = 0; list.innerHTML = ""; list.scrollTop = 0;
+        more();
+        list.hidden = !matches.length;
       });
     }
+    list.addEventListener("scroll", function () { if (list.scrollTop + list.clientHeight > list.scrollHeight - 80) more(); });
+    city.addEventListener("click", suggest);
     city.addEventListener("input", suggest);
     city.addEventListener("focus", suggest);
     city.addEventListener("blur", function () { setTimeout(function () { list.hidden = true; }, 150); });

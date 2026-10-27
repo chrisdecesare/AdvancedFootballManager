@@ -2084,7 +2084,7 @@ tr.is-new td { background: #fffbe6; }
 .tag-captain { background: var(--yellow); }
 .center-logo { width: 96px; height: 96px; object-fit: contain; border: var(--b2); border-radius: 14px; background: var(--white); }
 /* scelta del luogo: suggerimenti delle città e mappa per il punto del campo */
-.pp-list { position: absolute; z-index: 1200; left: 0; right: 0; top: 100%; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--white); border: var(--b); border-radius: 12px; box-shadow: 0 4px 0 var(--ink); max-height: 280px; overflow: auto; }
+.pp-list { position: absolute; z-index: 1200; left: 0; right: 0; top: 100%; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--white); border: var(--b); border-radius: 12px; box-shadow: 0 4px 0 var(--ink); max-height: 320px; overflow: auto; }
 .pp-list li { padding: 8px 10px; border-radius: 8px; cursor: pointer; font-weight: 800; }
 .pp-list li:hover, .pp-list li:focus { background: var(--yellow); outline: none; }
 .pp-map { height: 340px; border: var(--b); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
