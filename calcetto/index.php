@@ -3,6 +3,9 @@ require __DIR__ . '/lib/bootstrap.php';
 if (!tables_exist()) {
     redirect('install.php');
 }
+if (!current_user() && !PUBLIC_READ) {
+    redirect('benvenuto.php');   // chi non è entrato vede la presentazione del sito, con «Accedi» e «Crea la tua lega»
+}
 require_view();
 
 $me = my_player_id();
