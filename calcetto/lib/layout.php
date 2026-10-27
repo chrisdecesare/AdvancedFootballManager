@@ -28,8 +28,14 @@ function layout_start(string $title, string $active = ''): void
     // Daily access e Ruota della fortuna (daily.php / wheel.php): niente scheda nel menu, si raggiungono dai
     // due bottoncini in Home (index.php), visibili a tutti i giocatori con un account (ospiti esclusi).
     $pendingLeague = 0;
+    $challPending = 0;
     if ($u && !$guest) {
+        $nav['find'] = ['calcetto', 'Trova lega', 'map-search'];
         $owned = my_owned_leagues();
+        if ($owned) {
+            $challPending = challenges_pending_count(array_keys($owned));
+            $nav['challenges'] = ['sfide', 'Sfide' . ($challPending ? ' (' . $challPending . ')' : ''), 'swords'];
+        }
         if ($owned && !is_admin()) {
             // chi ha creato una lega (o la amministra) la gestisce da qui, senza essere admin del sito
             $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];

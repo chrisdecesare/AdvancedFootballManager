@@ -198,6 +198,16 @@ if (is_post()) {
             }
             break;
 
+        case 'public':   // «Trovami sulla mappa»
+            $v = ['city' => trim((string) ($_POST['city'] ?? '')), 'area' => trim((string) ($_POST['area'] ?? '')), 'about' => trim((string) ($_POST['about'] ?? '')), 'discoverable' => !empty($_POST['discoverable'])];
+            if ($err = league_public_error($v)) {
+                flash('err', $err);
+            } else {
+                league_public_set($gid, $v);
+                flash('ok', $v['discoverable'] ? 'La lega ora si trova sulla mappa.' : 'Salvato: la lega non è visibile.');
+            }
+            break;
+
         case 'delete_league':
             require_recent_auth(RECENT_AUTH_DANGER, false);
             if (!$isOwner) {
@@ -249,6 +259,19 @@ layout_start($league['name'] . ' · gestione', 'league');
   <a class="card admin-link" href="player_edit.php"><span><i class="ti ti-user-plus"></i></span><strong>Nuovo giocatore</strong><small>Scheda completa</small></a>
   <a class="card admin-link" href="#membri"><span><i class="ti ti-users"></i></span><strong><?= count($members) ?> giocatori</strong><small><?= count($withAccount) ?> con account</small></a>
 </div>
+
+<?php $pub = league_public_get($gid) ?: ['city' => '', 'area' => '', 'about' => '', 'discoverable' => 0]; ?>
+<section class="card" id="mappa">
+  <h2><i class="ti ti-map-pin"></i> Trovami sulla mappa</h2>
+  <p class="muted small">Rendi la lega visibile in <a class="link" href="calcetto">Trova una lega</a>: chi cerca una squadra può chiedere di entrare (tu approvi sempre) e le altre leghe possono sfidarti.</p>
+  <form method="post" class="form-grid"><?= csrf_field() ?><input type="hidden" name="group_id" value="<?= $gid ?>"><input type="hidden" name="do" value="public">
+    <label>Città <input name="city" required maxlength="80" value="<?= h($pub['city']) ?>"></label>
+    <label>Zona o campo (facoltativo) <input name="area" maxlength="120" value="<?= h($pub['area']) ?>"></label>
+    <label>Presentazione (max 300) <textarea name="about" maxlength="300" rows="2"><?= h($pub['about']) ?></textarea></label>
+    <label class="check"><input type="checkbox" name="discoverable" value="1"<?= $pub['discoverable'] ? ' checked' : '' ?>> Visibile a tutti</label>
+    <button class="btn btn-primary btn-sm">Salva</button>
+  </form>
+</section>
 
 <section class="card" id="invito">
   <h2><i class="ti ti-link"></i> Invita i giocatori</h2>
