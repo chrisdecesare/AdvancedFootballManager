@@ -40,11 +40,15 @@ $owned = $u && !is_guest() ? my_owned_leagues() : [];
 $points = [];
 foreach ($leagues as $l) {
     if ($l['lat'] !== null && $l['lng'] !== null) {
-        $points[] = ['lat' => $l['lat'], 'lng' => $l['lng'], 'label' => $l['name'], 'kind' => $l['home'] ? 'campo' : ($l['isNew'] ? 'nuova' : 'lega'), 'href' => '#lega-' . $l['id'], 'sub' => $l['players'] . ' giocatori'];
+        $points[] = ['lat' => $l['lat'], 'lng' => $l['lng'], 'label' => $l['name'], 'kind' => $l['center'] ? 'campo' : 'lega', 'href' => '#lega-' . $l['id'], 'sub' => $l['players'] . ' giocatori'];
     }
 }
 foreach ($centers as $c) {
-    if ($c['lat'] !== null && $c['lng'] !== null) {
+    $hasLeague = false;   // se il centro ha la sua lega sulla mappa (verde), il segnaposto del centro non serve
+    foreach ($leagues as $l) {
+        $hasLeague = $hasLeague || (($l['center']['slug'] ?? null) === $c['slug']);
+    }
+    if (!$hasLeague && $c['lat'] !== null && $c['lng'] !== null) {
         $points[] = ['lat' => (float) $c['lat'], 'lng' => (float) $c['lng'], 'label' => $c['name'], 'kind' => 'centro', 'href' => '#campi', 'sub' => 'centro sportivo'];
     }
 }

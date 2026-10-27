@@ -57,14 +57,14 @@ function city_map(array $points, int $height = 380): void
     ?>
 <div class="citymap-wrap">
   <div id="citymap" class="citymap" style="height:<?= (int) $height ?>px" role="region" aria-label="Mappa delle leghe e dei campi"></div>
-  <p class="muted small citymap-key"><span class="dot" style="background:#38d178"></span> lega <span class="dot" style="background:#ff6b9a"></span> lega nuova
-    <span class="dot" style="background:#53c8f5"></span> centro sportivo <span class="dot" style="background:#ffd23f"></span> lega del campo</p>
+  <p class="muted small citymap-key"><span class="dot" style="background:#ffffff"></span> lega senza campo <span class="dot" style="background:#38d178"></span> lega con un campo
+    <span class="dot" style="background:#53c8f5"></span> centro sportivo</p>
 </div>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function () {
-  var pts = <?= $json ?>, colors = { lega: '#38d178', nuova: '#ff6b9a', centro: '#53c8f5', campo: '#ffd23f' };
+  var pts = <?= $json ?>, colors = { lega: '#ffffff', campo: '#38d178', centro: '#53c8f5' };
   if (!window.L || !pts.length) return;
   var m = L.map('citymap', { scrollWheelZoom: false });
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap', referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(m);
