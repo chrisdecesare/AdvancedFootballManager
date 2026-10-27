@@ -314,9 +314,16 @@ if (is_post()) {
             if (isset($res['error'])) {
                 flash('err', $res['error']);
             } else {
-                // la password non si può rivedere: è l'unico momento in cui compare
-                flash('ok', 'Ospite aggiunto. Manda questi dati a ' . trim((string) ($_POST['name'] ?? '')) . ' — indirizzo: ' . trusted_base_url() . 'login.php · utente «' . $res['username']
-                    . '» · password «' . $res['password'] . '». Vede questa partita e la formazione, l\'accesso vale fino a ' . GUEST_KEEP_DAYS . ' giorni dopo la partita.');
+                // la password non si può rivedere: compare solo nella cartolina d'invito (invito.php), per 30 minuti
+                $gid = (int) ($match['group_id'] ?? 0);
+                invite_set([
+                    'name' => trim((string) ($_POST['name'] ?? '')), 'username' => $res['username'], 'password' => $res['password'], 'role' => invite_role_word('ospite'),
+                    'leagues' => $gid ? [group_name($gid)] : [], 'by' => invite_by(current_user(), $gid ?: null),
+                    'match' => ['date' => mb_strtoupper(mb_substr(fmt_date_long($match['match_date']), 0, 1)) . mb_substr(fmt_date_long($match['match_date']), 1) . ' alle ' . fmt_time($match['match_date']), 'location' => (string) ($match['location'] ?? '')],
+                    'validDays' => GUEST_KEEP_DAYS,
+                ]);
+                flash('ok', 'Ospite aggiunto: ecco l\'invito da mandargli. Vede questa partita e la formazione per ' . GUEST_KEEP_DAYS . ' giorni dopo la partita.');
+                redirect('invito.php?back=' . rawurlencode($self . '#presenze'));
             }
             redirect($self . '#presenze');
 

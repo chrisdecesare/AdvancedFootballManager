@@ -78,6 +78,7 @@ require __DIR__ . '/avatar.php';
 require __DIR__ . '/webpush.php';
 require __DIR__ . '/match_result.php';
 require __DIR__ . '/guests.php';
+require __DIR__ . '/invites.php';
 require __DIR__ . '/live.php';
 require __DIR__ . '/mail.php';
 require __DIR__ . '/curiosities.php';

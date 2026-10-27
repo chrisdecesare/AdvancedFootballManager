@@ -2052,3 +2052,8 @@ tr.is-new td { background: #fffbe6; }
 @media (prefers-reduced-motion: reduce) { .daily-cell.daily-today, .wheel.is-spinning .wheel-pointer, .prize-card { animation: none; } }
 .token-form, .token-note { margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .token-note { padding: 6px 12px; background: #fff2b8; border: var(--b2); border-radius: 12px; }
+
+/* invito (cartolina) */
+.invite { display: grid; gap: 14px; }
+.invite-card svg { width: 100%; height: auto; display: block; }
+@media print { .topbar, .footer, .back, .btn-row, nav { display: none !important; } body { background: #fff; } }
