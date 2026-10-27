@@ -1,5 +1,6 @@
 # dati riservati: restano solo sul PC e sul server
 calcetto/config.local.php
+calcetto/config.bridge.php
 
 # foto caricate dai giocatori (restano solo sul server)
 calcetto/uploads/players/*
