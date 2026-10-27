@@ -15,10 +15,11 @@
   var lines = [['Username', d.username], ['Password', d.password], ['Ruolo', d.role], ['Lega', cut((d.leagues || []).join(', ') || '—', 30)]];
   if (d.match) { lines.push(['Partita', cut(d.match.date, 30)]); if (d.match.location) lines.push(['Campo', cut(d.match.location, 30)]); }
   var y0 = 600, step = 44;
+  // ogni riga è un solo testo centrato: etichetta in grigio e valore in grassetto (a spazio fisso per username e password)
   var rows = lines.map(function (kv, i) {
     var y = y0 + i * step, mono = kv[0] === 'Username' || kv[0] === 'Password';
-    return '<text x="340" y="' + y + '" font-size="17" text-anchor="end" fill="' + muted + '" font-weight="700">' + esc(kv[0]) + '</text>' +
-      '<text x="360" y="' + y + '" font-size="' + (mono ? 26 : 20) + '" fill="' + ink + '" font-weight="800"' + (mono ? ' font-family="ui-monospace, Menlo, Consolas, monospace"' : '') + '>' + esc(kv[1]) + '</text>';
+    return '<text x="360" y="' + y + '" text-anchor="middle"><tspan font-size="17" fill="' + muted + '" font-weight="700">' + esc(kv[0]) + '  </tspan>' +
+      '<tspan dx="14" font-size="' + (mono ? 26 : 21) + '" fill="' + ink + '" font-weight="800"' + (mono ? ' font-family="ui-monospace, Menlo, Consolas, monospace"' : '') + '>' + esc(kv[1]) + '</tspan></text>';
   }).join('');
   var yEnd = y0 + lines.length * step;
   var foot = d.role === 'Ospite' ? 'Con questo account vedi la partita, la formazione e i voti.' : 'Al primo accesso puoi cambiare la password da Modifica profilo → Sicurezza.';
