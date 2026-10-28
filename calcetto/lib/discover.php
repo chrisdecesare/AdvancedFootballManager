@@ -140,7 +140,7 @@ function free_slots_in_city(string $citySlug, int $limit = 30): array
 }
 
 /** Anteprima riservata all'admin (come DISCOVER_OPEN sul sito Next): per aprirla a tutti basta mettere true. */
-const DISCOVER_OPEN = false;
+const DISCOVER_OPEN = true;
 function discover_visible(): bool
 {
     return DISCOVER_OPEN || (current_user() && is_admin());
