@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 70;
+const SCHEMA_VERSION = 71;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1109,6 +1109,26 @@ function ensure_schema(): void
             }
             meta_set('oneoff_admin_lines_oct28', mb_substr($msg, 0, 250));
             log_activity('scommesse', 'soglie admin 28 ottobre · ' . $msg);
+        }
+    }
+    if ($v < 71) {
+        // una tantum: regalo dell'admin di 1000 KOIN a tutti i giocatori con un account (ospiti e admin esclusi) per il passaggio tra le versioni.
+        // Una sola mossa per giocatore (ref gift-1000-vers), visibile nel portafoglio con il messaggio.
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_gift_1000', 'in corso')")->rowCount()) {
+            try {
+                $adm = (int) q("SELECT id FROM users WHERE role = 'admin' AND status = 'attivo' ORDER BY id LIMIT 1")->fetchColumn();
+                $n = 0;
+                foreach (q("SELECT DISTINCT u.player_id FROM users u WHERE u.status = 'attivo' AND u.role IN ('player', 'manager') AND u.player_id IS NOT NULL
+                            AND u.player_id NOT IN (SELECT player_id FROM users WHERE role = 'admin' AND player_id IS NOT NULL)")->fetchAll(PDO::FETCH_COLUMN) as $pid) {
+                    $n += q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref, note, given_by) VALUES (?, ?, 1000, 'regalo', 'gift-1000-vers', ?, ?)",
+                        [(int) $pid, current_eco((int) $pid), 'Regalo dell'admin per il passaggio tra le versioni del sito', $adm ?: null])->rowCount();
+                }
+                $msg = 'regalo di 1000 KOIN a ' . $n . ' giocatori';
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_gift_1000', mb_substr($msg, 0, 250));
+            log_activity('regalo', $msg);
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
