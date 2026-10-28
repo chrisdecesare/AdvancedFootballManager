@@ -100,7 +100,7 @@ function league_card_html(array $c, string $action = ''): string
     ?>
 <article class="card lg-card" id="lega-<?= (int) $c['id'] ?>">
   <div class="lg-head"><?= league_emblem($c) ?>
-    <div><h3><?= h($c['name']) ?><?= $c['home'] ? ' <span class="tag tag-captain">lega del campo</span>' : '' ?></h3>
+    <div><h3><?= h($c['name']) ?></h3>
       <p class="muted small"><i class="ti ti-map-pin"></i> <?= h(($c['area'] ? $c['area'] . ', ' : '') . $c['city']) ?></p></div></div>
   <?php if ($c['about']): ?><p class="small"><?= h($c['about']) ?></p><?php endif; ?>
   <dl class="lg-stats">
