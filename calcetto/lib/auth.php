@@ -47,12 +47,12 @@ function can_manage_matches(): bool
 /** Ruolo valido da un valore ricevuto dal browser ('player' se non riconosciuto). */
 function clean_role($role): string
 {
-    return in_array($role, ['admin', 'manager'], true) ? $role : 'player';
+    return in_array($role, ['admin', 'manager', 'centro'], true) ? $role : 'player';
 }
 
 function role_label(string $role): string
 {
-    return ['admin' => 'Admin', 'manager' => 'Manager', 'ospite' => 'Ospite'][$role] ?? 'Giocatore';
+    return ['admin' => 'Admin', 'manager' => 'Manager', 'ospite' => 'Ospite', 'centro' => 'Centro'][$role] ?? 'Utente base';
 }
 
 function my_player_id(): ?int

@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 67;
+const SCHEMA_VERSION = 68;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1081,6 +1081,10 @@ function ensure_schema(): void
             meta_set('oneoff_daily_push', mb_substr($msg, 0, 250));
             log_activity('daily', 'avviso apertura · ' . $msg);
         }
+    }
+    if ($v < 68) {
+        // tipo di account «centro» (gestore di un centro sportivo, creato dal sito Next): il database è lo stesso
+        db()->exec("ALTER TABLE users MODIFY role ENUM('admin','manager','player','ospite','centro') NOT NULL DEFAULT 'player'");
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
     q("DELETE FROM meta WHERE k = 'schema_error'");

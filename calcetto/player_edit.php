@@ -351,8 +351,9 @@ layout_start($isNew ? 'Nuovo giocatore' : 'Modifica ' . $p['name'], 'players');
         <label class="field"><span>Username</span><input name="username" value="<?= h($_POST['username'] ?? ($account['username'] ?? '')) ?>" placeholder="<?= $account ? '' : 'Vuoto = nessun account' ?>" autocomplete="off"></label>
         <?php if (!$selfAccount): ?><label class="field"><span><?= $account ? 'Nuova password (vuoto = invariata)' : 'Password' ?></span><input type="password" name="password" minlength="8" maxlength="72" autocomplete="new-password"></label><?php endif; ?>
         <label class="field"><span>Ruolo</span><select name="role">
-          <option value="player" <?= !in_array($account['role'] ?? '', ['admin', 'manager'], true) ? 'selected' : '' ?>>Giocatore</option>
+          <option value="player" <?= !in_array($account['role'] ?? '', ['admin', 'manager', 'centro'], true) ? 'selected' : '' ?>>Utente base</option>
           <option value="manager" <?= ($account['role'] ?? '') === 'manager' ? 'selected' : '' ?>>Manager (gestisce le partite)</option>
+          <option value="centro" <?= ($account['role'] ?? '') === 'centro' ? 'selected' : '' ?>>Centro (gestisce un centro sportivo)</option>
           <option value="admin" <?= ($account['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option></select></label>
       </div>
       <p class="muted small">Con l'account il giocatore può confermare le presenze, votare e modificare il proprio profilo.<?= $selfAccount ? ' La tua password e la tua email si cambiano da «Sicurezza» qui sotto.' : '' ?></p>
