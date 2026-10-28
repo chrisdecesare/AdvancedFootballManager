@@ -230,6 +230,9 @@ function league_name_error(string $name): ?string
     if (!preg_match('/[\p{L}\p{N}]/u', $name)) {
         return 'Il nome della lega deve contenere almeno una lettera o un numero.';
     }
+    if (offensive_name($name)) {
+        return OFFENSIVE_NAME_MESSAGE;
+    }
     return null;
 }
 

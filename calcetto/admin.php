@@ -41,6 +41,8 @@ if (is_post()) {
             $gname = trim((string) ($_POST['name'] ?? ''));
             if ($gname === '' || mb_strlen($gname) > 40) {
                 flash('err', 'Il nome del gruppo deve avere da 1 a 40 caratteri.');
+            } elseif (offensive_name($gname)) {
+                flash('err', OFFENSIVE_NAME_MESSAGE);
             } elseif (q("SELECT 1 FROM squad_groups WHERE LOWER(name) = ? AND id <> ? AND id IN ($homeIn)", [mb_strtolower($gname), $do === 'group_rename' ? $gid : 0])->fetch()) {
                 flash('err', 'Esiste già un gruppo con questo nome.');
             } elseif ($do === 'group_add') {

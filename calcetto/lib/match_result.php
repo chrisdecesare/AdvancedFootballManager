@@ -174,7 +174,7 @@ function match_oneoff_goals_oct8(): string
 }
 
 /**
- * La partita del 15 ottobre 2026 (schema 61): Sgommati (Angelo, Agozz, Adriano, Luigi, Paolo, Chris) contro Sgamati (Davide, che in
+ * La partita del 15 ottobre 2026 (schema 61): Smarcati (Angelo, Agozz, Adriano, Luigi, Paolo, Chris) contro Sgamati (Davide, che in
  * campo compare come Ruokowski, Giovanni, Vincenzo, Adolfo, Agostino, Nicola, che compare come «N⚡»). 35 gol, 26 assist, 20–15.
  */
 function match_oneoff_goals_oct15(): string
