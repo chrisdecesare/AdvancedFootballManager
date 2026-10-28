@@ -1121,7 +1121,7 @@ function ensure_schema(): void
                 foreach (q("SELECT DISTINCT u.player_id FROM users u WHERE u.status = 'attivo' AND u.role IN ('player', 'manager') AND u.player_id IS NOT NULL
                             AND u.player_id NOT IN (SELECT player_id FROM users WHERE role = 'admin' AND player_id IS NOT NULL)")->fetchAll(PDO::FETCH_COLUMN) as $pid) {
                     $n += q("INSERT IGNORE INTO wallet_moves (player_id, eco, delta, kind, ref, note, given_by) VALUES (?, ?, 1000, 'regalo', 'gift-1000-vers', ?, ?)",
-                        [(int) $pid, current_eco((int) $pid), 'Regalo dell'admin per il passaggio tra le versioni del sito', $adm ?: null])->rowCount();
+                        [(int) $pid, current_eco((int) $pid), "Regalo dell'admin per il passaggio tra le versioni del sito", $adm ?: null])->rowCount();
                 }
                 $msg = 'regalo di 1000 KOIN a ' . $n . ' giocatori';
             } catch (Throwable $e) {
