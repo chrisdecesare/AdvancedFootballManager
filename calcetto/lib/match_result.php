@@ -95,11 +95,19 @@ function match_oneoff_goals(string $date, array $events, array $sides, array $al
                 }
                 $want = array_merge([mb_strtolower($name, 'UTF-8')], $aliases[$name] ?? []);
                 $hit = [];
+                $exact = [];   // chi si chiama proprio così (nome intero) vince su chi ha solo la stessa prima parola: «Giovanni» e «Giovanni Mannara»
                 foreach ($roster as $r) {
                     [$first, $last] = $word($r['name']);
-                    if (in_array($first, $want, true) || ($last !== null && mb_strlen($last) >= 4 && in_array($last, $want, true))) {
+                    $full = mb_strtolower(trim(preg_replace('/\s+/u', ' ', preg_replace('/[^\p{L}\p{N} ]+/u', '', $r['name']))), 'UTF-8');
+                    if (in_array($full, $want, true) || in_array($first, $want, true) || ($last !== null && mb_strlen($last) >= 4 && in_array($last, $want, true))) {
                         $hit[] = $r;
+                        if ($full === mb_strtolower($name, 'UTF-8') || in_array($full, $aliases[$name] ?? [], true)) {
+                            $exact[] = $r;
+                        }
                     }
+                }
+                if (count($hit) > 1 && count($exact) === 1) {
+                    $hit = $exact;
                 }
                 if (count($hit) !== 1) {
                     $problem = $name . ' ' . (count($hit) ? 'è più di uno' : 'non è in squadra');
@@ -188,4 +196,84 @@ function match_oneoff_goals_oct15(): string
         ['Giovanni', null], ['Angelo', 'Luigi'], ['Adolfo', null], ['Angelo', 'Luigi'], ['Davide', null]],
         [['Angelo', 'Agozz', 'Adriano', 'Luigi', 'Paolo', 'Chris'], ['Davide', 'Giovanni', 'Vincenzo', 'Adolfo', 'Nicola']],
         ['Davide' => ['ruokowski'], 'Nicola' => ['n'], 'Agozz' => ['agoz']]);
+}
+
+/**
+ * La partita del 28 ottobre 2026 (schema 68): Ricercati (Marco, Luigi, Fabrizio, Vincenzo, Giovanni M) contro Ricercatori (Paolo, Prisco,
+ * Giovanni DS, Danilo, Adriano). 23 gol, 9–14.
+ */
+function match_oneoff_goals_oct28(): string
+{
+    return match_oneoff_goals('2026-10-28', [
+        ['Marco', 'Fabrizio'], ['Luigi', 'Vincenzo'], ['Marco', 'Fabrizio'], ['Fabrizio', 'Vincenzo'], ['Giovanni M', 'Luigi'],
+        ['Marco', 'Vincenzo'], ['Vincenzo', 'Fabrizio'], ['Marco', 'Vincenzo'], ['Luigi', 'Fabrizio'],
+        ['Paolo', 'Giovanni DS'], ['Prisco', 'Giovanni DS'], ['Danilo', 'Prisco'], ['Paolo', 'Prisco'], ['Danilo', 'Prisco'], ['Paolo', null],
+        ['Adriano', null], ['Prisco', 'Danilo'], ['Danilo', 'Prisco'], ['Giovanni DS', 'Paolo'], ['Paolo', 'Giovanni DS'], ['Paolo', 'Danilo'],
+        ['Prisco', 'Danilo'], ['Prisco', 'Paolo']],
+        [['Marco', 'Luigi', 'Fabrizio', 'Vincenzo', 'Giovanni M'], ['Paolo', 'Prisco', 'Giovanni DS', 'Danilo', 'Adriano']],
+        ['Giovanni M' => ['mannara'], 'Giovanni DS' => ['giovanni']]);
+}
+
+/**
+ * Correzione una tantum delle scommesse a soglia (over/under) dell'admin sulla partita del 28 ottobre 2026, giocate leggendo male i
+ * numeri: ogni selezione sbagliata sposta la soglia al valore più vicino che vince (over 9,5 con 8 gol → over 7,5; under 10,5 con 11 gol
+ * → under 11,5), nelle singole e nelle gambe delle multiple. Quota e puntata restano quelle giocate. Le altre selezioni (esito, marcatori...)
+ * non si toccano. Dopo le modifiche la partita si ripaga da capo (bets_resettle_result). Ogni cambio finisce nel messaggio, cioè nel registro.
+ */
+function bets_oneoff_admin_lines_oct28(): string
+{
+    $mid = (int) q("SELECT id FROM matches WHERE DATE(match_date) = '2026-10-28' AND status = 'giocata' ORDER BY id LIMIT 1")->fetchColumn();
+    $admin = (int) q("SELECT player_id FROM users WHERE role = 'admin' AND status = 'attivo' AND player_id IS NOT NULL ORDER BY id LIMIT 1")->fetchColumn();
+    if (!$mid || !$admin) {
+        return 'partita del 28 ottobre giocata o giocatore admin non trovati: non ho cambiato niente';
+    }
+    $m = get_match($mid);
+    $count = ['overunder' => [null => (int) $m['score_a'] + (int) $m['score_b']], 'ousq' => ['A' => (int) $m['score_a'], 'B' => (int) $m['score_b']],
+        'ouassq' => ['A' => 0, 'B' => 0], 'ougol' => [], 'ouassist' => []];
+    foreach (q('SELECT player_id, team, goals, assists FROM match_players WHERE match_id = ? AND team IS NOT NULL', [$mid])->fetchAll() as $r) {
+        $count['ougol'][(string) $r['player_id']] = (int) $r['goals'];
+        $count['ouassist'][(string) $r['player_id']] = (int) $r['assists'];
+        $count['ouassq'][$r['team']] += (int) $r['assists'];
+    }
+    /** La scelta spostata sul valore che vince, o null se è già vincente o non si può valutare. */
+    $fix = function (string $market, string $pick) use ($count): ?string {
+        $l = bet_line_parse($market, $pick);
+        $n = $l ? ($count[$market][$l['subject']] ?? null) : null;
+        if ($n === null) {
+            return null;
+        }
+        $wins = $l['side'] === 'O' ? $l['line'] < $n : $l['line'] > $n;
+        if ($wins) {
+            return null;
+        }
+        if ($l['side'] === 'O') {
+            return $n >= 1 ? bet_line_pick($l['subject'], 'O', $n - 0.5) : bet_line_pick($l['subject'], 'U', 0.5);
+        }
+        return bet_line_pick($l['subject'], 'U', $n + 0.5);
+    };
+    $lines = implode("','", array_keys(BET_LINE_MARKETS));
+    $done = [];
+    bet_atomic(function () use ($mid, $admin, $fix, $lines, &$done) {
+        foreach (q("SELECT id, market, pick FROM bets WHERE match_id = ? AND player_id = ? AND market IN ('$lines') AND status <> 'rimborsata'", [$mid, $admin])->fetchAll() as $b) {
+            if (($new = $fix($b['market'], $b['pick'])) !== null) {
+                q('UPDATE IGNORE bets SET pick = ? WHERE id = ?', [$new, $b['id']]);
+                $done[] = 'singola ' . $b['id'] . ' ' . $b['market'] . ' ' . $b['pick'] . '→' . $new;
+            }
+        }
+        foreach (q("SELECT cl.id, cl.combo_id, cl.market, cl.pick FROM combo_legs cl JOIN combo_bets cb ON cb.id = cl.combo_id
+                    WHERE cl.match_id = ? AND cb.player_id = ? AND cl.market IN ('$lines') AND cl.status <> 'rimborsata'", [$mid, $admin])->fetchAll() as $g) {
+            if (($new = $fix($g['market'], $g['pick'])) !== null) {
+                q('UPDATE IGNORE combo_legs SET pick = ? WHERE id = ?', [$new, $g['id']]);
+                $done[] = 'multipla ' . $g['combo_id'] . ' ' . $g['market'] . ' ' . $g['pick'] . '→' . $new;
+            }
+        }
+        bets_resettle_result($mid);
+    });
+    return $done ? 'partita ' . $mid . ', ' . count($done) . ' selezioni spostate: ' . implode('; ', $done) : 'partita ' . $mid . ': niente da spostare';
+}
+
+/** I gol del 28 ottobre sono entrati? (il segnaposto di ensure_schema comincia con «partita N fatta») */
+function match_oneoff_goals_oct28_ok(): bool
+{
+    return (bool) preg_match('/^partita \d+ fatta:/', (string) meta_get('oneoff_oct28'));
 }

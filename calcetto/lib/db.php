@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 67;
+const SCHEMA_VERSION = 69;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1080,6 +1080,31 @@ function ensure_schema(): void
             }
             meta_set('oneoff_daily_push', mb_substr($msg, 0, 250));
             log_activity('daily', 'avviso apertura · ' . $msg);
+        }
+    }
+    if ($v < 68) {
+        // una tantum: gol e assist della partita del 28 ottobre 2026 (lib/match_result.php), come per quelle dell'8 e del 15
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_oct28', 'in corso')")->rowCount()) {
+            try {
+                $msg = match_oneoff_goals_oct28();
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_oct28', mb_substr($msg, 0, 250));
+            log_activity('partita', 'gol e assist 28 ottobre · ' . $msg);
+        }
+    }
+    if ($v < 69) {
+        // una tantum: soglie over/under dell'admin sulla partita del 28 ottobre 2026 spostate sul valore giusto (lib/match_result.php).
+        // Parte solo dopo i gol (68); se i gol non sono entrati non cambia niente e il motivo resta in meta e nel registro.
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_admin_lines_oct28', 'in corso')")->rowCount()) {
+            try {
+                $msg = match_oneoff_goals_oct28_ok() ? bets_oneoff_admin_lines_oct28() : 'i gol del 28 ottobre non risultano inseriti: non ho cambiato niente';
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_admin_lines_oct28', mb_substr($msg, 0, 250));
+            log_activity('scommesse', 'soglie admin 28 ottobre · ' . $msg);
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
