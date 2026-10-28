@@ -2091,3 +2091,4 @@ tr.is-new td { background: #fffbe6; }
 .place-picker .inline-form input { flex: 1; min-width: 0; }
 .place-picker { grid-column: 1 / -1; }
 .place-picker .inline-form { display: flex; gap: 8px; align-items: center; }
+.pp-map, .citymap, .center-video { position: relative; z-index: 0; isolation: isolate; } /* le mappe Leaflet usano z-index alti: restano sotto l'intestazione quando si scorre */
