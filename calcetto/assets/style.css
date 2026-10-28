@@ -2092,3 +2092,11 @@ tr.is-new td { background: #fffbe6; }
 .place-picker { grid-column: 1 / -1; }
 .place-picker .inline-form { display: flex; gap: 8px; align-items: center; }
 .pp-map, .citymap, .center-video { position: relative; z-index: 0; isolation: isolate; } /* le mappe Leaflet usano z-index alti: restano sotto l'intestazione quando si scorre */
+/* piè di pagina di tutte le pagine */
+.site-foot { border-top: var(--b); background: var(--paper-2); margin-top: 28px; }
+.site-foot-in { max-width: 1180px; margin: 0 auto; padding: 22px 16px 8px; display: flex; gap: 20px; justify-content: space-between; flex-wrap: wrap; }
+.site-foot-links { display: flex; gap: 16px; flex-wrap: wrap; font-weight: 800; align-content: flex-start; }
+.site-foot-links a:hover { text-decoration: underline; }
+.site-foot-social { display: flex; gap: 10px; margin: 8px 0 0; }
+.site-foot-social span { display: inline-grid; place-items: center; width: 38px; height: 38px; border: var(--b); border-radius: 50%; background: var(--white); font-size: 1.15rem; }
+.site-foot-copy { max-width: 1180px; margin: 0 auto; padding: 8px 16px calc(20px + env(safe-area-inset-bottom, 0px)); }

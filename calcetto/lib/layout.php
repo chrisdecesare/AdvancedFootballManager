@@ -261,7 +261,7 @@ function layout_end(): void
     $u = current_user();
     ?>
 </main>
-<footer class="footer"><?= h(APP_NAME) ?> · <?= date('Y') ?></footer>
+<?= site_footer() ?>
 <?php if (tour_wanted($u)): ?>
 <script type="application/json" id="tour-data"><?= json_encode(
     ['endpoint' => 'tour.php', 'csrf' => csrf_token(), 'steps' => tour_steps($u)],

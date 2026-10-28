@@ -5,6 +5,18 @@
  */
 
 /** Inizio pagina: $title nel <title>. Ritorna true se si è in modalità pubblica (serve a pub_end). */
+/** Il piè di pagina di tutte le pagine (come SiteFooter del sito Next): presentazione, i tre social solo come icone, senza link, e il copyright. */
+function site_footer(): string
+{
+    return '<footer class="site-foot"><div class="site-foot-in"><div class="site-foot-brand"><b>' . h(APP_NAME) . '</b>'
+        . '<p class="muted small">Il calcetto tra amici, organizzato. Gratis per chi gioca.</p>'
+        . '<p class="site-foot-social" aria-label="I nostri social, in arrivo">'
+        . '<span title="X" aria-label="X"><i class="ti ti-brand-x"></i></span>'
+        . '<span title="Instagram" aria-label="Instagram"><i class="ti ti-brand-instagram"></i></span>'
+        . '<span title="TikTok" aria-label="TikTok"><i class="ti ti-brand-tiktok"></i></span></p></div></div>'
+        . '<p class="site-foot-copy small muted">© ' . date('Y') . ' ' . h(APP_NAME) . ' · Tutti i diritti riservati</p></footer>';
+}
+
 function pub_start(string $title, string $description = ''): bool
 {
     if (current_user() && !is_guest()) {
@@ -42,7 +54,7 @@ function pub_end(bool $public): void
         return;
     }
     ?></main>
-<footer class="pub-foot"><div class="pub-foot-in"><div><b>Calcetto Manager</b><p class="muted small">Il calcetto tra amici, organizzato. Gratis per chi gioca.</p></div></div></footer>
+<?= site_footer() ?>
 </body></html>
 <?php
 }
