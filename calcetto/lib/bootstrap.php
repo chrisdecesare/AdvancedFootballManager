@@ -81,6 +81,7 @@ require __DIR__ . '/guests.php';
 require __DIR__ . '/invites.php';
 require __DIR__ . '/geo.php';
 require __DIR__ . '/biz_schema.php';
+require __DIR__ . '/name_check.php';
 require __DIR__ . '/discover.php';
 require __DIR__ . '/pub.php';
 require __DIR__ . '/live.php';

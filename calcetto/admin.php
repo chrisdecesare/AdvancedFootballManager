@@ -41,6 +41,8 @@ if (is_post()) {
             $gname = trim((string) ($_POST['name'] ?? ''));
             if ($gname === '' || mb_strlen($gname) > 40) {
                 flash('err', 'Il nome del gruppo deve avere da 1 a 40 caratteri.');
+            } elseif (offensive_name($gname)) {
+                flash('err', OFFENSIVE_NAME_MESSAGE);
             } elseif (q("SELECT 1 FROM squad_groups WHERE LOWER(name) = ? AND id <> ? AND id IN ($homeIn)", [mb_strtolower($gname), $do === 'group_rename' ? $gid : 0])->fetch()) {
                 flash('err', 'Esiste già un gruppo con questo nome.');
             } elseif ($do === 'group_add') {
@@ -511,8 +513,9 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
           <?php if ($u['role'] === 'ospite'): ?><span class="tag">Ospite</span><?php else: ?>
           <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="role"><input type="hidden" name="user_id" value="<?= $uid ?>">
             <select name="role" class="mini-select" data-autosubmit <?= $uid === $meUid ? 'disabled' : '' ?>>
-              <option value="player" <?= $u['role'] === 'player' ? 'selected' : '' ?>>Giocatore</option>
+              <option value="player" <?= $u['role'] === 'player' ? 'selected' : '' ?>>Utente base</option>
               <option value="manager" <?= $u['role'] === 'manager' ? 'selected' : '' ?>>Manager</option>
+              <option value="centro" <?= $u['role'] === 'centro' ? 'selected' : '' ?>>Centro</option>
               <option value="admin" <?= $u['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
             </select></form><?php endif; ?>
         </td>

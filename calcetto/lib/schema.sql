@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('admin','manager','player','ospite') NOT NULL DEFAULT 'player',   -- manager = crea e gestisce le partite dei suoi gruppi, ospite = vede solo la sua partita
+  role ENUM('admin','manager','player','ospite','centro') NOT NULL DEFAULT 'player',   -- manager = crea e gestisce le partite dei suoi gruppi, ospite = vede solo la sua partita
   status ENUM('attivo','in_attesa') NOT NULL DEFAULT 'attivo',   -- in_attesa = iscrizione da approvare
   reg_name VARCHAR(80) NULL,                       -- dati inseriti all'iscrizione
   reg_json TEXT NULL,

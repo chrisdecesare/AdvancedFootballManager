@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 69;
+const SCHEMA_VERSION = 70;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1083,6 +1083,10 @@ function ensure_schema(): void
         }
     }
     if ($v < 68) {
+        // tipo di account «centro» (gestore di un centro sportivo, creato dal sito Next): il database è lo stesso
+        db()->exec("ALTER TABLE users MODIFY role ENUM('admin','manager','player','ospite','centro') NOT NULL DEFAULT 'player'");
+    }
+    if ($v < 69) {
         // una tantum: gol e assist della partita del 28 ottobre 2026 (lib/match_result.php), come per quelle dell'8 e del 15
         if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_oct28', 'in corso')")->rowCount()) {
             try {
@@ -1094,9 +1098,9 @@ function ensure_schema(): void
             log_activity('partita', 'gol e assist 28 ottobre · ' . $msg);
         }
     }
-    if ($v < 69) {
+    if ($v < 70) {
         // una tantum: soglie over/under dell'admin sulla partita del 28 ottobre 2026 spostate sul valore giusto (lib/match_result.php).
-        // Parte solo dopo i gol (68); se i gol non sono entrati non cambia niente e il motivo resta in meta e nel registro.
+        // Parte solo dopo i gol (69); se i gol non sono entrati non cambia niente e il motivo resta in meta e nel registro.
         if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_admin_lines_oct28', 'in corso')")->rowCount()) {
             try {
                 $msg = match_oneoff_goals_oct28_ok() ? bets_oneoff_admin_lines_oct28() : 'i gol del 28 ottobre non risultano inseriti: non ho cambiato niente';

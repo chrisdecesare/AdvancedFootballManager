@@ -26,7 +26,7 @@ function league_cards(?string $citySlug = null, ?int $groupId = null): array
         (SELECT COUNT(*) FROM player_groups pg JOIN players p ON p.id = pg.player_id WHERE pg.group_id = g.id AND p.is_guest = 0 AND p.active = 1) AS players,
         (SELECT COUNT(*) FROM matches m WHERE m.group_id = g.id AND m.status = 'giocata' AND m.match_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)) AS played6,
         (g.created_at > DATE_SUB(NOW(), INTERVAL " . LEAGUE_NEW_DAYS . " DAY)) AS is_new,
-        c.slug AS center_slug, c.name AS center_name, cg.kind AS center_kind
+        c.slug AS center_slug, c.name AS center_name
       FROM league_public lp JOIN squad_groups g ON g.id = lp.group_id
       LEFT JOIN center_groups cg ON cg.group_id = g.id LEFT JOIN sport_centers c ON c.id = cg.center_id
       WHERE " . implode(' AND ', $cond) . ' ORDER BY is_new DESC, players DESC, g.name', $par)->fetchAll();
@@ -39,7 +39,6 @@ function league_cards(?string $citySlug = null, ?int $groupId = null): array
             'about' => (string) $r['about'], 'logo' => (string) $r['logo'], 'lat' => $r['lat'] === null ? null : (float) $r['lat'], 'lng' => $r['lng'] === null ? null : (float) $r['lng'],
             'admin' => (string) $r['admin'], 'players' => (int) $r['players'], 'played6' => (int) $r['played6'], 'perMonth' => round(((int) $r['played6']) / $age, 1),
             'isNew' => (int) $r['is_new'] === 1, 'center' => $r['center_slug'] ? ['slug' => (string) $r['center_slug'], 'name' => (string) $r['center_name']] : null,
-            'home' => $r['center_kind'] === 'home',
         ];
     }
     return $out;
@@ -140,7 +139,7 @@ function free_slots_in_city(string $citySlug, int $limit = 30): array
 }
 
 /** Anteprima riservata all'admin (come DISCOVER_OPEN sul sito Next): per aprirla a tutti basta mettere true. */
-const DISCOVER_OPEN = false;
+const DISCOVER_OPEN = true;
 function discover_visible(): bool
 {
     return DISCOVER_OPEN || (current_user() && is_admin());
