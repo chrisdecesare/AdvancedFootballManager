@@ -207,7 +207,7 @@ function match_oneoff_goals_oct28(): string
     return match_oneoff_goals('2026-10-28', [
         ['Marco', 'Fabrizio'], ['Luigi', 'Vincenzo'], ['Marco', 'Fabrizio'], ['Fabrizio', 'Vincenzo'], ['Giovanni M', 'Luigi'],
         ['Marco', 'Vincenzo'], ['Vincenzo', 'Fabrizio'], ['Marco', 'Vincenzo'], ['Luigi', 'Fabrizio'],
-        ['Paolo', 'Giovanni DS'], ['Prisco', 'Giovanni DS'], ['Danilo', 'Prisco'], ['Paolo', 'Prisco'], ['Danilo', 'Prisco'], ['Paolo', null],
+        ['Paolo', 'Giovanni DS'], ['Prisco', 'Giovanni DS'], ['Danilo', 'Prisco'], ['Paolo', 'Prisco'], ['Danilo', 'Paolo'], ['Paolo', null],
         ['Adriano', null], ['Prisco', 'Danilo'], ['Danilo', 'Prisco'], ['Giovanni DS', 'Paolo'], ['Paolo', 'Giovanni DS'], ['Paolo', 'Danilo'],
         ['Prisco', 'Danilo'], ['Prisco', 'Paolo']],
         [['Marco', 'Luigi', 'Fabrizio', 'Vincenzo', 'Giovanni M'], ['Paolo', 'Prisco', 'Giovanni DS', 'Danilo', 'Adriano']],

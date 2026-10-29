@@ -81,7 +81,7 @@ function tables_exist(): bool
     return (bool) q("SHOW TABLES LIKE 'users'")->fetch();
 }
 
-const SCHEMA_VERSION = 71;
+const SCHEMA_VERSION = 72;
 
 /** Aggiorna il database di un'installazione precedente (aggiunge colonne nuove). */
 function ensure_schema(): void
@@ -1129,6 +1129,23 @@ function ensure_schema(): void
             }
             meta_set('oneoff_gift_1000', mb_substr($msg, 0, 250));
             log_activity('regalo', $msg);
+        }
+    }
+    if ($v < 72) {
+        // una tantum: nella partita del 28 ottobre 2026 l'assist del quinto gol dei Ricercatori (Danilo) è di Paolo, non di Prisco (lib/match_result.php).
+        // I gol si rimettono dal dato corretto (la partita è già giocata: non riapre i voti, ripaga da capo scommesse e premi), poi le soglie
+        // dell'admin si riportano sul valore giusto con i conteggi nuovi.
+        if (q("INSERT IGNORE INTO meta (k, v) VALUES ('oneoff_oct28_fix', 'in corso')")->rowCount()) {
+            try {
+                $msg = match_oneoff_goals_oct28();
+                if (match_oneoff_goals_oct28_ok()) {
+                    $msg .= ' · ' . bets_oneoff_admin_lines_oct28();
+                }
+            } catch (Throwable $e) {
+                $msg = 'errore: ' . $e->getMessage();
+            }
+            meta_set('oneoff_oct28_fix', mb_substr($msg, 0, 250));
+            log_activity('partita', 'correzione assist 28 ottobre · ' . $msg);
         }
     }
     q("INSERT INTO meta (k, v) VALUES ('schema', ?) ON DUPLICATE KEY UPDATE v = VALUES(v)", [SCHEMA_VERSION]);
