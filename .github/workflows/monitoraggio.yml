@@ -1,0 +1,70 @@
+name: Monitoraggio dei siti
+
+# Ogni 10 minuti controlla che i due siti rispondano. Se uno non risponde:
+#  - apre una segnalazione (Issue «Sito non raggiungibile», etichetta «monitoraggio») e la run fallisce: GitHub scrive a chi ha impostato il workflow;
+#  - finché la segnalazione resta aperta le run successive non fanno rumore;
+#  - quando torna tutto a posto la segnalazione si chiude da sola, con un commento.
+# Gratis (repository pubblico). Non usa azioni di terzi né segreti: solo curl e gh, già presenti sul server di GitHub.
+# Per provarlo a mano: Actions → Monitoraggio dei siti → Run workflow (con «prova» attiva simula un guasto).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      prova:
+        description: "Simula un guasto per provare gli avvisi (apre e poi chiude una segnalazione di prova)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: monitoraggio
+  cancel-in-progress: false
+
+jobs:
+  controlla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PROVA: ${{ inputs.prova }}
+    steps:
+      - name: Controlla i siti
+        run: |
+          problems=()
+          check() { # nome, indirizzo, testo che deve comparire nella risposta
+            local name="$1" url="$2" expect="$3" code
+            code=$(curl -sS -m 25 --retry 3 --retry-delay 10 --retry-all-errors -o /tmp/body -w '%{http_code}' "$url" 2>/dev/null) || true
+            [ -z "$code" ] && code=000
+            if [ "$code" != "200" ]; then problems+=("- $name: risposta HTTP $code ($url)"); return; fi
+            if [ -n "$expect" ] && ! grep -q "$expect" /tmp/body; then problems+=("- $name: la pagina risponde ma il contenuto atteso manca ($url)"); fi
+          }
+          if [ "$PROVA" = "true" ]; then
+            check "PROVA (guasto simulato)" "https://calcettomanager.win/pagina-che-non-esiste-prova-monitoraggio" ""
+          else
+            check "Sito Next su Vercel" "https://calcettomanager.win/api/health" '"ok":true'
+            check "Landing" "https://calcettomanager.win/benvenuto" "Calcetto Manager"
+            check "Gestionale su Altervista" "https://advancedfootballmanager.altervista.org/wp-content/calcetto/benvenuto" "Calcetto Manager"
+          fi
+
+          gh label create monitoraggio --color d73a4a --description "Avvisi automatici del monitoraggio" >/dev/null 2>&1 || true
+          open=$(gh issue list --label monitoraggio --state open --json number --jq '.[0].number // empty')
+          now=$(TZ=Europe/Rome date '+%d/%m/%Y %H:%M')
+
+          if [ ${#problems[@]} -gt 0 ]; then
+            echo "Problemi trovati:"; printf '%s\n' "${problems[@]}"
+            if [ -n "$open" ]; then echo "Segnalazione #$open già aperta: nessun nuovo avviso."; exit 0; fi
+            title="Sito non raggiungibile"; [ "$PROVA" = "true" ] && title="[PROVA] Sito non raggiungibile"
+            body=$(printf 'Il controllo automatico delle %s (ora italiana) ha trovato:\n\n%s\n\nControlla lo stato su Vercel e Altervista. Questa segnalazione si chiude da sola quando i siti tornano a rispondere.' "$now" "$(printf '%s\n' "${problems[@]}")")
+            gh issue create --title "$title" --label monitoraggio --body "$body"
+            exit 1
+          fi
+
+          echo "Tutto a posto."
+          if [ -n "$open" ]; then
+            gh issue close "$open" --comment "Alle $now (ora italiana) i siti rispondono di nuovo."
+          fi
