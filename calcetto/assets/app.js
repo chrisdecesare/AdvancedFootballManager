@@ -252,8 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     apply();
   });
   // curiosità tutte alte uguali: quelle lunghe finiscono con «…» (CSS .fact-text) e con un clic si leggono per intero
-  const clamps = [...document.querySelectorAll('[data-clamp]')];
-  const markClamped = () => clamps.forEach(el => {
+  const markClamped = () => document.querySelectorAll('[data-clamp]').forEach(el => {
     if (el.classList.contains('is-open')) return;
     const over = el.scrollHeight > el.clientHeight + 1;
     el.classList.toggle('is-clamped', over);
@@ -266,10 +265,15 @@ document.addEventListener('DOMContentLoaded', () => {
     el.title = open ? 'Riduci' : 'Leggi tutta';
     el.closest('[data-facts]')?.classList.toggle('is-paused', open);   // in Home la curiosità aperta resta ferma finché non la chiudi
   };
-  clamps.forEach(el => {
-    el.addEventListener('click', () => { if (el.classList.contains('is-clamped')) toggleClamp(el); });
-    el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && el.classList.contains('is-clamped')) { e.preventDefault(); toggleClamp(el); } });
+  // clic e tasto sono del documento (delegati): valgono anche per i testi che compaiono o cambiano dopo l'avvio dello script
+  const clampOf = e => e.target.closest?.('[data-clamp]');
+  const canToggle = el => el && (el.classList.contains('is-open') || el.scrollHeight > el.clientHeight + 1);
+  document.addEventListener('click', e => { const el = clampOf(e); if (canToggle(el)) toggleClamp(el); });
+  document.addEventListener('keydown', e => {
+    const el = clampOf(e);
+    if ((e.key === 'Enter' || e.key === ' ') && canToggle(el)) { e.preventDefault(); toggleClamp(el); }
   });
+  new MutationObserver(() => requestAnimationFrame(markClamped)).observe(document.body, { childList: true, subtree: true });
   markClamped();
   window.addEventListener('resize', markClamped);
   document.fonts?.ready.then(markClamped);
