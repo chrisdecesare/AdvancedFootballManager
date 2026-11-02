@@ -2219,6 +2219,13 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
   .nav-many .nav a.nav-extra { display: flex; }
   .nav-many .nav a:not(.nav-extra) + .nav-extra { margin-top: 8px; }
   .nav-many .nav .nav-label, .nav-many .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  /* col menu aperto la pagina si sposta a destra quanto basta per non finire sotto la colonna (sugli schermi larghi, dove il contenuto
+     centrato è già libero, non si muove). Margine e larghezza sono sempre numeri, così si animano (il body è una colonna flex: con margin-right: auto l'elemento si restringerebbe al contenuto); il 100% è la larghezza senza barra di scorrimento. */
+  body:has(.nav-many) .wrap { --wl: max(0px, calc((100% - 1180px) / 2)); margin-left: var(--wl); margin-right: 0; width: calc(100% - var(--wl)); }
+  body:has(.topbar.nav-many.menu-open) .wrap { --wl: max(316px, calc((100% - 1180px) / 2)); }
+}
+@media (min-width: 800px) and (prefers-reduced-motion: no-preference) {
+  body:has(.nav-many) .wrap { transition: margin-left 200ms var(--ease-out), width 200ms var(--ease-out); }
 }
 @media (min-width: 800px) and (prefers-reduced-motion: reduce) {
   .nav-many .nav { transform: none !important; transition: opacity 120ms linear, display 120ms allow-discrete; }
