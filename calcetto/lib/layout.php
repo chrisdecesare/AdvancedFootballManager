@@ -31,7 +31,7 @@ function layout_start(string $title, string $active = ''): void
     $pendingLeague = 0;
     $challPending = 0;
     if ($u && !$guest) {
-        $nav['pitches'] = ['campi.php', 'I campetti', 'map-pin'];   // aggiungere e votare i campetti (stelle)
+        $nav['pitches'] = ['campi.php', 'I campi', 'map-pin'];   // aggiungere e votare i campi (stelle)
         if (discover_visible()) {
             $nav['find'] = ['calcetto', 'Trova lega', 'map-search'];
         }

@@ -6,6 +6,8 @@ DirectoryIndex index.php
   RewriteEngine On
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^uploads/players/([A-Za-z0-9_.-]+)$ https://calcettomanager.win/uploads/players/$1 [R=302,L]
+  # i loghi delle leghe e dei centri si caricano dal sito Next e stanno solo lì
+  RewriteRule ^uploads/centers/([A-Za-z0-9_.-]+)$ https://calcettomanager.win/uploads/centers/$1 [R=302,L]
 </IfModule>
 
 # App installabile e notifiche: il manifest e il service worker vanno serviti con il tipo giusto

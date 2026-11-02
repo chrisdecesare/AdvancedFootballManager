@@ -1,6 +1,6 @@
 <?php
 /*
- * I campetti della zona con le stelle da 1 a 5: aggiungi quello dove giochi e votalo (come next-app/src/app/(site)/campi). Le stelle compaiono anche
+ * I campi della zona con le stelle da 1 a 5: aggiungi quello dove giochi e votalo (come next-app/src/app/(site)/campi). Le stelle compaiono anche
  * nella scelta del campo quando si crea una partita. La città è quella delle tue leghe (o quella che scrivi).
  */
 require __DIR__ . '/lib/bootstrap.php';
@@ -33,16 +33,16 @@ if (is_post()) {
         $address = mb_substr(trim((string) ($_POST['address'] ?? '')), 0, 190);
         $city = mb_substr(trim((string) ($_POST['city'] ?? '')), 0, 80);
         $back = $city !== '' ? $to($city) : 'campi.php';
-        $err = !$canVote ? 'Per aggiungere un campetto serve un account da giocatore.'
-            : (pitch_input_error($name, $address, $city) ?? (pitch_valid_stars($stars) ? null : 'Dai al campetto da 1 a 5 stelle.'));
+        $err = !$canVote ? 'Per aggiungere un campo serve un account da giocatore.'
+            : (pitch_input_error($name, $address, $city) ?? (pitch_valid_stars($stars) ? null : 'Dai al campo da 1 a 5 stelle.'));
         if ($err) {
             flash('err', $err);
         } elseif (!rate_hit('pitch_add_' . (int) current_user()['id'], 8, 3600)) {
-            flash('err', 'Hai aggiunto molti campetti in poco tempo: riprova tra un\'ora.');
+            flash('err', 'Hai aggiunto molti campi in poco tempo: riprova tra un\'ora.');
         } else {
             [$id, $existed] = pitch_add((int) current_user()['id'], $name, $address, $city);
             pitch_rate($id, (int) $me, (int) $stars);
-            flash('ok', $existed ? '«' . $name . '» c\'era già: ho registrato il tuo voto.' : 'Campetto «' . $name . '» aggiunto, con il tuo voto.');
+            flash('ok', $existed ? '«' . $name . '» c\'era già: ho registrato il tuo voto.' : 'Campo «' . $name . '» aggiunto, con il tuo voto.');
         }
         redirect($back);
     }
@@ -55,23 +55,23 @@ $slug = $asked !== '' ? city_slug($asked) : ($mine[0] ?? '');
 $pitches = $slug !== '' ? pitches_in([$slug], $me ? (int) $me : null) : [];
 $cityName = $pitches[0]['city'] ?? ($asked !== '' && !preg_match('/^[a-z0-9-]+$/', $asked) ? $asked : '');
 
-layout_start('I campetti', 'pitches');
+layout_start('I campi', 'pitches');
 ?>
 <div class="narrow-lg">
-  <div class="page-head"><h1>I campetti</h1></div>
+  <div class="page-head"><h1>I campi</h1></div>
   <section class="card">
     <h2><i class="ti ti-map-pin"></i> Dove giochi?</h2>
-    <p class="muted small">Cerca i campetti di una città, aggiungi quello dove giochi e dagli da 1 a 5 stelle. Le stelle le vedono tutti quando si crea una partita.</p>
+    <p class="muted small">Cerca i campi di una città, aggiungi quello dove giochi e dagli da 1 a 5 stelle. Le stelle le vedono tutti quando si crea una partita.</p>
     <form method="get" class="form">
       <label class="field"><span>Città</span><input name="citta" value="<?= h($cityName) ?>" placeholder="Es. Cava de' Tirreni" required maxlength="80"></label>
-      <button class="btn btn-ghost btn-sm"><i class="ti ti-search"></i> Mostra i campetti</button>
+      <button class="btn btn-ghost btn-sm"><i class="ti ti-search"></i> Mostra i campi</button>
     </form>
   </section>
 
   <?php if ($slug !== ''): ?>
   <section class="card">
-    <h2><i class="ti ti-soccer-field"></i> Campetti <?= $cityName !== '' ? 'a ' . h($cityName) : 'della zona' ?></h2>
-    <?php if (!$pitches): ?><p class="empty">Nessun campetto in questa città: aggiungi il primo qui sotto.</p>
+    <h2><i class="ti ti-soccer-field"></i> Campi <?= $cityName !== '' ? 'a ' . h($cityName) : 'della zona' ?></h2>
+    <?php if (!$pitches): ?><p class="empty">Nessun campo in questa città: aggiungi il primo qui sotto.</p>
     <?php else: ?>
     <ul class="plain-list pitch-list">
       <?php foreach ($pitches as $p): ?>
@@ -99,12 +99,12 @@ layout_start('I campetti', 'pitches');
   <?php endif; ?>
 
   <section class="card">
-    <h2><i class="ti ti-plus"></i> Aggiungi il campetto dove giochi</h2>
+    <h2><i class="ti ti-plus"></i> Aggiungi il campo dove giochi</h2>
     <?php if ($canVote): ?>
     <form method="post" class="form">
       <?= csrf_field() ?><input type="hidden" name="do" value="add">
       <div class="form-grid">
-        <label class="field"><span>Nome del campetto</span><input name="name" required minlength="2" maxlength="120" placeholder="Es. Campo Sportivo Comunale"></label>
+        <label class="field"><span>Nome del campo</span><input name="name" required minlength="2" maxlength="120" placeholder="Es. Campo Sportivo Comunale"></label>
         <label class="field"><span>Indirizzo</span><input name="address" maxlength="190" placeholder="Es. Via Roma 1"></label>
         <label class="field"><span>Città</span><input name="city" required maxlength="80" value="<?= h($cityName) ?>" placeholder="Es. Cava de' Tirreni"></label>
         <label class="field"><span>Le tue stelle (da 1 a 5)</span>
@@ -115,7 +115,7 @@ layout_start('I campetti', 'pitches');
       </div>
       <button class="btn btn-primary">Aggiungi e vota</button>
     </form>
-    <?php else: ?><p class="muted">Per aggiungere e votare i campetti serve un account da giocatore.</p><?php endif; ?>
+    <?php else: ?><p class="muted">Per aggiungere e votare i campi serve un account da giocatore.</p><?php endif; ?>
   </section>
 </div>
 <?php

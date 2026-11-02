@@ -286,13 +286,17 @@ if (is_post()) {
             q('UPDATE proposals SET read_at = NOW() WHERE read_at IS NULL');
             flash('ok', 'Proposte segnate come lette.');
             break;
+        case 'pitch_delete':
+            $pname = pitch_delete((int) ($_POST['pitch_id'] ?? 0));
+            $pname !== null ? flash('ok', 'Campo «' . $pname . '» eliminato, con i suoi voti.') : flash('err', 'Campo non trovato (i campi dei centri non si eliminano da qui).');
+            break;
         case 'proposal_delete':
             q('DELETE FROM proposals WHERE id = ?', [(int) ($_POST['proposal_id'] ?? 0)]);
             flash('ok', 'Proposta cancellata.');
             break;
     }
     redirect('admin.php' . (in_array($do, ['guess_drop', 'guess_new_round', 'guess_reward', 'guess_notify'], true) ? '#indovina'
-        : (in_array($do, ['proposal_read', 'proposal_delete'], true) ? '#proposte' : '')));
+        : (in_array($do, ['proposal_read', 'proposal_delete'], true) ? '#proposte' : ($do === 'pitch_delete' ? '#campi' : ''))));
 }
 
 $users = q("SELECT u.*, p.name AS player_name, p.position, p.position2, p.foot, p.shirt_number
@@ -630,6 +634,30 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
 </section>
 
 <?php $proposals = proposal_all(); $unread = proposal_unread_count(); ?>
+<?php $userPitches = pitches_by_users(); ?>
+<section class="card" id="campi">
+  <h2><i class="ti ti-map-pin"></i> Campi aggiunti dagli utenti <span class="count"><?= count($userPitches) ?></span></h2>
+  <p class="muted small">I campi li aggiungono i giocatori da «I campi» e si votano da 1 a 5 stelle. Qui li controlli e togli quelli sbagliati o scherzosi (il campo sparisce con i suoi voti). I campi dei centri registrati non compaiono: arrivano dai centri.</p>
+  <?php if (!$userPitches): ?><p class="muted small">Nessun campo aggiunto dagli utenti.</p>
+  <?php else: ?>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Campo</th><th>Città</th><th>Aggiunto da</th><th>Stelle</th><th></th></tr></thead>
+    <tbody>
+      <?php foreach ($userPitches as $p): ?>
+      <tr>
+        <td><strong><?= h($p['name']) ?></strong><div class="muted small"><?= h($p['address'] ?: 'senza indirizzo') ?></div></td>
+        <td><?= h($p['city']) ?></td>
+        <td><?= h($p['added_by'] ?? '—') ?><div class="muted small"><?= h(push_when($p['created_at'])) ?></div></td>
+        <td><?php if ((int) $p['votes']): ?><?= pitch_stars_text($p['avg']) ?> <?= h(pitch_avg_text((float) $p['avg'], (int) $p['votes'])) ?> <span class="muted small">(<?= (int) $p['votes'] ?>)</span><?php else: ?><span class="muted small">nessun voto</span><?php endif; ?></td>
+        <td><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="pitch_delete"><input type="hidden" name="pitch_id" value="<?= (int) $p['id'] ?>">
+          <button class="btn btn-ghost btn-sm" data-confirm="Eliminare il campo «<?= h($p['name']) ?>» e i suoi voti?" aria-label="Elimina <?= h($p['name']) ?>"><i class="ti ti-trash"></i></button></form></td>
+      </tr>
+      <?php endforeach; ?>
+    </tbody>
+  </table></div>
+  <?php endif; ?>
+</section>
+
 <section class="card" id="proposte">
   <h2><i class="ti ti-bulb"></i> Proposte dei giocatori <?php if ($unread): ?><span class="count"><?= $unread ?> nuove</span><?php endif; ?></h2>
   <p class="muted small">Arrivano dal campo di testo nella card del countdown in Home. Le vedi solo tu.</p>

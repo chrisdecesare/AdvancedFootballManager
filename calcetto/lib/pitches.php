@@ -66,7 +66,7 @@ function pitch_avg_text($avg, int $votes): string
     return !$votes || $avg === null ? '—' : number_format(round((float) $avg, 1), 1, ',', '');
 }
 
-/** Le stelle di un campetto in HTML: «★★★★☆ 3,6 (12)». */
+/** Le stelle di un campo in HTML: «★★★★☆ 3,6 (12)». */
 function pitch_stars_html($avg, int $votes): string
 {
     if (!$votes) {
@@ -83,17 +83,17 @@ function pitch_option_label(array $p): string
     return $p['name'] . ' ' . pitch_stars_text($p['votes'] ? $p['avg'] : null) . ', ' . ($p['address'] ?: $p['city']);
 }
 
-/** Messaggio d'errore sui dati del campetto, o null se vanno bene. */
+/** Messaggio d'errore sui dati del campo, o null se vanno bene. */
 function pitch_input_error(string $name, string $address, string $city): ?string
 {
     if (mb_strlen($name) < 2 || mb_strlen($name) > 120) {
-        return 'Il nome del campetto va da 2 a 120 caratteri.';
+        return 'Il nome del campo va da 2 a 120 caratteri.';
     }
     if (offensive_name($name)) {
         return OFFENSIVE_NAME_MESSAGE;
     }
     if (mb_strlen($city) < 2 || mb_strlen($city) > 80) {
-        return 'Scrivi la città del campetto.';
+        return 'Scrivi la città del campo.';
     }
     if (mb_strlen($address) > 190) {
         return 'L\'indirizzo è troppo lungo (massimo 190 caratteri).';
@@ -101,7 +101,7 @@ function pitch_input_error(string $name, string $address, string $city): ?string
     return null;
 }
 
-/** I campetti delle città date, con la media delle stelle, i voti e il voto di $playerId (se c'è). */
+/** I campi delle città date, con la media delle stelle, i voti e il voto di $playerId (se c'è). */
 function pitches_in(array $slugs, ?int $playerId = null): array
 {
     $list = array_slice(array_values(array_unique(array_filter($slugs))), 0, 20);
@@ -135,7 +135,7 @@ function pitch_by_id(int $id): ?array
     return q('SELECT id, name, address, city FROM pitches WHERE id = ?', [$id])->fetch() ?: null;
 }
 
-/** Aggiunge un campetto (se in quella città ce n'è già uno con lo stesso nome, ritorna quello): [id, esisteva già]. */
+/** Aggiunge un campo (se in quella città ce n'è già uno con lo stesso nome, ritorna quello): [id, esisteva già]. */
 function pitch_add(int $userId, string $name, string $address, string $city): array
 {
     pitches_schema_ensure();
@@ -148,7 +148,7 @@ function pitch_add(int $userId, string $name, string $address, string $city): ar
     return [(int) db()->lastInsertId(), false];
 }
 
-/** Il voto di un giocatore a un campetto: uno solo, si può cambiare. */
+/** Il voto di un giocatore a un campo: uno solo, si può cambiare. */
 function pitch_rate(int $pitchId, int $playerId, $stars): bool
 {
     if (!pitch_valid_stars($stars) || !pitch_by_id($pitchId)) {
@@ -158,7 +158,7 @@ function pitch_rate(int $pitchId, int $playerId, $stars): bool
     return true;
 }
 
-/** Le città (slug) delle leghe date, per proporre i campetti della zona. */
+/** Le città (slug) delle leghe date, per proporre i campi della zona. */
 function pitch_cities_of_groups(array $groupIds): array
 {
     $ids = array_values(array_filter(array_map('intval', $groupIds), fn($g) => $g > 0));
@@ -167,4 +167,28 @@ function pitch_cities_of_groups(array $groupIds): array
     }
     pitches_schema_ensure();
     return array_map('strval', q('SELECT DISTINCT city_slug FROM league_public WHERE group_id IN (' . implode(',', $ids) . ") AND city_slug <> ''")->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** I campi aggiunti dagli utenti (non quelli dei centri registrati, che vengono dai centri), per la gestione dell'admin. */
+function pitches_by_users(): array
+{
+    pitches_schema_ensure();
+    return q('SELECT p.id, p.name, p.address, p.city, p.created_at, COALESCE(pl.name, u.username) AS added_by,
+         (SELECT AVG(r.stars) FROM pitch_ratings r WHERE r.pitch_id = p.id) AS avg,
+         (SELECT COUNT(*) FROM pitch_ratings r WHERE r.pitch_id = p.id) AS votes
+       FROM pitches p LEFT JOIN users u ON u.id = p.created_by LEFT JOIN players pl ON pl.id = u.player_id
+       WHERE p.center_id IS NULL ORDER BY p.city, p.name')->fetchAll();
+}
+
+/** Elimina un campo aggiunto da un utente, con i suoi voti. I campi dei centri non si toccano da qui. Ritorna il nome, o null se non c'è. */
+function pitch_delete(int $id): ?string
+{
+    pitches_schema_ensure();
+    $name = q('SELECT name FROM pitches WHERE id = ? AND center_id IS NULL', [$id])->fetchColumn();
+    if ($name === false) {
+        return null;
+    }
+    q('DELETE FROM pitch_ratings WHERE pitch_id = ?', [$id]);
+    q('DELETE FROM pitches WHERE id = ? AND center_id IS NULL', [$id]);
+    return (string) $name;
 }
