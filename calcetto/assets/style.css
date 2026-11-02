@@ -2231,3 +2231,9 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
   .nav-many .nav { transform: none !important; transition: opacity 120ms linear, display 120ms allow-discrete; }
 }
 /* @menu-molte-schede:fine */
+
+/* messaggi dopo un'azione: la stessa schermata del premio (vote-done / coin-gift), con il colore del tipo di messaggio */
+.flash-pop-ok .cg-badge { background: var(--grass); }
+.flash-pop-warn .cg-badge { background: var(--orange); }
+.flash-pop-err .cg-badge { background: var(--red); color: var(--white); }
+.flash-pop .cg-note { max-width: min(86vw, 380px); }

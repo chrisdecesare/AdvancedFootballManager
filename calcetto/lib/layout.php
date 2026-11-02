@@ -251,9 +251,23 @@ if ($thought):
   </form>
 </div>
 <?php endif; ?>
-<?php foreach (take_flashes() as [$type, $msg]): ?>
-  <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>
-<?php endforeach;
+<?php
+// i messaggi dopo un'azione sono una schermata a tutto schermo come quella del premio (vote-done / coin-gift): sparisce da sola o con un tocco (app.js)
+$flashes = take_flashes();
+if ($flashes):
+    $types = array_column($flashes, 0);
+    $sev = in_array('err', $types, true) ? 'err' : (in_array('warn', $types, true) ? 'warn' : 'ok');
+    $look = ['ok' => ['check', 'Fatto!'], 'warn' => ['alert-triangle', 'Attenzione'], 'err' => ['alert-circle', 'Qualcosa non va']][$sev];
+    $long = $sev !== 'ok' || array_sum(array_map(fn($f) => mb_strlen((string) $f[1]), $flashes)) > 60;
+?>
+<div class="vote-done coin-gift flash-pop flash-pop-<?= $sev ?><?= $long ? ' has-note' : '' ?>" data-vote-done role="status" aria-live="polite">
+  <div class="vote-done-card">
+    <span class="cg-badge" aria-hidden="true"><i class="ti ti-<?= $look[0] ?>"></i></span>
+    <div class="vote-done-title"><?= h($look[1]) ?></div>
+    <?php foreach ($flashes as [$type, $msg]): ?><p class="cg-note"><?= h($msg) ?></p><?php endforeach; ?>
+  </div>
+</div>
+<?php endif;
 }
 
 function layout_end(): void
