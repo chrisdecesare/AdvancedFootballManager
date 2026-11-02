@@ -198,6 +198,28 @@ if (is_post()) {
             }
             break;
 
+        case 'center_link':   // «Campo di casa»: la lega gioca in un centro (compare nella sua pagina, nei tornei e nel rapporto del centro)
+            $cc = q('SELECT * FROM sport_centers WHERE id = ?', [(int) ($_POST['center_id'] ?? 0)])->fetch();
+            if (!$cc || center_plan_of($cc) === null) {
+                flash('err', 'Questo centro non è disponibile.');
+                break;
+            }
+            center_link((int) $cc['id'], $gid, (int) current_user()['id']);
+            log_activity('lega', 'lega collegata al centro «' . $cc['name'] . '»', $gid);
+            flash('ok', '«' . $league['name'] . '» ora gioca a ' . $cc['name'] . '.');
+            break;
+
+        case 'center_unlink':
+            $cc = center_linked_to($gid);
+            if (!$cc) {
+                flash('err', 'La lega non è collegata a nessun campo.');
+                break;
+            }
+            center_unlink((int) $cc['id'], $gid);
+            log_activity('lega', 'lega scollegata dal centro «' . $cc['name'] . '»', $gid);
+            flash('ok', '«' . $league['name'] . '» non è più collegata a ' . $cc['name'] . '.');
+            break;
+
         case 'public':   // «Trovami sulla mappa»
             if (!discover_visible()) {
                 break;
@@ -288,6 +310,32 @@ layout_start($league['name'] . ' · gestione', 'league');
   </form>
 </section>
 <?php endif; ?>
+
+<?php
+$linkedC = center_linked_to($gid);
+$pubC = league_public_get($gid);
+$linkable = $linkedC ? [] : centers_linkable($pubC && $pubC['city'] ? city_slug((string) $pubC['city']) : '');
+?>
+<section class="card" id="campo">
+  <h2><i class="ti ti-building-stadium"></i> Campo di casa</h2>
+  <?php if ($linkedC): ?>
+    <p>La lega è collegata a <strong><?= h($linkedC['name']) ?></strong> <span class="muted small">(<?= h(implode(', ', array_filter([$linkedC['address'], $linkedC['city']]))) ?>)</span>.</p>
+    <p class="muted small">Compare nella pagina del centro, può partecipare ai suoi tornei e le sue partite contano nel rapporto del centro. Puoi scollegarla quando vuoi: le partite restano.</p>
+    <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="group_id" value="<?= $gid ?>"><input type="hidden" name="do" value="center_unlink">
+      <button class="btn btn-ghost btn-sm" data-confirm="Scollegare la lega da <?= h($linkedC['name']) ?>?"><i class="ti ti-unlink"></i> Scollega dal campo</button></form>
+  <?php else: ?>
+    <p>La lega <strong>non è collegata</strong> a nessun campo.</p>
+    <?php if ($linkable): ?>
+    <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="group_id" value="<?= $gid ?>"><input type="hidden" name="do" value="center_link">
+      <p class="muted small">Se giocate in un centro registrato, collegalo: la lega compare nella sua pagina e nei suoi tornei. Il campo di ogni singola partita si sceglie comunque a parte.</p>
+      <label class="field"><span>Centro</span>
+        <select name="center_id" required><option value="" disabled selected>Scegli il centro</option>
+          <?php foreach ($linkable as $c): ?><option value="<?= (int) $c['id'] ?>"><?= h($c['name'] . ', ' . $c['city']) ?></option><?php endforeach; ?></select></label>
+      <button class="btn btn-primary btn-sm"><i class="ti ti-link"></i> Collega al campo</button>
+    </form>
+    <?php else: ?><p class="muted small">Nessun centro registrato è disponibile per il collegamento: il campo si sceglie a ogni partita. Un centro può anche darti il suo codice QR per collegarti.</p><?php endif; ?>
+  <?php endif; ?>
+</section>
 
 <section class="card" id="invito">
   <h2><i class="ti ti-link"></i> Invita i giocatori</h2>
