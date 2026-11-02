@@ -9,8 +9,7 @@ function layout_start(string $title, string $active = ''): void
         'standings' => ['standings.php', 'Classifica', 'trophy'],
         'bets' => ['bets.php', 'Scommesse', 'coin'],
         'shop' => ['shop.php', 'Negozio', 'shopping-bag'],
-        'curiosities' => ['curiosities.php', 'Curiosità', 'bulb'],
-    ];
+    ];   // le curiosità non sono una scheda: stanno nel riquadro della Home
     $guest = is_guest();
     if ($guest) {
         // vede solo le sue partite (l'ultima nel menu) e la sua area (guest.php)
@@ -23,7 +22,9 @@ function layout_start(string $title, string $active = ''): void
     }
     if ($u && !$guest && avatar_visible()) {
         // Avatar (avatar.php): si apre a tutti da solo alla scadenza del countdown in Home (lib/guess.php: avatar_public), prima solo admin
-        $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Avatar', '3d-cube-sphere']] + $nav;
+        // il Negozio vive dentro quello dell'Avatar (sfondi, bordi e nickname compresi): la scheda a parte c'è solo prima del lancio
+        unset($nav['shop']);
+        $nav = array_slice($nav, 0, 6, true) + ['avatar' => ['avatar.php', 'Avatar e negozio', '3d-cube-sphere']] + $nav;
     }
     // Daily access e Ruota della fortuna (daily.php / wheel.php): niente scheda nel menu, si raggiungono dai
     // due bottoncini in Home (index.php), visibili a tutti i giocatori con un account (ospiti esclusi).

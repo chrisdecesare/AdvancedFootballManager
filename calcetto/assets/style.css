@@ -1474,6 +1474,16 @@ html.menu-open .betslip, html.tour-open .betslip { display: none; }
 .av-body-row output { text-align: right; font-variant-numeric: tabular-nums; }
 .av-body-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 .av-info { padding: 10px 16px 16px; }
+/* La card del giocatore sotto l'avatar, uguale a quella della Rosa: serve a provarci sopra sfondi, bordi, nickname e copricapi. */
+.av-cardprev { display: grid; justify-items: center; gap: 8px; padding: 12px 16px 16px; border-top: var(--b); }
+.av-cardprev-title { font: 400 1.05rem var(--font-d); text-align: center; }
+.av-cardprev-title small { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); }
+.av-card { width: min(100%, 210px); transform: none !important; }
+.av-card .pcard-nick[hidden] { display: none; }
+.av-item-thumb { align-items: center; padding: 0 8px; }
+.av-item-thumb .shop-swatch { height: 100px; }
+.av-item-thumb .nick { white-space: normal; text-align: center; line-height: 1.15; padding: 3px 12px 1px; border-radius: 14px; }
+.av-item.is-locked { opacity: .75; }
 .av-info-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; padding-top: 12px; border-top: 2px dashed var(--paper-2); }
 .av-info-kind { font-weight: 900; font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .av-info-name { font-size: 1.9rem; margin: 6px 0 4px; }

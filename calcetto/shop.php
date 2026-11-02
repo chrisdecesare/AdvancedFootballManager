@@ -10,6 +10,12 @@ $filter = in_array($_GET['f'] ?? '', ['mine', 'buy', 'locked', 'wish'], true) ? 
 $page = max(1, (int) ($_GET['p'] ?? 1));
 const SHOP_PER_PAGE = 48;
 
+// con l'Avatar aperto il Negozio è dentro quello dell'Avatar (stesse schede, stessa card di prova): qui si arriva solo da vecchi link
+if (!is_post() && $me && !is_guest() && avatar_visible()) {
+    redirect('avatar.php?' . http_build_query(array_filter(['c' => isset($kinds[$_GET['s'] ?? '']) ? $_GET['s'] : 'bg',
+        'v' => in_array($_GET['f'] ?? '', ['mine', 'wish'], true) ? $_GET['f'] : ''], fn($v) => $v !== '')) . '#negozio');
+}
+
 /* ---------------------------------------------------------------- azioni */
 if (is_post()) {
     require_login();

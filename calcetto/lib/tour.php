@@ -34,6 +34,7 @@ function tour_steps(array $u): array
                 'Con «Ci sono» e «Non ci sono» confermi o disdici la tua presenza. È la cosa più importante da fare!',
                 'Le formazioni delle due squadre, quando sono state fatte.',
                 'Il resoconto dell\'ultima partita: MVP, marcatori, assist e voto più alto.',
+                'Le curiosità sui giocatori, scritte da loro stessi dalla propria scheda in Rosa: girano da sole, una nuova ogni 15 secondi.',
             ],
         ],
         [
@@ -77,24 +78,26 @@ function tour_steps(array $u): array
                 'La classifica dei più ricchi è nella scheda «Classifica»: chi è il Banco?',
             ],
         ],
-        [
-            'sel' => '.nav a[href="shop.php"]', 'icon' => 'shopping-bag',
-            'title' => 'Negozio',
-            'text' => 'Spendi i KOIN delle scommesse per personalizzare il profilo.',
-            'bullets' => [
-                '100 copricapi, 30 bordi, 50 sfondi e 50 nickname (33 si sbloccano con gol, assist, MVP e altri obiettivi).',
-                'Premi «Prova» su un oggetto per vederlo addosso a te prima di comprarlo.',
+        // con l'Avatar aperto il Negozio è dentro la scheda «Avatar e negozio» (lib/layout.php), prima resta la scheda a parte
+        avatar_visible()
+            ? [
+                'sel' => '.nav a[href="avatar.php"]', 'icon' => 'shopping-bag',
+                'title' => 'Avatar e negozio',
+                'text' => 'Il tuo personaggio e il negozio dove spendere i KOIN delle scommesse.',
+                'bullets' => [
+                    'Capelli, maglie, scarpe e altro per l\'avatar; sfondi, bordi, nickname e copricapi per la tua card.',
+                    'Sotto l\'avatar vedi la tua card come compare in Rosa: premi «Prova» su un oggetto per vederlo addosso a te prima di comprarlo.',
+                ],
+            ]
+            : [
+                'sel' => '.nav a[href="shop.php"]', 'icon' => 'shopping-bag',
+                'title' => 'Negozio',
+                'text' => 'Spendi i KOIN delle scommesse per personalizzare il profilo.',
+                'bullets' => [
+                    '100 copricapi, 30 bordi, 50 sfondi e 50 nickname (33 si sbloccano con gol, assist, MVP e altri obiettivi).',
+                    'Premi «Prova» su un oggetto per vederlo addosso a te prima di comprarlo.',
+                ],
             ],
-        ],
-        [
-            'sel' => '.nav a[href="curiosities.php"]', 'icon' => 'bulb',
-            'title' => 'Curiosità',
-            'text' => 'Le curiosità sui giocatori, scritte da loro stessi o dall\'admin.',
-            'bullets' => [
-                'Ogni giocatore scrive le sue dalla propria scheda in Rosa (sezione «Curiosità»).',
-                'In Home, sotto le informazioni sulle partite, girano da sole: una nuova ogni 15 secondi.',
-            ],
-        ],
     ];
     if (!is_guest()) {   // gli ospiti non hanno KOIN: niente Calendario né Ruota
         array_splice($steps, 2, 0, [

@@ -20,7 +20,10 @@ if (!$me) {
     redirect('profile.php');
 }
 
-$kinds = avatar_kinds();
+// Sfondi, bordi e nickname sono gli oggetti del Negozio che si vedono sulla card (Rosa, profilo): stanno qui, in coda alle altre categorie.
+// «Copricapi» è in tutti e due i mondi e resta tra le categorie dell'Avatar.
+$cardKinds = ['bg' => 'Sfondi card', 'border' => 'Bordi card', 'nick' => 'Nickname'];
+$kinds = avatar_kinds() + $cardKinds;
 $cat = isset($kinds[$_GET['c'] ?? '']) ? (string) $_GET['c'] : 'hair';
 $view = in_array($_GET['v'] ?? '', ['mine', 'wish'], true) ? (string) $_GET['v'] : 'shop';
 $page = max(1, (int) ($_GET['p'] ?? 1));
@@ -29,6 +32,7 @@ $rarities = ['base' => 'Base', 'comune' => 'Comune', 'raro' => 'Raro', 'epico' =
 $rar = isset($rarities[$_GET['r'] ?? '']) ? (string) $_GET['r'] : '';
 $sort = ($_GET['o'] ?? '') === 'desc' ? 'desc' : 'asc';
 $try = (string) ($_GET['try'] ?? '');
+$isCard = isset($cardKinds[$cat]);
 
 $url = function (array $set = []) use ($cat, $view, $rar, $sort, $page): string {
     $q = array_filter(array_merge(['c' => $cat, 'v' => $view !== 'shop' ? $view : '', 'r' => $rar, 'o' => $sort === 'desc' ? 'desc' : '',
@@ -63,7 +67,7 @@ if (is_post()) {
         $item = $key !== '' ? shop_item($kind, $key) : null;
         if ($do === 'buy' && $item) {
             wallet_open($me);
-            $err = shop_buy($me, $kind, $key, null, true) ?? shop_equip($me, $kind, $key);
+            $err = shop_buy($me, $kind, $key, null, isset(avatar_kinds()[$kind])) ?? shop_equip($me, $kind, $key);
             if (!$err) {
                 log_activity('negozio', $kind . ' · ' . $item['name']);
             }
@@ -104,6 +108,8 @@ $owned = shop_owned($me) + ['' => true];
 shop_credits_grant($me);
 $balance = shop_spendable($me);   // KOIN + crediti dell'Avatar
 $avCredits = shop_credit_balance($me);
+$spend = $isCard ? $balance - $avCredits : $balance;   // i crediti dell'Avatar non pagano sfondi, bordi e nickname (solo l'Avatar e i copricapi)
+$progress = shop_progress($me);
 $catalog = shop_catalog();
 $number = $mp['shirt_number'];
 $wish = shop_wishlist($me);
@@ -120,7 +126,9 @@ $itemsOf = function (string $kind) use ($catalog, $me, $owned, $admin): array {
     if (isset($cache[$kind])) {
         return $cache[$kind];
     }
-    $items = $kind === 'hat' ? ['' => ['name' => 'Nessun copricapo', 'price' => 0, 'out' => false]] : [];
+    // copricapo, sfondo, bordo e nickname si possono anche togliere: la voce «nessuno» è la prima
+    $none = ['hat' => 'Nessun copricapo', 'bg' => 'Nessuno sfondo speciale', 'border' => 'Nessun bordo', 'nick' => 'Nessun nickname'];
+    $items = isset($none[$kind]) ? ['' => ['name' => $none[$kind], 'price' => 0, 'out' => false]] : [];
     foreach ($catalog[$kind] as $k => $item) {
         $out = !shop_released((string) $k, $item);
         if ((!isset($item['owner_player_id']) || $item['owner_player_id'] === $me) && (!$out || $admin || isset($owned[$k]))
@@ -131,7 +139,7 @@ $itemsOf = function (string $kind) use ($catalog, $me, $owned, $admin): array {
     return $cache[$kind] = $items;
 };
 $priceOf = fn(string $key, array $item) => shop_price($key, $item, $me);   // il prezzo di adesso (lib/shop.php: shop_price)
-$wornKey = fn(string $kind) => $kind === 'hat' ? (string) $look['hat'] : $look[$kind];
+$wornKey = fn(string $kind) => $kind === 'hat' ? (string) $look['hat'] : (isset($cardKinds[$kind]) ? (string) ($mp[shop_column($kind)] ?? '') : $look[$kind]);
 
 // schede Negozio / Guardaroba e categorie: quanti oggetti ci sono e quanti ne ho
 $count = [];
@@ -149,7 +157,7 @@ foreach ($itemsOf($cat) as $k => $item) {
     if (($view === 'mine' && !isset($owned[$k])) || ($view === 'wish' && !isset($wish[$k])) || ($rar !== '' && $rk !== $rar)) {
         continue;
     }
-    $items[(string) $k] = $item + ['now' => $priceOf((string) $k, $item)[0]];
+    $items[(string) $k] = $item + ['now' => $priceOf((string) $k, $item)[0] ?? 1000000000];   // un nickname da sbloccare non ha prezzo: in fondo
 }
 uasort($items, fn($a, $b) => [$a['out'], $sort === 'desc' ? -(int) $a['now'] : (int) $a['now']] <=> [$b['out'], $sort === 'desc' ? -(int) $b['now'] : (int) $b['now']]);
 $pages = max(1, (int) ceil(count($items) / AV_PER_PAGE));
@@ -171,6 +179,9 @@ foreach ($itemsOf($cat) as $item) {
 
 // oggetto mostrato nel pannello: quello che si sta provando, sennò quello indossato
 $selected = array_key_exists($try, $itemsOf($cat)) ? $try : $wornKey($cat);
+if ($isCard && !array_key_exists($selected, $itemsOf($cat))) {
+    $selected = '';   // indossa uno sfondo, bordo o nickname che qui non si vede più: resta «nessuno»
+}
 $lookWith = function (string $key) use ($look, $cat): array {
     $l = $look;
     $l[$cat] = $cat === 'hat' ? ($key !== '' ? $key : null) : $key;
@@ -188,27 +199,35 @@ $kindDesc = [
     'pet' => 'Ti aspetta a bordo campo, sempre.',
     'pose' => 'Come sta in posa il tuo avatar.',
     'celebration' => 'Premi «Esulta!» per vederla.',
+    'bg' => 'Lo sfondo della tua card in Rosa e del tuo profilo. Sostituisce il colore o l\'immagine che hai scelto.',
+    'border' => 'Il bordo della tua card in Rosa e del tuo profilo.',
+    'nick' => 'Il soprannome scritto sotto il tuo nome. Alcuni non si comprano: si sbloccano raggiungendo un obiettivo.',
 ];
+$goalText = function (array $item) use ($progress): string {
+    [$stat, $need, $label] = $item['goal'];
+    $have = $progress[$stat] ?? 0;
+    return $label . ' · ' . (is_float($need) ? fmt_num($have, 1) . ' / ' . fmt_num($need, 1) : min((int) $have, $need) . ' / ' . $need);
+};
 $jerseyKind = ['club' => 'Maglia da club', 'national' => 'Maglia della nazionale', 'custom' => 'Creata da te'];
 $patterns = avatar_patterns();
 
 $stateOf = function (string $key, array $item) use ($cat, $owned, $wornKey): string {
-    return $wornKey($cat) === $key ? 'worn' : (isset($owned[$key]) ? ($item['price'] ? 'owned' : 'free') : 'buy');
+    return $wornKey($cat) === $key ? 'worn' : (isset($owned[$key]) ? (($item['price'] === null || $item['price']) ? 'owned' : 'free') : ($item['price'] === null ? 'locked' : 'buy'));
 };
 
 /** Il pannello sotto l'avatar: nome, rarità, descrizione e il pulsante giusto (compra, indossa, già tuo). */
-$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $balance, $avCredits, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN, $sellable): string {
+$infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $jerseyKind, $patterns, $spend, $isCard, $mp, $goalText, $avCredits, $stateOf, $view, $rar, $sort, $page, $priceOf, $wish, $wishN, $sellable): string {
     [$rk, $rl] = avatar_rarity($item['price']);
     $desc = $item['desc'] ?? ($cat === 'jersey'
         ? $jerseyKind[$item['kind']] . (($item['pattern'] ?? 'solid') !== 'solid' ? ' · ' . mb_strtolower($patterns[$item['pattern']]) : '') . '.'
         : ($kindDesc[$cat] ?? ''));
     $state = $stateOf($key, $item);
-    $form = function (string $do, string $label, string $cls, bool $disabled = false) use ($cat, $key, $view, $rar, $sort, $page): string {
+    $form = function (string $do, string $label, string $cls, bool $disabled = false, string $confirm = '') use ($cat, $key, $view, $rar, $sort, $page): string {
         return '<form method="post" class="av-act">' . csrf_field()
             . '<input type="hidden" name="do" value="' . $do . '"><input type="hidden" name="kind" value="' . h($cat) . '"><input type="hidden" name="key" value="' . h($key) . '">'
             . '<input type="hidden" name="v" value="' . h($view) . '"><input type="hidden" name="r" value="' . h($rar) . '"><input type="hidden" name="o" value="' . h($sort) . '">'
             . '<input type="hidden" name="p" value="' . $page . '">'
-            . '<button class="btn ' . $cls . ' btn-block"' . ($disabled ? ' disabled' : '') . '>' . $label . '</button></form>';
+            . '<button class="btn ' . $cls . ' btn-block"' . ($disabled ? ' disabled' : '') . ($confirm !== '' ? ' data-confirm="' . h($confirm) . '"' : '') . '>' . $label . '</button></form>';
     };
     [$price, $why] = $key !== '' ? $priceOf($key, $item) : [0, null];
     $wishBtn = $key !== '' && ($item['price'] ?? 0) > 0 && !shop_reward_only($item)
@@ -221,8 +240,10 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
     $word = $cat === 'celebration' ? ['Scegli questa esultanza', 'È la tua esultanza'] : ($cat === 'pose' ? ['Usa questa posa', 'È la tua posa'] : ['Indossa', 'Lo indossi']);
     if ($state === 'worn') {
         $act = '<p class="av-state is-worn"><i class="ti ti-circle-check"></i> ' . $word[1] . '</p>';
+    } elseif ($state === 'locked') {
+        $act = '<p class="av-state"><i class="ti ti-lock"></i> Si sblocca con: ' . h($goalText($item)) . '</p>';
     } elseif ($state === 'buy') {
-        $short = $balance < (int) $price;
+        $short = $spend < (int) $price;
         $out = !empty($item['out']);
         $act = '<p class="av-price"><i class="ti ti-coin"></i> ' . (int) $price . ' <span>KOIN</span>'
             . ($price !== $item['price'] ? ' <span class="price-move ' . ($price > $item['price'] ? 'is-up' : 'is-down') . '"><i class="ti ti-trending-'
@@ -230,10 +251,11 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
             . ($why ? '<p class="small av-why">' . h(shop_price_note($why)) . '</p>' : '')
             . ($out ? '<p class="av-state"><i class="ti ti-eye-off"></i> Non ancora uscito: lo fai uscire da <a class="link" href="drops.php">Uscite</a>.</p>'
                 : $form('buy', '<i class="ti ti-shopping-bag"></i> Compra e ' . ($cat === 'celebration' || $cat === 'pose' ? 'usa' : 'indossa'), 'btn-primary', $short)
-                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $balance) . ' KOIN (hai ' . ($balance - $avCredits) . ' KOIN + ' . $avCredits . ' crediti Avatar): <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
+                . ($short ? '<p class="small av-short">Ti mancano ' . ((int) $price - $spend) . ' KOIN (hai ' . $spend . ' KOIN' . ($isCard ? '' : ' + ' . $avCredits . ' crediti Avatar') . '): <a class="link" href="bets.php">vai a scommettere</a>.</p>' : ''));
     } else {
         $act = '<p class="av-state"><i class="ti ti-' . ($state === 'free' ? 'gift' : 'hanger') . '"></i> ' . ($state === 'free' ? 'Incluso per tutti' : 'Nel tuo guardaroba') . '</p>'
-            . $form('wear', $word[0], 'btn-primary');
+            . $form('wear', $key === '' && $isCard ? 'Toglilo' : $word[0], 'btn-primary', false, $cat === 'bg' && $key !== '' && (!empty($mp['bg_image']) || !empty($mp['bg_color']))
+                ? 'Lo sfondo speciale sostituisce quello che hai scelto con colore o immagine. Continuare?' : '');
     }
     if (isset($sellable[$key])) {   // comprato: si può rivendere a metà di quanto l'ha pagato
         [$svC, $svK] = shop_sell_value($sellable[$key]);
@@ -252,10 +274,22 @@ $infoHtml = function (string $key, array $item) use ($cat, $kinds, $kindDesc, $j
 
 $catIcons = ['hair' => 'scissors', 'hair_color' => 'palette', 'skin' => 'hand-stop', 'beard' => 'mood-smile-beam', 'glasses' => 'eyeglass',
     'hat' => 'hat', 'jersey' => 'shirt-sport', 'shorts' => 'hanger', 'shoes' => 'shoe', 'pet' => 'paw', 'pose' => 'accessible',
-    'celebration' => 'confetti'];
+    'celebration' => 'confetti', 'bg' => 'photo', 'border' => 'border-outer', 'nick' => 'signature'];
 $crop = ['hair' => 'head', 'hair_color' => 'head', 'beard' => 'head', 'glasses' => 'head', 'hat' => 'head', 'jersey' => 'torso',
     'shorts' => 'legs', 'shoes' => 'feet'][$cat] ?? '';
-$stageLook = $lookWith($selected);
+$stageLook = $isCard ? $look : $lookWith($selected);   // gli oggetti della card non cambiano la figura
+
+// La card come compare in Rosa e nel profilo, con addosso quello che stai provando (?try= senza JavaScript, «Prova» con lo script)
+$tryingCard = in_array($cat, ['bg', 'border', 'nick', 'hat'], true);
+$cardStat = compute_stats()[$me] ?? null;
+$selName = (string) ($itemsOf($cat)[$selected]['name'] ?? '');
+$cardBg = $cat === 'bg' ? ($selected !== '' ? ' bgp-' . $selected : '') : bg_preset_class($mp);
+$cardBrd = $cat === 'border' ? ($selected !== '' ? ' brd-' . $selected : '') : border_class($mp);
+$cardNick = $cat === 'nick' ? ($selected !== '' ? '<span class="nick">«' . h($selName) . '»</span>' : '') : nick_html($mp);
+$cardHat = $cat === 'hat' ? ($selected !== '' && shop_item('hat', $selected) ? '<span class="hat" aria-hidden="true">' . hat_svg($selected) . '</span>' : '') : hat_html($mp);
+$realStyle = profile_bg_style($mp);   // il colore o l'immagine scelti (non c'è se indossi già uno sfondo speciale)
+$cardStyle = $cardBg === '' ? $realStyle : '';
+$posAbbr = strtolower(position_abbr($mp['position']));
 
 $unseen = shop_news_unseen();   // tipi con oggetti nuovi non ancora guardati (pallino rosso, per chi non ha le notifiche)
 if (!isset($_GET['fig'])) {
@@ -293,6 +327,27 @@ layout_start('Avatar', 'avatar');
         <?= avatar_figure($stageLook, ['number' => $number, 'stage' => true, 'label' => 'L\'avatar di ' . $mp['name']]) ?>
       </div>
       <div class="av-who"><strong><?= h($mp['name']) ?></strong><?= nick_html($mp) ?></div>
+      <div class="av-info" data-av-info aria-live="polite"><?= $infoHtml($selected, $itemsOf($cat)[$selected]) ?></div>
+      <div class="av-cardprev" id="card">
+        <span class="av-cardprev-title"><i class="ti ti-id-badge-2"></i> La tua card <small>come compare in Rosa<?= $tryingCard && $selected !== $wornKey($cat) ? ' · con «' . h($selName) . '» addosso' : '' ?></small></span>
+        <div class="pcard av-card role-<?= $posAbbr ?><?= str_contains($cardStyle, '--bg-v') ? ' has-bg-image' : '' ?><?= $cardBg ?><?= $cardBrd ?>" data-av-card data-style0="<?= $realStyle ?>"<?= $cardStyle !== '' ? ' style="' . $cardStyle . '"' : '' ?>>
+          <?= $cardHat ?>
+          <div class="pcard-top">
+            <span class="pcard-ovr"><?= $cardStat ? (int) $cardStat['overall'] : '–' ?><small>OVR</small></span>
+            <?php if ($mp['shirt_number'] !== null): ?><span class="pcard-num"><?= (int) $mp['shirt_number'] ?></span><?php endif; ?>
+          </div>
+          <div class="pcard-photo"><?= avatar($mp, 'xl') ?></div>
+          <div class="pcard-name"><?= h($mp['name']) ?></div>
+          <div class="pcard-nick" data-av-card-nick<?= $cardNick === '' ? ' hidden' : '' ?>><?= $cardNick ?></div>
+          <div class="pcard-sub"><span class="pos pos-<?= $posAbbr ?>"><?= h($mp['position']) ?></span> · <?= h($mp['foot']) ?></div>
+          <div class="pcard-stats">
+            <div><strong><?= (int) ($cardStat['apps'] ?? 0) ?></strong><span>PG</span></div>
+            <div><strong><?= (int) ($cardStat['goals'] ?? 0) ?></strong><span>Gol</span></div>
+            <div><strong><?= (int) ($cardStat['assists'] ?? 0) ?></strong><span>Assist</span></div>
+            <div><strong><?= fmt_num($cardStat['avg_vote'] ?? 0) ?></strong><span>Media</span></div>
+          </div>
+        </div>
+      </div>
       <form method="post" class="av-figure" aria-label="Figura">
         <?= csrf_field() ?><input type="hidden" name="do" value="figure">
         <span class="av-figure-label"><i class="ti ti-user"></i> Figura</span>
@@ -322,11 +377,10 @@ layout_start('Avatar', 'avatar');
           </div>
         </form>
       </details>
-      <div class="av-info" data-av-info aria-live="polite"><?= $infoHtml($selected, $itemsOf($cat)[$selected]) ?></div>
     </section>
   </aside>
 
-  <div class="av-main">
+  <div class="av-main" id="negozio">
     <nav class="shop-tabs av-tabs">
       <a href="<?= h($url(['v' => '', 'p' => ''])) ?>" class="<?= $view === 'shop' ? 'active' : '' ?>"><i class="ti ti-building-store"></i> Negozio <span class="count"><?= $totAll ?></span></a>
       <a href="<?= h($url(['v' => 'mine', 'p' => ''])) ?>" class="<?= $view === 'mine' ? 'active' : '' ?>"><i class="ti ti-hanger"></i> Guardaroba <span class="count"><?= $totMine ?></span></a>
@@ -370,16 +424,26 @@ layout_start('Avatar', 'avatar');
           [$rk, $rl] = avatar_rarity($item['price']);
           $state = $stateOf($key, $item);
           $pl = $lookWith($key); ?>
-      <article class="av-item rar-<?= $rk ?><?= $state === 'worn' ? ' is-worn' : '' ?><?= $key === $selected ? ' is-trying' : '' ?><?= $item['out'] ? ' is-out' : '' ?>" data-av-item data-kind="<?= h($cat) ?>">
+      <article class="av-item rar-<?= $rk ?><?= $state === 'worn' ? ' is-worn' : '' ?><?= $key === $selected ? ' is-trying' : '' ?><?= $item['out'] ? ' is-out' : '' ?><?= $state === 'locked' ? ' is-locked' : '' ?>" data-av-item data-kind="<?= h($cat) ?>"
+        <?= $cat === 'bg' && $key !== '' ? ' data-card-cls="bgp-' . h($key) . '"' : ($cat === 'border' && $key !== '' ? ' data-card-cls="brd-' . h($key) . '"' : '') ?>
+        <?= $cat === 'nick' && $key !== '' ? ' data-card-text="' . h($item['name']) . '"' : '' ?><?= $tryingCard ? ' data-card-name="' . h($item['name']) . '"' : '' ?>
+        <?= $cat === 'hat' && $key !== '' ? ' data-card-hat="' . h(hat_svg($key)) . '"' : '' ?>>
         <a class="av-item-link" href="<?= h($url(['try' => $key])) ?>#avatar" data-av-try>
           <span class="av-item-top"><span class="rar rar-<?= $rk ?>"><?= $item['out'] ? 'Non uscito' : $rl ?></span><?php if (!$item['out'] && shop_is_new($key)): ?><span class="tag-new">Nuovo</span><?php endif; ?><?php if (isset($wish[$key])): ?><i class="ti ti-heart-filled av-item-wish" title="Tra i tuoi obiettivi"></i><?php endif; ?>
-            <span class="av-item-mark" title="<?= ['worn' => 'Indossato', 'owned' => 'Nel guardaroba', 'free' => 'Incluso', 'buy' => 'Da comprare'][$state] ?>"><i class="ti ti-<?= ['worn' => 'check', 'owned' => 'hanger', 'free' => 'gift', 'buy' => 'plus'][$state] ?>"></i></span></span>
+            <span class="av-item-mark" title="<?= ['worn' => 'Indossato', 'owned' => 'Nel guardaroba', 'free' => 'Incluso', 'buy' => 'Da comprare', 'locked' => 'Da sbloccare'][$state] ?>"><i class="ti ti-<?= ['worn' => 'check', 'owned' => 'hanger', 'free' => 'gift', 'buy' => 'plus', 'locked' => 'lock'][$state] ?>"></i></span></span>
+          <?php if ($isCard): ?>
+          <span class="av-item-fig av-item-thumb av-thumb-<?= h($cat) ?>"><?php if ($cat === 'bg'): ?><span class="shop-swatch<?= $key !== '' ? ' bgp-' . h($key) : '' ?>"></span>
+            <?php elseif ($cat === 'border'): ?><span class="shop-brdthumb<?= $key !== '' ? ' brd-' . h($key) : '' ?>"></span>
+            <?php else: ?><span class="nick nick-big"><?= $key !== '' ? '«' . h($item['name']) . '»' : 'Nessuno' ?></span><?php endif; ?></span>
+          <?php else: ?>
           <span class="av-item-fig"><?= avatar_figure($pl, ['number' => $number, 'crop' => $crop] + ($cat === 'celebration' ? ['hint' => $item['anim']] : [])) ?></span>
+          <?php endif; ?>
           <span class="av-item-name"><?= h($item['name']) ?></span>
           <span class="av-item-state"><?php if ($state === 'worn'): ?><?= $cat === 'celebration' || $cat === 'pose' ? 'In uso' : 'Indossato' ?>
             <?php elseif ($state === 'free'): ?>Incluso
             <?php elseif ($state === 'owned'): ?>Nel guardaroba
-            <?php else: ?><span class="av-cost<?= $balance < (int) $item['now'] ? ' is-short' : '' ?>"><i class="ti ti-coin"></i> <?= (int) $item['now'] ?><?php if ($item['now'] !== $item['price']): ?> <i class="ti ti-trending-<?= $item['now'] > $item['price'] ? 'up' : 'down' ?> price-move <?= $item['now'] > $item['price'] ? 'is-up' : 'is-down' ?>"></i><?php endif; ?></span><?php endif; ?></span>
+            <?php elseif ($state === 'locked'): ?><span class="av-cost"><i class="ti ti-lock"></i> Da sbloccare</span>
+            <?php else: ?><span class="av-cost<?= $spend < (int) $item['now'] ? ' is-short' : '' ?>"><i class="ti ti-coin"></i> <?= (int) $item['now'] ?><?php if ($item['now'] !== $item['price']): ?> <i class="ti ti-trending-<?= $item['now'] > $item['price'] ? 'up' : 'down' ?> price-move <?= $item['now'] > $item['price'] ? 'is-up' : 'is-down' ?>"></i><?php endif; ?></span><?php endif; ?></span>
           <span class="av-item-try"><?= $cat === 'celebration' ? 'Guarda' : 'Prova' ?> <i class="ti ti-arrow-right"></i></span>
         </a>
         <template><?= $infoHtml($key, $item) ?></template>
@@ -438,6 +502,37 @@ layout_start('Avatar', 'avatar');
   };
   playBtn.addEventListener('click', () => { setPause(false); play(); });
   pauseBtn.addEventListener('click', () => setPause(!stage.classList.contains('is-paused')));
+  // la card sotto l'avatar (come in Rosa): «Prova» su sfondo, bordo, nickname o copricapo la mostra con quell'oggetto addosso
+  const cardEl = document.querySelector('[data-av-card]');
+  const cardNote = document.querySelector('.av-cardprev-title small');
+  const CARD_ONLY = ['bg', 'border', 'nick'];   // non cambiano la figura: niente richiesta al server
+  const tryOnCard = (item) => {
+    if (!cardEl) return;
+    const kind = item.dataset.kind;
+    const drop = (prefix) => [...cardEl.classList].filter(c => c.startsWith(prefix)).forEach(c => cardEl.classList.remove(c));
+    if (kind === 'bg') {
+      drop('bgp-');
+      if (item.dataset.cardCls) { cardEl.classList.add(item.dataset.cardCls); cardEl.removeAttribute('style'); }
+      else if (cardEl.dataset.style0) cardEl.setAttribute('style', cardEl.dataset.style0);
+    } else if (kind === 'border') {
+      drop('brd-');
+      if (item.dataset.cardCls) cardEl.classList.add(item.dataset.cardCls);
+    } else if (kind === 'nick') {
+      const box = cardEl.querySelector('[data-av-card-nick]');
+      const text = item.dataset.cardText || '';
+      box.hidden = text === '';
+      box.replaceChildren();
+      if (text) { const n = document.createElement('span'); n.className = 'nick'; n.textContent = '«' + text + '»'; box.append(n); }
+    } else if (kind === 'hat') {
+      cardEl.querySelector('.hat')?.remove();
+      if (item.dataset.cardHat) {
+        const hat = document.createElement('span');
+        hat.className = 'hat'; hat.setAttribute('aria-hidden', 'true'); hat.innerHTML = item.dataset.cardHat;   // SVG disegnato dal server (hat_svg)
+        cardEl.prepend(hat);
+      }
+    }
+    if (cardNote) cardNote.textContent = 'come compare in Rosa · con «' + (item.dataset.cardName || '') + '» addosso';
+  };
   let req = 0;
   document.querySelectorAll('[data-av-try]').forEach(link => link.addEventListener('click', async e => {
     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
@@ -448,7 +543,10 @@ layout_start('Avatar', 'avatar');
     document.querySelectorAll('[data-av-item].is-trying').forEach(c => c.classList.remove('is-trying'));
     card.classList.add('is-trying');
     history.replaceState(null, '', href);
-    if (window.matchMedia('(max-width: 899px)').matches) stage.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const kind = card.dataset.kind;
+    if (cardEl && (CARD_ONLY.includes(kind) || kind === 'hat')) tryOnCard(card);
+    if (window.matchMedia('(max-width: 899px)').matches) (CARD_ONLY.includes(kind) && cardEl ? cardEl : stage).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (CARD_ONLY.includes(kind)) return;
     const mine = ++req;
     try {
       const res = await fetch(href + (href.includes('?') ? '&' : '?') + 'fig=1', { credentials: 'same-origin' });
