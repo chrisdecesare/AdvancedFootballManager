@@ -460,6 +460,12 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .match-row { display: flex; align-items: center; gap: 14px; transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out); }
 @media (hover: hover) and (pointer: fine) { .match-row:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink); } }
 .match-link { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+/* «Inserita nel calendario»: il pulsante e il segno stanno insieme, ne vale uno solo (data-added lo decide) */
+.gcal-box { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gcal-box[data-added="1"] > a[data-gcal], .gcal-box[data-added="0"] > .gcal-done { display: none; }
+.gcal-done { font-weight: 800; color: var(--grass-d); }
+.gcal-done .gcal-undo { margin-left: 6px; padding: 0; border: 0; background: none; font: inherit; font-size: .8rem; font-weight: 600; color: var(--muted); text-decoration: underline; cursor: pointer; }
+span.gcal-done.icon-btn { display: inline-grid; place-items: center; color: var(--grass-d); background: var(--paper-2); }
 .gcal-btn { flex: none; width: 42px; height: 42px; font-size: 1.3rem; border-radius: 12px; }
 @media (max-width: 560px) {    /* telefoni: c'è poco spazio, resta il numero dei confermati e il titolo va a capo */
   .match-row, .match-link { gap: 10px; }

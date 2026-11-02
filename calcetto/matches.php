@@ -47,6 +47,7 @@ $played = played_matches();
 $cancelled = q("SELECT * FROM matches WHERE status = 'annullata' AND " . scope_sql('group_id') . ' ORDER BY match_date DESC, id DESC')->fetchAll();
 $me = my_player_id();
 // infortuni segnati nella cronaca (lib/live.php): una riga viola sotto la partita
+cal_preload($upcoming);   // «Inserita nel calendario» per tutte le partite dell'elenco in una domanda sola
 $injuries = is_guest() ? [] : injuries_by_match(array_merge(array_column($upcoming, 'id'), array_column($played, 'id')));
 $injLine = function (int $matchId) use ($injuries): string {
     if (empty($injuries[$matchId])) {

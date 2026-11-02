@@ -200,8 +200,14 @@ function gcal_button(array $match, string $cls = 'btn-ghost btn-sm'): string
     if (($match['status'] ?? '') !== 'programmata') {
         return '';
     }
-    return '<a class="btn ' . $cls . '" href="' . h(gcal_url($match)) . '" target="_blank" rel="noopener noreferrer">'
-        . '<i class="ti ti-calendar-plus"></i> Aggiungi a Google Calendar</a>';
+    // se l'hai già toccato dice «Inserita nel calendario» (con «non l'ho inserita» per annullare); se la partita è cambiata dopo, il pulsante torna
+    // per aggiornare l'evento. Il resto lo fa assets/app.js (data-gcal*).
+    $state = cal_state($match);
+    return '<span class="gcal-box" data-gcal-box="' . (int) $match['id'] . '" data-csrf="' . h(csrf_token()) . '" data-added="' . ($state === 'added' ? '1' : '0') . '">'
+        . '<a class="btn ' . $cls . '" data-gcal="' . (int) $match['id'] . '" href="' . h(gcal_url($match)) . '" target="_blank" rel="noopener noreferrer">'
+        . '<i class="ti ti-calendar-plus"></i> ' . ($state === 'stale' ? 'Partita cambiata: aggiorna il calendario' : 'Aggiungi a Google Calendar') . '</a>'
+        . '<span class="gcal-done"><i class="ti ti-calendar-check"></i> Inserita nel calendario <button type="button" class="gcal-undo" data-gcal-undo="' . (int) $match['id'] . '">non l\'ho inserita</button></span>'
+        . '</span>';
 }
 
 /** Come gcal_button() ma solo con l'icona del calendario (per le righe dell'elenco partite). */
@@ -210,8 +216,12 @@ function gcal_icon_button(array $match): string
     if (($match['status'] ?? '') !== 'programmata') {
         return '';
     }
-    return '<a class="icon-btn gcal-btn" href="' . h(gcal_url($match)) . '" target="_blank" rel="noopener noreferrer"'
-        . ' title="Aggiungi a Google Calendar" aria-label="Aggiungi a Google Calendar"><i class="ti ti-calendar-plus"></i></a>';
+    $state = cal_state($match);
+    return '<span class="gcal-box" data-gcal-box="' . (int) $match['id'] . '" data-csrf="' . h(csrf_token()) . '" data-added="' . ($state === 'added' ? '1' : '0') . '">'
+        . '<a class="icon-btn gcal-btn" data-gcal="' . (int) $match['id'] . '" href="' . h(gcal_url($match)) . '" target="_blank" rel="noopener noreferrer"'
+        . ' title="' . ($state === 'stale' ? 'Partita cambiata: aggiorna il calendario' : 'Aggiungi a Google Calendar') . '" aria-label="Aggiungi a Google Calendar"><i class="ti ti-calendar-plus"></i></a>'
+        . '<span class="icon-btn gcal-btn gcal-done" title="Inserita nel calendario" role="img" aria-label="Inserita nel calendario"><i class="ti ti-calendar-check"></i></span>'
+        . '</span>';
 }
 
 /**

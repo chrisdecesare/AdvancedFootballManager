@@ -258,6 +258,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const dlg = e.target.closest?.('dialog.lg-zoom');
     if (dlg) dlg.close();
   });
+  // «Inserita nel calendario»: toccare «Aggiungi a Google Calendar» segna la partita (l'evento si apre in un'altra scheda), «non l'ho inserita» annulla
+  const gcal = (el, undo) => {
+    const box = el.closest('[data-gcal-box]');
+    const match = el.dataset.gcal || el.dataset.gcalUndo;
+    if (!box || !match) return;
+    const body = new URLSearchParams({ csrf: box.dataset.csrf || '', match, undo: undo ? '1' : '0' });
+    fetch('calendario.php', { method: 'POST', body, credentials: 'same-origin', keepalive: true })
+      .then(r => r.json()).then(j => { if (j.ok) box.dataset.added = undo ? '0' : '1'; }).catch(() => { /* resta com'era */ });
+  };
+  document.addEventListener('click', e => {
+    const g = e.target.closest?.('[data-gcal]');
+    if (g) gcal(g, false);
+    const u = e.target.closest?.('[data-gcal-undo]');
+    if (u) gcal(u, true);
+  });
   // curiosità tutte alte uguali: quelle lunghe finiscono con «…» (CSS .fact-text) e con un clic si leggono per intero
   const markClamped = () => document.querySelectorAll('[data-clamp]').forEach(el => {
     if (el.classList.contains('is-open')) return;
