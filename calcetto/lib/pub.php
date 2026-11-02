@@ -94,7 +94,7 @@ function city_map(array $points, int $height = 380): void
 }
 
 /** Stemma della lega: logo o iniziali su un colore; bollino NUOVO in alto a destra. */
-function league_emblem(array $c): string
+function league_emblem(array $c, bool $zoom = false): string
 {
     $colors = ['#38d178', '#53c8f5', '#ff8c42', '#a67cf2', '#ff6b9a', '#ffd23f'];
     $ini = '';
@@ -102,6 +102,11 @@ function league_emblem(array $c): string
         $ini .= mb_strtoupper(mb_substr($w, 0, 1));
     }
     $inner = $c['logo'] ? '<img src="' . h($c['logo']) . '" alt="">' : '<span class="lg-initials" style="background:' . $colors[$c['id'] % count($colors)] . '">' . h($ini ?: 'L') . '</span>';
+    if ($zoom && $c['logo']) {   // il logo si ingrandisce con un tocco: una finestra (<dialog>) che si chiude con un tocco, «Chiudi» o Esc (assets/app.js)
+        $inner = '<button type="button" class="lg-zoom-btn" data-lg-zoom aria-label="' . h('Ingrandisci il logo di ' . $c['name']) . '">' . $inner . '</button>'
+            . '<dialog class="lg-zoom" aria-label="' . h('Logo di ' . $c['name']) . '"><img src="' . h($c['logo']) . '" alt="' . h('Logo di ' . $c['name']) . '">'
+            . '<button type="button" class="btn btn-primary btn-sm" data-lg-zoom-close>Chiudi</button></dialog>';
+    }
     return '<span class="lg-emblem">' . $inner . ($c['isNew'] ? '<span class="lg-new">NUOVO</span>' : '') . '</span>';
 }
 
@@ -111,7 +116,7 @@ function league_card_html(array $c, string $action = ''): string
     ob_start();
     ?>
 <article class="card lg-card" id="lega-<?= (int) $c['id'] ?>">
-  <div class="lg-head"><?= league_emblem($c) ?>
+  <div class="lg-head"><?= league_emblem($c, true) ?>
     <div><h3><?= h($c['name']) ?></h3>
       <p class="muted small"><i class="ti ti-map-pin"></i> <?= h(($c['area'] ? $c['area'] . ', ' : '') . $c['city']) ?></p></div></div>
   <?php if ($c['about']): ?><p class="small"><?= h($c['about']) ?></p><?php endif; ?>

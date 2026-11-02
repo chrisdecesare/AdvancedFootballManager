@@ -2254,3 +2254,13 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 .pitch-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .pitch-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 2px dashed #e7dcc0; }
 .pitch-vote { display: flex; gap: 8px; align-items: center; }
+
+/* logo della lega ingrandibile (scheda di «Trova la mia lega») */
+.lg-zoom-btn { display: block; padding: 0; margin: 0; border: 0; background: none; cursor: zoom-in; border-radius: 16px; font: inherit; color: inherit; }
+.lg-zoom-btn:hover img { transform: scale(1.04); }
+.lg-zoom-btn img { transition: transform 120ms var(--ease-out); }
+.lg-zoom { border: var(--b); border-radius: var(--r); box-shadow: var(--sh); padding: 16px; background: var(--white); max-width: min(92vw, 620px); text-align: center; cursor: zoom-out; }
+.lg-zoom::backdrop { background: rgba(31, 26, 46, .65); }
+/* la finestra sta dentro .lg-emblem: senza questa precisione prenderebbe le misure dello stemma (64 px, bordo e ombra) */
+.lg-emblem .lg-zoom img { display: block; width: min(80vw, 560px); height: auto; max-height: 70vh; object-fit: contain; margin: 0 auto 12px; border: 0; box-shadow: none; border-radius: 12px; background: none; }
+@media (prefers-reduced-motion: reduce) { .lg-zoom-btn img { transition: none; } .lg-zoom-btn:hover img { transform: none; } }

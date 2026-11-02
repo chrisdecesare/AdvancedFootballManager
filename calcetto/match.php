@@ -571,6 +571,8 @@ if (!empty($_SESSION['vote_done'])):
       <span><i class="ti ti-clock"></i> <?= fmt_time($match['match_date']) ?></span>
       <?= place_chip($match['location']) ?>
       <?= group_tag((int) $match['group_id']) ?>
+      <?php $verified = $played ? match_verification((int) $match['id'], (int) $match['group_id']) : null; // lega in un centro: partita verificata dai voti ?>
+      <?php if ($verified !== null): ?><span class="tag<?= match_is_verified($verified) ? ' tag-ok' : '' ?>"><i class="ti ti-rosette-discount-check"></i> <?= h(match_verify_label($verified)) ?></span><?php endif; ?>
       <?php if ((float) $match['fee'] > 0): ?><span><?= fmt_money($match['fee']) ?> a testa</span><?php endif; ?>
       <span><i class="ti ti-hand-stop"></i> <?= h(keepers_label(match_keepers($match))) ?></span>
     </div>

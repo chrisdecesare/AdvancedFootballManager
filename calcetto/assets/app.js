@@ -251,6 +251,13 @@ document.addEventListener('DOMContentLoaded', () => {
     box.addEventListener('bg:update', apply);
     apply();
   });
+  // logo della lega ingrandibile («Trova lega»): un tocco apre la finestra con l'immagine grande, un tocco la chiude
+  document.addEventListener('click', e => {
+    const open = e.target.closest?.('[data-lg-zoom]');
+    if (open) { open.parentElement.querySelector('dialog')?.showModal(); return; }
+    const dlg = e.target.closest?.('dialog.lg-zoom');
+    if (dlg) dlg.close();
+  });
   // curiosità tutte alte uguali: quelle lunghe finiscono con «…» (CSS .fact-text) e con un clic si leggono per intero
   const markClamped = () => document.querySelectorAll('[data-clamp]').forEach(el => {
     if (el.classList.contains('is-open')) return;

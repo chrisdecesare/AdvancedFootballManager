@@ -37,6 +37,14 @@ if ($name === '') {
 $mine = $u && my_player_id() ? array_flip(player_group_ids((int) my_player_id())) : [];
 $pending = $u ? array_flip(array_map('intval', q('SELECT group_id FROM group_requests WHERE user_id = ?', [$u['id']])->fetchAll(PDO::FETCH_COLUMN))) : [];
 $owned = $u && !is_guest() ? my_owned_leagues() : [];
+$pitches = pitches_in([$slug], $u && my_player_id() ? (int) my_player_id() : null);   // campetti con le stelle (voti freschi)
+$starsOfCenter = [];
+foreach ($pitches as $p) {
+    if ($p['center_id'] !== null) {
+        $starsOfCenter[$p['center_id']] = $p;
+    }
+}
+$others = array_values(array_filter($pitches, fn($p) => $p['center_id'] === null));
 $points = [];
 foreach ($leagues as $l) {
     if ($l['lat'] !== null && $l['lng'] !== null) {
@@ -66,11 +74,26 @@ foreach ($centers as $c) {
     <?php foreach ($centers as $c): ?>
       <div class="card pub-card"><h3><?= h($c['name']) ?></h3>
         <p class="muted small"><?= h(implode(', ', array_filter([$c['address'], $c['city']]))) ?> · <?= (int) $c['fields_count'] ?> <?= (int) $c['fields_count'] === 1 ? 'campo' : 'campi' ?></p>
+        <?php if (isset($starsOfCenter[(int) $c['id']])): $sp = $starsOfCenter[(int) $c['id']]; ?><p class="small"><?= pitch_stars_html($sp['avg'], $sp['votes']) ?></p><?php endif; ?>
         <?php if ($c['phone']): ?><p class="small"><i class="ti ti-phone"></i> <?= h($c['phone']) ?></p><?php endif; ?></div>
     <?php endforeach; ?>
   </div>
 </section>
 <?php endif; ?>
+<section class="pub-sec" id="campetti">
+  <h2>Campetti</h2>
+  <?php if (!$others): ?><p class="muted">Nessun altro campetto segnalato a <?= h($name) ?>.</p>
+  <?php else: ?>
+  <ul class="plain-list pitch-list">
+    <?php foreach ($others as $p): ?>
+    <li class="pitch-row"><div><strong><?= h($p['name']) ?></strong><div class="muted small"><?= h($p['address'] ?: $p['city']) ?></div><?= pitch_stars_html($p['avg'], $p['votes']) ?></div></li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
+  <p><?php if ($u): ?><a class="btn btn-ghost btn-sm" href="campi.php?citta=<?= h($slug) ?>"><i class="ti ti-map-pin"></i> Aggiungi o vota un campetto</a>
+    <?php else: ?><a class="btn btn-ghost btn-sm" href="login.php?next=<?= h(rawurlencode('campi.php?citta=' . $slug)) ?>">Accedi per aggiungere o votare un campetto</a><?php endif; ?></p>
+</section>
+
 <section class="pub-sec">
   <h2>Le leghe</h2>
   <?php if (!$leagues): ?>
