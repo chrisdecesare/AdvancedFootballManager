@@ -5,17 +5,29 @@
  */
 
 /** Inizio pagina: $title nel <title>. Ritorna true se si è in modalità pubblica (serve a pub_end). */
-/** Il piè di pagina di tutte le pagine (come SiteFooter del sito Next): presentazione, i tre social solo come icone, senza link, e il copyright. */
+/**
+ * Il piè di pagina di tutte le pagine: identico a SiteFooter del sito Next (presentazione, tre social solo come icone senza link, link utili,
+ * «Sostienici» e copyright). Prezzi, guide, privacy, termini e contatti esistono solo sul sito Next: i link portano lì.
+ */
 function site_footer(): string
 {
-    return '<footer class="site-foot"><div class="site-foot-in"><div class="site-foot-brand"><b>' . h(APP_NAME) . '</b>'
-        . '<p class="muted small">Il calcetto tra amici, organizzato. Gratis per chi gioca.</p>'
+    $n = NEXT_SITE;
+    $links = [['/prezzi', 'Prezzi'], ['/guide', 'Guide'], ['/centri-sportivi', 'Per i centri sportivi'], ['/chi-siamo', 'Chi siamo'], ['/privacy', 'Privacy e cookie'],
+        ['/privacy#cookie', 'Gestisci i cookie'], ['/termini', 'Termini'], ['/contatti', 'Contatti']];
+    $nav = '';
+    foreach ($links as [$href, $label]) {
+        $nav .= '<a href="' . h($n . $href) . '">' . h($label) . '</a>';
+    }
+    if (kofi_username()) {   // «Sostienici» resta nascosto finché l'admin non mette il nome della pagina Ko-fi
+        $nav .= '<a href="sostienici"><i class="ti ti-cup" aria-hidden="true"></i> Sostienici</a>';
+    }
+    return '<footer class="site-foot"><div class="site-foot-in"><div class="site-foot-brand"><div class="site-foot-id"><b>' . h(APP_NAME) . '</b>'
         . '<p class="site-foot-social" aria-label="I nostri social, in arrivo">'
         . '<span title="X" aria-label="X"><i class="ti ti-brand-x"></i></span>'
         . '<span title="Instagram" aria-label="Instagram"><i class="ti ti-brand-instagram"></i></span>'
         . '<span title="TikTok" aria-label="TikTok"><i class="ti ti-brand-tiktok"></i></span></p></div>'
-        . (kofi_username() ? '<nav class="site-foot-links" aria-label="Informazioni"><a href="sostienici"><i class="ti ti-cup" aria-hidden="true"></i> Sostienici</a></nav>' : '')
-        . '</div>'
+        . '<p class="site-foot-tag muted small">Il calcetto tra amici, organizzato. Gratis per chi gioca.</p></div>'
+        . '<nav class="site-foot-links" aria-label="Informazioni">' . $nav . '</nav></div>'
         . '<p class="site-foot-copy small muted">© ' . date('Y') . ' ' . h(APP_NAME) . ' · Tutti i diritti riservati</p></footer>';
 }
 
