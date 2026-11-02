@@ -39,6 +39,7 @@ function pretty_routes(): array
         'jersey_creator' => ['crea-maglia', null],
         'drops' => ['uscite', null],
         'curiosities' => ['curiosita', null],
+        'campi' => ['campi', null],
         'gazzetta' => ['gazzetta', null],
         'guess' => ['indovina', null],
         'profile' => ['profilo', null],

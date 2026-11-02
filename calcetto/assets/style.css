@@ -2247,3 +2247,10 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 .flash-pop-warn .cg-badge { background: var(--orange); }
 .flash-pop-err .cg-badge { background: var(--red); color: var(--white); }
 .flash-pop .cg-note { max-width: min(86vw, 380px); }
+
+/* campetti con le stelle */
+.stars { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.stars > span[aria-hidden="true"]:first-child { color: #e8a200; letter-spacing: .08em; font-size: 1.05em; }
+.pitch-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.pitch-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 2px dashed #e7dcc0; }
+.pitch-vote { display: flex; gap: 8px; align-items: center; }
