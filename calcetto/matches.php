@@ -61,6 +61,14 @@ layout_start('Partite', 'matches');
 <div class="page-head"><h1>Partite</h1></div>
 <?= group_bar('matches.php') ?>
 
+<?php if (!is_guest() && !manageable_groups() && !my_owned_leagues()): ?>
+<section class="card">
+  <h2><i class="ti ti-plus"></i> Vuoi organizzare una partita?</h2>
+  <p class="muted small">Le partite si creano dentro una lega: la crei in un minuto, poi inviti gli amici con un link e prenoti il campo.</p>
+  <a class="btn btn-primary btn-sm" href="create_league.php"><i class="ti ti-trophy"></i> Crea la tua lega</a>
+</section>
+<?php endif; ?>
+
 <?php if (can_manage_matches() && manageable_groups()): ?>
 <details class="card collapsible" id="nuova" <?= $upcoming ? '' : 'open' ?>>
   <summary><strong>Nuova partita</strong></summary>
