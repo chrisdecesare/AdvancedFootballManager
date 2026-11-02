@@ -152,11 +152,15 @@ function maps_url(string $place): string
 }
 
 /** Etichetta del campo con il nome che porta all'itinerario su Google Maps (o il semplice testo se il campo non è stato scelto). */
-function place_chip(?string $place): string
+function place_chip(?string $place, ?string $centerUrl = null): string
 {
     $place = trim((string) $place);
     if ($place === '') {
         return '<span><i class="ti ti-map-pin"></i> Campo da definire</span>';
+    }
+    if ($centerUrl) {   // centro convenzionato: il campo porta al calendario del centro, dove si prenota
+        return '<a class="place-link" href="' . h($centerUrl) . '" title="Apri il calendario del centro: prenota e gestisci l\'orario">'
+            . '<i class="ti ti-building-stadium"></i> ' . h($place) . ' <i class="ti ti-calendar-plus place-go"></i></a>';
     }
     return '<a class="place-link" href="' . h(maps_url($place)) . '" target="_blank" rel="noopener noreferrer" title="Apri l\'itinerario in Google Maps, partendo da dove ti trovi">'
         . '<i class="ti ti-map-pin"></i> ' . h($place) . ' <i class="ti ti-route place-go"></i></a>';

@@ -2277,3 +2277,13 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 .review p { margin: 0 0 4px; white-space: pre-line; overflow-wrap: anywhere; }
 .review footer { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .pitch-reviews summary { cursor: pointer; font-weight: 700; }
+
+/* «Elimina partita»: conferma scritta (si digita ELIMINA), controllata anche dal server */
+.del-box { flex: 1 1 100%; }
+.del-box > summary { list-style: none; cursor: pointer; width: fit-content; }
+.del-box > summary::-webkit-details-marker { display: none; }
+.del-box[open] > .form { margin-top: 10px; padding: 12px 14px; border: var(--b2); border-radius: 12px; background: var(--paper-2); }
+.del-box .form p { margin: 0 0 8px; }
+
+/* campo convenzionato nella gestione della partita */
+.conv-box { padding: 10px 12px; border: var(--b2); border-radius: 12px; background: var(--paper-2); display: grid; gap: 8px; }

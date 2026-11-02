@@ -373,6 +373,10 @@ if (is_post()) {
                 flash('err', 'Solo un admin può eliminare una partita.');
                 break;
             }
+            if (trim((string) ($_POST['confirm'] ?? '')) !== 'ELIMINA') {   // la conferma si controlla anche qui: non basta il modulo
+                flash('err', 'Partita non eliminata: per confermare bisogna scrivere ELIMINA.');
+                break;
+            }
             push_notify_match_cancelled($match, $actor);   // prima di cancellare: dopo non si saprebbe più a chi mandarla
             foreach (match_guests($id) as $g) {
                 guest_remove_from_match((int) $g['id'], $id);   // gli ospiti se ne vanno con la partita (chi ha salvato l'account lo tiene)
@@ -569,7 +573,8 @@ if (!empty($_SESSION['vote_done'])):
     <h1><?= h(ucfirst(fmt_date_long($match['match_date']))) ?></h1>
     <div class="hero-meta">
       <span><i class="ti ti-clock"></i> <?= fmt_time($match['match_date']) ?></span>
-      <?= place_chip($match['location']) ?>
+      <?php $matchCenter = center_of_match($match); ?>
+      <?= place_chip($match['location'], $matchCenter ? center_calendar_url($matchCenter) : null) ?>
       <?= group_tag((int) $match['group_id']) ?>
       <?php $verified = $played ? match_verification((int) $match['id'], (int) $match['group_id']) : null; // lega in un centro: partita verificata dai voti ?>
       <?php if ($verified !== null): ?><span class="tag<?= match_is_verified($verified) ? ' tag-ok' : '' ?>"><i class="ti ti-rosette-discount-check"></i> <?= h(match_verify_label($verified)) ?></span><?php endif; ?>
@@ -1193,6 +1198,16 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
     <?= csrf_field() ?><input type="hidden" name="do" value="edit_info">
     <label class="field"><span>Data</span><input type="date" name="date" value="<?= date('Y-m-d', strtotime($match['match_date'])) ?>" required></label>
     <label class="field"><span>Ora</span><input type="time" name="time" value="<?= fmt_time($match['match_date']) ?>" required></label>
+    <?php if ($matchCenter): ?>
+    <div class="span-2 conv-box">
+      <span><i class="ti ti-building-stadium"></i> <strong>Campo convenzionato: <?= h($matchCenter['name']) ?></strong>
+        <span class="muted small"> · l'orario e la prenotazione si gestiscono dal calendario del centro (sul sito calcettomanager.win)</span></span>
+      <div class="btn-row">
+        <a class="btn btn-primary btn-sm" href="<?= h(center_calendar_url($matchCenter)) ?>"><i class="ti ti-calendar-plus"></i> Prenota o cambia orario</a>
+        <a class="btn btn-ghost btn-sm" href="<?= h(NEXT_SITE . '/c/' . rawurlencode($matchCenter['slug'])) ?>"><i class="ti ti-building-stadium"></i> Pagina del centro</a>
+      </div>
+    </div>
+    <?php endif; ?>
     <?php $gidM = (int) $match['group_id']; ?>
     <?= pitch_place_field_html(pitch_recent_places([$gidM]), pitches_in(pitch_cities_of_groups([$gidM])), (string) $match['location']) ?>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(team_name('A', $match)) ?>"></label>
@@ -1224,8 +1239,15 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
         <button class="btn btn-ghost" data-confirm="Riportare la partita a 'programmata'? Voti e MVP restano salvati ma non contano finché non la richiudi.">↩️ Riporta a programmata</button></form>
     <?php endif; ?>
     <?php if ($canAdmin): ?>
-    <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="delete">
-      <button class="btn btn-danger" data-confirm="Eliminare definitivamente la partita con presenze, gol e voti?"><i class="ti ti-trash"></i> Elimina partita</button></form>
+    <details class="del-box">
+      <summary class="btn btn-danger"><i class="ti ti-trash"></i> Elimina partita…</summary>
+      <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="do" value="delete">
+        <p><strong>Attenzione: l'eliminazione è definitiva.</strong> La partita del <?= h(fmt_date_long($match['match_date'])) ?> (<?= h($match['location'] ?: 'campo da definire') ?>) sparisce con presenze, squadre, gol, voti e premi: non si può recuperare.</p>
+        <p class="muted small">Se vuoi solo non giocarla, usa «Annulla partita»: resta tutto salvato.</p>
+        <label class="field"><span>Per confermare scrivi <b>ELIMINA</b></span><input name="confirm" autocomplete="off" required pattern="ELIMINA" placeholder="ELIMINA"></label>
+        <button class="btn btn-danger"><i class="ti ti-trash"></i> Elimina per sempre</button>
+      </form>
+    </details>
     <?php endif; ?>
   </div>
 </details>
@@ -1238,8 +1260,15 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
     <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="reopen">
       <button class="btn btn-ghost" data-confirm="Riportare la partita a 'programmata'? Le scommesse rimborsate tornano aperte.">↩️ Riporta a programmata</button></form>
     <?php if ($canAdmin): ?>
-    <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="delete">
-      <button class="btn btn-danger" data-confirm="Eliminare definitivamente la partita con presenze, gol e voti?"><i class="ti ti-trash"></i> Elimina partita</button></form>
+    <details class="del-box">
+      <summary class="btn btn-danger"><i class="ti ti-trash"></i> Elimina partita…</summary>
+      <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="do" value="delete">
+        <p><strong>Attenzione: l'eliminazione è definitiva.</strong> La partita del <?= h(fmt_date_long($match['match_date'])) ?> (<?= h($match['location'] ?: 'campo da definire') ?>) sparisce con presenze, squadre, gol, voti e premi: non si può recuperare.</p>
+        <p class="muted small">Se vuoi solo non giocarla, usa «Annulla partita»: resta tutto salvato.</p>
+        <label class="field"><span>Per confermare scrivi <b>ELIMINA</b></span><input name="confirm" autocomplete="off" required pattern="ELIMINA" placeholder="ELIMINA"></label>
+        <button class="btn btn-danger"><i class="ti ti-trash"></i> Elimina per sempre</button>
+      </form>
+    </details>
     <?php endif; ?>
   </div>
 </section>

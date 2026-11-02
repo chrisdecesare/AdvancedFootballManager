@@ -265,7 +265,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return box;
   };
   document.addEventListener('change', e => {
-    if (e.target.matches?.('select[data-place-pick]')) placeSync(e.target)?.querySelector('input')?.focus();
+    if (!e.target.matches?.('select[data-place-pick]')) return;
+    const href = e.target.selectedOptions[0]?.dataset.href;
+    if (href) { location.assign(href); return; }   // centro convenzionato: si prenota dal suo calendario
+    placeSync(e.target)?.querySelector('input')?.focus();
   });
   // «Inserita nel calendario»: toccare «Aggiungi a Google Calendar» segna la partita (l'evento si apre in un'altra scheda), «non l'ho inserita» annulla
   const gcal = (el, undo) => {

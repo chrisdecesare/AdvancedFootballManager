@@ -115,6 +115,7 @@ function pitches_in(array $slugs, ?int $playerId = null): array
        SELECT c.name, c.address, c.city, c.city_slug, c.id, c.owner_user_id FROM sport_centers c
        WHERE c.city_slug IN ($in) AND NOT EXISTS (SELECT 1 FROM pitches p WHERE p.center_id = c.id)", $list);
     $rows = q("SELECT p.id, p.name, p.address, p.city, p.city_slug, p.center_id,
+         (SELECT c.slug FROM sport_centers c WHERE c.id = p.center_id) AS center_slug, (SELECT c.owner_user_id FROM sport_centers c WHERE c.id = p.center_id) AS center_owner,
          (SELECT AVG(r.stars) FROM pitch_ratings r WHERE r.pitch_id = p.id) AS avg,
          (SELECT COUNT(*) FROM pitch_ratings r WHERE r.pitch_id = p.id) AS votes,
          (SELECT r.stars FROM pitch_ratings r WHERE r.pitch_id = p.id AND r.player_id = ?) AS mine
@@ -318,6 +319,11 @@ function pitch_place_text(array $p): string
 function pitch_place_from_post(string $typed): string
 {
     $v = (string) ($_POST['place'] ?? '');
+    if (str_starts_with($v, 'c:') && preg_match('/^[a-z0-9-]{2,80}$/', substr($v, 2))) {   // centro convenzionato: la partita nasce dalla prenotazione di un orario libero
+        flash('ok', 'Per giocare in un centro convenzionato prenota un orario dal suo calendario.');
+        header('Location: ' . center_calendar_url(['slug' => substr($v, 2)]));
+        exit;
+    }
     if (str_starts_with($v, 'p:') && (int) substr($v, 2) > 0) {
         $p = pitch_by_id((int) substr($v, 2));
         if ($p) {
@@ -344,9 +350,21 @@ function pitch_place_field_html(array $recents, array $pitches, string $current)
         }
         $o .= '</optgroup>';
     }
-    if ($pitches) {
+    // i centri convenzionati (con un piano attivo) hanno un'opzione a parte: sceglierli apre il calendario del centro, dove si prenota
+    $conv = array_values(array_filter($pitches, fn($p) => $p['center_id'] && $p['center_slug'] && $p['center_owner']
+        && center_plan_of(['id' => $p['center_id'], 'owner_user_id' => $p['center_owner']]) !== null));
+    $convIds = array_column($conv, 'id');
+    if ($conv) {
+        $o .= '<optgroup label="Centri convenzionati: si prenota dal loro calendario">';
+        foreach ($conv as $p) {
+            $o .= '<option value="c:' . h($p['center_slug']) . '" data-href="' . h(center_calendar_url(['slug' => $p['center_slug']])) . '">🏟 ' . h(pitch_option_label($p)) . ' · prenota</option>';
+        }
+        $o .= '</optgroup>';
+    }
+    $others = array_values(array_filter($pitches, fn($p) => !in_array($p['id'], $convIds, true)));
+    if ($others) {
         $o .= '<optgroup label="Campi della zona, con le stelle">';
-        foreach ($pitches as $p) {
+        foreach ($others as $p) {
             $o .= '<option value="p:' . (int) $p['id'] . '">' . h(pitch_option_label($p)) . '</option>';
         }
         $o .= '</optgroup>';

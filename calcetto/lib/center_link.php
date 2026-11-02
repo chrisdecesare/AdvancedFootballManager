@@ -25,6 +25,32 @@ function center_plan_of(array $c): ?string
     return null;
 }
 
+/** Dove stanno la pagina del centro e il suo calendario di prenotazione: sul sito Next (su Altervista non ci sono). */
+const NEXT_SITE = 'https://calcettomanager.win';
+
+function center_calendar_url(array $c): string
+{
+    return NEXT_SITE . '/c/' . rawurlencode((string) $c['slug']) . '/calendario';
+}
+
+/** Il centro convenzionato (con un piano attivo) dove si gioca una partita: quello dello slot prenotato, altrimenti quello che dà il nome al campo («Nome · campo 2»). */
+function center_of_match(array $m): ?array
+{
+    biz_schema_ensure();
+    $c = q('SELECT c.* FROM center_slots s JOIN sport_centers c ON c.id = s.center_id WHERE s.match_id = ?', [(int) $m['id']])->fetch() ?: null;
+    $loc = mb_strtolower(trim((string) ($m['location'] ?? '')));
+    if (!$c && $loc !== '') {
+        foreach (q("SELECT * FROM sport_centers WHERE name <> ''")->fetchAll() as $x) {
+            $n = mb_strtolower(trim($x['name']));
+            if ($n !== '' && ($loc === $n || str_starts_with($loc, $n . ' ·') || str_starts_with($loc, $n . ','))) {
+                $c = $x;
+                break;
+            }
+        }
+    }
+    return $c && center_plan_of($c) !== null ? $c : null;
+}
+
 /** Il centro a cui è collegata una lega, anche se ora non ha un piano attivo (per gestire il collegamento). */
 function center_linked_to(int $gid): ?array
 {
