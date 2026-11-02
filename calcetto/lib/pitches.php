@@ -290,3 +290,69 @@ function pitch_review_delete(int $id, ?int $playerId, bool $anyone): ?int
     q('DELETE FROM pitch_reviews WHERE id = ?', [$id]);
     return (int) $r['pitch_id'];
 }
+
+/* ---------------------------------------------------------------- il campo di una partita (come PlaceField e parsePlace del sito Next) */
+
+/** Gli ultimi campi in cui si è giocato nelle leghe date (testo del campo di partita, dal più recente), per sceglierli al volo. */
+function pitch_recent_places(array $groupIds, int $limit = 6): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $groupIds), fn($g) => $g > 0)));
+    if (!$ids) {
+        return [];
+    }
+    $limit = max(1, min(12, $limit));
+    return array_map('trim', q("SELECT location FROM matches WHERE group_id IN (" . implode(',', $ids) . ") AND status = 'giocata' AND TRIM(location) <> ''
+        GROUP BY location ORDER BY MAX(match_date) DESC LIMIT $limit")->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** Il testo del campo di una partita da un campo dell'elenco: «Nome, indirizzo» (senza indirizzo, la città). */
+function pitch_place_text(array $p): string
+{
+    return $p['name'] . ', ' . ($p['address'] ?: $p['city']);
+}
+
+/**
+ * Il campo scelto nel modulo (`place`): un campo dell'elenco (p:ID), uno degli ultimi in cui si è giocato (t:testo) oppure vuoto,
+ * cioè «Aggiungi campo»: vale il testo scritto in `location`.
+ */
+function pitch_place_from_post(string $typed): string
+{
+    $v = (string) ($_POST['place'] ?? '');
+    if (str_starts_with($v, 'p:') && (int) substr($v, 2) > 0) {
+        $p = pitch_by_id((int) substr($v, 2));
+        if ($p) {
+            return pitch_place_text($p);
+        }
+    }
+    if (str_starts_with($v, 't:') && trim(substr($v, 2)) !== '') {
+        return mb_substr(trim(substr($v, 2)), 0, 190);
+    }
+    return $typed;
+}
+
+/** I due campi del modulo: la scelta (ultimi campi, campi della zona con le stelle, «Aggiungi campo…») e la casella dove scrivere il nuovo (assets/app.js la mostra o nasconde). */
+function pitch_place_field_html(array $recents, array $pitches, string $current): string
+{
+    $cur = trim($current);
+    $known = in_array($cur, $recents, true) ? $cur : null;
+    $initial = $known !== null ? 't:' . $known : ($cur === '' && $recents ? 't:' . $recents[0] : '');
+    $o = '';
+    if ($recents) {
+        $o .= '<optgroup label="Gli ultimi campi in cui abbiamo giocato">';
+        foreach ($recents as $r) {
+            $o .= '<option value="' . h('t:' . $r) . '"' . ($initial === 't:' . $r ? ' selected' : '') . '>' . h($r) . '</option>';
+        }
+        $o .= '</optgroup>';
+    }
+    if ($pitches) {
+        $o .= '<optgroup label="Campi della zona, con le stelle">';
+        foreach ($pitches as $p) {
+            $o .= '<option value="p:' . (int) $p['id'] . '">' . h(pitch_option_label($p)) . '</option>';
+        }
+        $o .= '</optgroup>';
+    }
+    $o .= '<option value=""' . ($initial === '' ? ' selected' : '') . '>➕ Aggiungi campo se non lo trovi in elenco</option>';
+    return '<label class="field span-2"><span>Campo (si apre l\'itinerario su Google Maps cliccandoci sopra)</span><select name="place" data-place-pick>' . $o . '</select></label>'
+        . '<label class="field span-2" data-place-new' . ($initial === '' ? '' : ' hidden') . '><span>Nome e indirizzo del campo</span>'
+        . '<input name="location" value="' . h($known !== null ? '' : $current) . '" placeholder="Es. Centro sportivo Rossi, Via Roma 1, Milano"></label>';
+}

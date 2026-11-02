@@ -79,7 +79,7 @@ if (is_post()) {
                 $reset = $match['status'] === 'programmata' && substr($newDate, 0, 10) !== substr($match['match_date'], 0, 10);
                 db()->beginTransaction();
                 q('UPDATE matches SET match_date = ?, location = ?, team_a_name = ?, team_b_name = ?, fee = ?, notes = ?, keepers = ? WHERE id = ?', [
-                    $newDate, trim($_POST['location'] ?? ''),
+                    $newDate, pitch_place_from_post(trim($_POST['location'] ?? '')),
                     clean_team_name($_POST['team_a'] ?? '', TEAM_A_NAME), clean_team_name($_POST['team_b'] ?? '', TEAM_B_NAME),
                     max(0, (float) str_replace(',', '.', $_POST['fee'] ?? '0')),
                     trim($_POST['notes'] ?? '') ?: null, ($_POST['keepers'] ?? '') === 'fissi' ? 'fissi' : 'volanti', $id]);
@@ -1193,7 +1193,8 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
     <?= csrf_field() ?><input type="hidden" name="do" value="edit_info">
     <label class="field"><span>Data</span><input type="date" name="date" value="<?= date('Y-m-d', strtotime($match['match_date'])) ?>" required></label>
     <label class="field"><span>Ora</span><input type="time" name="time" value="<?= fmt_time($match['match_date']) ?>" required></label>
-    <label class="field span-2"><span>Campo (nome e indirizzo: cliccandoci sopra si apre l'itinerario su Google Maps)</span><input name="location" value="<?= h($match['location']) ?>" placeholder="Es. Centro sportivo Rossi, Via Roma 1, Milano"></label>
+    <?php $gidM = (int) $match['group_id']; ?>
+    <?= pitch_place_field_html(pitch_recent_places([$gidM]), pitches_in(pitch_cities_of_groups([$gidM])), (string) $match['location']) ?>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(team_name('A', $match)) ?>"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(team_name('B', $match)) ?>"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format((float) $match['fee'], 2, ',', '')) ?>"></label>

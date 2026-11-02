@@ -14,8 +14,7 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
     } elseif (!isset($mine[$gid])) {
         flash('err', 'Scegli il gruppo della partita.');
     } else {
-        $picked = (int) ($_POST['pitch'] ?? 0) ? pitch_by_id((int) $_POST['pitch']) : null;   // campo scelto dalla lista dei campetti della zona
-        $location = $picked ? $picked['name'] . ', ' . ($picked['address'] ?: $picked['city']) : trim($_POST['location'] ?? '');
+        $location = pitch_place_from_post(trim($_POST['location'] ?? ''));   // campo scelto: ultimi giocati, campi della zona o scritto a mano
         q('INSERT INTO matches (match_date, location, team_a_name, team_b_name, fee, notes, group_id, keepers) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
             $dt->format('Y-m-d H:i:s'),
             $location,
@@ -76,11 +75,8 @@ layout_start('Partite', 'matches');
     <?php else: ?>
       <input type="hidden" name="group_id" value="<?= (int) $defaultGroup ?>">
     <?php endif; ?>
-    <?php $pitchOpts = pitches_in(pitch_cities_of_groups(array_keys($groupOptions))); if ($pitchOpts): ?>
-      <label class="field span-2"><span>Campi della zona, con le stelle dei giocatori (se ne scegli uno, vale al posto del testo qui sotto)</span>
-        <select name="pitch"><option value="">— scrivo io il campo —</option><?php foreach ($pitchOpts as $po): ?><option value="<?= (int) $po['id'] ?>"><?= h(pitch_option_label($po)) ?></option><?php endforeach; ?></select></label>
-    <?php endif; ?>
-    <label class="field span-2"><span>Campo (nome e indirizzo: cliccandoci sopra si apre l'itinerario su Google Maps)</span><input name="location" value="<?= h(DEFAULT_LOCATION) ?>" placeholder="Es. Centro sportivo Rossi, Via Roma 1, Milano"></label>
+    <?php $pitchOpts = pitches_in(pitch_cities_of_groups(array_keys($groupOptions))); $recentPlaces = pitch_recent_places(array_keys($groupOptions)); ?>
+    <?= pitch_place_field_html($recentPlaces, $pitchOpts, $recentPlaces ? '' : DEFAULT_LOCATION) ?>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(TEAM_A_NAME) ?>" placeholder="Es. Scapoli"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(TEAM_B_NAME) ?>" placeholder="Es. Ammogliati"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format(DEFAULT_FEE, 2, ',', '')) ?>"></label>

@@ -258,6 +258,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const dlg = e.target.closest?.('dialog.lg-zoom');
     if (dlg) dlg.close();
   });
+  // il campo di una partita: «Aggiungi campo se non lo trovi in elenco» fa comparire la casella dove scriverlo
+  const placeSync = (sel) => {
+    const box = sel.closest('form')?.querySelector('[data-place-new]');
+    if (box) box.hidden = sel.value !== '';
+    return box;
+  };
+  document.addEventListener('change', e => {
+    if (e.target.matches?.('select[data-place-pick]')) placeSync(e.target)?.querySelector('input')?.focus();
+  });
   // «Inserita nel calendario»: toccare «Aggiungi a Google Calendar» segna la partita (l'evento si apre in un'altra scheda), «non l'ho inserita» annulla
   const gcal = (el, undo) => {
     const box = el.closest('[data-gcal-box]');
