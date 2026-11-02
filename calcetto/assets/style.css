@@ -2290,3 +2290,10 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 
 /* la casella del nuovo campo: hidden deve vincere su display: grid di .field */
 [data-place-new][hidden] { display: none; }
+
+/* Ko-fi: pulsante «Sostienici» e nomi di chi ci sostiene */
+.kofi-box { display: grid; gap: 8px; justify-items: start; }
+.kofi-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; font: 400 1.15rem var(--font-d); color: var(--ink); background: #ff5e5b; border: var(--b); border-radius: 14px; box-shadow: var(--sh-sm, 3px 3px 0 var(--ink)); text-decoration: none; }
+.kofi-btn:hover { transform: translate(-1px, -2px); }
+.kofi-who { font-weight: 800; line-height: 1.7; overflow-wrap: anywhere; }
+.site-foot-links .ti-cup { color: #ff5e5b; }

@@ -286,6 +286,10 @@ if (is_post()) {
             q('UPDATE proposals SET read_at = NOW() WHERE read_at IS NULL');
             flash('ok', 'Proposte segnate come lette.');
             break;
+        case 'kofi_save':   // il nome della pagina Ko-fi: con lui compare «Sostienici» in fondo alle pagine (su entrambi i siti)
+            $kerr = kofi_set_username((string) ($_POST['kofi'] ?? ''));
+            $kerr ? flash('err', $kerr) : flash('ok', 'Ko-fi salvato. ' . (trim((string) ($_POST['kofi'] ?? '')) !== '' ? 'Il pulsante «Sostienici» compare in fondo alle pagine.' : 'Senza nome, il pulsante «Sostienici» non compare.'));
+            break;
         case 'pitch_delete':
             $pname = pitch_delete((int) ($_POST['pitch_id'] ?? 0));
             $pname !== null ? flash('ok', 'Campo «' . $pname . '» eliminato, con i suoi voti.') : flash('err', 'Campo non trovato (i campi dei centri non si eliminano da qui).');
@@ -296,7 +300,7 @@ if (is_post()) {
             break;
     }
     redirect('admin.php' . (in_array($do, ['guess_drop', 'guess_new_round', 'guess_reward', 'guess_notify'], true) ? '#indovina'
-        : (in_array($do, ['proposal_read', 'proposal_delete'], true) ? '#proposte' : ($do === 'pitch_delete' ? '#campi' : ''))));
+        : (in_array($do, ['proposal_read', 'proposal_delete'], true) ? '#proposte' : ($do === 'pitch_delete' ? '#campi' : ($do === 'kofi_save' ? '#kofi' : '')))));
 }
 
 $users = q("SELECT u.*, p.name AS player_name, p.position, p.position2, p.foot, p.shirt_number
@@ -635,6 +639,27 @@ $giftPlayers = q("SELECT DISTINCT p.id, p.name, (SELECT COALESCE(SUM(w.delta), 0
 </section>
 
 <?php $proposals = proposal_all(); $unread = proposal_unread_count(); ?>
+<?php $kofiName = kofi_username(); $kofiRows = kofi_recent(10); $kofiTot = kofi_totals(); ?>
+<section class="card" id="kofi">
+  <h2><i class="ti ti-cup"></i> Ko-fi: sostegno al sito <?= $kofiName ? '<span class="tag tag-ok">attivo</span>' : '<span class="tag">non attivo</span>' ?></h2>
+  <p class="muted small">Con il nome della tua pagina Ko-fi compare «Sostienici» in fondo a tutte le pagine (su entrambi i siti), con la pagina <a class="link" href="sostienici">sostienici</a>.
+    Le donazioni le registra il webhook, che sta sul sito Next: in Ko-fi (Impostazioni → API) metti come Webhook URL <code>https://calcettomanager.win/api/kofi</code> e copia il <b>token di verifica</b> nella variabile <code>KOFI_VERIFICATION_TOKEN</code> di Vercel.</p>
+  <form method="post" class="form form-grid"><?= csrf_field() ?><input type="hidden" name="do" value="kofi_save">
+    <label class="field"><span>Nome della pagina Ko-fi (la parte dopo ko-fi.com/)</span><input name="kofi" value="<?= h($kofiName ?? '') ?>" maxlength="60" placeholder="es. calcettomanager"></label>
+    <div><button class="btn btn-ghost btn-sm">Salva</button> <?php if ($kofiName): ?><a class="btn btn-ghost btn-sm" href="<?= h(kofi_url($kofiName)) ?>" target="_blank" rel="noopener noreferrer">Apri la pagina Ko-fi</a><?php endif; ?></div>
+  </form>
+  <p class="small">Donazioni registrate: <b><?= $kofiTot['n'] ?></b><?php if ($kofiTot['n'] > 0): ?> · Totale: <b><?= h(number_format($kofiTot['sum'], 2, ',', '')) ?></b><?php endif; ?></p>
+  <?php if ($kofiRows): ?>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Quando</th><th>Da</th><th>Tipo</th><th>Importo</th><th>Messaggio</th></tr></thead>
+    <tbody><?php foreach ($kofiRows as $d): ?>
+      <tr><td class="muted small"><?= h(push_when($d['created_at'])) ?></td><td><?= h($d['from_name'] ?: 'Anonimo') ?><?= $d['is_public'] ? '' : '<span class="muted small"> (non pubblico)</span>' ?></td>
+        <td><?= h($d['kind'] . ($d['tier_name'] ? ' · ' . $d['tier_name'] : '')) ?></td><td><b><?= h(kofi_donation_text($d['amount'], $d['currency'])) ?></b></td><td class="small"><?= h($d['message'] ?: '—') ?></td></tr>
+    <?php endforeach; ?></tbody>
+  </table></div>
+  <?php endif; ?>
+</section>
+
 <?php $userPitches = pitches_by_users(); ?>
 <section class="card" id="campi">
   <h2><i class="ti ti-map-pin"></i> Campi aggiunti dagli utenti <span class="count"><?= count($userPitches) ?></span></h2>

@@ -13,7 +13,9 @@ function site_footer(): string
         . '<p class="site-foot-social" aria-label="I nostri social, in arrivo">'
         . '<span title="X" aria-label="X"><i class="ti ti-brand-x"></i></span>'
         . '<span title="Instagram" aria-label="Instagram"><i class="ti ti-brand-instagram"></i></span>'
-        . '<span title="TikTok" aria-label="TikTok"><i class="ti ti-brand-tiktok"></i></span></p></div></div>'
+        . '<span title="TikTok" aria-label="TikTok"><i class="ti ti-brand-tiktok"></i></span></p></div>'
+        . (kofi_username() ? '<nav class="site-foot-links" aria-label="Informazioni"><a href="sostienici"><i class="ti ti-cup" aria-hidden="true"></i> Sostienici</a></nav>' : '')
+        . '</div>'
         . '<p class="site-foot-copy small muted">© ' . date('Y') . ' ' . h(APP_NAME) . ' · Tutti i diritti riservati</p></footer>';
 }
 
