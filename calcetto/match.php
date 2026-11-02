@@ -67,6 +67,11 @@ if (is_post()) {
     }
     switch ($do) {
         case 'cancel':
+            if ($blocked = slot_free_guard($id)) {   // se la partita è prenotata in un centro, c'è un tetto di disdette al giorno
+                flash('err', $blocked);
+                break;
+            }
+            slot_free_for_match($id, 'annullata');   // l'orario prenotato in un centro torna libero (e il gestore lo sa)
             match_cancel($match, is_string($_POST['reason'] ?? null) ? $_POST['reason'] : '', !empty($_POST['no_fee']), $actor);   // lib/stats.php
             flash('ok', 'Partita annullata: non conta per classifiche, statistiche, voti e Fanta, e le scommesse sono state rimborsate. Presenze, squadre e gol restano salvati.');
             break;
@@ -77,12 +82,19 @@ if (is_post()) {
                 $newDate = $dt->format('Y-m-d H:i:s');
                 // cambia il giorno di una partita in programma: le vecchie risposte non valgono più
                 $reset = $match['status'] === 'programmata' && substr($newDate, 0, 10) !== substr($match['match_date'], 0, 10);
+                $newLoc = pitch_place_from_post(trim($_POST['location'] ?? ''));
+                // se cambiano campo o orario di una partita prenotata in un centro, la prenotazione non vale più: si libera (con un tetto di disdette al giorno)
+                $freeReason = $match['status'] !== 'programmata' ? null : ($newLoc !== trim((string) $match['location']) ? 'campo' : ($newDate !== $match['match_date'] ? 'orario' : null));
+                if ($freeReason && ($blocked = slot_free_guard($id))) {
+                    flash('err', $blocked);
+                    break;
+                }
                 if (pitch_place_is_typed()) {
                     pitch_register_typed((int) current_user()['id'], (int) $match['group_id'], trim($_POST['location'] ?? ''));   // il campo scritto a mano entra nell'elenco della zona
                 }
                 db()->beginTransaction();
                 q('UPDATE matches SET match_date = ?, location = ?, team_a_name = ?, team_b_name = ?, fee = ?, notes = ?, keepers = ? WHERE id = ?', [
-                    $newDate, pitch_place_from_post(trim($_POST['location'] ?? '')),
+                    $newDate, $newLoc,
                     clean_team_name($_POST['team_a'] ?? '', TEAM_A_NAME), clean_team_name($_POST['team_b'] ?? '', TEAM_B_NAME),
                     max(0, (float) str_replace(',', '.', $_POST['fee'] ?? '0')),
                     trim($_POST['notes'] ?? '') ?: null, ($_POST['keepers'] ?? '') === 'fissi' ? 'fissi' : 'volanti', $id]);
@@ -94,6 +106,9 @@ if (is_post()) {
                     q("DELETE FROM push_log WHERE match_id = ? AND kind IN ('betsopen', 'bets1h')", [$id]);
                 }
                 db()->commit();
+                if ($freeReason) {
+                    slot_free_for_match($id, $freeReason);
+                }
                 if ($match['status'] === 'programmata') {
                     push_notify_match_changed($id, $match, $reset, $actor);   // avvisa i giocatori, a pagina già inviata
                 }
@@ -380,6 +395,11 @@ if (is_post()) {
                 flash('err', 'Partita non eliminata: per confermare bisogna scrivere ELIMINA.');
                 break;
             }
+            if ($blocked = slot_free_guard($id)) {   // se la partita è prenotata in un centro, c'è un tetto di disdette al giorno
+                flash('err', $blocked);
+                break;
+            }
+            slot_free_for_match($id, 'eliminata');   // l'orario prenotato in un centro torna libero (e il gestore lo sa)
             push_notify_match_cancelled($match, $actor);   // prima di cancellare: dopo non si saprebbe più a chi mandarla
             foreach (match_guests($id) as $g) {
                 guest_remove_from_match((int) $g['id'], $id);   // gli ospiti se ne vanno con la partita (chi ha salvato l'account lo tiene)
