@@ -28,6 +28,29 @@ if (is_post()) {
         }
         redirect($to($p['city']));
     }
+    if ($do === 'review') {
+        $p = pitch_by_id((int) ($_POST['pitch'] ?? 0));
+        if (!$p) {
+            redirect('campi.php');
+        }
+        $body = pitch_clean_review((string) ($_POST['body'] ?? ''));
+        $err = !$canVote ? 'Per scrivere una recensione serve un account da giocatore.' : pitch_review_error($body);
+        if ($err) {
+            flash('err', $err);
+        } elseif (!rate_hit('pitch_review_' . (int) current_user()['id'], 10, 3600)) {
+            flash('err', 'Hai scritto molte recensioni in poco tempo: riprova tra un\'ora.');
+        } else {
+            pitch_review_save((int) $p['id'], (int) $me, $body);
+            flash('ok', 'Recensione di «' . $p['name'] . '» salvata. Se vuoi, scrivila anche su Google.');
+        }
+        redirect($to($p['city']) . '#campo-' . (int) $p['id']);
+    }
+    if ($do === 'review_delete') {
+        $pid = pitch_review_delete((int) ($_POST['review'] ?? 0), $me ? (int) $me : null, is_admin());
+        $p = $pid ? pitch_by_id($pid) : null;
+        flash($p ? 'ok' : 'err', $p ? 'Recensione tolta.' : 'Recensione non trovata.');
+        redirect($p ? $to($p['city']) . '#campo-' . (int) $p['id'] : 'campi.php');
+    }
     if ($do === 'add') {
         $name = mb_substr(trim((string) ($_POST['name'] ?? '')), 0, 120);
         $address = mb_substr(trim((string) ($_POST['address'] ?? '')), 0, 190);
@@ -55,6 +78,8 @@ $slug = $asked !== '' ? city_slug($asked) : ($mine[0] ?? '');
 $pitches = $slug !== '' ? pitches_in([$slug], $me ? (int) $me : null) : [];
 $cityName = $pitches[0]['city'] ?? ($asked !== '' && !preg_match('/^[a-z0-9-]+$/', $asked) ? $asked : '');
 
+$reviews = pitch_reviews_of(array_column($pitches, 'id'));
+
 layout_start('I campi', 'pitches');
 ?>
 <div class="narrow-lg">
@@ -75,7 +100,7 @@ layout_start('I campi', 'pitches');
     <?php else: ?>
     <ul class="plain-list pitch-list">
       <?php foreach ($pitches as $p): ?>
-      <li class="pitch-row">
+      <li class="pitch-row" id="campo-<?= (int) $p['id'] ?>">
         <div>
           <strong><?= h($p['name']) ?></strong><?php if ($p['center_id']): ?><span class="tag tag-ok" style="margin-left:6px">Centro</span><?php endif; ?>
           <div class="muted small"><?= h($p['address'] ?: $p['city']) ?></div>
@@ -91,6 +116,35 @@ layout_start('I campi', 'pitches');
           <button class="btn btn-ghost btn-sm"><?= $p['mine'] !== null ? 'Cambia voto' : 'Vota' ?></button>
         </form>
         <?php endif; ?>
+        <?php $rv = $reviews[(int) $p['id']] ?? []; ?>
+        <div class="pitch-reviews">
+          <?php foreach (array_slice($rv, 0, 3) as $r): ?>
+          <blockquote class="review"><p><?= h($r['body']) ?></p>
+            <footer class="muted small"><?= h($r['name']) ?> · <?= h(push_when($r['updated_at'])) ?>
+              <?php if (($me && (int) $r['player_id'] === (int) $me) || is_admin()): ?>
+              <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="review_delete"><input type="hidden" name="review" value="<?= (int) $r['id'] ?>">
+                <button class="gcal-undo" data-confirm="Togliere questa recensione?">toglila</button></form>
+              <?php endif; ?></footer></blockquote>
+          <?php endforeach; ?>
+          <?php if (count($rv) > 3): ?>
+          <details><summary class="small">Le altre <?= count($rv) - 3 ?> recensioni</summary>
+            <?php foreach (array_slice($rv, 3) as $r): ?>
+            <blockquote class="review"><p><?= h($r['body']) ?></p><footer class="muted small"><?= h($r['name']) ?> · <?= h(push_when($r['updated_at'])) ?></footer></blockquote>
+            <?php endforeach; ?>
+          </details>
+          <?php endif; ?>
+          <?php if ($canVote): $mineRv = null; foreach ($rv as $r) { if ((int) $r['player_id'] === (int) $me) { $mineRv = $r; } } ?>
+          <details><summary class="small"><?= $mineRv ? 'Cambia la tua recensione' : 'Scrivi una recensione' ?></summary>
+            <form method="post" class="form">
+              <?= csrf_field() ?><input type="hidden" name="do" value="review"><input type="hidden" name="pitch" value="<?= (int) $p['id'] ?>">
+              <label class="field"><span>La tua recensione (da <?= REVIEW_MIN ?> a <?= REVIEW_MAX ?> caratteri)</span>
+                <textarea name="body" required minlength="<?= REVIEW_MIN ?>" maxlength="<?= REVIEW_MAX ?>" rows="3" placeholder="Fondo, spogliatoi, illuminazione, prezzo…"><?= h($mineRv['body'] ?? '') ?></textarea></label>
+              <button class="btn btn-ghost btn-sm">Salva la recensione</button>
+            </form>
+          </details>
+          <?php endif; ?>
+          <a class="small link" href="<?= h(pitch_google_url($p)) ?>" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-google"></i> Scrivi la recensione anche su Google</a>
+        </div>
       </li>
       <?php endforeach; ?>
     </ul>

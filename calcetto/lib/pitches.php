@@ -189,6 +189,104 @@ function pitch_delete(int $id): ?string
         return null;
     }
     q('DELETE FROM pitch_ratings WHERE pitch_id = ?', [$id]);
+    pitch_reviews_schema_ensure();
+    q('DELETE FROM pitch_reviews WHERE pitch_id = ?', [$id]);
     q('DELETE FROM pitches WHERE id = ? AND center_id IS NULL', [$id]);
     return (string) $name;
+}
+
+/* ---------------------------------------------------------------- recensioni scritte (come next-app/src/lib/pitches.ts e pitch-format.ts) */
+const REVIEW_MIN = 10;
+const REVIEW_MAX = 800;
+
+function pitch_reviews_schema_ensure(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (meta_get('pitch_reviews_schema') === '1') {
+        return;
+    }
+    db()->exec('CREATE TABLE IF NOT EXISTS pitch_reviews (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        pitch_id INT UNSIGNED NOT NULL,
+        player_id INT NOT NULL,
+        body VARCHAR(800) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_review (pitch_id, player_id),
+        KEY ix_review_pitch (pitch_id, updated_at)
+    ) DEFAULT CHARSET=utf8mb4');
+    meta_set('pitch_reviews_schema', '1');
+}
+
+/** Il testo di una recensione dopo la pulizia (spazi ai bordi e righe vuote di troppo). */
+function pitch_clean_review(string $t): string
+{
+    $t = str_replace("\r", '', $t);
+    $t = preg_replace('/[ \t]+\n/', "\n", $t);
+    $t = preg_replace('/\n{3,}/', "\n\n", $t);
+    return trim($t);
+}
+
+function pitch_review_error(string $text): ?string
+{
+    $n = mb_strlen($text);
+    if ($n < REVIEW_MIN) {
+        return 'Scrivi almeno ' . REVIEW_MIN . ' caratteri.';
+    }
+    if ($n > REVIEW_MAX) {
+        return 'La recensione è troppo lunga (massimo ' . REVIEW_MAX . ' caratteri).';
+    }
+    return null;
+}
+
+/** Pagina del campo su Google Maps, dove chi è collegato a Google può scrivere la recensione che vale online (la cerca per nome, indirizzo e città). */
+function pitch_google_url(array $p): string
+{
+    return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(implode(', ', array_filter([$p['name'], $p['address'], $p['city']])));
+}
+
+/** Le recensioni dei campi dati, dalla più recente (massimo 30 per campo): id campo => elenco. */
+function pitch_reviews_of(array $pitchIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $pitchIds), fn($n) => $n > 0)));
+    $out = array_fill_keys($ids, []);
+    if (!$ids) {
+        return $out;
+    }
+    pitch_reviews_schema_ensure();
+    $rows = q('SELECT r.id, r.pitch_id, r.player_id, p.name, r.body, r.updated_at FROM pitch_reviews r JOIN players p ON p.id = r.player_id
+               WHERE r.pitch_id IN (' . implode(',', $ids) . ') ORDER BY r.updated_at DESC, r.id DESC')->fetchAll();
+    foreach ($rows as $r) {
+        if (count($out[(int) $r['pitch_id']]) < 30) {
+            $out[(int) $r['pitch_id']][] = $r;
+        }
+    }
+    return $out;
+}
+
+/** Salva la recensione di un giocatore (una per campo: se c'è già, la sostituisce). */
+function pitch_review_save(int $pitchId, int $playerId, string $body): bool
+{
+    if (!pitch_by_id($pitchId)) {
+        return false;
+    }
+    pitch_reviews_schema_ensure();
+    q('INSERT INTO pitch_reviews (pitch_id, player_id, body) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE body = VALUES(body)', [$pitchId, $playerId, $body]);
+    return true;
+}
+
+/** Elimina una recensione: la propria, oppure qualsiasi se $anyone (admin). Ritorna l'id del campo o null. */
+function pitch_review_delete(int $id, ?int $playerId, bool $anyone): ?int
+{
+    pitch_reviews_schema_ensure();
+    $r = q('SELECT pitch_id, player_id FROM pitch_reviews WHERE id = ?', [$id])->fetch();
+    if (!$r || (!$anyone && (int) $r['player_id'] !== $playerId)) {
+        return null;
+    }
+    q('DELETE FROM pitch_reviews WHERE id = ?', [$id]);
+    return (int) $r['pitch_id'];
 }

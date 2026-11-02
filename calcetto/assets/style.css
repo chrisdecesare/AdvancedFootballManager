@@ -464,7 +464,7 @@ input[type=checkbox], input[type=radio] { width: 20px; height: 20px; accent-colo
 .gcal-box { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .gcal-box[data-added="1"] > a[data-gcal], .gcal-box[data-added="0"] > .gcal-done { display: none; }
 .gcal-done { font-weight: 800; color: var(--grass-d); }
-.gcal-done .gcal-undo { margin-left: 6px; padding: 0; border: 0; background: none; font: inherit; font-size: .8rem; font-weight: 600; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.gcal-undo { margin-left: 6px; padding: 0; border: 0; background: none; font: inherit; font-size: .8rem; font-weight: 600; color: var(--muted); text-decoration: underline; cursor: pointer; }
 span.gcal-done.icon-btn { display: inline-grid; place-items: center; color: var(--grass-d); background: var(--paper-2); }
 .gcal-btn { flex: none; width: 42px; height: 42px; font-size: 1.3rem; border-radius: 12px; }
 @media (max-width: 560px) {    /* telefoni: c'è poco spazio, resta il numero dei confermati e il titolo va a capo */
@@ -2270,3 +2270,10 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 /* la finestra sta dentro .lg-emblem: senza questa precisione prenderebbe le misure dello stemma (64 px, bordo e ombra) */
 .lg-emblem .lg-zoom img { display: block; width: min(80vw, 560px); height: auto; max-height: 70vh; object-fit: contain; margin: 0 auto 12px; border: 0; box-shadow: none; border-radius: 12px; background: none; }
 @media (prefers-reduced-motion: reduce) { .lg-zoom-btn img { transition: none; } .lg-zoom-btn:hover img { transform: none; } }
+
+/* recensioni scritte dei campi */
+.pitch-reviews { flex: 1 1 100%; display: grid; gap: 8px; }
+.review { margin: 0; padding: 8px 12px; background: var(--paper-2); border: var(--b2, 2px solid var(--ink)); border-radius: 12px; }
+.review p { margin: 0 0 4px; white-space: pre-line; overflow-wrap: anywhere; }
+.review footer { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pitch-reviews summary { cursor: pointer; font-weight: 700; }
