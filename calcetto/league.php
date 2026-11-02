@@ -14,7 +14,7 @@ if (!$gid) {
         redirect('league.php?id=' . array_key_first($mine));
     }
     if (!$mine) {
-        redirect(is_admin() ? 'platform.php' : (LEAGUE_CREATION ? 'create_league.php' : 'index.php'));
+        redirect(is_platform_owner() ? 'platform.php' : (is_admin() ? 'admin.php' : (LEAGUE_CREATION ? 'create_league.php' : 'index.php')));
     }
 }
 $league = $gid ? league_get($gid) : null;
@@ -227,7 +227,7 @@ if (is_post()) {
                 flash('err', $err);
             } else {
                 flash('ok', 'Lega eliminata.');
-                redirect(is_admin() ? 'platform.php' : 'index.php');
+                redirect(is_platform_owner() ? 'platform.php' : (is_admin() ? 'admin.php' : 'index.php'));
             }
             break;
     }

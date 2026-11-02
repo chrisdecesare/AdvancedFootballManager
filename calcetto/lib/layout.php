@@ -50,7 +50,6 @@ function layout_start(string $title, string $active = ''): void
     if (is_admin()) {
         $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
         $nav['admin'] = ['admin.php', 'Admin', 'settings'];
-        $nav['platform'] = ['platform.php', 'Piattaforma', 'world'];
         $pending = max(0, pending_for_me() - $pendingLeague);
         $newProposals = proposal_unread_count();   // proposte dei giocatori ancora da leggere (Admin → Proposte)   // iscrizioni delle leghe storiche (quelle delle sue leghe sono sotto)
         if ($owned ?? []) {
@@ -119,6 +118,7 @@ function layout_start(string $title, string $active = ''): void
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="nav-extra" data-push-bell><i class="ti ti-bell"></i><span class="nav-label">Notifiche</span></a><?php endif; ?>
+        <?php if (is_platform_owner()): ?><a href="platform.php" class="nav-extra<?= $active === 'platform' ? ' active' : '' ?>"><i class="ti ti-world"></i><span class="nav-label">Piattaforma</span></a><?php endif; ?>
         <?php if (!$guest): ?><a href="index.php?tour=1" class="nav-extra"><i class="ti ti-help"></i><span class="nav-label">Rivedi il tutorial</span></a><?php endif; ?>
         <a href="logout.php" class="nav-extra"><i class="ti ti-logout"></i><span class="nav-label">Esci</span></a>
       <?php endif; ?>

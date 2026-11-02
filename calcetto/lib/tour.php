@@ -145,12 +145,6 @@ function tour_steps(array $u): array
     }
     if (($u['role'] ?? '') === 'admin') {
         $steps[] = [
-            'sel' => '.nav a[href="platform.php"]', 'icon' => 'world',
-            'title' => 'Piattaforma (solo admin del sito)',
-            'text' => 'Tutte le leghe del sito, anche quelle create da altri utenti.',
-            'bullets' => ['Chi le ha create, chi ne fa parte, quando si collegano e cosa fanno (registro delle operazioni).'],
-        ];
-        $steps[] = [
             'sel' => '.nav a[href="payments.php"]', 'icon' => 'cash',
             'title' => 'Pagamenti (solo admin)',
             'text' => 'Le quote a partita e i saldi.',

@@ -8,7 +8,7 @@
  * Diversa da admin.php, che resta la gestione quotidiana delle leghe storiche.
  */
 require __DIR__ . '/lib/bootstrap.php';
-require_admin();
+require_platform_owner();   // solo il proprietario del progetto (lib/auth.php)
 require_recent_auth();   // password riconfermata se l'area admin non si usa da un po' (lib/security.php)
 
 // azioni sugli account delle leghe degli altri (quelli delle leghe storiche si gestiscono anche da admin.php)

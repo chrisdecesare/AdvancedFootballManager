@@ -28,6 +28,23 @@ function is_admin(): bool
     return $u !== null && $u['role'] === 'admin';
 }
 
+/**
+ * Proprietario del progetto: l'admin con l'id più basso (l'account admin più vecchio). Solo lui entra in «Piattaforma» (tutte le leghe,
+ * account, operazioni): gli altri admin del sito gestiscono le leghe storiche da admin.php. Stessa regola di isPlatformOwner() in Next.
+ */
+function is_platform_owner(): bool
+{
+    static $ownerId = null;
+    $u = current_user();
+    if ($u === null || $u['role'] !== 'admin') {
+        return false;
+    }
+    if ($ownerId === null) {
+        $ownerId = (int) q("SELECT MIN(id) FROM users WHERE role = 'admin'")->fetchColumn();
+    }
+    return $ownerId > 0 && (int) $u['id'] === $ownerId;
+}
+
 /** Manager: crea e gestisce le partite dei suoi gruppi, ma non è un admin (niente account, gruppi, giocatori, pagamenti). */
 function is_manager(): bool
 {
@@ -77,6 +94,20 @@ function require_admin(): void
         http_response_code(403);
         layout_start('Accesso negato');
         echo '<div class="card"><h2>Accesso negato</h2><p>Questa pagina è riservata agli admin.</p></div>';
+        layout_end();
+        exit;
+    }
+}
+
+/** Pagina riservata al proprietario del progetto (vedi is_platform_owner()): per gli altri è come se non ci fosse. */
+function require_platform_owner(): void
+{
+    require_login();
+    if (!is_platform_owner()) {
+        security_log('accesso_negato', (string) ($_SERVER['REQUEST_URI'] ?? ''));
+        http_response_code(404);
+        layout_start('Pagina non trovata');
+        echo '<div class="card"><h2>Pagina non trovata</h2><p>Questa pagina non esiste.</p></div>';
         layout_end();
         exit;
     }

@@ -2200,3 +2200,27 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
   @view-transition { navigation: auto; }
 }
 /* @motion-ingresso:fine */
+
+/* @menu-molte-schede:inizio */
+/* ---------- più di 6 schede: menu a panino a sinistra, anche sui computer ----------
+   L'intestazione prende .nav-many quando le schede sono più di 6 (layout.php / Topbar.tsx). Sotto gli 800 px il panino c'è già per tutti:
+   qui si estende a tutte le larghezze, con lo stesso pannello che si apre sotto l'intestazione. Il panino sta prima del titolo nel codice, quindi a sinistra. */
+@media (min-width: 800px) {
+  .nav-many .topbar-inner { flex-wrap: nowrap; }
+  .nav-many .nav-toggle { display: inline-grid; flex: none; }
+  .nav-many .userbox { margin-left: auto; }
+  .nav-many .nav { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 30; flex-direction: column; align-items: flex-start; gap: 4px;
+    padding: 10px 16px 14px; overflow: visible; max-height: calc(100vh - 64px); overflow-y: auto;
+    background: var(--yellow); border-bottom: var(--b); box-shadow: 0 8px 0 rgba(31, 26, 46, .22);
+    opacity: 0; transform: translateY(-6px); transform-origin: top; transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), display 160ms allow-discrete; }
+  .topbar.nav-many.menu-open .nav { display: flex; opacity: 1; transform: none; }
+  @starting-style { .topbar.nav-many.menu-open .nav { opacity: 0; transform: translateY(-6px); } }
+  .nav-many .nav a { padding: 12px 14px; font-size: 1.05rem; min-width: 240px; }
+  .nav-many .nav a.nav-extra { display: flex; }
+  .nav-many .nav a:not(.nav-extra) + .nav-extra { margin-top: 8px; }
+  .nav-many .nav .nav-label, .nav-many .nav a.active .nav-label { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+}
+@media (min-width: 800px) and (prefers-reduced-motion: reduce) {
+  .nav-many .nav { transform: none !important; transition: opacity 120ms linear, display 120ms allow-discrete; }
+}
+/* @menu-molte-schede:fine */
