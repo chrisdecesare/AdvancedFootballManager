@@ -77,6 +77,9 @@ if (is_post()) {
                 $newDate = $dt->format('Y-m-d H:i:s');
                 // cambia il giorno di una partita in programma: le vecchie risposte non valgono più
                 $reset = $match['status'] === 'programmata' && substr($newDate, 0, 10) !== substr($match['match_date'], 0, 10);
+                if (pitch_place_is_typed()) {
+                    pitch_register_typed((int) current_user()['id'], (int) $match['group_id'], trim($_POST['location'] ?? ''));   // il campo scritto a mano entra nell'elenco della zona
+                }
                 db()->beginTransaction();
                 q('UPDATE matches SET match_date = ?, location = ?, team_a_name = ?, team_b_name = ?, fee = ?, notes = ?, keepers = ? WHERE id = ?', [
                     $newDate, pitch_place_from_post(trim($_POST['location'] ?? '')),
@@ -1209,7 +1212,7 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
     </div>
     <?php endif; ?>
     <?php $gidM = (int) $match['group_id']; ?>
-    <?= pitch_place_field_html(pitch_recent_places([$gidM]), pitches_in(pitch_cities_of_groups([$gidM])), (string) $match['location']) ?>
+    <?= pitch_place_field_html(pitch_recent_places([$gidM]), pitches_in(pitch_cities_of_groups([$gidM])), (string) $match['location'], pitch_zones_of_groups([$gidM]), $gidM) ?>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(team_name('A', $match)) ?>"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(team_name('B', $match)) ?>"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format((float) $match['fee'], 2, ',', '')) ?>"></label>

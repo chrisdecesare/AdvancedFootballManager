@@ -203,6 +203,11 @@ if (is_post()) {
             }
             break;
 
+        case 'zone_set':   // la zona della lega: da qui si capisce dove cercare i campi vicini quando si crea una partita
+            $zerr = league_zone_set($gid, (string) ($_POST['city'] ?? ''));
+            $zerr ? flash('err', $zerr) : flash('ok', 'Zona della lega salvata: quando crei una partita ti proponiamo i campi di quella città.');
+            break;
+
         case 'center_link':   // «Campo di casa»: la lega gioca in un centro (compare nella sua pagina, nei tornei e nel rapporto del centro)
             $cc = q('SELECT * FROM sport_centers WHERE id = ?', [(int) ($_POST['center_id'] ?? 0)])->fetch();
             if (!$cc || center_plan_of($cc) === null) {
@@ -324,6 +329,11 @@ $linkable = $linkedC ? [] : centers_linkable($pubC && $pubC['city'] ? city_slug(
 ?>
 <section class="card" id="campo">
   <h2><i class="ti ti-building-stadium"></i> Campo di casa</h2>
+  <form method="post" class="form form-grid" id="zona"><?= csrf_field() ?><input type="hidden" name="group_id" value="<?= $gid ?>"><input type="hidden" name="do" value="zone_set">
+    <label class="field"><span>Zona della lega (la città dove giocate)</span><input name="city" required maxlength="80" value="<?= h($pubC['city'] ?? '') ?>" placeholder="Es. Cava de' Tirreni"></label>
+    <div><button class="btn btn-ghost btn-sm"><i class="ti ti-map-pin"></i> Salva la zona</button></div>
+    <p class="muted small span-2">Serve a proporti i campi vicini quando crei una partita. Non rende pubblica la lega: <?= !empty($pubC['discoverable']) ? 'ora si trova in «Trova la mia lega»' : 'per ora resta privata' ?>.</p>
+  </form>
   <?php if ($linkedC): ?>
     <p>La lega è collegata a <strong><?= h($linkedC['name']) ?></strong> <span class="muted small">(<?= h(implode(', ', array_filter([$linkedC['address'], $linkedC['city']]))) ?>)</span>.</p>
     <p class="muted small">Compare nella pagina del centro, può partecipare ai suoi tornei e le sue partite contano nel rapporto del centro. Puoi scollegarla quando vuoi: le partite restano.</p>

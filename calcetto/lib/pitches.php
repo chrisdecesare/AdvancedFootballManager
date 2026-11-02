@@ -336,10 +336,58 @@ function pitch_place_from_post(string $typed): string
     return $typed;
 }
 
-/** I due campi del modulo: la scelta (ultimi campi, campi della zona con le stelle, «Aggiungi campo…») e la casella dove scrivere il nuovo (assets/app.js la mostra o nasconde). */
-function pitch_place_field_html(array $recents, array $pitches, string $current): string
+/** Le zone (nomi delle città) delle leghe date, dove giocano: per dire da dove arrivano i campi proposti. */
+function pitch_zones_of_groups(array $groupIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $groupIds), fn($g) => $g > 0)));
+    if (!$ids) {
+        return [];
+    }
+    pitches_schema_ensure();
+    return array_map('strval', q("SELECT DISTINCT city FROM league_public WHERE group_id IN (" . implode(',', $ids) . ") AND city <> ''")->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
+ * Un campo scritto a mano nella partita entra anche nell'elenco dei campi della zona della lega (nome = fino alla prima virgola, il resto è l'indirizzo),
+ * così la volta dopo si sceglie dall'elenco. Senza una zona della lega non si registra: resta solo il testo della partita.
+ */
+function pitch_register_typed(int $userId, int $gid, string $typed): void
+{
+    $text = trim($typed);
+    $city = pitch_zones_of_groups([$gid])[0] ?? '';
+    if ($text === '' || !$gid || $city === '') {
+        return;
+    }
+    $cut = mb_strpos($text, ',');
+    $name = mb_substr(trim($cut ? mb_substr($text, 0, $cut) : $text), 0, 120);
+    $address = mb_substr(trim($cut ? mb_substr($text, $cut + 1) : ''), 0, 190);
+    if (pitch_input_error($name, $address, $city) === null) {
+        pitch_add($userId, $name, $address, $city);
+    }
+}
+
+/** True se il modulo ha scelto «Aggiungi campo» (o non ha scelto da un elenco): vale il testo scritto in `location`. */
+function pitch_place_is_typed(): bool
+{
+    $v = (string) ($_POST['place'] ?? '');
+    return !(str_starts_with($v, 'p:') || str_starts_with($v, 'c:') || (str_starts_with($v, 't:') && trim(substr($v, 2)) !== ''));
+}
+
+/**
+ * Il campo del modulo di una partita: la scelta (ultimi campi, centri convenzionati, campi della zona con le stelle, «Aggiungi campo…») e la casella dove
+ * scrivere il nuovo (assets/app.js la mostra o nasconde). Senza campi da proporre c'è solo la casella, con la spiegazione di dove si cerca (la zona).
+ */
+function pitch_place_field_html(array $recents, array $pitches, string $current, array $zones = [], int $gid = 0): string
 {
     $cur = trim($current);
+    $zoneTxt = implode(', ', $zones);
+    $link = $gid ? ' <a class="link" href="league.php?id=' . $gid . '#campo">Imposta la città della lega</a> (resta privata).' : '';
+    $input = fn(string $v) => '<input name="location" value="' . h($v) . '" placeholder="Es. Centro sportivo Rossi, Via Roma 1, Milano">';
+    if (!$recents && !$pitches) {
+        return '<label class="field span-2"><span>Campo (nome e indirizzo: cliccandoci sopra si apre l\'itinerario su Google Maps)</span>' . $input($cur) . '</label>'
+            . '<p class="muted small span-2">' . ($zones ? 'Nessun campo registrato a ' . h($zoneTxt) . ': scrivi il tuo, entrerà nell\'elenco della zona e la prossima volta lo ritrovi.'
+                : 'Per proporti i campi vicini ci serve la zona della lega.' . $link) . '</p>';
+    }
     $known = in_array($cur, $recents, true) ? $cur : null;
     $initial = $known !== null ? 't:' . $known : ($cur === '' && $recents ? 't:' . $recents[0] : '');
     $o = '';
@@ -371,6 +419,7 @@ function pitch_place_field_html(array $recents, array $pitches, string $current)
     }
     $o .= '<option value=""' . ($initial === '' ? ' selected' : '') . '>➕ Aggiungi campo se non lo trovi in elenco</option>';
     return '<label class="field span-2"><span>Campo (si apre l\'itinerario su Google Maps cliccandoci sopra)</span><select name="place" data-place-pick>' . $o . '</select></label>'
-        . '<label class="field span-2" data-place-new' . ($initial === '' ? '' : ' hidden') . '><span>Nome e indirizzo del campo</span>'
-        . '<input name="location" value="' . h($known !== null ? '' : $current) . '" placeholder="Es. Centro sportivo Rossi, Via Roma 1, Milano"></label>';
+        . '<label class="field span-2" data-place-new' . ($initial === '' ? '' : ' hidden') . '><span>Nome e indirizzo del campo</span>' . $input($known !== null ? '' : $current) . '</label>'
+        . '<p class="muted small span-2">' . ($zones ? 'Campi della zona (' . h($zoneTxt) . '). Non trovi il tuo? Aggiungilo: lo vedranno anche gli altri.' . ($gid ? ' Cambia la zona dalla <a class="link" href="league.php?id=' . $gid . '#campo">pagina della lega</a>.' : '')
+            : 'Per proporti i campi vicini ci serve la zona della lega.' . $link) . '</p>';
 }

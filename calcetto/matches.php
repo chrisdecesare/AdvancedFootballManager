@@ -26,6 +26,9 @@ if (is_post() && ($_POST['do'] ?? '') === 'create') {
             ($_POST['keepers'] ?? '') === 'fissi' ? 'fissi' : 'volanti',
         ]);
         $id = (int) db()->lastInsertId();
+        if (pitch_place_is_typed()) {
+            pitch_register_typed((int) current_user()['id'], $gid, trim($_POST['location'] ?? ''));   // il campo scritto a mano entra nell'elenco della zona
+        }
         log_activity('partita_creata', $dt->format('d/m/Y H:i') . ' · ' . $location, $gid);
         sync_match_players($id);
         push_notify_new_match($id, (int) current_user()['id']);   // avvisa chi deve rispondere, dopo aver inviato la pagina
@@ -84,7 +87,7 @@ layout_start('Partite', 'matches');
       <input type="hidden" name="group_id" value="<?= (int) $defaultGroup ?>">
     <?php endif; ?>
     <?php $pitchOpts = pitches_in(pitch_cities_of_groups(array_keys($groupOptions))); $recentPlaces = pitch_recent_places(array_keys($groupOptions)); ?>
-    <?= pitch_place_field_html($recentPlaces, $pitchOpts, $recentPlaces ? '' : DEFAULT_LOCATION) ?>
+    <?= pitch_place_field_html($recentPlaces, $pitchOpts, $recentPlaces ? '' : DEFAULT_LOCATION, pitch_zones_of_groups(array_keys($groupOptions)), (int) $defaultGroup) ?>
     <label class="field"><span><span class="team-dot team-a"></span>Nome squadra 1</span><input name="team_a" maxlength="40" value="<?= h(TEAM_A_NAME) ?>" placeholder="Es. Scapoli"></label>
     <label class="field"><span><span class="team-dot team-b"></span>Nome squadra 2</span><input name="team_b" maxlength="40" value="<?= h(TEAM_B_NAME) ?>" placeholder="Es. Ammogliati"></label>
     <label class="field"><span>Quota a testa (€)</span><input name="fee" inputmode="decimal" value="<?= h(number_format(DEFAULT_FEE, 2, ',', '')) ?>"></label>

@@ -2287,3 +2287,6 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 
 /* campo convenzionato nella gestione della partita */
 .conv-box { padding: 10px 12px; border: var(--b2); border-radius: 12px; background: var(--paper-2); display: grid; gap: 8px; }
+
+/* la casella del nuovo campo: hidden deve vincere su display: grid di .field */
+[data-place-new][hidden] { display: none; }

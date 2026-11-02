@@ -77,6 +77,23 @@ function league_public_get(int $gid): ?array
     return q('SELECT city, area, about, logo, discoverable, lat, lng FROM league_public WHERE group_id = ?', [$gid])->fetch() ?: null;
 }
 
+/** La zona della lega (la città dove gioca), per proporle i campi vicini: vale anche per una lega privata, che resta com'è (visibile o no). Ritorna un errore o null. */
+function league_zone_set(int $gid, string $city): ?string
+{
+    $c = trim(preg_replace('/\s+/u', ' ', $city));
+    if (mb_strlen($c) < 2 || mb_strlen($c) > 80) {
+        return 'Scrivi la città (da 2 a 80 caratteri).';
+    }
+    $old = league_public_get($gid);
+    $v = ['city' => $c, 'area' => $old['area'] ?? '', 'about' => $old['about'] ?? '', 'discoverable' => !empty($old['discoverable'])];
+    if ($old && $old['city'] === $c && $old['lat'] !== null && $old['lng'] !== null) {
+        $v['lat'] = (float) $old['lat'];
+        $v['lng'] = (float) $old['lng'];
+    }
+    league_public_set($gid, $v);
+    return null;
+}
+
 function league_public_error(array $v): ?string
 {
     $len = fn (string $s) => mb_strlen($s);
