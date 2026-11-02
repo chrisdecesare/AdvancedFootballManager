@@ -40,6 +40,7 @@ function pretty_routes(): array
         'drops' => ['uscite', null],
         'curiosities' => ['curiosita', null],
         'campi' => ['campi', null],
+        'impostazioni' => ['impostazioni', null],
         'gazzetta' => ['gazzetta', null],
         'guess' => ['indovina', null],
         'profile' => ['profilo', null],

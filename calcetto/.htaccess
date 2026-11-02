@@ -58,6 +58,7 @@ AddType text/javascript .js
   RewriteRule ^uscite$ drops.php [QSA,L]
   RewriteRule ^curiosita$ curiosities.php [QSA,L]
   RewriteRule ^campi$ campi.php [QSA,L]
+  RewriteRule ^impostazioni$ impostazioni.php [QSA,L]
   RewriteRule ^gazzetta$ gazzetta.php [QSA,L]
   RewriteRule ^indovina$ guess.php [QSA,L]
   RewriteRule ^profilo$ profile.php [QSA,L]

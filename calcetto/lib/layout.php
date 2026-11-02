@@ -37,12 +37,10 @@ function layout_start(string $title, string $active = ''): void
         }
         $owned = my_owned_leagues();
         if ($owned && discover_visible()) {
-            $challPending = challenges_pending_count(array_keys($owned));
-            $nav['challenges'] = ['sfide', 'Sfide' . ($challPending ? ' (' . $challPending . ')' : ''), 'swords'];
+            $challPending = challenges_pending_count(array_keys($owned));   // il pallino delle sfide sta su «La mia lega»
         }
         if ($owned && !is_admin()) {
-            // chi ha creato una lega (o la amministra) la gestisce da qui, senza essere admin del sito
-            $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
+            // chi ha creato una lega (o la amministra) la gestisce da qui, senza essere admin del sito. Sfide e Pagamenti sono sottosezioni (league_tabs)
             $nav['league'] = ['league.php', count($owned) > 1 ? 'Le mie leghe' : 'La mia lega', 'users-group'];
         }
         foreach ($owned as $ogid => $_) {
@@ -50,14 +48,17 @@ function layout_start(string $title, string $active = ''): void
         }
     }
     if (is_admin()) {
-        $nav['payments'] = ['payments.php', 'Pagamenti', 'cash'];
-        $nav['admin'] = ['admin.php', 'Admin', 'settings'];
+        // l'admin ha sempre «La mia lega» (anche senza leghe sue: da lì raggiunge i Pagamenti)
+        $nav['league'] = ['league.php', ($owned ?? []) ? (count($owned) > 1 ? 'Le mie leghe' : 'La mia lega') : 'Le leghe', 'users-group'];
         $pending = max(0, pending_for_me() - $pendingLeague);
         $newProposals = proposal_unread_count();   // proposte dei giocatori ancora da leggere (Admin → Proposte)   // iscrizioni delle leghe storiche (quelle delle sue leghe sono sotto)
-        if ($owned ?? []) {
-            $nav['league'] = ['league.php', count($owned) > 1 ? 'Le mie leghe' : 'La mia lega', 'users-group'];
-        }
     }
+    // Impostazioni (era «Admin» per l'admin): per tutti le impostazioni dell'account, per admin e manager anche quelle del loro ruolo
+    if ($u && !$guest) {
+        $nav['settings'] = ['impostazioni.php', 'Impostazioni', 'settings'];
+    }
+    // le sottosezioni tengono accesa la scheda a cui appartengono
+    $active = ['challenges' => 'league', 'payments' => 'league', 'admin' => 'settings', 'account' => 'settings'][$active] ?? $active;
     // pulsante con la campanella: attiva/disattiva le notifiche (o porta alla scheda che le spiega)
     $newsDots = $u && !$guest ? shop_news_sections() : [];   // oggetti nuovi non ancora visti, per chi non ha le notifiche (lib/shop.php)
     $notifHref = ($u && !$guest && push_supported()) ? ((my_player_id() ? 'player_edit.php?id=' . my_player_id() : 'profile.php') . '#notifiche') : '';
@@ -115,13 +116,12 @@ function layout_start(string $title, string $active = ''): void
     <?php if ($u || PUBLIC_READ): ?>
     <nav class="nav" id="site-nav">
       <?php foreach ($nav as $key => [$href, $label, $icon]): ?>
-        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'admin' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php elseif ($key === 'admin' && !empty($newProposals)): ?><span class="nav-badge" title="Proposte da leggere"><?= (int) $newProposals ?></span><?php endif; ?><?php if ($key === 'league' && $pendingLeague): ?><span class="nav-badge" title="Richieste da approvare"><?= (int) $pendingLeague ?></span><?php endif; ?><?php if (isset($newsDots[$key])): ?><span class="news-dot" title="Oggetti nuovi" aria-label="Oggetti nuovi"></span><?php endif; ?></a>
+        <a href="<?= $href ?>" class="<?= $key === $active ? 'active' : '' ?>" title="<?= h($label) ?>"><i class="ti ti-<?= $icon ?>"></i><span class="nav-label"><?= $label ?></span><?php if ($key === 'settings' && !empty($pending)): ?><span class="nav-badge" title="Iscrizioni da approvare"><?= (int) $pending ?></span><?php elseif ($key === 'settings' && !empty($newProposals)): ?><span class="nav-badge" title="Proposte da leggere"><?= (int) $newProposals ?></span><?php endif; ?><?php if ($key === 'league' && ($pendingLeague + $challPending)): ?><span class="nav-badge" title="Richieste e sfide da guardare"><?= (int) ($pendingLeague + $challPending) ?></span><?php endif; ?><?php if (isset($newsDots[$key])): ?><span class="news-dot" title="Oggetti nuovi" aria-label="Oggetti nuovi"></span><?php endif; ?></a>
       <?php endforeach; ?>
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="nav-extra" data-push-bell><i class="ti ti-bell"></i><span class="nav-label">Notifiche</span></a><?php endif; ?>
         <?php if (is_platform_owner()): ?><a href="platform.php" class="nav-extra<?= $active === 'platform' ? ' active' : '' ?>"><i class="ti ti-world"></i><span class="nav-label">Piattaforma</span></a><?php endif; ?>
-        <?php if (!$guest): ?><a href="index.php?tour=1" class="nav-extra"><i class="ti ti-help"></i><span class="nav-label">Rivedi il tutorial</span></a><?php endif; ?>
         <a href="logout.php" class="nav-extra"><i class="ti ti-logout"></i><span class="nav-label">Esci</span></a>
       <?php endif; ?>
     </nav>
@@ -370,4 +370,34 @@ function security_card(): string
     return '<section class="card" id="sicurezza"><h2><i class="ti ti-shield-lock"></i> Sicurezza</h2><p class="small">' . $state . '</p>'
         . '<p class="muted small">Email per recuperare la password, cambio password e uscita dagli altri dispositivi.</p>'
         . '<a class="btn btn-ghost btn-sm" href="account.php"><i class="ti ti-settings"></i> Email, password e dispositivi</a></section>';
+}
+
+/**
+ * Le sottosezioni di «La mia lega»: la lega, le sfide con le altre leghe e i pagamenti delle quote (come LeagueTabs del sito Next).
+ * Non sono più schede del menu: si arriva da qui. $gid = la lega aperta (per tornare a lei); senza, il link porta all'elenco delle leghe.
+ */
+function league_tabs_html(string $active, ?int $gid = null): string
+{
+    $u = current_user();
+    if (!$u || is_guest()) {
+        return '';
+    }
+    $owned = my_owned_leagues();
+    $showChall = discover_visible() && $owned;
+    $showPay = is_admin() || $owned;
+    if (!$showChall && !$showPay) {
+        return '';
+    }
+    $tab = function (string $key, string $href, string $icon, string $label, int $badge = 0) use ($active): string {
+        return '<a href="' . h($href) . '" class="' . ($key === $active ? 'active' : '') . '"' . ($key === $active ? ' aria-current="page"' : '') . '><i class="ti ti-' . $icon . '"></i> ' . h($label)
+            . ($badge > 0 ? '<span class="count count-no">' . $badge . '</span>' : '') . '</a>';
+    };
+    $html = $tab('lega', $gid ? 'league.php?id=' . $gid : 'league.php', 'users-group', count($owned) > 1 && !$gid ? 'Le mie leghe' : 'La lega');
+    if ($showChall) {
+        $html .= $tab('sfide', 'sfide', 'swords', 'Sfide', challenges_pending_count(array_keys($owned)));
+    }
+    if ($showPay) {
+        $html .= $tab('pagamenti', 'payments.php', 'cash', 'Pagamenti');
+    }
+    return '<nav class="shop-tabs league-tabs" aria-label="Sezioni della lega">' . $html . '</nav>';
 }

@@ -152,7 +152,7 @@ unset($_SESSION['totp_show_codes']);
 $recoveryLeft = $acc['totp_secret'] ? count(json_decode($acc['totp_recovery'] ?? '[]', true) ?: []) : 0;
 $knownDevices = q('SELECT device, first_seen, last_seen FROM known_devices WHERE user_id = ? ORDER BY last_seen DESC', [$uid])->fetchAll();
 
-layout_start('Sicurezza', 'profile');
+layout_start('Sicurezza', 'account');
 ?>
 <div class="narrow">
   <?php if (my_player_id() && !is_guest()): ?><a class="back" href="player_edit.php?id=<?= (int) my_player_id() ?>"><i class="ti ti-arrow-left"></i> Modifica profilo</a><?php endif; ?>

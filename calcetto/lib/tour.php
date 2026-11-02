@@ -135,7 +135,7 @@ function tour_steps(array $u): array
             'bullets' => [
                 'Copi il link d\'invito e lo mandi alla squadra: chi lo apre si iscrive e chiede di entrare (o entra subito, se lo scegli tu).',
                 'Approvi le richieste, togli chi non gioca più e nomini admin o manager che ti aiutano.',
-                'Crei le partite dalla scheda «Partite» e segui le quote da «Pagamenti».',
+                'Crei le partite dalla scheda «Partite». Dentro «La mia lega» trovi anche le Sfide con le altre leghe e i Pagamenti delle quote.',
             ],
         ];
     } elseif (in_array('manager', $leagueRoles, true) && ($u['role'] ?? '') === 'player') {
@@ -148,23 +148,21 @@ function tour_steps(array $u): array
     }
     if (($u['role'] ?? '') === 'admin') {
         $steps[] = [
-            'sel' => '.nav a[href="payments.php"]', 'icon' => 'cash',
-            'title' => 'Pagamenti (solo admin)',
-            'text' => 'Le quote a partita e i saldi.',
+            'sel' => '.nav a[href="league.php"]', 'icon' => 'users-group',
+            'title' => 'Le leghe e i pagamenti (solo admin)',
+            'text' => 'Dentro «La mia lega» ci sono i Pagamenti.',
             'bullets' => ['Vedi chi ha pagato e chi no, e segni i pagamenti man mano.'],
         ];
-        $steps[] = [
-            'sel' => '.nav a[href="admin.php"]', 'icon' => 'settings',
-            'title' => 'Admin (solo admin)',
-            'text' => 'La gestione del gruppo.',
-            'bullets' => [
-                'Approvi le iscrizioni dei nuovi giocatori (il pallino rosso ti avvisa).',
-                'Crei account, cambi ruoli e reimposti le password.',
-                'Gestisci i gruppi (es. YBQ e FANTA): ogni giocatore vede solo giocatori e partite dei suoi gruppi.',
-                'Crei le partite, generi le squadre e inserisci i risultati dalla scheda Partite.',
-            ],
-        ];
     }
+    $steps[] = [
+        'sel' => '.nav a[href="impostazioni.php"]', 'icon' => 'settings',
+        'title' => 'Impostazioni',
+        'text' => 'Le impostazioni del tuo account.',
+        'bullets' => array_merge(
+            ['Notifiche, email, verifica in due passaggi e i dispositivi dove sei collegato.'],
+            ($u['role'] ?? '') === 'admin' ? ['Da qui, come admin, entri nella gestione del sito: iscrizioni (il pallino rosso ti avvisa), account e ruoli, gruppi, KOIN, proposte.'] : []
+        ),
+    ];
     $steps[] = [
         'sel' => '.userbox a.me', 'icon' => 'user-circle',
         'title' => 'Il tuo profilo',

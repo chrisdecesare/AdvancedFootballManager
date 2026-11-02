@@ -20,6 +20,7 @@ $when = fn ($c) => $c['proposed_at'] ? substr($c['proposed_at'], 8, 2) . '/' . s
 $status = ['inviata' => 'in attesa', 'accettata' => 'accettata', 'rifiutata' => 'rifiutata', 'annullata' => 'annullata'];
 layout_start('Sfide', 'challenges');
 ?>
+<?= league_tabs_html('sfide') ?>
 <div class="page-head"><h1><i class="ti ti-swords"></i> Sfide tra leghe</h1>
   <a class="btn btn-primary btn-sm" href="nuova-sfida"><i class="ti ti-plus"></i> Nuova sfida</a></div>
 <section class="card"><h2>Ricevute</h2>

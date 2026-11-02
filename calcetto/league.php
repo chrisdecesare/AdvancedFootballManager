@@ -13,7 +13,7 @@ if (!$gid) {
     if (count($mine) === 1) {
         redirect('league.php?id=' . array_key_first($mine));
     }
-    if (!$mine) {
+    if (!$mine && !is_admin()) {   // l'admin senza leghe sue resta qui: da qui raggiunge i Pagamenti
         redirect(is_platform_owner() ? 'platform.php' : (is_admin() ? 'admin.php' : (LEAGUE_CREATION ? 'create_league.php' : 'index.php')));
     }
 }
@@ -29,7 +29,12 @@ if ($gid && (!$league || !can_admin_group($gid))) {
 
 if (!$league) {   // amministra più leghe: scelta
     layout_start('Le mie leghe', 'league');
-    echo '<div class="page-head"><h1>Le mie leghe</h1></div><div class="list">';
+    echo league_tabs_html('lega') . '<div class="page-head"><h1>' . (my_owned_leagues() ? 'Le mie leghe' : 'Le leghe') . '</h1></div>';
+    if (!my_owned_leagues()) {
+        echo '<p class="empty card">Non gestisci ancora nessuna lega con questo account. Le leghe del sito si gestiscono da <a class="link" href="impostazioni.php">Impostazioni</a>'
+            . (LEAGUE_CREATION ? ', oppure <a class="link" href="create_league.php">creane una</a>' : '') . '.</p>';
+    }
+    echo '<div class="list">';
     foreach (my_owned_leagues() as $id => $name) {
         $n = league_pending_count($id);
         echo '<a class="card admin-link" href="league.php?id=' . (int) $id . '"><span><i class="ti ti-users-group"></i></span><strong>' . h($name) . '</strong>'
@@ -276,6 +281,7 @@ $withAccount = array_filter($members, fn($m) => $m['uid']);
 
 layout_start($league['name'] . ' · gestione', 'league');
 ?>
+<?= league_tabs_html('lega', $gid) ?>
 <div class="page-head">
   <h1><?= h($league['name']) ?> <span class="muted small"><?= $league['owner_user_id'] ? 'la tua lega' : 'lega storica' ?></span></h1>
   <div class="btn-row">

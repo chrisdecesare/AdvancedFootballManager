@@ -50,6 +50,7 @@ uasort($byPlayer, fn($a, $b) => ($b['due'] - $b['paid']) <=> ($a['due'] - $a['pa
 
 layout_start('Pagamenti', 'payments');
 ?>
+<?= league_tabs_html('pagamenti') ?>
 <div class="page-head"><h1>Pagamenti</h1></div>
 <?= group_bar('payments.php') ?>
 <section class="stat-grid stat-grid-3">

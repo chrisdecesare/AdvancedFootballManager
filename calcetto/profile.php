@@ -15,7 +15,7 @@ layout_start('Il mio account', 'profile');
   <div class="card">
     <h1>Il mio account</h1>
     <p class="muted">Username: <strong><?= h($u['username']) ?></strong> · ruolo <?= h(strtolower(role_label($u['role']))) ?></p>
-    <p class="muted small">Questo account non è collegato a un giocatore<?= is_admin() ? ': puoi collegarlo dalla pagina Admin.' : '.' ?></p>
+    <p class="muted small">Questo account non è collegato a un giocatore<?= is_admin() ? ': puoi collegarlo dalla gestione del sito, in Impostazioni.' : '.' ?></p>
   </div>
   <?= security_card() ?>
   <?= push_card() ?>

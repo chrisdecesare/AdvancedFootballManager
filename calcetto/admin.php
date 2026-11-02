@@ -339,9 +339,10 @@ $pushRecent = q("SELECT p.kind, p.status, p.attempts, p.last_error, p.created_at
 $pushQueued = (int) q("SELECT COUNT(*) FROM push_queue WHERE status = 'in_attesa'")->fetchColumn();
 $pushFailed = (int) q("SELECT COUNT(*) FROM push_queue WHERE status = 'fallita' AND created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
 
-layout_start('Admin', 'admin');
+layout_start('Gestione del sito', 'admin');
 ?>
-<div class="page-head"><h1>Admin</h1></div>
+<a class="back" href="impostazioni.php"><i class="ti ti-arrow-left"></i> Impostazioni</a>
+<div class="page-head"><h1>Gestione del sito</h1></div>
 
 <?php // l'installazione è finita: provo a cancellare install.php io; l'avviso resta solo se il server non me lo lascia fare
 if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
