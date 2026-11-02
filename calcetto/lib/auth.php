@@ -297,6 +297,29 @@ function remember_check(): void
     }
 }
 
+/**
+ * Hash di una password casuale, fatto con lo stesso algoritmo e lo stesso costo degli hash veri (PASSWORD_DEFAULT): serve a far durare uguale
+ * un accesso con username inesistente. Un hash fisso di costo diverso (prima era a costo 10) renderebbe più lento chi esiste davvero.
+ * Si crea una volta sola e resta in meta; se il costo di PASSWORD_DEFAULT cambia (nuova versione di PHP) si rifà.
+ */
+function login_dummy_hash(): string
+{
+    static $memo = null;
+    if ($memo !== null) {
+        return $memo;
+    }
+    try {
+        $h = meta_get('login_dummy_hash');
+        if ($h === null || $h === '' || password_needs_rehash($h, PASSWORD_DEFAULT)) {
+            $h = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+            meta_set('login_dummy_hash', $h);
+        }
+    } catch (Throwable $e) {
+        $h = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);   // meta non raggiungibile: si usa per questa richiesta soltanto
+    }
+    return $memo = $h;
+}
+
 /** Ritorna 'ok', 'pending' (iscrizione non ancora approvata), 'blocked' (troppi tentativi) o 'fail'. */
 function attempt_login(string $username, string $password): string
 {
@@ -307,7 +330,7 @@ function attempt_login(string $username, string $password): string
     }
     $u = q('SELECT id, password_hash, status, session_version, totp_secret FROM users WHERE LOWER(username) = ?', [$username])->fetch();
     // se l'utente non esiste verifica comunque un hash bcrypt valido (di una password qualsiasi): tempi simili, così non si scoprono gli username
-    $hash = $u['password_hash'] ?? '$2y$10$.vGA1O9wmRjrwAVXD98HNOgsNpDczlqm3Jq7KnEd1rVAGv3Fykk1a';
+    $hash = $u['password_hash'] ?? login_dummy_hash();
     $valid = password_verify($password, $hash);
     if ($u && $valid && $u['status'] !== 'attivo') {
         return 'pending';   // password giusta ma l'admin non ha ancora approvato l'iscrizione
