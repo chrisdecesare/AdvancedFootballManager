@@ -5,7 +5,7 @@ require_recent_auth();   // password riconfermata se l'area admin non si usa da 
 
 $meUid = (int) current_user()['id'];
 // questa pagina gestisce le leghe "di casa" (storiche e quelle di cui l'admin fa parte): le leghe create dagli altri utenti
-// si guardano da platform.php e si gestiscono da league.php, così qui non si mescolano account e giocatori di sconosciuti
+// si guardano dal pannello (platform.php) e si gestiscono da league.php, così qui non si mescolano account e giocatori di sconosciuti
 $homeGroups = admin_groups();
 $homeIn = $homeGroups ? implode(',', array_map('intval', array_keys($homeGroups))) : '0';
 $legacyIn = implode(',', array_map('intval', legacy_group_ids() ?: [0]));
@@ -216,7 +216,7 @@ if (is_post()) {
             if ($uid === $meUid) {
                 flash('err', 'Non puoi eliminare il tuo account.');
             } elseif (q('SELECT 1 FROM squad_groups WHERE owner_user_id = ?', [$uid])->fetch()) {
-                flash('err', 'L\'account possiede una lega: prima cedila a qualcun altro (o eliminala) da Piattaforma → Leghe → Gestisci.');
+                flash('err', 'L\'account possiede una lega: prima cedila a qualcun altro (o eliminala) da Pannello → Leghe → Gestisci.');
             } else {
                 q('DELETE FROM users WHERE id = ?', [$uid]);
                 flash('ok', 'Account eliminato (il giocatore e le sue statistiche restano).');
@@ -418,12 +418,11 @@ if (is_file(__DIR__ . '/install.php') && !@unlink(__DIR__ . '/install.php')): ?>
   <a class="card admin-link" href="player_edit.php"><span><i class="ti ti-user-plus"></i></span><strong>Aggiungi giocatore</strong><small>Con o senza account</small></a>
   <a class="card admin-link" href="payments.php"><span><i class="ti ti-currency-euro"></i></span><strong>Pagamenti</strong><small>Quote e saldi</small></a>
   <a class="card admin-link" href="players.php?tutti=1"><span><i class="ti ti-chart-bar"></i></span><strong>Statistiche</strong><small>Apri un giocatore → Modifica</small></a>
-  <?php if (is_platform_owner()): ?><a class="card admin-link" href="platform.php"><span><i class="ti ti-world"></i></span><strong>Piattaforma</strong><small>Tutte le leghe, account e operazioni</small></a><?php endif; ?>
 </div>
 
 <section class="card" id="gruppi">
   <h2><i class="ti ti-users-group"></i> Gruppi</h2>
-  <p class="muted small">Ogni partita appartiene a un gruppo. Un giocatore vede solo giocatori e partite dei suoi gruppi (chi è in più gruppi li vede tutti e può filtrare). Tu, come admin, vedi sempre tutti questi gruppi; le leghe create da altri utenti non sono qui ma in <a class="link" href="platform.php?t=leghe">Piattaforma</a>.
+  <p class="muted small">Ogni partita appartiene a un gruppo. Un giocatore vede solo giocatori e partite dei suoi gruppi (chi è in più gruppi li vede tutti e può filtrare). Tu, come admin, vedi sempre tutti questi gruppi; le leghe create da altri utenti non sono qui ma nel pannello admin.
     Assegni i giocatori ai gruppi da qui sotto, dalla loro scheda (<em>Modifica</em>) o all'approvazione delle iscrizioni.</p>
   <div class="table-wrap"><table class="table">
     <thead><tr><th>Nome</th><th>Giocatori</th><th>Partite</th><th></th></tr></thead>

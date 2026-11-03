@@ -2332,3 +2332,14 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 .terms-notice { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; justify-content: space-between; margin-bottom: 1rem; }
 .terms-notice p { margin: 0; flex: 1 1 18rem; }
 /* @compliance:fine */
+
+/* @pannello:inizio — il pannello admin è una pagina a sé, fuori dall'app */
+.pannello-top { background: var(--ink, #1f1a2e); color: #fff; border-bottom: 4px solid var(--yellow, #ffd23f); }
+.pannello-top-in { max-width: 1100px; margin: 0 auto; padding: .7rem 1rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem; }
+.pannello-brand { display: inline-flex; align-items: center; gap: .5rem; font-family: "Lilita One", system-ui, sans-serif; font-size: 1.15rem; letter-spacing: .2px; }
+.pannello-brand b { background: var(--yellow, #ffd23f); color: var(--ink, #1f1a2e); border-radius: 8px; padding: .05rem .5rem; font-weight: 400; }
+.pannello-nav { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.pannello-nav .btn-ghost { color: #fff; border-color: rgba(255,255,255,.55); background: transparent; }
+.pannello-user { color: #d9d4ea; }
+.pannello-main { max-width: 1100px; padding-top: 1.2rem; }
+/* @pannello:fine */

@@ -136,7 +136,7 @@ function report_content(int $uid, array $f): ?string
     if ($addr !== '') {
         $t = report_target($v['type'], $v['id']);
         send_mail($addr, 'Nuova segnalazione su Calcetto Manager', "Una segnalazione aspetta una decisione.\n\nTipo: " . REPORT_TYPES[$v['type']] . "\nContenuto: " . ($t['preview'] ?? '(non più disponibile)')
-            . "\nMotivo: " . REPORT_REASONS[$v['reason']] . ($v['details'] !== '' ? "\nNote: " . $v['details'] : '') . "\n\nSi gestisce da Piattaforma → Segnalazioni.");
+            . "\nMotivo: " . REPORT_REASONS[$v['reason']] . ($v['details'] !== '' ? "\nNote: " . $v['details'] : '') . "\n\nSi gestisce da Pannello → Segnalazioni.");
     }
     log_activity('segnalazione', $v['type'] . ' #' . $v['id'] . ' · ' . $v['reason'], null, $uid);
     return null;

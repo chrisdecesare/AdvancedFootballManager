@@ -124,7 +124,6 @@ function layout_start(string $title, string $active = ''): void
       <?php if ($u): ?>
         <?php /* sui telefoni "?" e uscita non stanno accanto al titolo: si trovano in fondo al menu */ ?>
         <?php if ($notifHref): ?><a href="<?= h($notifHref) ?>" class="nav-extra" data-push-bell><i class="ti ti-bell"></i><span class="nav-label">Notifiche</span></a><?php endif; ?>
-        <?php if (is_platform_owner()): ?><a href="platform.php" class="nav-extra<?= $active === 'platform' ? ' active' : '' ?>"><i class="ti ti-world"></i><span class="nav-label">Piattaforma</span></a><?php endif; ?>
         <a href="logout.php" class="nav-extra"><i class="ti ti-logout"></i><span class="nav-label">Esci</span></a>
       <?php endif; ?>
     </nav>
@@ -404,4 +403,52 @@ function league_tabs_html(string $active, ?int $gid = null): string
         $html .= $tab('pagamenti', 'payments.php', 'cash', 'Pagamenti');
     }
     return '<nav class="shop-tabs league-tabs" aria-label="Sezioni della lega">' . $html . '</nav>';
+}
+
+/**
+ * Il pannello admin è una pagina a sé, fuori dall'app: niente menu dell'app, niente KOIN né notifiche né tutorial, niente piè di pagina del sito.
+ * Intestazione del pannello e, sotto, i messaggi dell'ultima azione. Si chiude con admin_end(). Come app/(pannello)/layout.tsx di Next.
+ */
+function admin_start(string $title): void
+{
+    $u = current_user();
+    $ver = fn (string $f) => substr((string) @md5_file(__DIR__ . '/../assets/' . $f), 0, 10);
+    ?><!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1f1a2e">
+<link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+<meta name="csrf-token" content="<?= h(csrf_token()) ?>">
+<title><?= h($title) ?> · <?= h(APP_NAME) ?></title>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/style.css?v=<?= h($ver('style.css')) ?>">
+<script src="assets/app.js?v=<?= h($ver('app.js')) ?>" defer></script>
+</head>
+<body class="pannello">
+<header class="pannello-top"><div class="pannello-top-in">
+  <span class="pannello-brand"><i class="ti ti-shield-lock"></i> <span><?= h(APP_NAME) ?></span> <b>Pannello admin</b></span>
+  <nav class="pannello-nav" aria-label="Pannello">
+    <?php if ($u): ?><span class="pannello-user muted small">@<?= h($u['username']) ?></span><?php endif; ?>
+    <a class="btn btn-ghost btn-sm" href="index.php"><i class="ti ti-arrow-left"></i> Vai al sito</a>
+    <a class="btn btn-ghost btn-sm" href="logout.php"><i class="ti ti-logout"></i> Esci</a>
+  </nav>
+</div></header>
+<main class="wrap pannello-main">
+<?php foreach (take_flashes() as [$type, $msg]): ?>
+  <div class="flash flash-<?= h($type) ?>"><?= h($msg) ?></div>
+<?php endforeach; ?>
+<?php
+}
+
+function admin_end(): void
+{
+    ?>
+</main>
+</body>
+</html>
+<?php
 }

@@ -22,7 +22,7 @@ if (is_post()) {
         deletion_request_create($username, $contact, $message);
         $owner = trim((string) (getenv('REPORTS_EMAIL') ?: ''));
         if ($owner !== '') {
-            send_mail($owner, 'Richiesta di eliminazione dell\'account', "Username: " . ($username ?: '(non indicato)') . "\nEmail: $contact\nNote: " . ($message ?: '-') . "\n\nVa gestita entro 30 giorni (Piattaforma → Segnalazioni).");
+            send_mail($owner, 'Richiesta di eliminazione dell\'account', "Username: " . ($username ?: '(non indicato)') . "\nEmail: $contact\nNote: " . ($message ?: '-') . "\n\nVa gestita entro 30 giorni (Pannello → Segnalazioni).");
         }
         $sent = true;
     }

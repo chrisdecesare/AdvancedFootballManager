@@ -86,7 +86,6 @@ layout_start('Impostazioni', 'settings');
       <a class="card admin-link" href="admin.php#campi"><span><i class="ti ti-map-pin"></i></span><strong>Campi</strong><small>Aggiunti dagli utenti</small></a>
       <a class="card admin-link" href="admin.php#notifiche"><span><i class="ti ti-bell"></i></span><strong>Notifiche ed email</strong><small>Stato e coda di invio</small></a>
       <a class="card admin-link" href="admin.php#koin"><span><i class="ti ti-coin"></i></span><strong>Regala KOIN</strong><small>Ai giocatori</small></a>
-      <?php if (is_platform_owner()): ?><a class="card admin-link" href="platform.php"><span><i class="ti ti-world"></i></span><strong>Piattaforma</strong><small>Tutte le leghe del sito</small></a><?php endif; ?>
     </div>
   </section>
   <?php endif; ?>

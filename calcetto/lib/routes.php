@@ -51,7 +51,7 @@ function pretty_routes(): array
         'create_league' => ['crea-lega', null],
         'join' => ['entra', null],
         'admin' => ['admin', null],
-        'platform' => ['piattaforma', null],
+        'platform' => ['pannello', null],
         'login' => ['accedi', null],
         'register' => ['iscriviti', null],
         'forgot' => ['password-dimenticata', null],

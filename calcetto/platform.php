@@ -118,9 +118,9 @@ function activity_table(array $rows, array $labels, bool $showLeague = true): st
 
 $logSelect = 'SELECT a.*, u.username, p.name AS player_name FROM activity_log a LEFT JOIN users u ON u.id = a.user_id LEFT JOIN players p ON p.id = u.player_id';
 
-layout_start('Piattaforma', 'platform');
+admin_start('Pannello admin');
 ?>
-<div class="page-head"><h1>Piattaforma <span class="muted small">tutto il sito, tutte le leghe</span></h1></div>
+<div class="page-head"><h1>Pannello <span class="muted small">tutto il sito, tutte le leghe</span></h1></div>
 
 <nav class="shop-tabs">
   <a href="platform.php" class="<?= $tab === 'panoramica' ? 'active' : '' ?>"><i class="ti ti-chart-dots"></i> Panoramica</a>
@@ -553,7 +553,7 @@ layout_start('Piattaforma', 'platform');
 <section class="card">
   <?php $reqs = deletion_requests_open(); ?>
   <h2><i class="ti ti-user-x"></i> Richieste di eliminazione dell'account <span class="muted small"><?= count($reqs) ?></span></h2>
-  <p class="muted small">Da chi non riesce ad accedere. Rispondi all'email per verificare che l'account sia suo; poi eliminalo da Piattaforma → Account. Entro 30 giorni.</p>
+  <p class="muted small">Da chi non riesce ad accedere. Rispondi all'email per verificare che l'account sia suo; poi eliminalo da Pannello → Account. Entro 30 giorni.</p>
   <?php if (!$reqs): ?><p class="empty">Nessuna richiesta.</p><?php else: ?>
   <div class="table-wrap"><table class="table"><thead><tr><th>Quando</th><th>Username</th><th>Email</th><th>Note</th><th></th></tr></thead><tbody>
     <?php foreach ($reqs as $q): ?>
@@ -563,4 +563,4 @@ layout_start('Piattaforma', 'platform');
 </section>
 <?php endif; ?>
 <?php
-layout_end();
+admin_end();

@@ -1,7 +1,7 @@
 <?php
 /*
  * Privacy e dati: scaricare i propri dati (GDPR art. 15 e 20), eliminare l'account (art. 17, richiesto anche da Google Play), vedere i giocatori
- * bloccati e l'esito delle proprie segnalazioni. Come /privacy-dati del sito Next; eliminazione e segnalazioni compaiono quando le accende Piattaforma → Funzioni.
+ * bloccati e l'esito delle proprie segnalazioni. Come /privacy-dati del sito Next; eliminazione e segnalazioni compaiono quando le accende Pannello → Funzioni.
  */
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['do'] ?? '') === 'delete') {
     define('NO_REMEMBER', true);   // chi elimina l'account non deve ricevere un nuovo «resta collegato»
