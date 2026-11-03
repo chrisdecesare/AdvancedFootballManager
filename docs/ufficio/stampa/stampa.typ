@@ -51,7 +51,7 @@
 
 // ---- cartoline A6 orizzontali (148 x 105 mm): fronte e retro ----
 // `off` = quanto spazio c'è attorno al taglio (abbondanza, e nella versione per la tipografia anche i crocini)
-#let cart-front(off: 0mm, bleed: 0mm) = {
+#let cart-front-core(off: 0mm, bleed: 0mm) = {
   let w = 148mm + 2 * off
   let h = 105mm + 2 * off
   block(width: w, height: h, {
@@ -75,7 +75,7 @@
     }))
   })
 }
-#let cart-retro(off: 0mm, bleed: 0mm) = {
+#let cart-retro-core(off: 0mm, bleed: 0mm) = {
   let w = 148mm + 2 * off
   let h = 105mm + 2 * off
   block(width: w, height: h, {
@@ -103,6 +103,14 @@
     place(bottom + left, dx: off + 10mm, dy: -(off + 2mm), nun([Calcetto Manager · nessuna commissione sulle partite né sulle quote], size: 7pt, fill: white))
   })
 }
+
+// cornice da figurina: bordo scuro di 3 mm, angoli interni arrotondati, taglio dritto
+#let cart-framed(core, off, bleed) = block(width: 148mm + 2 * off, height: 105mm + 2 * off, {
+  place(top + left, dx: off - bleed, dy: off - bleed, rect(width: 148mm + 2 * bleed, height: 105mm + 2 * bleed, fill: ink, stroke: none))
+  place(top + left, dx: off + 3mm, dy: off + 3mm, block(width: 142mm, height: 99mm, radius: 4mm, clip: true, core(off: -3mm, bleed: 0mm)))
+})
+#let cart-front(off: 0mm, bleed: 0mm) = cart-framed(cart-front-core, off, bleed)
+#let cart-retro(off: 0mm, bleed: 0mm) = cart-framed(cart-retro-core, off, bleed)
 
 #if doc == "locandina" {
   set page(width: 210mm, height: 297mm, margin: 0pt, fill: paper)
@@ -162,7 +170,7 @@
 } else {
   // 10 biglietti 85 x 55 mm su un A4, con linee di taglio
   set page(width: 210mm, height: 297mm, margin: 0pt, fill: white)
-  let card = block(width: 85mm, height: 55mm, fill: yellow, clip: true, {
+  let inner = block(width: 85mm - 3.6mm, height: 55mm - 3.6mm, fill: yellow, radius: 3mm, clip: true, {
     place(bottom + left, rect(width: 100%, height: 12mm, fill: grass, stroke: none))
     // logo: pallone + nome
     place(top + left, dx: 5mm, dy: 4.5mm, stack(dir: ltr, spacing: 2mm, image("logo.svg", width: 13mm), pad(top: 2mm, display("Calcetto\nManager", size: 12pt))))
@@ -177,6 +185,8 @@
     place(bottom + left, dx: 5mm, dy: -3.4mm, nun(site, size: 9.5pt, fill: ink, w: "black"))
     place(bottom + right, dx: -5mm, dy: -3.6mm, if play != "" { nun([Disponibile su Google Play], size: 7pt, w: "black") } else { nun([Gratis per chi gioca], size: 7.5pt, w: "bold") })
   })
+  // cornice da figurina: bordo scuro di 1,8 mm, angoli interni arrotondati, taglio dritto
+  let card = block(width: 85mm, height: 55mm, fill: ink, inset: 1.8mm, inner)
   place(top + left, dx: 20mm, dy: 11mm, grid(columns: (85mm, 85mm), rows: 5 * (55mm,), ..range(10).map(_ => card)))
   // linee di taglio fuori dai biglietti (corte) a ogni incrocio
   for c in (0, 1, 2) { for r in range(0, 6) {
