@@ -269,6 +269,18 @@ function pitch_reviews_of(array $pitchIds): array
     return $out;
 }
 
+/** Tutte le recensioni scritte nel sito, dalla più recente (per il Pannello admin): [righe, totale]. */
+function pitch_reviews_all(int $limit = 200): array
+{
+    pitch_reviews_schema_ensure();
+    $limit = max(1, min(1000, $limit));
+    $rows = q('SELECT r.id, r.pitch_id, pt.name AS pitch, pt.city, pt.city_slug, p.name, r.body, r.updated_at
+               FROM pitch_reviews r JOIN pitches pt ON pt.id = r.pitch_id JOIN players p ON p.id = r.player_id
+               ORDER BY r.updated_at DESC, r.id DESC LIMIT ' . $limit)->fetchAll();
+    $total = (int) q('SELECT COUNT(*) FROM pitch_reviews')->fetchColumn();
+    return [$rows, $total];
+}
+
 /** Salva la recensione di un giocatore (una per campo: se c'è già, la sostituisce). */
 function pitch_review_save(int $pitchId, int $playerId, string $body): bool
 {

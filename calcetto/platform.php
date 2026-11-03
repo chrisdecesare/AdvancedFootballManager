@@ -81,7 +81,7 @@ if (is_post()) {
     redirect('platform.php?t=account&account=' . $uid);
 }
 
-$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro', 'sicurezza', 'funzioni', 'segnalazioni'], true) ? $_GET['t'] : 'panoramica';
+$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro', 'sicurezza', 'funzioni', 'segnalazioni', 'recensioni'], true) ? $_GET['t'] : 'panoramica';
 $leagueId = int_get('lega');
 $accountId = int_get('account');
 $labels = activity_labels();
@@ -131,6 +131,7 @@ admin_start('Pannello admin');
   <a href="platform.php?t=funzioni" class="<?= $tab === 'funzioni' ? 'active' : '' ?>"><i class="ti ti-adjustments"></i> Funzioni</a>
   <?php $openReports = reports_open_count(); ?>
   <a href="platform.php?t=segnalazioni" class="<?= $tab === 'segnalazioni' ? 'active' : '' ?>"><i class="ti ti-flag"></i> Segnalazioni<?= $openReports ? ' (' . $openReports . ')' : '' ?></a>
+  <a href="platform.php?t=recensioni" class="<?= $tab === 'recensioni' ? 'active' : '' ?>"><i class="ti ti-message-star"></i> Recensioni</a>
 </nav>
 
 <?php if ($tab === 'panoramica'):
@@ -528,6 +529,20 @@ admin_start('Pannello admin');
     </table></div>
     <button class="btn btn-primary">Salva</button>
   </form>
+</section>
+<?php endif; ?>
+<?php if ($tab === 'recensioni'): [$allReviews, $allReviewsTotal] = pitch_reviews_all(200); ?>
+<section class="card">
+  <h2><i class="ti ti-message-star"></i> Recensioni dei campi <span class="muted small"><?= (int) $allReviewsTotal ?></span></h2>
+  <p class="muted small">Scritte dai giocatori in Calcetto Manager, dalla più recente<?= $allReviewsTotal > count($allReviews) ? ' (le ultime ' . count($allReviews) . ' di ' . (int) $allReviewsTotal . ')' : '' ?>. Per toglierne una apri il campo: l'admin può eliminare qualsiasi recensione.</p>
+  <?php if (!$allReviews): ?><p class="empty">Ancora nessuna recensione.</p><?php endif; ?>
+  <?php foreach ($allReviews as $r): ?>
+  <blockquote class="review">
+    <p class="small"><b><?= h($r['pitch']) ?></b> · <a class="link" href="campi.php?citta=<?= h($r['city_slug']) ?>#campo-<?= (int) $r['pitch_id'] ?>"><?= h($r['city']) ?></a></p>
+    <p><?= h($r['body']) ?></p>
+    <footer class="muted small"><?= h($r['name']) ?> · <?= h(substr((string) $r['updated_at'], 8, 2) . '/' . substr((string) $r['updated_at'], 5, 2) . '/' . substr((string) $r['updated_at'], 0, 4) . ' ' . substr((string) $r['updated_at'], 11, 5)) ?></footer>
+  </blockquote>
+  <?php endforeach; ?>
 </section>
 <?php endif; ?>
 <?php if ($tab === 'segnalazioni'): ?>
