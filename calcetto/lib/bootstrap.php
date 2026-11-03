@@ -1,5 +1,10 @@
 <?php
 require __DIR__ . '/../config.php';
+// L'app Android apre «/?app=android»: il cookie cm_app la riconosce nelle richieste dopo (lib/features.php). Può solo nascondere funzioni, non dà poteri.
+if (($_GET['app'] ?? '') === 'android' && !headers_sent()) {
+    setcookie('cm_app', 'android', ['expires' => time() + 31536000, 'path' => '/', 'samesite' => 'Lax', 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true]);
+    $_COOKIE['cm_app'] = 'android';
+}
 
 // In produzione gli errori PHP non vanno mostrati agli utenti (rivelano percorsi e query).
 error_reporting(E_ALL);
@@ -87,6 +92,7 @@ require __DIR__ . '/match_verify.php';
 require __DIR__ . '/center_link.php';
 require __DIR__ . '/slot_free.php';
 require __DIR__ . '/kofi.php';
+require __DIR__ . '/features.php';
 require __DIR__ . '/calendar_mark.php';
 require __DIR__ . '/discover.php';
 require __DIR__ . '/pub.php';

@@ -20,6 +20,9 @@ if ($code !== '' && !$league) {
     flash('err', 'Il link d\'invito non è valido (forse è stato cambiato): chiedine uno nuovo a chi gestisce la lega.');
     redirect('login.php');
 }
+if (!feature_on('signup')) {
+    redirect('login.php');   // iscrizioni spente dal pannello Funzioni
+}
 $userLeague = $league && $league['owner_user_id'] !== null;
 if ($league ? ($userLeague ? !LEAGUE_CREATION : !REGISTRATION) : !REGISTRATION) {
     flash('err', 'Le iscrizioni sono chiuse: chiedi le credenziali all\'admin.');

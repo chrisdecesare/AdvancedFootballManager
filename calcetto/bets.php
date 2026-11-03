@@ -2,6 +2,7 @@
 /* Scommesse goliardiche sulle partite (KOIN finti): vedi lib/bets.php per le regole. */
 require __DIR__ . '/lib/bootstrap.php';
 require_view();
+require_feature('bets');
 
 $me = my_player_id();
 

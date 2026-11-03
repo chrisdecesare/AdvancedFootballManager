@@ -4,6 +4,7 @@ require __DIR__ . '/lib/bootstrap.php';
 if (!tables_exist()) {
     redirect('install.php');
 }
+require_feature('donations');
 $name = kofi_username();
 $who = $name ? kofi_supporters() : [];
 $pub = pub_start('Sostienici', 'Calcetto Manager è gratis per chi gioca. Se ti piace, puoi offrirci un caffè su Ko-fi: ci aiuta a tenere il sito senza commissioni.');

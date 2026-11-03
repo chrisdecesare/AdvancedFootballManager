@@ -11,6 +11,20 @@ require __DIR__ . '/lib/bootstrap.php';
 require_platform_owner();   // solo il proprietario del progetto (lib/auth.php)
 require_recent_auth();   // password riconfermata se l'area admin non si usa da un po' (lib/security.php)
 
+// Funzioni: salva gli interruttori (lib/features.php). Il token CSRF lo controlla già bootstrap.php.
+if (is_post() && ($_POST['do'] ?? '') === 'features') {
+    require_recent_auth(RECENT_AUTH_DANGER, false);
+    foreach (array_keys(FEATURES) as $k) {
+        foreach (['web', 'app'] as $c) {
+            $v = $_POST["$k.$c"] ?? '';
+            feature_save($k, $c, in_array($v, ['on', 'admin'], true) ? $v : 'off');
+        }
+    }
+    log_activity('admin', 'funzioni del sito aggiornate');
+    flash('ok', 'Funzioni salvate. Valgono subito per chi apre una pagina nuova.');
+    redirect('platform.php?t=funzioni');
+}
+
 // azioni sugli account delle leghe degli altri (quelli delle leghe storiche si gestiscono anche da admin.php)
 if (is_post()) {
     require_recent_auth(RECENT_AUTH_DANGER, false);   // azioni sugli account degli altri: password confermata negli ultimi minuti
@@ -49,7 +63,7 @@ if (is_post()) {
     redirect('platform.php?t=account&account=' . $uid);
 }
 
-$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro', 'sicurezza'], true) ? $_GET['t'] : 'panoramica';
+$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro', 'sicurezza', 'funzioni'], true) ? $_GET['t'] : 'panoramica';
 $leagueId = int_get('lega');
 $accountId = int_get('account');
 $labels = activity_labels();
@@ -96,6 +110,7 @@ layout_start('Piattaforma', 'platform');
   <a href="platform.php?t=account" class="<?= $tab === 'account' ? 'active' : '' ?>"><i class="ti ti-user-circle"></i> Account</a>
   <a href="platform.php?t=registro" class="<?= $tab === 'registro' ? 'active' : '' ?>"><i class="ti ti-list-details"></i> Registro</a>
   <a href="platform.php?t=sicurezza" class="<?= $tab === 'sicurezza' ? 'active' : '' ?>"><i class="ti ti-shield-lock"></i> Sicurezza</a>
+  <a href="platform.php?t=funzioni" class="<?= $tab === 'funzioni' ? 'active' : '' ?>"><i class="ti ti-adjustments"></i> Funzioni</a>
 </nav>
 
 <?php if ($tab === 'panoramica'):
@@ -468,6 +483,32 @@ layout_start('Piattaforma', 'platform');
   <?php if ($more): ?><a class="btn btn-ghost btn-sm" href="<?= h($self(array_filter($filters + ['p' => $page + 1]))) ?>">Più vecchie →</a><?php endif; ?>
 </div>
 <p class="muted small">Il registro tiene le operazioni dell'ultimo anno. Gli accessi, le iscrizioni, la gestione delle leghe e delle partite, voti, presenze, scommesse, negozio e modifiche agli account.</p>
+<?php endif; ?>
+<?php if ($tab === 'funzioni'): ?>
+<section class="card">
+  <h2><i class="ti ti-adjustments"></i> Funzioni</h2>
+  <p class="muted small">Accendi o spegni pezzi del sito senza aggiornare l'app. «App» vale solo per chi apre Calcetto Manager dall'app Android. «Solo admin» fa vedere la funzione soltanto a te, anche in produzione. Le voci grigie sono bloccate: Google Play non ammette abbonamenti, donazioni e pubblicità dentro l'app. Valgono per il sito PHP e per il sito Next.</p>
+  <form method="post">
+    <?= csrf_field() ?><input type="hidden" name="do" value="features">
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>Funzione</th><th>Sito</th><th>App</th></tr></thead>
+      <tbody>
+      <?php foreach (FEATURES as $k => $f): ?>
+        <tr><td><b><?= h($f['label']) ?></b><br><span class="muted small">Spenta: <?= h($f['off']) ?></span></td>
+        <?php foreach (['web', 'app'] as $c): $st = feature_state($k, $c); $lock = $c === 'app' && $f['appLocked']; ?>
+          <td><select name="<?= h("$k.$c") ?>" aria-label="<?= h($f['label'] . ': ' . ($c === 'web' ? 'sito' : 'app')) ?>"<?= $lock ? ' disabled' : '' ?>>
+            <?php foreach (['on' => 'Acceso', 'admin' => 'Solo admin', 'off' => 'Spento'] as $val => $lab): ?>
+              <option value="<?= $val ?>"<?= $st === $val ? ' selected' : '' ?>><?= h($lab) ?></option>
+            <?php endforeach; ?>
+          </select></td>
+        <?php endforeach; ?>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table></div>
+    <button class="btn btn-primary">Salva</button>
+  </form>
+</section>
 <?php endif; ?>
 <?php
 layout_end();

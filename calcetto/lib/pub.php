@@ -16,9 +16,12 @@ function site_footer(): string
         ['/privacy#cookie', 'Gestisci i cookie'], ['/termini', 'Termini'], ['/contatti', 'Contatti']];
     $nav = '';
     foreach ($links as [$href, $label]) {
+        if ($href === '/prezzi' && !feature_on('payments')) {
+            continue;
+        }
         $nav .= '<a href="' . h($n . $href) . '">' . h($label) . '</a>';
     }
-    if (kofi_username()) {   // «Sostienici» resta nascosto finché l'admin non mette il nome della pagina Ko-fi
+    if (feature_on('donations') && kofi_username()) {   // «Sostienici» resta nascosto finché l'admin non mette il nome della pagina Ko-fi
         $nav .= '<a href="sostienici"><i class="ti ti-cup" aria-hidden="true"></i> Sostienici</a>';
     }
     return '<footer class="site-foot"><div class="site-foot-in"><div class="site-foot-brand"><div class="site-foot-id"><b>' . h(APP_NAME) . '</b>'

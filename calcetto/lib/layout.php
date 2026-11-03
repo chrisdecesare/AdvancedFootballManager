@@ -10,6 +10,9 @@ function layout_start(string $title, string $active = ''): void
         'bets' => ['bets.php', 'Scommesse', 'coin'],
         'shop' => ['shop.php', 'Negozio', 'shopping-bag'],
     ];   // le curiosità non sono una scheda: stanno nel riquadro della Home
+    if (!feature_on('bets')) {
+        unset($nav['bets']);   // scommesse spente dal pannello Funzioni
+    }
     $guest = is_guest();
     if ($guest) {
         // vede solo le sue partite (l'ultima nel menu) e la sua area (guest.php)
