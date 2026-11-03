@@ -427,6 +427,14 @@ function avatar(array $p, string $size = 'md'): string
         h(initials($p['name'] ?? '?')) . '</span>';
 }
 
+/** Chi non vuole mostrare il nome: un cerchio con l'omino (testa e spalle) e un punto interrogativo, come i personaggi coperti di «Indovina chi». */
+function avatar_anon(string $size = 'md'): string
+{
+    return '<span class="avatar avatar-' . $size . ' avatar-anon" role="img" aria-label="Utente anonimo"><svg viewBox="0 0 40 40" aria-hidden="true" focusable="false">'
+        . '<circle class="a-body" cx="20" cy="14" r="9"/><path class="a-body" d="M5.5 37.5c.8-8.6 7-13 14.5-13s13.7 4.4 14.5 13a20 20 0 0 1-29 0z"/>'
+        . '<text class="a-q" x="20" y="19.6" text-anchor="middle" font-size="15" font-weight="800">?</text></svg></span>';
+}
+
 function result_chip(string $r): string
 {
     $label = ['V' => 'V', 'N' => 'N', 'S' => 'S'][$r] ?? '?';

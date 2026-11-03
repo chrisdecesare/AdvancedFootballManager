@@ -6,6 +6,12 @@
  */
 const PITCH_STARS_MAX = 5;
 
+/** La lega di un giocatore (la prima, per id): serve a scrivere «Utente della Lega X» a chi non vuole mostrare il nome. */
+function PITCH_LEAGUE_OF(string $playerCol): string
+{
+    return '(SELECT g.name FROM player_groups pg JOIN squad_groups g ON g.id = pg.group_id WHERE pg.player_id = ' . $playerCol . ' ORDER BY g.id LIMIT 1)';
+}
+
 function pitches_schema_ensure(): void
 {
     static $done = false;
@@ -150,12 +156,19 @@ function pitch_add(int $userId, string $name, string $address, string $city): ar
 }
 
 /** Il voto di un giocatore a un campo: uno solo, si può cambiare. */
-function pitch_rate(int $pitchId, int $playerId, $stars): bool
+function pitch_rate(int $pitchId, int $playerId, $stars, ?bool $showName = null): bool
 {
     if (!pitch_valid_stars($stars) || !pitch_by_id($pitchId)) {
         return false;
     }
-    q('INSERT INTO pitch_ratings (pitch_id, player_id, stars) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE stars = VALUES(stars)', [$pitchId, $playerId, (int) $stars]);
+    if ($showName === null) {
+        q('INSERT INTO pitch_ratings (pitch_id, player_id, stars) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE stars = VALUES(stars)', [$pitchId, $playerId, (int) $stars]);
+    } else {
+        // la scelta «mostra il mio nome» vale per voto e recensione di quel campo: si tengono allineati
+        pitch_show_name_ensure();
+        q('INSERT INTO pitch_ratings (pitch_id, player_id, stars, show_name) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE stars = VALUES(stars), show_name = VALUES(show_name)', [$pitchId, $playerId, (int) $stars, $showName ? 1 : 0]);
+        q('UPDATE pitch_reviews SET show_name = ? WHERE pitch_id = ? AND player_id = ?', [$showName ? 1 : 0, $pitchId, $playerId]);
+    }
     return true;
 }
 
@@ -223,6 +236,54 @@ function pitch_reviews_schema_ensure(): void
     meta_set('pitch_reviews_schema', '1');
 }
 
+/** Aggiunge show_name (1 = chi ha votato fa vedere il suo nome; 0 = agli altri appare «Utente della Lega X») a voti e recensioni, se manca. */
+function pitch_show_name_ensure(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    pitches_schema_ensure();
+    pitch_reviews_schema_ensure();
+    if (meta_get('pitch_show_name_schema') === '1') {
+        return;
+    }
+    $have = [];
+    foreach (q("SELECT table_name AS t, column_name AS c FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name IN ('pitch_ratings', 'pitch_reviews') AND column_name = 'show_name'")->fetchAll() as $r) {
+        $have[strtolower($r['t'])] = true;
+    }
+    foreach (['pitch_ratings', 'pitch_reviews'] as $t) {
+        if (!isset($have[$t])) {
+            db()->exec("ALTER TABLE $t ADD COLUMN show_name TINYINT(1) NOT NULL DEFAULT 0");
+        }
+    }
+    meta_set('pitch_show_name_schema', '1');
+}
+
+/** Cosa si vede di chi ha votato o scritto: il suo nome se ha scelto di mostrarlo (o se è lui a guardare), altrimenti «Utente della Lega X». */
+function pitch_reviewer(array $r, bool $mine): array
+{
+    $anonLabel = !empty($r['league']) ? 'Utente della Lega ' . $r['league'] : 'Utente di Calcetto Manager';
+    if ((int) ($r['show_name'] ?? 0)) {
+        return ['anon' => false, 'name' => $r['name'], 'username' => $r['username'] ?? null, 'photo' => $r['photo'] ?? null, 'note' => null];
+    }
+    if ($mine) {
+        return ['anon' => false, 'name' => $r['name'], 'username' => $r['username'] ?? null, 'photo' => $r['photo'] ?? null, 'note' => 'gli altri vedono «' . $anonLabel . '»'];
+    }
+    return ['anon' => true, 'name' => $anonLabel, 'username' => null, 'photo' => null, 'note' => null];
+}
+
+/** Il nome della lega del giocatore (la prima, per id): per far leggere a chi scrive come comparirà se resta anonimo. */
+function pitch_league_name_of(?int $playerId): ?string
+{
+    if (!$playerId) {
+        return null;
+    }
+    $v = q('SELECT ' . PITCH_LEAGUE_OF('?') . ' AS name', [$playerId])->fetchColumn();
+    return $v === false || $v === null ? null : (string) $v;
+}
+
 /** Il testo di una recensione dopo la pulizia (spazi ai bordi e righe vuote di troppo). */
 function pitch_clean_review(string $t): string
 {
@@ -258,8 +319,8 @@ function pitch_reviews_of(array $pitchIds): array
     if (!$ids) {
         return $out;
     }
-    pitch_reviews_schema_ensure();
-    $rows = q('SELECT r.id, r.pitch_id, r.player_id, p.name, p.photo, (SELECT u.username FROM users u WHERE u.player_id = p.id LIMIT 1) AS username, r.body, r.updated_at
+    pitch_show_name_ensure();
+    $rows = q('SELECT r.id, r.pitch_id, r.player_id, p.name, p.photo, (SELECT u.username FROM users u WHERE u.player_id = p.id LIMIT 1) AS username, ' . PITCH_LEAGUE_OF('p.id') . ' AS league, r.show_name, r.body, r.updated_at
                FROM pitch_reviews r JOIN players p ON p.id = r.player_id
                WHERE r.pitch_id IN (' . implode(',', $ids) . ') ORDER BY r.updated_at DESC, r.id DESC')->fetchAll();
     foreach ($rows as $r) {
@@ -273,9 +334,9 @@ function pitch_reviews_of(array $pitchIds): array
 /** Tutte le recensioni scritte nel sito, dalla più recente (per il Pannello admin): [righe, totale]. */
 function pitch_reviews_all(int $limit = 200): array
 {
-    pitch_reviews_schema_ensure();
+    pitch_show_name_ensure();
     $limit = max(1, min(1000, $limit));
-    $rows = q('SELECT r.id, r.pitch_id, pt.name AS pitch, pt.city, pt.city_slug, p.name, r.body, r.updated_at
+    $rows = q('SELECT r.id, r.pitch_id, pt.name AS pitch, pt.city, pt.city_slug, p.name, r.show_name, r.body, r.updated_at
                FROM pitch_reviews r JOIN pitches pt ON pt.id = r.pitch_id JOIN players p ON p.id = r.player_id
                ORDER BY r.updated_at DESC, r.id DESC LIMIT ' . $limit)->fetchAll();
     $total = (int) q('SELECT COUNT(*) FROM pitch_reviews')->fetchColumn();
@@ -290,7 +351,8 @@ function pitch_ratings_of(array $pitchIds): array
     if (!$ids) {
         return $out;
     }
-    $rows = q('SELECT r.pitch_id, r.player_id, p.name, p.photo, (SELECT u.username FROM users u WHERE u.player_id = p.id LIMIT 1) AS username, r.stars, r.updated_at
+    pitch_show_name_ensure();
+    $rows = q('SELECT r.pitch_id, r.player_id, p.name, p.photo, (SELECT u.username FROM users u WHERE u.player_id = p.id LIMIT 1) AS username, ' . PITCH_LEAGUE_OF('p.id') . ' AS league, r.show_name, r.stars, r.updated_at
                FROM pitch_ratings r JOIN players p ON p.id = r.player_id
                WHERE r.pitch_id IN (' . implode(',', $ids) . ') ORDER BY r.updated_at DESC, r.player_id DESC')->fetchAll();
     foreach ($rows as $r) {
@@ -302,13 +364,14 @@ function pitch_ratings_of(array $pitchIds): array
 }
 
 /** Salva la recensione di un giocatore (una per campo: se c'è già, la sostituisce). */
-function pitch_review_save(int $pitchId, int $playerId, string $body): bool
+function pitch_review_save(int $pitchId, int $playerId, string $body, bool $showName = false): bool
 {
     if (!pitch_by_id($pitchId)) {
         return false;
     }
-    pitch_reviews_schema_ensure();
-    q('INSERT INTO pitch_reviews (pitch_id, player_id, body) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE body = VALUES(body)', [$pitchId, $playerId, $body]);
+    pitch_show_name_ensure();
+    q('INSERT INTO pitch_reviews (pitch_id, player_id, body, show_name) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE body = VALUES(body), show_name = VALUES(show_name)', [$pitchId, $playerId, $body, $showName ? 1 : 0]);
+    q('UPDATE pitch_ratings SET show_name = ? WHERE pitch_id = ? AND player_id = ?', [$showName ? 1 : 0, $pitchId, $playerId]);   // la scelta vale anche per il voto di quel campo
     return true;
 }
 

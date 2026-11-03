@@ -540,7 +540,7 @@ admin_start('Pannello admin');
   <blockquote class="review">
     <p class="small"><b><?= h($r['pitch']) ?></b> · <a class="link" href="campi.php?citta=<?= h($r['city_slug']) ?>#campo-<?= (int) $r['pitch_id'] ?>"><?= h($r['city']) ?></a></p>
     <p><?= h($r['body']) ?></p>
-    <footer class="muted small"><?= h($r['name']) ?> · <?= h(substr((string) $r['updated_at'], 8, 2) . '/' . substr((string) $r['updated_at'], 5, 2) . '/' . substr((string) $r['updated_at'], 0, 4) . ' ' . substr((string) $r['updated_at'], 11, 5)) ?></footer>
+    <footer class="muted small"><?= h($r['name']) ?><?= (int) $r['show_name'] ? '' : ' (nome nascosto agli altri)' ?> · <?= h(substr((string) $r['updated_at'], 8, 2) . '/' . substr((string) $r['updated_at'], 5, 2) . '/' . substr((string) $r['updated_at'], 0, 4) . ' ' . substr((string) $r['updated_at'], 11, 5)) ?></footer>
   </blockquote>
   <?php endforeach; ?>
 </section>

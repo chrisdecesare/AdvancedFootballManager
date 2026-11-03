@@ -398,14 +398,14 @@ function report_button_html(string $type, int $id, string $back, ?int $blockPlay
         $opts .= '<option value="' . h($k) . '">' . h($label) . '</option>';
     }
     $hid = fn (string $n, $v): string => '<input type="hidden" name="' . $n . '" value="' . h((string) $v) . '">';
-    $html = '<span class="report-wrap"><details class="report-box"><summary class="btn btn-ghost btn-sm"><i class="ti ti-flag"></i> Segnala</summary>'
+    $html = '<span class="report-wrap"><details class="report-box"><summary class="btn btn-ghost btn-sm report-ico" title="Segnala" aria-label="Segnala"><i class="ti ti-flag"></i><span class="rb-label">Segnala</span></summary>'
         . '<form method="post" action="segnala.php" class="form report-form">' . csrf_field() . $hid('do', 'report') . $hid('type', $type) . $hid('id', $id) . $hid('back', $back)
         . '<label class="field"><span>Perché lo segnali?</span><select name="reason" required><option value="" disabled selected>Scegli un motivo</option>' . $opts . '</select></label>'
         . '<label class="field"><span>Note (facoltative)</span><textarea name="details" maxlength="500" rows="2"></textarea></label>'
         . '<button class="btn btn-primary btn-sm">Invia la segnalazione</button></form></details>';
     if ($blockPlayerId) {
         $html .= '<form method="post" action="segnala.php" class="inline">' . csrf_field() . $hid('do', 'block') . $hid('player_id', $blockPlayerId) . $hid('back', $back)
-            . '<button class="btn btn-ghost btn-sm" data-confirm="Bloccare questo giocatore? Non vedrai più i suoi pensieri e le sue recensioni."><i class="ti ti-ban"></i> Blocca</button></form>';
+            . '<button class="btn btn-ghost btn-sm report-ico" title="Blocca" aria-label="Blocca" data-confirm="Bloccare questo giocatore? Non vedrai più i suoi pensieri e le sue recensioni."><i class="ti ti-ban"></i><span class="rb-label">Blocca</span></button></form>';
     }
     return $html . '</span>';
 }
