@@ -172,6 +172,7 @@ layout_start($p['name'], 'players');
   <div class="profile-info">
     <h1><?= h($p['name']) ?> <?= $p['active'] ? '' : '<span class="tag">non attivo</span>' ?><?= !empty($p['injured']) ? ' <span class="tag tag-injured"><i class="ti ti-bandage"></i> infortunato</span>' : '' ?></h1>
     <?php if ($nick = nick_html($p)): ?><div class="profile-nick"><?= $nick ?></div><?php endif; ?>
+    <?= my_player_id() !== (int) $p['id'] && empty($p['is_guest']) ? report_button_html('player', (int) $p['id'], 'player.php?id=' . (int) $p['id'], (int) $p['id']) : '' ?>
     <div class="profile-tags">
       <span class="pos pos-<?= strtolower(position_abbr($p['position'])) ?>" title="Posizione preferita"><?= h($p['position']) ?></span>
       <?php if ($p['position2']): ?><span class="pos pos-<?= strtolower(position_abbr($p['position2'])) ?>" title="Seconda scelta"><?= h($p['position2']) ?></span><?php endif; ?>

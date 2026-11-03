@@ -137,7 +137,7 @@ function gazzetta(int $gid): array
             'lead' => $thoughts ? 'I pensieri di chi ha giocato ' . fmt_date_long($last['match_date']) . '.'
                 : 'Ancora nessun pensiero: chi ha giocato può scriverlo dal messaggio che gli compare sul sito.',
             'items' => [], 'teams' => null,
-            'quotes' => array_map(fn($t) => ['pid' => (int) $t['player_id'], 'name' => $t['name'], 'body' => $t['body'], 'team' => $t['team']], array_slice($thoughts, 0, 8))];
+            'quotes' => array_map(fn($t) => ['tid' => (int) $t['tid'], 'pid' => (int) $t['player_id'], 'name' => $t['name'], 'body' => $t['body'], 'team' => $t['team']], array_slice($thoughts, 0, 8))];
     }
 
     /* ---- novità */
@@ -443,9 +443,10 @@ function gazzetta_html(array $g, bool $page = false): string
           </div>
         <?php elseif (!empty($s['quotes'])): ?>
           <div class="gz-quotes">
-            <?php foreach ($s['quotes'] as $qt): ?>
+            <?php $myBlocked = ($mu = current_user()) && feature_on('report_block') ? blocked_player_ids((int) $mu['id']) : []; ?>
+            <?php foreach ($s['quotes'] as $qt): if (in_array((int) $qt['pid'], $myBlocked, true)) { continue; } ?>
               <blockquote class="gz-quote"><p><?= nl2br(h($qt['body'])) ?></p>
-                <footer><?php if ($qt['team']): ?><span class="team-dot team-<?= strtolower(h($qt['team'])) ?>"></span><?php endif; ?><a href="player.php?id=<?= $qt['pid'] ?>"><?= h($qt['name']) ?></a></footer></blockquote>
+                <footer><?php if ($qt['team']): ?><span class="team-dot team-<?= strtolower(h($qt['team'])) ?>"></span><?php endif; ?><a href="player.php?id=<?= $qt['pid'] ?>"><?= h($qt['name']) ?></a><?= !empty($qt['tid']) && my_player_id() !== (int) $qt['pid'] ? report_button_html('thought', (int) $qt['tid'], 'gazzetta.php', (int) $qt['pid']) : '' ?></footer></blockquote>
             <?php endforeach; ?>
           </div>
         <?php elseif (!empty($s['borsa'])): ?>

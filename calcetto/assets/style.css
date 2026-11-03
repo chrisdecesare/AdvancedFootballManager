@@ -2319,3 +2319,14 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 .kofi-btn:hover { transform: translate(-1px, -2px); }
 .kofi-who { font-weight: 800; line-height: 1.7; overflow-wrap: anywhere; }
 .site-foot-links .ti-cup { color: #ff5e5b; }
+
+/* @compliance:inizio — Google Play e legge: consenso, segnala e blocca, zona di pericolo (stesso blocco in calcetto/assets/style.css del sito PHP) */
+.check-line { display: flex; gap: .6rem; align-items: flex-start; font-weight: 700; font-size: .92rem; line-height: 1.35; }
+.check-line input[type="checkbox"] { width: 1.25rem; height: 1.25rem; margin-top: .1rem; flex: none; }
+.report-wrap { display: inline-flex; flex-wrap: wrap; gap: .4rem; align-items: flex-start; margin-top: .4rem; }
+.report-box summary { list-style: none; cursor: pointer; }
+.report-box summary::-webkit-details-marker { display: none; }
+.report-box[open] { flex-basis: 100%; }
+.report-form { margin-top: .5rem; padding: .8rem; background: #fff; border: 2px solid var(--ink, #1f1a2e); border-radius: 12px; max-width: 26rem; }
+.report-item { margin-top: .8rem; }
+/* @compliance:fine */

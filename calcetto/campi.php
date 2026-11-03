@@ -102,7 +102,7 @@ layout_start('I campi', 'pitches');
       <?php foreach ($pitches as $p): ?>
       <li class="pitch-row" id="campo-<?= (int) $p['id'] ?>">
         <div>
-          <strong><?= h($p['name']) ?></strong><?php if ($p['center_id']): ?><span class="tag tag-ok" style="margin-left:6px">Centro</span><?php endif; ?>
+          <strong><?= h($p['name']) ?></strong><?php if ($p['center_id']): ?><span class="tag tag-ok" style="margin-left:6px">Centro</span><?php else: ?><?= report_button_html('pitch', (int) $p['id'], 'campi.php') ?><?php endif; ?>
           <div class="muted small"><?= h($p['address'] ?: $p['city']) ?></div>
           <?= pitch_stars_html($p['avg'], $p['votes']) ?>
         </div>

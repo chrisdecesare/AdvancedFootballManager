@@ -11,6 +11,24 @@ require __DIR__ . '/lib/bootstrap.php';
 require_platform_owner();   // solo il proprietario del progetto (lib/auth.php)
 require_recent_auth();   // password riconfermata se l'area admin non si usa da un po' (lib/security.php)
 
+// Segnalazioni: l'admin decide e scrive il motivo, che il segnalante legge in «Privacy e dati» (DSA art. 16 e 17).
+if (is_post() && in_array($_POST['do'] ?? '', ['report_decide', 'deletion_done'], true)) {
+    require_recent_auth(RECENT_AUTH_DANGER, false);
+    if ($_POST['do'] === 'report_decide') {
+        $act = (string) ($_POST['act'] ?? '');
+        if (in_array($act, ['gestita', 'respinta', 'rimossa'], true)) {
+            $err = report_resolve((int) ($_POST['id'] ?? 0), (int) current_user()['id'], $act, (string) ($_POST['outcome'] ?? ''));
+            log_activity('admin', 'segnalazione #' . (int) ($_POST['id'] ?? 0) . ' · ' . $act);
+            flash($err ? 'err' : 'ok', $err ?? 'Segnalazione chiusa: chi l\'ha fatta vede l\'esito.');
+        }
+    } else {
+        deletion_request_close((int) ($_POST['id'] ?? 0));
+        log_activity('admin', 'richiesta di eliminazione chiusa');
+        flash('ok', 'Richiesta segnata come gestita.');
+    }
+    redirect('platform.php?t=segnalazioni');
+}
+
 // Funzioni: salva gli interruttori (lib/features.php). Il token CSRF lo controlla già bootstrap.php.
 if (is_post() && ($_POST['do'] ?? '') === 'features') {
     require_recent_auth(RECENT_AUTH_DANGER, false);
@@ -63,7 +81,7 @@ if (is_post()) {
     redirect('platform.php?t=account&account=' . $uid);
 }
 
-$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro', 'sicurezza', 'funzioni'], true) ? $_GET['t'] : 'panoramica';
+$tab = in_array($_GET['t'] ?? '', ['leghe', 'account', 'registro', 'sicurezza', 'funzioni', 'segnalazioni'], true) ? $_GET['t'] : 'panoramica';
 $leagueId = int_get('lega');
 $accountId = int_get('account');
 $labels = activity_labels();
@@ -111,6 +129,8 @@ layout_start('Piattaforma', 'platform');
   <a href="platform.php?t=registro" class="<?= $tab === 'registro' ? 'active' : '' ?>"><i class="ti ti-list-details"></i> Registro</a>
   <a href="platform.php?t=sicurezza" class="<?= $tab === 'sicurezza' ? 'active' : '' ?>"><i class="ti ti-shield-lock"></i> Sicurezza</a>
   <a href="platform.php?t=funzioni" class="<?= $tab === 'funzioni' ? 'active' : '' ?>"><i class="ti ti-adjustments"></i> Funzioni</a>
+  <?php $openReports = reports_open_count(); ?>
+  <a href="platform.php?t=segnalazioni" class="<?= $tab === 'segnalazioni' ? 'active' : '' ?>"><i class="ti ti-flag"></i> Segnalazioni<?= $openReports ? ' (' . $openReports . ')' : '' ?></a>
 </nav>
 
 <?php if ($tab === 'panoramica'):
@@ -508,6 +528,38 @@ layout_start('Piattaforma', 'platform');
     </table></div>
     <button class="btn btn-primary">Salva</button>
   </form>
+</section>
+<?php endif; ?>
+<?php if ($tab === 'segnalazioni'): ?>
+<section class="card">
+  <h2><i class="ti ti-flag"></i> Segnalazioni aperte <span class="muted small"><?= count($reportsOpen = reports_list('aperta')) ?></span></h2>
+  <?php if (!$reportsOpen): ?><p class="empty">Nessuna segnalazione da guardare.</p><?php endif; ?>
+  <?php foreach ($reportsOpen as $r): $t = report_target($r['target_type'], (int) $r['target_id']); ?>
+  <div class="card report-item">
+    <p><b><?= h(REPORT_TYPES[$r['target_type']] ?? $r['target_type']) ?></b> · <?= h(REPORT_REASONS[$r['reason']] ?? $r['reason']) ?> · <span class="muted small"><?= h(substr((string) $r['created_at'], 0, 16)) ?> da @<?= h((string) ($r['reporter'] ?? '—')) ?></span></p>
+    <blockquote class="review"><p><?= h($t['preview'] ?? '(il contenuto non esiste più)') ?></p></blockquote>
+    <?php if ($r['details']): ?><p class="small muted">Note: <?= h($r['details']) ?></p><?php endif; ?>
+    <form method="post" class="form form-grid"><?= csrf_field() ?><input type="hidden" name="do" value="report_decide"><input type="hidden" name="id" value="<?= (int) $r['id'] ?>">
+      <label class="field"><span>Motivo della decisione (lo legge chi ha segnalato)</span><input name="outcome" maxlength="250"></label>
+      <div class="btn-row">
+        <button class="btn btn-danger btn-sm" name="act" value="rimossa" data-confirm="Togliere il contenuto?"><i class="ti ti-trash"></i> Togli il contenuto</button>
+        <button class="btn btn-ghost btn-sm" name="act" value="gestita">Gestita</button>
+        <button class="btn btn-ghost btn-sm" name="act" value="respinta">Respingi</button>
+      </div>
+    </form>
+  </div>
+  <?php endforeach; ?>
+</section>
+<section class="card">
+  <?php $reqs = deletion_requests_open(); ?>
+  <h2><i class="ti ti-user-x"></i> Richieste di eliminazione dell'account <span class="muted small"><?= count($reqs) ?></span></h2>
+  <p class="muted small">Da chi non riesce ad accedere. Rispondi all'email per verificare che l'account sia suo; poi eliminalo da Piattaforma → Account. Entro 30 giorni.</p>
+  <?php if (!$reqs): ?><p class="empty">Nessuna richiesta.</p><?php else: ?>
+  <div class="table-wrap"><table class="table"><thead><tr><th>Quando</th><th>Username</th><th>Email</th><th>Note</th><th></th></tr></thead><tbody>
+    <?php foreach ($reqs as $q): ?>
+    <tr><td class="small"><?= h(substr((string) $q['created_at'], 0, 10)) ?></td><td><?= h($q['username'] ?: '—') ?></td><td class="small"><?= h($q['contact']) ?></td><td class="small"><?= h($q['message']) ?></td>
+      <td><form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="deletion_done"><input type="hidden" name="id" value="<?= (int) $q['id'] ?>"><button class="btn btn-ghost btn-sm">Fatta</button></form></td></tr>
+    <?php endforeach; ?></tbody></table></div><?php endif; ?>
 </section>
 <?php endif; ?>
 <?php

@@ -70,6 +70,9 @@ if (is_post()) {
     if ($v['email'] !== '' && (!filter_var($v['email'], FILTER_VALIDATE_EMAIL) || mb_strlen($v['email']) > 190)) {
         $errors[] = 'L\'indirizzo email non è valido (puoi anche lasciarlo vuoto).';
     }
+    if (($_POST['consent'] ?? '') !== 'on') {
+        $errors[] = 'Per iscriverti devi avere almeno 14 anni e accettare Termini d\'uso e informativa privacy.';
+    }
     if ($err = password_error($password, $v['username'])) {
         $errors[] = $err;
     } elseif ($password !== $password2) {
@@ -107,6 +110,7 @@ if (is_post()) {
         q("INSERT INTO users (username, password_hash, role, status, reg_name, reg_json, reg_group_id) VALUES (?, ?, 'player', 'in_attesa', ?, ?, ?)",
             [$v['username'], password_hash($password, PASSWORD_DEFAULT), $v['name'], json_encode($data), $league ? (int) $league['id'] : null]);
         $newUserId = (int) db()->lastInsertId();   // prima di registration_hit(), che scrive un'altra riga
+        record_consent($newUserId);   // termini e «ho almeno 14 anni»: versione e data restano scritte
         registration_hit();
         log_activity('iscrizione', $v['name'] . ' (@' . $v['username'] . ')', $league ? (int) $league['id'] : null, $newUserId);
         $emailSent = false;
@@ -174,6 +178,7 @@ layout_start('Iscriviti');
           <label class="field"><span>Piede</span><select name="foot">
             <?php foreach (feet() as $o): ?><option <?= $v['foot'] === $o ? 'selected' : '' ?>><?= $o ?></option><?php endforeach; ?></select></label>
         </div>
+        <label class="check-line"><input type="checkbox" name="consent" required> <span>Ho almeno 14 anni e accetto i <a class="link" href="<?= h(NEXT_SITE) ?>/termini" target="_blank" rel="noopener">Termini d'uso</a> e l'<a class="link" href="<?= h(NEXT_SITE) ?>/privacy" target="_blank" rel="noopener">informativa privacy</a>.</span></label>
         <label class="hp" aria-hidden="true">Sito web <input name="website" tabindex="-1" autocomplete="off"></label>
         <button class="btn btn-primary btn-block"><?= $open ? 'Crea account ed entra' : 'Invia richiesta' ?></button>
       </form>

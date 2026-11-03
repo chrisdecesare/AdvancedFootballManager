@@ -55,7 +55,7 @@ function thought_save(int $matchId, int $playerId, ?string $body): ?string
 function match_thoughts(int $matchId): array
 {
     try {
-        return q("SELECT t.player_id, t.body, t.created_at, p.name, mp.team FROM match_thoughts t JOIN players p ON p.id = t.player_id
+        return q("SELECT t.id AS tid, t.player_id, t.body, t.created_at, p.name, mp.team FROM match_thoughts t JOIN players p ON p.id = t.player_id
                   LEFT JOIN match_players mp ON mp.match_id = t.match_id AND mp.player_id = t.player_id
                   WHERE t.match_id = ? AND t.body IS NOT NULL AND t.body <> '' ORDER BY t.created_at, t.id", [$matchId])->fetchAll();
     } catch (Throwable $e) {

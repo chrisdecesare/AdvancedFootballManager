@@ -93,6 +93,7 @@ require __DIR__ . '/center_link.php';
 require __DIR__ . '/slot_free.php';
 require __DIR__ . '/kofi.php';
 require __DIR__ . '/features.php';
+require __DIR__ . '/compliance.php';
 require __DIR__ . '/calendar_mark.php';
 require __DIR__ . '/discover.php';
 require __DIR__ . '/pub.php';

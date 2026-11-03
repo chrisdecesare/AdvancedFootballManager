@@ -21,6 +21,9 @@ function site_footer(): string
         }
         $nav .= '<a href="' . h($n . $href) . '">' . h($label) . '</a>';
     }
+    if (feature_on('account_delete')) {
+        $nav .= '<a href="elimina_account.php">Elimina account</a>';
+    }
     if (feature_on('donations') && kofi_username()) {   // «Sostienici» resta nascosto finché l'admin non mette il nome della pagina Ko-fi
         $nav .= '<a href="sostienici"><i class="ti ti-cup" aria-hidden="true"></i> Sostienici</a>';
     }
@@ -137,6 +140,7 @@ function league_card_html(array $c, string $action = ''): string
     <div><h3><?= h($c['name']) ?></h3>
       <p class="muted small"><i class="ti ti-map-pin"></i> <?= h(($c['area'] ? $c['area'] . ', ' : '') . $c['city']) ?></p></div></div>
   <?php if ($c['about']): ?><p class="small"><?= h($c['about']) ?></p><?php endif; ?>
+  <?= report_button_html('league', (int) $c['id'], 'calcetto.php') ?>
   <dl class="lg-stats">
     <div><dt>Amministratore</dt><dd><?= h($c['admin']) ?></dd></div>
     <div><dt>Componenti</dt><dd><?= (int) $c['players'] ?></dd></div>

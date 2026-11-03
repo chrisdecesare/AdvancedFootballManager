@@ -157,6 +157,7 @@ layout_start('Sicurezza', 'account');
 <div class="narrow">
   <?php if (my_player_id() && !is_guest()): ?><a class="back" href="player_edit.php?id=<?= (int) my_player_id() ?>"><i class="ti ti-arrow-left"></i> Modifica profilo</a><?php endif; ?>
   <div class="page-head"><h1>Sicurezza dell'account</h1></div>
+  <p><a class="link" href="privacy_dati.php"><i class="ti ti-shield-lock"></i> Privacy e dati: scarica i tuoi dati, elimina l'account</a></p>
   <p class="muted">Account <strong><?= h($acc['username']) ?></strong></p>
 
   <section class="card" id="email">
