@@ -9,7 +9,7 @@ const DELETE_PHRASE = 'ELIMINA';
 const REPORT_MAX_PER_HOUR = 10;
 const REPORT_DETAILS_MAX = 500;
 const FORMER_PLAYER_NAME = 'Ex giocatore';
-const REPORT_TYPES = ['player' => 'Giocatore (nome o foto)', 'thought' => 'Pensiero dello spogliatoio', 'league' => 'Lega', 'pitch' => 'Campetto'];
+const REPORT_TYPES = ['player' => 'Giocatore (nome o foto)', 'thought' => 'Pensiero dello spogliatoio', 'league' => 'Lega', 'pitch' => 'Campetto', 'review' => 'Recensione di un campo'];
 const REPORT_REASONS = [
     'offensivo' => 'Offensivo, odio o molestie', 'spam' => 'Spam o pubblicità', 'falso' => 'Falso o finge di essere un altro',
     'privacy' => 'Foto o dati personali miei senza consenso', 'illegale' => 'Contenuto illegale', 'altro' => 'Altro',
@@ -87,6 +87,11 @@ function report_target(string $type, int $id): ?array
         $r = q('SELECT name FROM squad_groups WHERE id = ?', [$id])->fetch();
         return $r ? ['label' => 'Lega', 'preview' => (string) $r['name']] : null;
     }
+    if ($type === 'review') {
+        biz_schema_ensure();
+        $r = compliance_try('SELECT r.body, p.name, pt.name AS pitch, pt.city FROM pitch_reviews r JOIN players p ON p.id = r.player_id JOIN pitches pt ON pt.id = r.pitch_id WHERE r.id = ?', [$id])?->fetch();
+        return $r ? ['label' => 'Recensione', 'preview' => $r['name'] . ' su ' . $r['pitch'] . ' (' . $r['city'] . '): «' . $r['body'] . '»'] : null;
+    }
     if ($type === 'pitch') {
         biz_schema_ensure();
         $r = compliance_try('SELECT name, address, city FROM pitches WHERE id = ?', [$id])?->fetch();
@@ -136,6 +141,9 @@ function report_content(int $uid, array $f): ?string
     if ($v['type'] === 'player' && $mine && $mine === $v['id']) {
         return 'Non puoi segnalare il tuo profilo.';
     }
+    if ($v['type'] === 'review' && $mine && compliance_try('SELECT 1 FROM pitch_reviews WHERE id = ? AND player_id = ?', [$v['id'], $mine])?->fetch()) {
+        return 'Non puoi segnalare la tua recensione.';
+    }
     if (q("SELECT 1 FROM content_reports WHERE reporter_user_id = ? AND target_type = ? AND target_id = ? AND status = 'aperta'", [$uid, $v['type'], $v['id']])->fetch()) {
         return 'Hai già segnalato questo contenuto: lo stiamo guardando.';
     }
@@ -180,6 +188,11 @@ function report_remove(string $type, int $id): string
         }
         q('UPDATE players SET photo = NULL, bg_image = NULL, bg_image_v = NULL, bg_src = NULL WHERE id = ?', [$id]);
         return 'foto e sfondo tolti';
+    }
+    if ($type === 'review') {
+        biz_schema_ensure();
+        compliance_try('DELETE FROM pitch_reviews WHERE id = ?', [$id]);
+        return 'recensione tolta';
     }
     if ($type === 'pitch') {
         biz_schema_ensure();
@@ -392,7 +405,7 @@ function report_button_html(string $type, int $id, string $back, ?int $blockPlay
         . '<button class="btn btn-primary btn-sm">Invia la segnalazione</button></form></details>';
     if ($blockPlayerId) {
         $html .= '<form method="post" action="segnala.php" class="inline">' . csrf_field() . $hid('do', 'block') . $hid('player_id', $blockPlayerId) . $hid('back', $back)
-            . '<button class="btn btn-ghost btn-sm" data-confirm="Bloccare questo giocatore? Non vedrai più i suoi pensieri."><i class="ti ti-ban"></i> Blocca</button></form>';
+            . '<button class="btn btn-ghost btn-sm" data-confirm="Bloccare questo giocatore? Non vedrai più i suoi pensieri e le sue recensioni."><i class="ti ti-ban"></i> Blocca</button></form>';
     }
     return $html . '</span>';
 }

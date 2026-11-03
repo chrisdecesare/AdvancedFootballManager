@@ -79,6 +79,10 @@ $pitches = $slug !== '' ? pitches_in([$slug], $me ? (int) $me : null) : [];
 $cityName = $pitches[0]['city'] ?? ($asked !== '' && !preg_match('/^[a-z0-9-]+$/', $asked) ? $asked : '');
 
 $reviews = pitch_reviews_of(array_column($pitches, 'id'));
+$blocked = array_flip(blocked_player_ids((int) current_user()['id']));   // chi hai bloccato non lo leggi più, nemmeno qui
+foreach ($reviews as $pid => $list) {
+    $reviews[$pid] = array_values(array_filter($list, fn($r) => !isset($blocked[(int) $r['player_id']])));
+}
 
 layout_start('I campi', 'pitches');
 ?>
@@ -125,12 +129,14 @@ layout_start('I campi', 'pitches');
               <?php if (($me && (int) $r['player_id'] === (int) $me) || is_admin()): ?>
               <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="review_delete"><input type="hidden" name="review" value="<?= (int) $r['id'] ?>">
                 <button class="gcal-undo" data-confirm="Togliere questa recensione?">toglila</button></form>
-              <?php endif; ?></footer></blockquote>
+              <?php endif; ?>
+              <?php if ((int) $r['player_id'] !== (int) $me) { echo report_button_html('review', (int) $r['id'], 'campi.php?citta=' . $slug, (int) $r['player_id']); } ?></footer></blockquote>
           <?php endforeach; ?>
           <?php if (count($rv) > 3): ?>
           <details><summary class="small">Le altre <?= count($rv) - 3 ?> recensioni</summary>
             <?php foreach (array_slice($rv, 3) as $r): ?>
-            <blockquote class="review"><p><?= h($r['body']) ?></p><footer class="muted small"><?= h($r['name']) ?> · <?= h(push_when($r['updated_at'])) ?></footer></blockquote>
+            <blockquote class="review"><p><?= h($r['body']) ?></p><footer class="muted small"><?= h($r['name']) ?> · <?= h(push_when($r['updated_at'])) ?>
+              <?php if ((int) $r['player_id'] !== (int) $me) { echo report_button_html('review', (int) $r['id'], 'campi.php?citta=' . $slug, (int) $r['player_id']); } ?></footer></blockquote>
             <?php endforeach; ?>
           </details>
           <?php endif; ?>
