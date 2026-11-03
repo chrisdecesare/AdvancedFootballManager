@@ -2329,4 +2329,6 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 .report-box[open] { flex-basis: 100%; }
 .report-form { margin-top: .5rem; padding: .8rem; background: #fff; border: 2px solid var(--ink, #1f1a2e); border-radius: 12px; max-width: 26rem; }
 .report-item { margin-top: .8rem; }
+.terms-notice { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; justify-content: space-between; margin-bottom: 1rem; }
+.terms-notice p { margin: 0; flex: 1 1 18rem; }
 /* @compliance:fine */

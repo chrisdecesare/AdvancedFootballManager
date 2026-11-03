@@ -384,3 +384,25 @@ function report_button_html(string $type, int $id, string $back, ?int $blockPlay
     }
     return $html . '</span>';
 }
+
+/* ---------------------------------------------------------------- avviso per chi era già iscritto */
+
+/** Avviso non bloccante per chi era iscritto prima dei termini del 3 novembre 2026: finché non preme «Accetto» non c'è un record in user_consents. Se qualcosa va storto, non compare. */
+function terms_notice_html(): string
+{
+    try {
+        $u = current_user();
+        if (!$u || ($u['role'] ?? '') === 'ospite' || is_guest()) {
+            return '';
+        }
+        compliance_schema_ensure();
+        if (q('SELECT 1 FROM user_consents WHERE user_id = ?', [(int) $u['id']])->fetch()) {
+            return '';
+        }
+        $back = (string) ($_SERVER['REQUEST_URI'] ?? 'index.php');
+        return '<section class="card terms-notice" role="note"><p><b>Abbiamo aggiornato Termini d\'uso e informativa privacy.</b> Leggili <a class="link" href="' . h(NEXT_SITE) . '/termini" target="_blank" rel="noopener">qui</a> e <a class="link" href="' . h(NEXT_SITE) . '/privacy" target="_blank" rel="noopener">qui</a>: ci sono i nuovi strumenti per segnalare e bloccare, scaricare i tuoi dati ed eliminare l\'account.</p>'
+            . '<form method="post" action="accetta.php" class="inline">' . csrf_field() . '<input type="hidden" name="back" value="' . h($back) . '"><button class="btn btn-primary btn-sm">Accetto e ho almeno 14 anni</button></form></section>';
+    } catch (Throwable $e) {
+        return '';
+    }
+}

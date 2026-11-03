@@ -49,4 +49,10 @@ for doc, name in (('locandina', 'locandina-A4'), ('strappi', 'locandina-strappi-
     if r.returncode:
         sys.exit(r.stderr[:1500])
     print('PDF:', out / f'{name}.pdf')
+# immagine in evidenza di Google Play (PNG 1024 x 500, a 72 ppi 1 pt = 1 px)
+r = subprocess.run(['typst', 'compile', '--font-path', str(build / 'fonts'), '--ignore-system-fonts', '--input', 'doc=feature', '--input', f'site={site}', '--format', 'png', '--ppi', '72',
+                    str(build / 'stampa.typ'), str(out / 'play-immagine-in-evidenza-1024x500.png')], capture_output=True, text=True)
+if r.returncode:
+    sys.exit(r.stderr[:1500])
+print('PNG:', out / 'play-immagine-in-evidenza-1024x500.png')
 shutil.rmtree(build)

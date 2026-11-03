@@ -127,6 +127,19 @@
       playline(size: 11pt)
     }))
   }))
+} else if doc == "feature" {
+  // immagine in evidenza di Google Play: 1024 x 500 px (1 pt = 1 px a 72 ppi); il contenuto importante sta al centro, lontano dai bordi
+  set page(width: 1024pt, height: 500pt, margin: 0pt, fill: paper)
+  block(width: 1024pt, height: 500pt, {
+    pitch(1024pt, 500pt)
+    place(top + left, dx: 70pt, dy: 62pt, box(fill: yellow, stroke: 3pt + ink, radius: 14pt, inset: (x: 14pt, y: 8pt),
+      stack(dir: ltr, spacing: 10pt, image("logo.svg", width: 44pt), pad(top: 6pt, display("Calcetto Manager", size: 34pt)))))
+    place(top + left, dx: 70pt, dy: 150pt, outlined([Chi viene stasera? \ Lo sa #text(fill: yellow)[l'app.]], size: 62pt, width: 620pt, line: 2.2pt))
+    place(top + left, dx: 70pt, dy: 380pt, box(fill: white, stroke: 2.4pt + ink, radius: 10pt, inset: (x: 14pt, y: 8pt),
+      nun([Presenze · Squadre giuste · Classifica · Gratis], size: 19pt, w: "black")))
+    place(bottom + left, dx: 600pt, dy: -6pt, image("av0.svg", width: 180pt))
+    place(bottom + left, dx: 600pt + 158pt, dy: -6pt, image("av1.svg", width: 180pt))
+  })
 } else if doc == "cartoline-tipografia" {
   // per la tipografia: pagina 170 x 127 mm, taglio a 11 mm dai bordi, abbondanza 3 mm, crocini fuori dall'abbondanza
   set page(width: 170mm, height: 127mm, margin: 0pt, fill: white)
