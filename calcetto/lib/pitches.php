@@ -66,7 +66,7 @@ function pitch_avg_text($avg, int $votes): string
     return !$votes || $avg === null ? '—' : number_format(round((float) $avg, 1), 1, ',', '');
 }
 
-/** Le stelle di un campo in HTML: «★★★★☆ 3,6 (12)». */
+/** Le stelle di un campo in HTML: «★★★★☆ 3,6 (12 voti)». */
 function pitch_stars_html($avg, int $votes): string
 {
     if (!$votes) {
@@ -74,7 +74,7 @@ function pitch_stars_html($avg, int $votes): string
     }
     return '<span class="stars" aria-label="' . h(pitch_avg_text($avg, $votes) . ' stelle su 5, ' . $votes . ($votes === 1 ? ' voto' : ' voti')) . '">'
         . '<span aria-hidden="true">' . pitch_stars_text($avg) . '</span> <b aria-hidden="true">' . h(pitch_avg_text($avg, $votes)) . '</b> '
-        . '<span class="muted small" aria-hidden="true">(' . $votes . ')</span></span>';
+        . '<span class="muted small" aria-hidden="true">(' . $votes . ($votes === 1 ? ' voto' : ' voti') . ')</span></span>';
 }
 
 /** La riga nella scelta del campo quando si crea la partita: «Campo A ★★★☆☆, indirizzo» (senza indirizzo, la città). */
@@ -259,7 +259,8 @@ function pitch_reviews_of(array $pitchIds): array
         return $out;
     }
     pitch_reviews_schema_ensure();
-    $rows = q('SELECT r.id, r.pitch_id, r.player_id, p.name, r.body, r.updated_at FROM pitch_reviews r JOIN players p ON p.id = r.player_id
+    $rows = q('SELECT r.id, r.pitch_id, r.player_id, p.name, p.photo, (SELECT u.username FROM users u WHERE u.player_id = p.id LIMIT 1) AS username, r.body, r.updated_at
+               FROM pitch_reviews r JOIN players p ON p.id = r.player_id
                WHERE r.pitch_id IN (' . implode(',', $ids) . ') ORDER BY r.updated_at DESC, r.id DESC')->fetchAll();
     foreach ($rows as $r) {
         if (count($out[(int) $r['pitch_id']]) < 30) {
@@ -279,6 +280,25 @@ function pitch_reviews_all(int $limit = 200): array
                ORDER BY r.updated_at DESC, r.id DESC LIMIT ' . $limit)->fetchAll();
     $total = (int) q('SELECT COUNT(*) FROM pitch_reviews')->fetchColumn();
     return [$rows, $total];
+}
+
+/** Chi ha dato le stelle ai campi dati (foto, username e stelle), dal voto più recente (massimo 100 per campo). */
+function pitch_ratings_of(array $pitchIds): array
+{
+    $ids = array_values(array_unique(array_filter(array_map('intval', $pitchIds), fn($n) => $n > 0)));
+    $out = array_fill_keys($ids, []);
+    if (!$ids) {
+        return $out;
+    }
+    $rows = q('SELECT r.pitch_id, r.player_id, p.name, p.photo, (SELECT u.username FROM users u WHERE u.player_id = p.id LIMIT 1) AS username, r.stars, r.updated_at
+               FROM pitch_ratings r JOIN players p ON p.id = r.player_id
+               WHERE r.pitch_id IN (' . implode(',', $ids) . ') ORDER BY r.updated_at DESC, r.player_id DESC')->fetchAll();
+    foreach ($rows as $r) {
+        if (count($out[(int) $r['pitch_id']]) < 100) {
+            $out[(int) $r['pitch_id']][] = $r;
+        }
+    }
+    return $out;
 }
 
 /** Salva la recensione di un giocatore (una per campo: se c'è già, la sostituisce). */

@@ -2296,6 +2296,8 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 /* recensioni scritte dei campi */
 .pitch-reviews { flex: 1 1 100%; display: grid; gap: 8px; }
 .review { margin: 0; padding: 8px 12px; background: var(--paper-2); border: var(--b2, 2px solid var(--ink)); border-radius: 12px; }
+.review-who { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.review-who .stars { margin-left: auto; white-space: nowrap; }
 .review p { margin: 0 0 4px; white-space: pre-line; overflow-wrap: anywhere; }
 .review footer { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .pitch-reviews summary { cursor: pointer; font-weight: 700; }

@@ -79,6 +79,7 @@ $pitches = $slug !== '' ? pitches_in([$slug], $me ? (int) $me : null) : [];
 $cityName = $pitches[0]['city'] ?? ($asked !== '' && !preg_match('/^[a-z0-9-]+$/', $asked) ? $asked : '');
 
 $reviews = pitch_reviews_of(array_column($pitches, 'id'));
+$ratings = pitch_ratings_of(array_column($pitches, 'id'));
 $blocked = array_flip(blocked_player_ids((int) current_user()['id']));   // chi hai bloccato non lo leggi più, nemmeno qui
 foreach ($reviews as $pid => $list) {
     $reviews[$pid] = array_values(array_filter($list, fn($r) => !isset($blocked[(int) $r['player_id']])));
@@ -120,24 +121,41 @@ layout_start('I campi', 'pitches');
           <button class="btn btn-ghost btn-sm"><?= $p['mine'] !== null ? 'Cambia voto' : 'Vota' ?></button>
         </form>
         <?php endif; ?>
-        <?php $rv = $reviews[(int) $p['id']] ?? []; ?>
-        <div class="pitch-reviews">
-          <p class="small muted"><?= $rv ? count($rv) . (count($rv) === 1 ? ' recensione dei giocatori' : ' recensioni dei giocatori') : 'Ancora nessuna recensione dei giocatori.' ?></p>
-          <?php foreach (array_slice($rv, 0, 3) as $r): ?>
-          <blockquote class="review"><p><?= h($r['body']) ?></p>
-            <footer class="muted small"><?= h($r['name']) ?> · <?= h(push_when($r['updated_at'])) ?>
-              <?php if (($me && (int) $r['player_id'] === (int) $me) || is_admin()): ?>
-              <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="review_delete"><input type="hidden" name="review" value="<?= (int) $r['id'] ?>">
+        <?php
+        // chi ha dato le stelle e chi ha scritto: una riga per persona (le stelle senza testo restano righe senza testo)
+        $rv = $reviews[(int) $p['id']] ?? [];
+        $byPlayer = [];
+        foreach ($ratings[(int) $p['id']] ?? [] as $g) {
+            if (!isset($blocked[(int) $g['player_id']])) {
+                $byPlayer[(int) $g['player_id']] = ['player_id' => (int) $g['player_id'], 'name' => $g['name'], 'photo' => $g['photo'], 'username' => $g['username'], 'stars' => (int) $g['stars'], 'at' => $g['updated_at'], 'review' => null];
+            }
+        }
+        foreach ($rv as $r) {
+            $e = $byPlayer[(int) $r['player_id']] ?? null;
+            $byPlayer[(int) $r['player_id']] = ['player_id' => (int) $r['player_id'], 'name' => $r['name'], 'photo' => $r['photo'], 'username' => $r['username'], 'stars' => $e['stars'] ?? null,
+                'at' => $e && $e['at'] > $r['updated_at'] ? $e['at'] : $r['updated_at'], 'review' => $r];
+        }
+        $entries = array_values($byPlayer);
+        usort($entries, fn($x, $y) => strcmp((string) $y['at'], (string) $x['at']));
+        $showEntry = function (array $e) use ($me, $slug): void { ?>
+          <blockquote class="review">
+            <div class="review-who"><?= avatar(['name' => $e['name'], 'photo' => $e['photo']], 'xs') ?> <b><?= h($e['name']) ?></b><?php if ($e['username']): ?><span class="muted small">@<?= h($e['username']) ?></span><?php endif; ?>
+              <?php if ($e['stars']): ?><span class="stars" aria-label="<?= (int) $e['stars'] ?> stelle su 5"><span aria-hidden="true"><?= h(pitch_stars_text($e['stars'])) ?></span></span><?php endif; ?></div>
+            <?php if ($e['review']): ?><p><?= h($e['review']['body']) ?></p><?php endif; ?>
+            <footer class="muted small"><?= h(push_when($e['at'])) ?>
+              <?php if ($e['review'] && (($me && $e['player_id'] === (int) $me) || is_admin())): ?>
+              <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="review_delete"><input type="hidden" name="review" value="<?= (int) $e['review']['id'] ?>">
                 <button class="gcal-undo" data-confirm="Togliere questa recensione?">toglila</button></form>
               <?php endif; ?>
-              <?php if ((int) $r['player_id'] !== (int) $me) { echo report_button_html('review', (int) $r['id'], 'campi.php?citta=' . $slug, (int) $r['player_id']); } ?></footer></blockquote>
-          <?php endforeach; ?>
-          <?php if (count($rv) > 3): ?>
-          <details><summary class="small">Le altre <?= count($rv) - 3 ?> recensioni</summary>
-            <?php foreach (array_slice($rv, 3) as $r): ?>
-            <blockquote class="review"><p><?= h($r['body']) ?></p><footer class="muted small"><?= h($r['name']) ?> · <?= h(push_when($r['updated_at'])) ?>
-              <?php if ((int) $r['player_id'] !== (int) $me) { echo report_button_html('review', (int) $r['id'], 'campi.php?citta=' . $slug, (int) $r['player_id']); } ?></footer></blockquote>
-            <?php endforeach; ?>
+              <?php if ($e['review'] && $e['player_id'] !== (int) $me) { echo report_button_html('review', (int) $e['review']['id'], 'campi.php?citta=' . $slug, $e['player_id']); } ?></footer>
+          </blockquote>
+        <?php }; ?>
+        <div class="pitch-reviews">
+          <p class="small muted"><?= !$entries ? 'Ancora nessun voto né recensione.' : (int) $p['votes'] . ((int) $p['votes'] === 1 ? ' voto' : ' voti') . ' · ' . count($rv) . (count($rv) === 1 ? ' recensione scritta' : ' recensioni scritte') ?></p>
+          <?php foreach (array_slice($entries, 0, 3) as $e) { $showEntry($e); } ?>
+          <?php if (count($entries) > 3): ?>
+          <details><summary class="small">Gli altri <?= count($entries) - 3 ?></summary>
+            <?php foreach (array_slice($entries, 3) as $e) { $showEntry($e); } ?>
           </details>
           <?php endif; ?>
           <?php if ($canVote): $mineRv = null; foreach ($rv as $r) { if ((int) $r['player_id'] === (int) $me) { $mineRv = $r; } } ?>
