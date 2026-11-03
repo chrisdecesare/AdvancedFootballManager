@@ -104,9 +104,9 @@
   })
 }
 
-// cornice da figurina: bordo scuro di 3 mm, angoli interni arrotondati, taglio dritto
+// cornice da figurina: bordo bianco di 3 mm, angoli interni arrotondati, taglio dritto
 #let cart-framed(core, off, bleed) = block(width: 148mm + 2 * off, height: 105mm + 2 * off, {
-  place(top + left, dx: off - bleed, dy: off - bleed, rect(width: 148mm + 2 * bleed, height: 105mm + 2 * bleed, fill: ink, stroke: none))
+  place(top + left, dx: off - bleed, dy: off - bleed, rect(width: 148mm + 2 * bleed, height: 105mm + 2 * bleed, fill: white, stroke: none))
   place(top + left, dx: off + 3mm, dy: off + 3mm, block(width: 142mm, height: 99mm, radius: 4mm, clip: true, core(off: -3mm, bleed: 0mm)))
 })
 #let cart-front(off: 0mm, bleed: 0mm) = cart-framed(cart-front-core, off, bleed)
@@ -185,14 +185,15 @@
     place(bottom + left, dx: 5mm, dy: -3.4mm, nun(site, size: 9.5pt, fill: ink, w: "black"))
     place(bottom + right, dx: -5mm, dy: -3.6mm, if play != "" { nun([Disponibile su Google Play], size: 7pt, w: "black") } else { nun([Gratis per chi gioca], size: 7.5pt, w: "bold") })
   })
-  // cornice da figurina: bordo scuro di 1,8 mm, angoli interni arrotondati, taglio dritto
-  let card = block(width: 85mm, height: 55mm, fill: ink, inset: 1.8mm, inner)
+  // cornice da figurina: bordo bianco di 1,8 mm, angoli interni arrotondati, taglio dritto
+  let card = block(width: 85mm, height: 55mm, fill: white, inset: 1.8mm, inner)
   place(top + left, dx: 20mm, dy: 11mm, grid(columns: (85mm, 85mm), rows: 5 * (55mm,), ..range(10).map(_ => card)))
-  // linee di taglio fuori dai biglietti (corte) a ogni incrocio
-  for c in (0, 1, 2) { for r in range(0, 6) {
-    place(top + left, dx: 20mm + c * 85mm - 0.15mm, dy: 11mm + r * 55mm - 0.15mm, {
-      place(dx: -4mm, dy: 0mm, line(length: 3mm, stroke: 0.25pt + black))
-      place(dx: 0mm, dy: -4mm, line(length: 3mm, angle: 90deg, stroke: 0.25pt + black))
-    })
-  } }
+  // linee di taglio tratteggiate tra i biglietti (e un po' oltre, per guidare la lama)
+  let dash = (paint: black, thickness: 0.25pt, dash: "dashed")
+  for c in range(0, 3) {
+    place(top + left, dx: 20mm + c * 85mm, dy: 11mm - 5mm, line(length: 275mm + 10mm, angle: 90deg, stroke: dash))
+  }
+  for r in range(0, 6) {
+    place(top + left, dx: 20mm - 5mm, dy: 11mm + r * 55mm, line(length: 170mm + 10mm, stroke: dash))
+  }
 }

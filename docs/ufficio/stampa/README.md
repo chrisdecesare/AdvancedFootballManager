@@ -6,7 +6,7 @@
 |---|---|---|
 | `locandina-A4.pdf` | Locandina per i giocatori | A4, «dimensione reale» (non «adatta alla pagina»), margini 0 se la stampante lo permette |
 | `locandina-strappi-A4.pdf` | Locandina con 8 linguette da strappare, ognuna con il suo QR | A4, poi taglia solo le linee tratteggiate verticali in basso (non il foglio) |
-| `biglietti-foglio-A4.pdf` | 10 biglietti da 85 × 55 mm con logo, motto e QR | A4, taglia lungo i crocini; carta da 200-300 g/m² |
+| `biglietti-foglio-A4.pdf` | 10 biglietti da 85 × 55 mm con logo, motto e QR | A4, taglia lungo le linee tratteggiate; carta da 200-300 g/m²; bordo bianco da figurina |
 | `cartoline-A6-tipografia.pdf` | **Cartolina A6 orizzontale** 148 × 105 mm, 2 pagine (fronte e retro), 3 mm di abbondanza e crocini | Per la tipografia: chiedi stampa fronte-retro, carta 300 g/m², conversione in CMYK |
 | `cartoline-foglio-A4-casa.pdf` | 4 cartoline (solo fronte, ridotte al 94%) su un A4 orizzontale | Stampante di casa, «dimensione reale»; taglia lungo le linee tratteggiate |
 
