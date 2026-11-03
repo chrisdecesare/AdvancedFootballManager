@@ -18,4 +18,6 @@ define('DB_NAME', 'my_NOMEUTENTE');     // di solito my_ + nome utente
 // define('MAIL_FROM', 'noreply@tuodominio.it');                                 // mittente (predefinito: noreply@<indirizzo del sito>)
 // define('MAIL_REPLY_TO', 'tuamail@esempio.it');                                // a chi risponde chi risponde alle email del sito
 
+// define('REPORTS_EMAIL', 'moderazione@tuodominio.it');                          // dove arrivano segnalazioni e richieste di eliminazione dell'account
+
 define('INSTALL_KEY', 'scegli-un-codice-lungo-e-casuale');

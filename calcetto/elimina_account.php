@@ -20,7 +20,7 @@ if (is_post()) {
         $error = 'Troppe richieste da questa connessione: riprova tra un\'ora.';
     } else {
         deletion_request_create($username, $contact, $message);
-        $owner = trim((string) (getenv('REPORTS_EMAIL') ?: ''));
+        $owner = reports_email();
         if ($owner !== '') {
             send_mail($owner, 'Richiesta di eliminazione dell\'account', "Username: " . ($username ?: '(non indicato)') . "\nEmail: $contact\nNote: " . ($message ?: '-') . "\n\nVa gestita entro 30 giorni (Pannello → Segnalazioni).");
         }

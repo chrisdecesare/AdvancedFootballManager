@@ -88,6 +88,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }));
 
+  // al posto di onchange= e onclick= scritti nell'HTML: la CSP (script-src-attr 'none') li blocca
+  document.querySelectorAll('[data-submit-on-change]').forEach(el => el.addEventListener('change', () => { if (el.form) el.form.submit(); }));
+  document.querySelectorAll('[data-print]').forEach(el => el.addEventListener('click', () => window.print()));
   document.querySelectorAll('[data-confirm]').forEach(el => {
     el.addEventListener('click', e => {
       if (!confirm(el.dataset.confirm)) e.preventDefault();

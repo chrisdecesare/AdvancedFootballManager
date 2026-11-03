@@ -137,7 +137,7 @@ layout_start('Home', 'home');
           <div data-orient-view="h" hidden><?= render_pitch_figures($next, $roster, true) ?></div>
           <p class="pitch-hint"><i class="ti ti-hand-finger"></i> Tocca un giocatore per farlo esultare, tocca due volte per aprire il suo profilo.</p></div>
         <script src="assets/avatar_px.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar_px.js'), 0, 10)) ?>"></script>
-        <script>
+        <script nonce="<?= CSP_NONCE ?>">
         document.querySelectorAll('[data-pitch-view-toggle]').forEach(btn => btn.addEventListener('click', () => {
           const view = btn.dataset.pitchViewToggle;
           document.querySelectorAll('[data-pitch-view-toggle]').forEach(b => b.classList.toggle('is-on', b === btn));

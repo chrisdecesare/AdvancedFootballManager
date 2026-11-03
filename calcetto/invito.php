@@ -19,7 +19,7 @@ layout_start('Invito');
       <button type="button" class="btn btn-primary" id="invite-share">Condividi</button>
       <button type="button" class="btn btn-ghost" id="invite-download">Scarica l'immagine</button>
       <button type="button" class="btn btn-ghost" id="invite-copy">Copia l'invito</button>
-      <button type="button" class="btn btn-ghost" onclick="window.print()">Stampa</button>
+      <button type="button" class="btn btn-ghost" data-print>Stampa</button>
     </div>
   </div>
   <script src="assets/vendor/qrcode.js?v=1.4.4"></script>

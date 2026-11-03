@@ -245,7 +245,7 @@ layout_start('Sicurezza', 'account');
       </form>
       <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="totp_cancel"><button class="btn btn-ghost btn-sm">Annulla</button></form>
       <script src="assets/vendor/qrcode.js?v=1.4.4"></script>
-      <script>
+      <script nonce="<?= CSP_NONCE ?>">
       (() => {
         const box = document.getElementById('totp-qr');
         if (!box || typeof qrcode !== 'function') return;

@@ -805,7 +805,7 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
   <?php endif; ?>
 </section>
 <?php if ($canLive): ?>
-<script>
+<script nonce="<?= CSP_NONCE ?>">
 // gol in diretta in due tocchi: si tocca chi ha segnato, poi nel riquadro che compare «Nessun assist» o il compagno che l'ha servito
 // (solo la sua squadra): il gol si salva subito. Con «autogol» spuntato il riquadro chiede solo la conferma.
 (() => {
@@ -1077,7 +1077,7 @@ $voteForm = function () use ($voteParticipants, $me, $myVotes, $myMvp, $myAwards
     <div><button class="btn btn-primary btn-sm">Aggiungi</button></div>
   </form>
 </section>
-<script>
+<script nonce="<?= CSP_NONCE ?>">
 // l'assist si dà solo a un compagno di squadra: appena si sceglie chi lo fa, "per il gol di" mostra solo la sua squadra
 (() => {
   const form = document.getElementById('assist-form');

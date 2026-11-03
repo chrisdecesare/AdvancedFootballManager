@@ -25,6 +25,11 @@ header_remove('X-Powered-By');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: same-origin');
+// Nonce per richiesta: serve alla CSP «solo segnala» qui sotto e agli script inline (attributo nonce con CSP_NONCE).
+define('CSP_NONCE', rtrim(strtr(base64_encode(random_bytes(16)), '+/', '-_'), '='));
+// CSP più stretta in sola segnalazione (non blocca niente): il browser manda le violazioni a csp_report.php, che le mette tra gli eventi di sicurezza
+// (Pannello → Sicurezza). Serve a vedere, prima di irrigidire davvero, cosa si romperebbe: soprattutto il banner che Altervista inietta da sé.
+header("Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'nonce-" . CSP_NONCE . "' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://cdn.jsdelivr.net; connect-src 'self' https://nominatim.openstreetmap.org; worker-src 'self'; manifest-src 'self'; report-uri csp_report.php");
 header("Content-Security-Policy: base-uri 'self'; form-action 'self'; frame-ancestors 'self'; object-src 'none'; script-src-attr 'none'");
 header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()');
 header('Cross-Origin-Opener-Policy: same-origin');        // un'altra finestra aperta da un sito esterno non può toccare questa

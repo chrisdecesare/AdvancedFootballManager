@@ -471,7 +471,7 @@ layout_start('Avatar', 'avatar');
 
 <script src="assets/wish.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/wish.js'), 0, 10)) ?>"></script>
 <script src="assets/avatar_px.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/avatar_px.js'), 0, 10)) ?>"></script>
-<script>
+<script nonce="<?= CSP_NONCE ?>">
 (() => {
   const stage = document.querySelector('[data-av-stage]');
   const info = document.querySelector('[data-av-info]');

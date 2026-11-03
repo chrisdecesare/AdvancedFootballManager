@@ -261,7 +261,7 @@ layout_start('Negozio', 'shop');
 <?php endif; ?>
 
 <script src="assets/wish.js?v=<?= h(substr((string) @md5_file(__DIR__ . '/assets/wish.js'), 0, 10)) ?>"></script>
-<script>
+<script nonce="<?= CSP_NONCE ?>">
 // "Prova": mette l'oggetto addosso all'anteprima, senza comprarlo
 (() => {
   const look = document.querySelector('[data-look]');

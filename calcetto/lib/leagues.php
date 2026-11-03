@@ -417,7 +417,7 @@ function activity_labels(): array
         'sicurezza_2fa_codice_recupero' => 'Usato codice di recupero', 'sicurezza_2fa_attivata' => '2 passaggi attivata',
         'sicurezza_2fa_disattivata' => '2 passaggi disattivata', 'sicurezza_2fa_nuovi_codici' => 'Nuovi codici di recupero',
         'sicurezza_nuovo_dispositivo' => 'Accesso da nuovo dispositivo', 'sicurezza_sessione_altro_browser' => 'Sessione da altro browser',
-        'sicurezza_conferma_fallita' => 'Conferma password fallita', 'sicurezza_csrf' => 'Richiesta falsificata (CSRF)',
+        'sicurezza_conferma_fallita' => 'Conferma password fallita', 'sicurezza_csrf' => 'Richiesta falsificata (CSRF)', 'sicurezza_csp' => 'Violazione CSP (segnalata dal browser)',
         'sicurezza_accesso_negato' => 'Accesso negato', 'sicurezza_bot' => 'Bot bloccato', 'sicurezza_invito' => 'Codice d\'invito sbagliato',
     ];
 }

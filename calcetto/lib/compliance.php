@@ -25,6 +25,14 @@ function compliance_try(string $sql, array $params = []): ?PDOStatement
     }
 }
 
+/** Dove arrivano gli avvisi delle segnalazioni e delle richieste di eliminazione: REPORTS_EMAIL in config.local.php (su Altervista non ci sono variabili d'ambiente) o nell'ambiente. */
+function reports_email(): string
+{
+    $v = defined('REPORTS_EMAIL') ? (string) REPORTS_EMAIL : (string) (getenv('REPORTS_EMAIL') ?: '');
+    $v = trim($v);
+    return filter_var($v, FILTER_VALIDATE_EMAIL) ? $v : '';
+}
+
 /** Crea le tabelle se mancano (una volta, poi lo ricorda in meta). Le stesse le crea Next (lib/billing/schema.ts). */
 function compliance_schema_ensure(): void
 {
@@ -132,7 +140,7 @@ function report_content(int $uid, array $f): ?string
         return 'Hai già segnalato questo contenuto: lo stiamo guardando.';
     }
     q('INSERT INTO content_reports (reporter_user_id, target_type, target_id, reason, details) VALUES (?, ?, ?, ?, ?)', [$uid, $v['type'], $v['id'], $v['reason'], $v['details']]);
-    $addr = trim((string) (getenv('REPORTS_EMAIL') ?: ''));
+    $addr = reports_email();
     if ($addr !== '') {
         $t = report_target($v['type'], $v['id']);
         send_mail($addr, 'Nuova segnalazione su Calcetto Manager', "Una segnalazione aspetta una decisione.\n\nTipo: " . REPORT_TYPES[$v['type']] . "\nContenuto: " . ($t['preview'] ?? '(non più disponibile)')
@@ -313,7 +321,11 @@ function delete_own_account(int $uid): array
     q('DELETE FROM user_consents WHERE user_id = ?', [$uid]);
     q('DELETE FROM activity_log WHERE user_id = ?', [$uid]);
     compliance_try('DELETE FROM login_attempts WHERE username = ?', [$u['username']]);
-    q('DELETE FROM users WHERE id = ?', [$uid]);   // sessioni, «resta collegato», notifiche, dispositivi, proposte e codici: a cascata
+    // Le tabelle che dipendono dall'account si cancellano una per una: ON DELETE CASCADE le toglierebbe da solo in MariaDB, ma TiDB può non applicarlo
+    foreach (['push_subscriptions', 'push_queue', 'push_log', 'auth_tokens', 'mail_tokens', 'proposals', 'group_roles', 'group_requests', 'known_devices'] as $t) {
+        compliance_try("DELETE FROM $t WHERE user_id = ?", [$uid]);
+    }
+    q('DELETE FROM users WHERE id = ?', [$uid]);
     return [];
 }
 

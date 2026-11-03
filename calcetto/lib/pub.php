@@ -94,7 +94,7 @@ function city_map(array $points, int $height = 380): void
 </div>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
+<script nonce="<?= CSP_NONCE ?>">
 (function () {
   var pts = <?= $json ?>, colors = { lega: '#ffffff', campo: '#38d178', centro: '#53c8f5' };
   if (!window.L || !pts.length) return;

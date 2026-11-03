@@ -511,7 +511,7 @@ $linkable = $linkedC ? [] : centers_linkable($pubC && $pubC['city'] ? city_slug(
     <?php endforeach; ?></tbody></table></div>
   <?php endif; ?>
 </section>
-<script>
+<script nonce="<?= CSP_NONCE ?>">
 document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click', () => {
   const input = document.querySelector(b.dataset.copy);
   const done = () => { const t = b.innerHTML; b.innerHTML = '<i class="ti ti-check"></i> Copiato'; setTimeout(() => { b.innerHTML = t; }, 1600); };

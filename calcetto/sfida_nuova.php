@@ -33,7 +33,7 @@ layout_start('Nuova sfida', 'challenges');
 <div class="page-head"><h1>Nuova sfida</h1></div>
 <?php if (!$opp): ?><p class="muted">Nessuna lega visibile da sfidare, per ora.</p><?php else: ?>
 <form method="get" class="card inline-form"><label>Sfidi
-  <select name="a" onchange="this.form.submit()"><option value="">Scegli la lega…</option>
+  <select name="a" data-submit-on-change><option value="">Scegli la lega…</option>
   <?php foreach ($opp as $l): ?><option value="<?= (int) $l['id'] ?>"<?= $l['id'] === $to ? ' selected' : '' ?>><?= h($l['name']) ?> · <?= h($l['city']) ?></option><?php endforeach; ?></select></label>
   <input type="hidden" name="da" value="<?= $from ?>"><noscript><button class="btn btn-ghost btn-sm">Scegli</button></noscript></form>
 <?php if ($target): ?>

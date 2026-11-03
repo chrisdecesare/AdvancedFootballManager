@@ -98,7 +98,7 @@ layout_start('Crea la tua maglia', 'avatar');
 </div>
 <?php endif; ?>
 
-<script>
+<script nonce="<?= CSP_NONCE ?>">
 (() => {
   // gli stessi tre toni (luce, base, ombra) di px_tones() in lib/avatar_pixel.php
   const svg = document.querySelector('[data-jc-preview] .avf');
