@@ -17,6 +17,12 @@ if (is_file(__DIR__ . '/config.local.php')) {
     require __DIR__ . '/config.local.php';
 }
 
+// Indirizzi pubblici del dominio (non sono segreti: compaiono già in Contatti e Privacy). config.local.php, se li definisce, vince.
+// MAIL_FROM resta volutamente fuori: su Altervista le email partono con mail() dal loro server, e un mittente @calcettomanager.win
+// non passerebbe SPF/DKIM (finirebbe in spam). Il mittente predefinito è noreply@<indirizzo del sito>.
+defined('REPORTS_EMAIL') || define('REPORTS_EMAIL', 'moderazione@calcettomanager.win');
+defined('MAIL_REPLY_TO') || define('MAIL_REPLY_TO', 'info@calcettomanager.win');
+
 defined('DB_HOST') || define('DB_HOST', getenv('DB_HOST') !== false ? getenv('DB_HOST') : 'localhost');
 defined('DB_USER') || define('DB_USER', getenv('DB_USER') ?: 'NOMEUTENTE');
 defined('DB_PASS') || define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
