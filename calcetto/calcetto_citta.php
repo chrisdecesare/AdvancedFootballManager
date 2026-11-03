@@ -79,7 +79,9 @@ foreach ($centers as $c) {
     <?php foreach ($others as $p): ?>
       <div class="card pub-card"><h3><?= h($p['name']) ?></h3>
         <p class="muted small"><?= h($p['address'] ?: $p['city']) ?></p>
-        <p class="small"><?= pitch_stars_html($p['avg'], $p['votes']) ?></p></div>
+        <p class="small"><?= pitch_stars_html($p['avg'], $p['votes']) ?></p>
+        <p class="small"><a class="link" href="<?= h(pitch_google_url($p)) ?>" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-google"></i> Leggi le recensioni su Google</a>
+          <?php if ($u): ?>· <a class="link" href="campi.php?citta=<?= h($slug) ?>#campo-<?= (int) $p['id'] ?>">Recensioni dei giocatori</a><?php endif; ?></p></div>
     <?php endforeach; ?>
   </div>
   <?php if (!$centers && !$others): ?><p class="muted">Nessun campo segnalato a <?= h($name) ?>: aggiungi il primo.</p><?php endif; ?>

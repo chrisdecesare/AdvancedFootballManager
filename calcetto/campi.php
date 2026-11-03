@@ -118,6 +118,7 @@ layout_start('I campi', 'pitches');
         <?php endif; ?>
         <?php $rv = $reviews[(int) $p['id']] ?? []; ?>
         <div class="pitch-reviews">
+          <p class="small muted"><?= $rv ? count($rv) . (count($rv) === 1 ? ' recensione dei giocatori' : ' recensioni dei giocatori') : 'Ancora nessuna recensione dei giocatori.' ?></p>
           <?php foreach (array_slice($rv, 0, 3) as $r): ?>
           <blockquote class="review"><p><?= h($r['body']) ?></p>
             <footer class="muted small"><?= h($r['name']) ?> · <?= h(push_when($r['updated_at'])) ?>
@@ -143,7 +144,10 @@ layout_start('I campi', 'pitches');
             </form>
           </details>
           <?php endif; ?>
-          <a class="small link" href="<?= h(pitch_google_url($p)) ?>" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-google"></i> Scrivi la recensione anche su Google</a>
+          <p class="small">
+            <a class="link" href="<?= h(pitch_google_url($p)) ?>" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-google"></i> Leggi le recensioni su Google</a>
+            · <a class="link" href="<?= h(pitch_google_url($p)) ?>" target="_blank" rel="noopener noreferrer">Scrivi la recensione anche su Google</a>
+          </p>
         </div>
       </li>
       <?php endforeach; ?>
