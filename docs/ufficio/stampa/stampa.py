@@ -36,6 +36,7 @@ for i, svg in enumerate(json.loads((poster / 'avatars.json').read_text(encoding=
     (build / f'av{i}.svg').write_text(svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ', 1), encoding='utf-8')
 
 shutil.copy(root / 'stampa.typ', build / 'stampa.typ')
+shutil.copy(root / 'logo.svg', build / 'logo.svg')   # il pallone del logo (stesso di ../poster/poster.py)
 site = base.replace('https://', '').replace('http://', '')
 for doc, name in (('locandina', 'locandina-A4'), ('strappi', 'locandina-strappi-A4'), ('biglietti', 'biglietti-foglio-A4')):
     cmd = ['typst', 'compile', '--font-path', str(build / 'fonts'), '--ignore-system-fonts',

@@ -85,18 +85,19 @@
   // 10 biglietti 85 x 55 mm su un A4, con linee di taglio
   set page(width: 210mm, height: 297mm, margin: 0pt, fill: white)
   let card = block(width: 85mm, height: 55mm, fill: yellow, clip: true, {
-    place(top + left, rect(width: 100%, height: 100%, fill: none, stroke: none))
-    place(bottom + left, rect(width: 100%, height: 13mm, fill: grass, stroke: none))
-    place(top + left, dx: 5mm, dy: 5mm, block(width: 42mm, {
-      display("Calcetto Manager", size: 17pt)
-      v(2mm)
-      nun([Chi viene stasera? Lo sa l'app.], size: 9.5pt, w: "black")
-      v(1.5mm)
-      nun([Gratis per chi gioca.], size: 8.5pt)
+    place(bottom + left, rect(width: 100%, height: 12mm, fill: grass, stroke: none))
+    // logo: pallone + nome
+    place(top + left, dx: 5mm, dy: 4.5mm, stack(dir: ltr, spacing: 2mm, image("logo.svg", width: 13mm), pad(top: 2mm, display("Calcetto\nManager", size: 12pt))))
+    // il motto
+    place(top + left, dx: 5mm, dy: 21.5mm, block(width: 47mm, {
+      display("Chi viene stasera?", size: 14.5pt)
+      linebreak()
+      box(fill: white, stroke: 0.7mm + ink, radius: 1.6mm, inset: (x: 1.8mm, y: 0.6mm), outset: (y: 0.4mm), display("Lo sa l'app.", size: 17pt))
     }))
-    place(top + right, dx: -5mm, dy: 5mm, qrbox("qr-biglietto.svg", 27mm, pad: 2mm))
-    place(bottom + left, dx: 5mm, dy: -4mm, nun(site, size: 9.5pt, fill: ink, w: "black"))
-    place(bottom + right, dx: -5mm, dy: -4.2mm, if play != "" { nun([Google Play], size: 7pt, w: "black") } else { nun([Si apre dal browser], size: 7pt) })
+    place(top + right, dx: -5mm, dy: 4mm, qrbox("qr-biglietto.svg", 26mm, pad: 2mm))
+    place(top + right, dx: -5mm, dy: 37.5mm, box(width: 30mm, align(center, nun([Inquadra e inizia], size: 7.5pt, w: "black"))))
+    place(bottom + left, dx: 5mm, dy: -3.4mm, nun(site, size: 9.5pt, fill: ink, w: "black"))
+    place(bottom + right, dx: -5mm, dy: -3.6mm, if play != "" { nun([Disponibile su Google Play], size: 7pt, w: "black") } else { nun([Gratis per chi gioca], size: 7.5pt, w: "bold") })
   })
   place(top + left, dx: 20mm, dy: 11mm, grid(columns: (85mm, 85mm), rows: 5 * (55mm,), ..range(10).map(_ => card)))
   // linee di taglio fuori dai biglietti (corte) a ogni incrocio
