@@ -49,6 +49,61 @@
   cardbox(big: big, "Squadre giuste", "Due squadre equilibrate in base al livello dei giocatori."),
   cardbox(big: big, "Classifica e voti", "Gol, assist, voti tra amici, MVP e la Gazzetta della settimana."))
 
+// ---- cartoline A6 orizzontali (148 x 105 mm): fronte e retro ----
+// `off` = quanto spazio c'è attorno al taglio (abbondanza, e nella versione per la tipografia anche i crocini)
+#let cart-front(off: 0mm, bleed: 0mm) = {
+  let w = 148mm + 2 * off
+  let h = 105mm + 2 * off
+  block(width: w, height: h, {
+    // il campo riempie tutta la pagina, anche l'abbondanza
+    place(top + left, dx: off - bleed, dy: off - bleed, pitch(148mm + 2 * bleed, 105mm + 2 * bleed))
+    place(top + left, dx: off + 9mm, dy: off + 8mm, box(fill: yellow, stroke: 1mm + ink, radius: 4mm, inset: (x: 3.5mm, y: 2mm),
+      stack(dir: ltr, spacing: 2.5mm, image("logo.svg", width: 11mm), pad(top: 1.2mm, display("Calcetto Manager", size: 17pt)))))
+    place(top + left, dx: off + 9mm, dy: off + 31mm, outlined([Chi viene stasera? \ Lo sa #text(fill: yellow)[l'app.]], size: 33pt, width: 100mm, line: 0.7mm))
+    place(bottom + left, dx: off + 82mm, dy: -(off + 25mm - 0.5mm), image("av0.svg", width: 30mm))
+    place(bottom + left, dx: off + 82mm + 26mm, dy: -(off + 25mm - 0.5mm), image("av1.svg", width: 30mm))
+    // fascia in basso con il QR
+    place(bottom + left, dx: off - bleed, dy: -(off - bleed), rect(width: 148mm + 2 * bleed, height: 25mm + bleed, fill: ink, stroke: none))
+    place(bottom + left, dx: off - bleed, dy: -(off + 25mm), rect(width: 148mm + 2 * bleed, height: 1.6mm, fill: yellow, stroke: none))
+    place(bottom + left, dx: off + 9mm, dy: -(off + 5mm), qrbox("qr-cartolina.svg", 20mm, pad: 1.6mm))
+    place(bottom + left, dx: off + 42mm, dy: -(off + 7mm), block(width: 100mm, {
+      display("Inquadra e inizia.", size: 18pt, fill: yellow)
+      linebreak()
+      nun(site, size: 11pt, fill: white, w: "black")
+      linebreak()
+      playline(size: 8.5pt)
+    }))
+  })
+}
+#let cart-retro(off: 0mm, bleed: 0mm) = {
+  let w = 148mm + 2 * off
+  let h = 105mm + 2 * off
+  block(width: w, height: h, {
+    place(top + left, dx: off - bleed, dy: off - bleed, rect(width: 148mm + 2 * bleed, height: 105mm + 2 * bleed, fill: paper, stroke: none))
+    place(top + left, dx: off - bleed, dy: off - bleed, rect(width: 148mm + 2 * bleed, height: 7mm + bleed, fill: yellow, stroke: none))
+    place(top + left, dx: off + 10mm, dy: off + 14mm, block(width: 90mm, {
+      display("Il calcetto tra amici,", size: 21pt)
+      linebreak()
+      display("organizzato.", size: 21pt)
+      v(5mm)
+      for (t1, t2) in (("Chi c'è, chi no", "Ognuno risponde con un tocco dal telefono."), ("Squadre giuste", "Due squadre equilibrate per livello."), ("Classifica e voti", "Gol, assist, voti tra amici, MVP e Gazzetta.")) {
+        grid(columns: (6mm, 1fr), column-gutter: 2.5mm, box(width: 5mm, height: 5mm, fill: grass, stroke: 0.7mm + ink, radius: 1.2mm, align(center + horizon, nun([✓], size: 9pt, w: "black"))), block(below: 4mm, {
+          display(t1, size: 13pt); linebreak(); nun(t2, size: 9.5pt)
+        }))
+      }
+    }))
+    place(top + right, dx: -(off + 10mm), dy: off + 14mm, block(width: 40mm, align(center, {
+      qrbox("qr-cartolina.svg", 30mm, pad: 2mm)
+      v(1.5mm)
+      nun(site, size: 10pt, w: "black")
+      linebreak()
+      playline(size: 7.5pt, fill: ink)
+    })))
+    place(bottom + left, dx: off - bleed, dy: -(off - bleed), rect(width: 148mm + 2 * bleed, height: 7mm + bleed, fill: ink, stroke: none))
+    place(bottom + left, dx: off + 10mm, dy: -(off + 2mm), nun([Calcetto Manager · nessuna commissione sulle partite né sulle quote], size: 7pt, fill: white))
+  })
+}
+
 #if doc == "locandina" {
   set page(width: 210mm, height: 297mm, margin: 0pt, fill: paper)
   hero(210mm, 160mm, title: 58pt, av: 56mm)
@@ -64,6 +119,29 @@
       playline(size: 11pt)
     }))
   }))
+} else if doc == "cartoline-tipografia" {
+  // per la tipografia: pagina 170 x 127 mm, taglio a 11 mm dai bordi, abbondanza 3 mm, crocini fuori dall'abbondanza
+  set page(width: 170mm, height: 127mm, margin: 0pt, fill: white)
+  let marks = {
+    for x in (11mm, 159mm) { for (y0, y1) in ((0.8mm, 6mm), (121mm, 126.2mm)) {
+      place(top + left, dx: x, dy: y0, line(length: y1 - y0, angle: 90deg, stroke: 0.25pt + black)) } }
+    for y in (11mm, 116mm) { for (x0, x1) in ((0.8mm, 6mm), (164mm, 169.2mm)) {
+      place(top + left, dx: x0, dy: y, line(length: x1 - x0, stroke: 0.25pt + black)) } }
+  }
+  cart-front(off: 11mm, bleed: 3mm)
+  marks
+  pagebreak()
+  cart-retro(off: 11mm, bleed: 3mm)
+  marks
+} else if doc == "cartoline-casa" {
+  // per la stampante di casa: A4 orizzontale, 4 cartoline (fronte) ridotte al 94%, con linee di taglio
+  set page(width: 297mm, height: 210mm, margin: 0pt, fill: white)
+  let cw = 148mm * 0.94
+  let ch = 105mm * 0.94
+  let cell = box(width: cw, height: ch, clip: true, scale(94%, origin: top + left, reflow: false, cart-front()))
+  place(top + left, dx: (297mm - 2 * cw) / 2, dy: (210mm - 2 * ch) / 2, grid(columns: (cw, cw), rows: (ch, ch), cell, cell, cell, cell))
+  place(top + left, dx: 148.5mm, dy: 3mm, line(length: 204mm, angle: 90deg, stroke: (paint: black, thickness: 0.25pt, dash: "dashed")))
+  place(top + left, dx: 3mm, dy: 105mm, line(length: 291mm, stroke: (paint: black, thickness: 0.25pt, dash: "dashed")))
 } else if doc == "strappi" {
   set page(width: 210mm, height: 297mm, margin: 0pt, fill: paper)
   hero(210mm, 150mm, title: 50pt, av: 50mm)

@@ -4,7 +4,9 @@ Legge stampa.json (indirizzo del sito, link di Google Play quando c'è) e scrive
   locandina-A4.pdf            locandina A4 per la stampante di casa o d'ufficio (nessun margine da tagliare)
   locandina-strappi-A4.pdf    locandina A4 con 8 linguette da strappare in basso, ognuna con il suo QR
   biglietti-foglio-A4.pdf     foglio A4 con 10 biglietti 85 x 55 mm e linee di taglio
-Ogni formato ha un QR con un parametro diverso (utm_source=locandina|strappo|biglietto): si vede nelle statistiche quale funziona di più.
+  cartoline-A6-tipografia.pdf cartolina A6 orizzontale 148 x 105 mm, 2 pagine (fronte e retro), 3 mm di abbondanza e crocini
+  cartoline-foglio-A4-casa.pdf foglio A4 orizzontale con 4 cartoline (solo fronte, ridotte al 94%) e linee di taglio
+Ogni formato ha un QR con un parametro diverso (utm_source=locandina|strappo|biglietto|cartolina): si vede nelle statistiche quale funziona di più.
 I font (Lilita One, Nunito: licenza OFL) e i due avatar (dell'app) vengono dalla cartella ../poster."""
 import json, pathlib, re, subprocess, shutil, sys
 import segno
@@ -26,7 +28,7 @@ for f in (poster / 'fonts').glob('*.woff2'):
 
 # QR: uno per formato, correzione d'errore alta (regge piega, macchie e stampa piccola)
 base = cfg['url'].rstrip('/')
-for name in ('locandina', 'strappo', 'biglietto'):
+for name in ('locandina', 'strappo', 'biglietto', 'cartolina'):
     segno.make(f'{base}/?utm_source={name}', error='h').save(
         str(build / f'qr-{name}.svg'), scale=1, border=0, dark='#1f1a2e', light='#ffffff', xmldecl=False, nl=False)
 
@@ -38,7 +40,8 @@ for i, svg in enumerate(json.loads((poster / 'avatars.json').read_text(encoding=
 shutil.copy(root / 'stampa.typ', build / 'stampa.typ')
 shutil.copy(root / 'logo.svg', build / 'logo.svg')   # il pallone del logo (stesso di ../poster/poster.py)
 site = base.replace('https://', '').replace('http://', '')
-for doc, name in (('locandina', 'locandina-A4'), ('strappi', 'locandina-strappi-A4'), ('biglietti', 'biglietti-foglio-A4')):
+for doc, name in (('locandina', 'locandina-A4'), ('strappi', 'locandina-strappi-A4'), ('biglietti', 'biglietti-foglio-A4'),
+                  ('cartoline-tipografia', 'cartoline-A6-tipografia'), ('cartoline-casa', 'cartoline-foglio-A4-casa')):
     cmd = ['typst', 'compile', '--font-path', str(build / 'fonts'), '--ignore-system-fonts',
            '--input', f'doc={doc}', '--input', f'site={site}', '--input', f'play={cfg.get("google_play", "")}',
            str(build / 'stampa.typ'), str(out / f'{name}.pdf')]
