@@ -13,18 +13,18 @@ const FEATURES = [
     'signup'         => ['label' => 'Nuove iscrizioni', 'off' => 'non si possono creare account.', 'appLocked' => false, 'def' => 'on'],
     'account_delete' => ['label' => "Eliminazione dell'account (richiesta da Google Play)", 'off' => 'non si può eliminare il proprio account.', 'appLocked' => false, 'def' => 'admin'],
     'report_block'   => ['label' => 'Segnala e blocca (richiesto da Google Play)', 'off' => 'spariscono i pulsanti Segnala e Blocca.', 'appLocked' => false, 'def' => 'admin'],
-    // Schermate intere che si mettono in «lavori in corso» (pagina vera solo al proprietario con «solo admin», cartello per tutti con «spento»).
+    // Schermate intere che si mettono in «lavori in corso» (pagina vera solo al proprietario con «solo admin», cartello per tutti con «spento»). Predefinito: aperte, tranne abbonamento e statistiche.
     // Tenere uguale a PAGES in next-app/src/lib/features-format.ts. Le schermate sicure (Home, Rosa, Classifica, Fanta, Avatar, Trova lega, La mia lega, Impostazioni, Campi) non sono qui.
-    'page_partite'    => ['label' => 'Pagina: Partite', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
-    'page_scommesse'  => ['label' => 'Pagina: Scommesse', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
-    'page_daily'      => ['label' => 'Pagina: Daily access e Ruota', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
-    'page_indovina'   => ['label' => 'Pagina: Indovina la funzionalità', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
-    'page_curiosita'  => ['label' => 'Pagina: Curiosità', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
-    'page_gazzetta'   => ['label' => 'Pagina: Gazzetta', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
-    'page_uscite'     => ['label' => 'Pagina: Uscite del negozio', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
+    'page_partite'    => ['label' => 'Pagina: Partite', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
+    'page_scommesse'  => ['label' => 'Pagina: Scommesse', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
+    'page_daily'      => ['label' => 'Pagina: Daily access e Ruota', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
+    'page_indovina'   => ['label' => 'Pagina: Indovina la funzionalità', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
+    'page_curiosita'  => ['label' => 'Pagina: Curiosità', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
+    'page_gazzetta'   => ['label' => 'Pagina: Gazzetta', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
+    'page_uscite'     => ['label' => 'Pagina: Uscite del negozio', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
     'page_statistiche' => ['label' => 'Pagina: Statistiche avanzate', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
     'page_abbonamento' => ['label' => 'Pagina: Il tuo abbonamento', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
-    'page_centro'     => ['label' => 'Pagina: Il tuo centro', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'admin'],
+    'page_centro'     => ['label' => 'Pagina: Il tuo centro', 'off' => 'al suo posto compare la schermata «Lavori in corso».', 'appLocked' => false, 'def' => 'on'],
 ];
 
 /** Quale schermata copre il file PHP in esecuzione (le pagine non elencate restano sempre aperte). */
