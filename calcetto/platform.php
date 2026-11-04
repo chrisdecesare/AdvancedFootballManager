@@ -518,7 +518,7 @@ admin_start('Pannello admin');
         <tr><td><b><?= h($f['label']) ?></b><br><span class="muted small">Spenta: <?= h($f['off']) ?></span></td>
         <?php foreach (['web', 'app'] as $c): $st = feature_state($k, $c); $lock = $c === 'app' && $f['appLocked']; ?>
           <td><select name="<?= h("$k.$c") ?>" aria-label="<?= h($f['label'] . ': ' . ($c === 'web' ? 'sito' : 'app')) ?>"<?= $lock ? ' disabled' : '' ?>>
-            <?php foreach (['on' => 'Acceso', 'admin' => 'Solo admin', 'off' => 'Spento'] as $val => $lab): ?>
+            <?php $pg = str_starts_with($k, 'page_'); foreach (['on' => 'Acceso', 'admin' => $pg ? 'Lavori in corso (tu la vedi)' : 'Solo admin', 'off' => $pg ? 'Lavori in corso (anche tu)' : 'Spento'] as $val => $lab): ?>
               <option value="<?= $val ?>"<?= $st === $val ? ' selected' : '' ?>><?= h($lab) ?></option>
             <?php endforeach; ?>
           </select></td>

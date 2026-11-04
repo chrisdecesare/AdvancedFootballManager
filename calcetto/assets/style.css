@@ -2359,3 +2359,9 @@ a.pub-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--
 .pannello-user { color: #d9d4ea; }
 .pannello-main { max-width: 1100px; padding-top: 1.2rem; }
 /* @pannello:fine */
+
+/* ---------- schermata «Lavori in corso» (lib/features.php; stesse regole in next-app/src/app/globals.css) ---------- */
+.wip { text-align: center; max-width: 460px; margin: 24px auto; }
+.wip-art { width: min(100%, 300px); height: auto; display: block; margin: 0 auto 6px; }
+.wip-text { font: 400 24px var(--font-d); fill: var(--ink); paint-order: stroke; stroke: var(--white); stroke-width: 5px; stroke-linejoin: round; letter-spacing: .03em; }
+.wip-title { margin: 6px 0 4px; font: 400 1.5rem var(--font-d); }

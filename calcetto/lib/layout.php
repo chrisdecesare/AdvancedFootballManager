@@ -148,6 +148,7 @@ function layout_start(string $title, string $active = ''): void
   </div>
 </header>
 <main class="wrap">
+<?php if (page_under_work()) { wip_screen(); layout_end(); exit; } ?>
 <?= terms_notice_html() ?>
 <?php if ($u && is_admin() && (int) meta_get('schema') < SCHEMA_VERSION): ?>
   <div class="flash flash-err"><i class="ti ti-database-exclamation"></i> L'ultimo aggiornamento del database non è andato a buon fine (schema v<?= (int) meta_get('schema') ?>, serve v<?= SCHEMA_VERSION ?>): qualche funzione nuova potrebbe non funzionare.
