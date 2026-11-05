@@ -218,6 +218,13 @@ function match_guests(int $matchId): array
 
 /* ---------------------------------------------------------------- scadenza e collegamento con l'account vero */
 
+/** Un Ospite ha «storia» se è stato in una partita o ha dato/ricevuto voti: il suo giocatore non si cancella mai in automatico. */
+function guest_has_history(int $playerId): bool
+{
+    return (bool) q('SELECT 1 FROM match_players WHERE player_id = ? LIMIT 1', [$playerId])->fetchColumn()
+        || (bool) q('SELECT 1 FROM ratings WHERE voter_id = ? OR rated_id = ? LIMIT 1', [$playerId, $playerId])->fetchColumn();
+}
+
 /**
  * Toglie gli account degli Ospiti (che non l'hanno salvato) la cui ultima partita è di più di GUEST_KEEP_DAYS giorni fa (o è stata eliminata).
  * Il giocatore resta solo se c'è la sua email (per il collegamento futuro), altrimenti sparisce.
@@ -240,9 +247,10 @@ function guests_cleanup(): int
         $real = $email !== '' ? q('SELECT player_id FROM users WHERE email = ? AND player_id IS NOT NULL', [$email])->fetchColumn() : false;
         if ($real) {
             guest_merge((int) $r['pid'], (int) $real);               // ha già un account vero: la partita passa a lui
-        } elseif ($email === '') {
-            q('DELETE FROM players WHERE id = ? AND is_guest = 1', [$r['pid']]);
+        } elseif ($email === '' && !guest_has_history((int) $r['pid'])) {
+            q('DELETE FROM players WHERE id = ? AND is_guest = 1', [$r['pid']]);   // mai in una partita e nessun voto: non serve a nessuno
         } else {
+            // resta con gol, assist e voti: sono anche degli altri (le chiavi verso players sono a cascata: cancellarlo cambierebbe medie e MVP)
             q('UPDATE players SET photo = NULL WHERE id = ?', [$r['pid']]);
         }
     }
@@ -278,6 +286,12 @@ function guest_merge(int $guestId, int $realId): void
         }
         q('UPDATE IGNORE match_links SET assister_id = ? WHERE assister_id = ?', [$realId, $guestId]);
         q('UPDATE IGNORE match_links SET scorer_id = ? WHERE scorer_id = ?', [$realId, $guestId]);
+        // voti dati e ricevuti, MVP e premi passano al giocatore vero: senza, la cancellazione a cascata li butterebbe
+        foreach ([['ratings', 'voter_id', 'rated_id'], ['mvp_votes', 'voter_id', 'voted_id'], ['award_votes', 'voter_id', 'voted_id']] as [$t, $given, $received]) {
+            q("DELETE FROM $t WHERE ($given = ? AND $received = ?) OR ($given = ? AND $received = ?)", [$guestId, $realId, $realId, $guestId]);   // tra i due: sarebbe un voto a se stesso
+            q("UPDATE IGNORE $t SET $given = ? WHERE $given = ?", [$realId, $guestId]);
+            q("UPDATE IGNORE $t SET $received = ? WHERE $received = ?", [$realId, $guestId]);
+        }
         q('DELETE FROM players WHERE id = ? AND is_guest = 1', [$guestId]);
         db()->commit();
     } catch (Throwable $e) {
