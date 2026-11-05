@@ -1,5 +1,18 @@
 <?php
 require __DIR__ . '/../config.php';
+
+// Il sito PHP è in pensione: il gestionale vero è calcettomanager.win (stesso database). Chi apre una pagina di Altervista va lì, con la stessa
+// pagina quando esiste e la query intatta (es. ?app=android, i token di conferma email e di recupero password). Restano raggiungibili: il ponte verso il
+// database (ponte-db.php, che non passa da qui), cron.php e i file in uploads/ (Next copia da lì le foto non ancora trasferite).
+// 302 e non 301: un redirect permanente resta nella cache dei browser e non si disfa; per tornare indietro basta togliere questo blocco.
+if (PHP_SAPI !== 'cli' && basename($_SERVER['SCRIPT_NAME'] ?? '') !== 'cron.php') {
+    $pensione = ['login.php' => '/login', 'register.php' => '/iscriviti', 'forgot.php' => '/password-dimenticata', 'reset.php' => '/nuova-password',
+                 'verify_email.php' => '/conferma-email', 'join.php' => '/entra'];
+    $to = 'https://calcettomanager.win' . ($pensione[basename($_SERVER['SCRIPT_NAME'] ?? '')] ?? '/');
+    $qs = (string) ($_SERVER['QUERY_STRING'] ?? '');
+    header('Location: ' . $to . ($qs !== '' ? '?' . $qs : ''), true, 302);
+    exit;
+}
 // L'app Android apre «/?app=android»: il cookie cm_app la riconosce nelle richieste dopo (lib/features.php). Può solo nascondere funzioni, non dà poteri.
 if (($_GET['app'] ?? '') === 'android' && !headers_sent()) {
     setcookie('cm_app', 'android', ['expires' => time() + 31536000, 'path' => '/', 'samesite' => 'Lax', 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true]);
