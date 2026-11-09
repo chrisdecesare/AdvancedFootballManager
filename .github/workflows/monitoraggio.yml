@@ -38,7 +38,7 @@ jobs:
           problems=()
           check() { # nome, indirizzo, testo che deve comparire nella risposta
             local name="$1" url="$2" expect="$3" code
-            code=$(curl -sS -m 25 --retry 3 --retry-delay 10 --retry-all-errors -o /tmp/body -w '%{http_code}' "$url" 2>/dev/null) || true
+            code=$(curl -sS -L --max-redirs 3 -m 25 --retry 3 --retry-delay 10 --retry-all-errors -o /tmp/body -w '%{http_code}' "$url" 2>/dev/null) || true
             [ -z "$code" ] && code=000
             if [ "$code" != "200" ]; then problems+=("- $name: risposta HTTP $code ($url)"); return; fi
             if [ -n "$expect" ] && ! grep -q "$expect" /tmp/body; then problems+=("- $name: la pagina risponde ma il contenuto atteso manca ($url)"); fi
@@ -46,9 +46,9 @@ jobs:
           if [ "$PROVA" = "true" ]; then
             check "PROVA (guasto simulato)" "https://calcettomanager.win/pagina-che-non-esiste-prova-monitoraggio" ""
           else
-            check "Sito Next su Vercel" "https://calcettomanager.win/api/health" '"ok":true'
-            check "Landing" "https://calcettomanager.win/benvenuto" "Calcetto Manager"
-            check "Gestionale su Altervista" "https://advancedfootballmanager.altervista.org/wp-content/calcetto/benvenuto" "Calcetto Manager"
+            check "Sito Next" "https://www.calcettomanager.win/api/health" '"ok":true'
+            check "Landing" "https://www.calcettomanager.win/benvenuto" "Calcetto Manager"
+            check "Vecchio indirizzo" "https://advancedfootballmanager.altervista.org/wp-content/calcetto/benvenuto" "Calcetto Manager"
           fi
 
           gh label create monitoraggio --color d73a4a --description "Avvisi automatici del monitoraggio" >/dev/null 2>&1 || true
@@ -59,7 +59,7 @@ jobs:
             echo "Problemi trovati:"; printf '%s\n' "${problems[@]}"
             if [ -n "$open" ]; then echo "Segnalazione #$open già aperta: nessun nuovo avviso."; exit 0; fi
             title="Sito non raggiungibile"; [ "$PROVA" = "true" ] && title="[PROVA] Sito non raggiungibile"
-            body=$(printf 'Il controllo automatico delle %s (ora italiana) ha trovato:\n\n%s\n\nControlla lo stato su Vercel e Altervista. Questa segnalazione si chiude da sola quando i siti tornano a rispondere.' "$now" "$(printf '%s\n' "${problems[@]}")")
+            body=$(printf 'Il controllo automatico delle %s (ora italiana) ha trovato:\n\n%s\n\nControlla lo stato dei due indirizzi. Questa segnalazione si chiude da sola quando i siti tornano a rispondere.' "$now" "$(printf '%s\n' "${problems[@]}")")
             gh issue create --title "$title" --label monitoraggio --body "$body"
             exit 1
           fi
