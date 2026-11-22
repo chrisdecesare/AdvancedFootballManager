@@ -51,7 +51,9 @@ if (!is_array($ops) || count($ops) === 0 || count($ops) > 200) {
 }
 foreach ($ops as $op) {
     $sql = is_array($op) ? ($op['sql'] ?? null) : null;
-    if (!is_string($sql) || $sql === '' || preg_match('/\b(avwp|wp)_[a-z0-9_]+/i', $sql)) {
+    if (!is_string($sql) || $sql === '' || strlen($sql) > 100000
+        || preg_match('/\b(avwp|wp)_[a-z0-9_]+/i', $sql)
+        || preg_match('/\b(DROP\s+(DATABASE|SCHEMA|USER|TABLE)|TRUNCATE|GRANT|REVOKE|LOAD_FILE|LOAD\s+DATA|INTO\s+(OUTFILE|DUMPFILE)|SET\s+GLOBAL|SHUTDOWN|CREATE\s+USER|SLEEP\s*\(|BENCHMARK\s*\()/i', $sql)) {
         ponte_out(400, ['ok' => false, 'error' => 'query non ammessa']);
     }
 }
@@ -110,6 +112,7 @@ try {
     if ($atomic && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    ponte_out(500, ['ok' => false, 'error' => $e->getMessage(), 'at' => count($results)]);
+    error_log('ponte-db: ' . $e->getMessage());
+    ponte_out(500, ['ok' => false, 'error' => 'errore del database', 'code' => (string) $e->getCode(), 'at' => count($results)]);
 }
 ponte_out(200, ['ok' => true, 'results' => $results]);
